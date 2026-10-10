@@ -35,12 +35,16 @@ when it is finished. Tick items off in the commit that completes them.
 
 ## 2. A settings page for the computer
 
-- [ ] **Computer page.** Forms for computer name, time zone, language and
+- [x] **Computer page.** Forms for computer name, time zone, language and
   formats, keyboard layout, users (add, remove, change password hint, admin),
   automatic login, printing and scanning, Bluetooth, sound, firewall. Built on
   the curated-experience machinery (typed fields, option docs, edits through
   review). Done when each setting round-trips through prepare on a scratch
   checkout.
+  Follow-ups: settings defined in flake.nix or in a module with its own options
+  are shown read-only; a user defined across several files cannot be removed
+  from the page; port lists show ports that features open too; passwords are
+  set after applying, never written into the configuration.
 - [ ] **Hardware suggestions.** Suggest features from the hardware found: power
   profiles on laptops, the NVIDIA driver setup, Bluetooth, printers, fingerprint
   readers.

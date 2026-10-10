@@ -6,6 +6,7 @@ import { scopeBindings, type Change } from "./draft";
 import { attr } from "./nix";
 import { hashText } from "./observe";
 import { moduleShape } from "./options";
+import type { UserAccount } from "./computer";
 import { packageLists, flakeSource } from "./packages";
 import { command } from "./process";
 import { parseNix, renderPath } from "./syntax";
@@ -84,6 +85,8 @@ export interface ConfigurationState {
   nixpkgs?: { config: Record<string, unknown>; names: string };
   /** Which non-free packages the configuration's package set accepts, when that evaluates. */
   unfree?: UnfreePolicy;
+  /** With `users` requested: the accounts that can log in. */
+  users?: UserAccount[];
 }
 
 export interface UnfreePolicy {
@@ -132,12 +135,40 @@ const StateSchema = Schema.Struct({
   unfree: Schema.optional(
     Schema.NullOr(Schema.Struct({ all: Schema.Boolean, packages: Schema.Array(Schema.String), predicate: Schema.Boolean })),
   ),
+  users: Schema.optional(
+    Schema.NullOr(
+      Schema.Array(
+        Schema.Struct({
+          name: Schema.String,
+          description: Schema.NullOr(Schema.String),
+          groups: Schema.Array(Schema.String),
+          files: Schema.Array(Schema.String),
+        }),
+      ),
+    ),
+  ),
 });
 
 const decodeJson = <A, I>(schema: Schema.Schema<A, I>, label: string) => (text: string) =>
   Schema.decodeUnknown(Schema.parseJson(schema))(text).pipe(
     Effect.mapError((error) => new ManagerError({ message: `${label}: ${error}` })),
   );
+
+// Normal users and the files whose `users.users` definitions name them.
+const usersExpression = `
+    let r = tryEval (let
+      users = c.config.users.users;
+      defs = c.options.users.users.definitionsWithLocations;
+      names = builtins.filter (n: users.\${n}.isNormalUser or false) (builtins.attrNames users);
+      mentions = n: d: let t = tryEval (isAttrs d.value && d.value ? \${n}); in t.success && t.value;
+      x = map (n: {
+        name = n;
+        description = let d = users.\${n}.description or ""; in if builtins.isString d && d != "" then d else null;
+        groups = builtins.filter builtins.isString (users.\${n}.extraGroups or [ ]);
+        files = map (d: toString d.file) (builtins.filter (mentions n) defs);
+      }) names;
+    in builtins.deepSeq x x);
+    in if r.success then r.value else null`;
 
 /**
  * One evaluation of a configuration: the packages each file contributes, the
@@ -154,6 +185,8 @@ export const evaluateState = (
     probes?: readonly Probe[];
     /** Describe the package set, to notice an edit that replaces it. */
     nixpkgs?: boolean;
+    /** List the user accounts that can log in. */
+    users?: boolean;
   } = {},
 ) => {
   const options = [...new Set(request.options ?? [])];
@@ -225,6 +258,7 @@ in {
       predicate = builtins.isFunction (k.allowUnfreePredicate or null);
     }; in builtins.deepSeq x x);
     in if r.success then r.value else null;
+  users = ${request.users ? usersExpression : "null"};
 }`;
   return command(
     "Evaluate configuration",
@@ -257,6 +291,15 @@ in {
         used: [...state.used],
         ...(state.nixpkgs ? { nixpkgs: state.nixpkgs } : {}),
         ...(state.unfree ? { unfree: { ...state.unfree, packages: [...state.unfree.packages] } } : {}),
+        ...(state.users
+          ? {
+              users: state.users.map((user) => ({
+                ...user,
+                groups: [...user.groups],
+                files: user.files.map(local).filter((file) => file !== "<unknown-file>"),
+              })),
+            }
+          : {}),
       };
     }),
   );
@@ -417,6 +460,8 @@ export interface ScopeInventory {
   options: Record<string, OptionValue>;
   /** Which non-free packages it accepts; absent when that does not evaluate. */
   unfree?: UnfreePolicy;
+  /** System scope: the accounts that can log in, when they evaluate. */
+  users?: UserAccount[];
 }
 
 /** What a host's configuration installs, mapped back to the lines that install it. */
@@ -440,6 +485,7 @@ export const inventory = (
           options,
           attrs: resolvable.map((item) => item.path!.slice(1)),
           probes,
+          users: scope === "system",
         }),
         runningGeneration(config, host, scope),
       ],
@@ -495,6 +541,7 @@ export const inventory = (
       ),
       options: state.options,
       ...(state.unfree ? { unfree: state.unfree } : {}),
+      ...(state.users ? { users: state.users } : {}),
     } satisfies ScopeInventory;
   });
 

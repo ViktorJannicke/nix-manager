@@ -2,47 +2,16 @@
   import * as Dialog from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
   import { Switch } from "$lib/components/ui/switch";
+  import { parseDefault } from "$lib/fields";
   import { app } from "$lib/app.svelte";
-  import { local, NEW_FILE, showValue, software } from "$lib/software.svelte";
+  import { local, NEW_FILE, software } from "$lib/software.svelte";
   import NewModuleFields from "./NewModuleFields.svelte";
+  import OptionField from "./OptionField.svelte";
   import type { Change } from "../../../../src/draft";
   import type { Experience } from "../../../../src/curated";
 
   /** `start` opens the experience switched on, as the fix for a failure. */
   let { experience = $bindable(), start = false }: { experience?: Experience; start?: boolean } = $props();
-
-  type Field =
-    | { kind: "boolean" }
-    | { kind: "text"; nullable: boolean }
-    | { kind: "number"; min?: number; max?: number }
-    | { kind: "choice"; choices: string[] }
-    | { kind: "lines" }
-    | { kind: "other" };
-
-  /** Form control for an option type as `optionAttrSetToDocList` describes it. */
-  function field(type: string | null | undefined): Field {
-    if (!type) return { kind: "other" };
-    if (type === "boolean" || type === "null or boolean") return { kind: "boolean" };
-    if (/^(null or )?one of /.test(type)) return { kind: "choice", choices: [...type.matchAll(/"([^"]*)"/g)].map((match) => match[1]) };
-    if (type === "list of string") return { kind: "lines" };
-    if (/integer/.test(type)) {
-      const range = type.match(/between (-?\d+) and (-?\d+)/);
-      return { kind: "number", min: range ? Number(range[1]) : /unsigned|positive/.test(type) ? 0 : undefined, max: range ? Number(range[2]) : undefined };
-    }
-    if (/^(null or )?(non-empty )?(\(optionally newline-terminated\) )?(single-line )?string/.test(type) || type.startsWith("strings concatenated")) return { kind: "text", nullable: type.startsWith("null or") };
-    return { kind: "other" };
-  }
-
-  /** The default as data, when its Nix text is a plain literal. */
-  function parseDefault(text: string | null | undefined): unknown {
-    if (!text) return undefined;
-    if (text === "true" || text === "false") return text === "true";
-    if (text === "null") return null;
-    if (/^-?\d+$/.test(text)) return Number(text);
-    if (/^"([^"\\]|\\.)*"$/.test(text)) return JSON.parse(text);
-    if (/^\[\s*\]$/.test(text)) return [];
-    return undefined;
-  }
 
   let on = $state(false);
   let values = $state<Record<string, unknown>>({});
@@ -145,7 +114,6 @@
       <div class="divide-y">
         {#each experience.settings as setting (setting.option)}
           {@const doc = software.doc(scope, setting.option)}
-          {@const kind = field(doc?.t)}
           {@const files = (software.inventory?.[scope].options[setting.option]?.files ?? []).filter(local)}
           {@const pending = software.value(scope, setting.option).pending}
           <div class="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 {on ? '' : 'opacity-60'}">
@@ -154,27 +122,7 @@
               {#if setting.help}<p class="text-xs text-muted-foreground">{setting.help}</p>{/if}
               <p class="font-mono text-[0.7rem] break-all text-muted-foreground">{setting.option}{files.length ? `, set in ${files.join(", ")}` : ""}</p>
             </div>
-            {#if !doc}
-              <span class="text-xs text-muted-foreground">Reading…</span>
-            {:else if kind.kind === "boolean"}
-              <Switch checked={Boolean(shown(setting.option))} onCheckedChange={(checked) => (values[setting.option] = checked)} aria-label={setting.label} />
-            {:else if kind.kind === "choice"}
-              <select class="focus-ring h-8 rounded-md border bg-card px-2 text-xs" aria-label={setting.label} value={String(shown(setting.option) ?? "")} onchange={(event) => (values[setting.option] = event.currentTarget.value)}>
-                {#each kind.choices as choice (choice)}<option value={choice}>{choice}</option>{/each}
-              </select>
-            {:else if kind.kind === "number"}
-              <input type="number" class="focus-ring h-8 w-28 rounded-md border bg-card px-2 text-xs" aria-label={setting.label} min={kind.min} max={kind.max} value={shown(setting.option) ?? ""}
-                onchange={(event) => { const number = event.currentTarget.valueAsNumber; if (Number.isInteger(number)) values[setting.option] = number; }} />
-            {:else if kind.kind === "text"}
-              <input class="focus-ring h-8 w-56 rounded-md border bg-card px-2 text-xs" aria-label={setting.label} value={String(shown(setting.option) ?? "")} placeholder={kind.nullable ? "Not set" : ""}
-                onchange={(event) => { const text = event.currentTarget.value; values[setting.option] = kind.nullable && !text ? null : text; }} />
-            {:else if kind.kind === "lines"}
-              <textarea class="focus-ring h-20 w-56 rounded-md border bg-card px-2 py-1 font-mono text-xs" aria-label={setting.label} placeholder="One per line"
-                value={((shown(setting.option) as string[] | undefined) ?? []).join("\n")}
-                onchange={(event) => (values[setting.option] = event.currentTarget.value.split("\n").map((line) => line.trim()).filter(Boolean))}></textarea>
-            {:else}
-              <span class="max-w-56 truncate text-xs text-muted-foreground" title={doc.t ?? ""}>{showValue(shown(setting.option))}</span>
-            {/if}
+            <OptionField label={setting.label} {doc} value={shown(setting.option)} onchange={(value) => (values[setting.option] = value)} />
           </div>
         {/each}
       </div>

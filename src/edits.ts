@@ -182,6 +182,8 @@ export const verifyEdits = (config: Config, r: Request, staged: Staged, changes:
             // A created file is checked through the settings and packages written into it.
             if ("attr" in change || change.kind === "create-module") continue;
             const now = after.options[change.option];
+            // Removing an entry, such as a user from users.users, leaves no setting behind.
+            if (change.kind === "unset-option" && !now?.exists && before.options[change.option]?.exists) continue;
             if (!now?.exists)
               return yield* Effect.fail(
                 new ManagerError({ message: `${change.option} is not an option of ${name}.` }),

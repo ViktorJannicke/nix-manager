@@ -7,6 +7,7 @@
   import ListIcon from "@lucide/svelte/icons/list";
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import PackageIcon from "@lucide/svelte/icons/package";
+  import MonitorIcon from "@lucide/svelte/icons/monitor";
   import SnowflakeIcon from "@lucide/svelte/icons/snowflake";
   import LoaderIcon from "@lucide/svelte/icons/loader-circle";
   import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
@@ -24,12 +25,14 @@
   import Activity from "./pages/Activity.svelte";
   import Settings from "./pages/Settings.svelte";
   import Software from "./pages/Software.svelte";
+  import Computer from "./pages/Computer.svelte";
 
   onMount(() => app.start());
 
   const nav = $derived<{ id: Page; label: string; icon: typeof LayoutIcon; count?: number }[]>([
     { id: "overview", label: "Overview", icon: LayoutIcon },
     { id: "software", label: "Software", icon: PackageIcon, count: app.snapshot?.draft.changes.length || undefined },
+    { id: "computer", label: "Computer", icon: MonitorIcon },
     { id: "changes", label: "Changes", icon: GitCompareIcon, count: app.reviews.length || undefined },
     { id: "updates", label: "Updates", icon: CloudDownloadIcon, count: app.inputUpdates.length + app.packageUpdates.length || undefined },
     { id: "generations", label: "Generations", icon: HistoryIcon },
@@ -105,6 +108,7 @@
             </div>
           {:else if app.page === "overview"}<Overview />
           {:else if app.page === "software"}<Software />
+          {:else if app.page === "computer"}<Computer />
           {:else if app.page === "updates"}<Updates />
           {:else if app.page === "changes"}<Changes />
           {:else if app.page === "generations"}<Generations />

@@ -4,7 +4,7 @@ import { Request as RequestSchema, ManagerError, resolveHost } from "./domain";
 import type { Manager } from "./manager";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
-import { tmpdir } from "node:os";
+import { tmpdir, userInfo } from "node:os";
 import { Observer } from "./observe";
 import { listReviews, removeReview } from "./reviews";
 import type { SessionMessage, Snapshot } from "./contracts";
@@ -105,6 +105,7 @@ export function startServer(
       hosts: manager.config.hosts,
       hostKey: manager.config.hostKey,
       homeProfile: manager.config.homeProfile,
+      user: userInfo().username,
     },
     active: manager.active,
     operations: manager.history(),

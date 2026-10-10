@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { Effect, Schema } from "effect";
 import { ManagerError, type Config } from "./domain";
 import type { CatalogStatus } from "./contracts";
+import { computerOptions } from "./computer";
 import { experiences } from "./curated";
 import { Changes, changeHash, draftPublic, readDraft, writeDraft, type Change, type RenderedDraft } from "./draft";
 import { runnerLayer } from "./process";
@@ -26,14 +27,16 @@ import { flakeSource } from "./packages";
 const run = <A>(effect: Effect.Effect<A, ManagerError, import("./process").Runner>) =>
   Effect.runPromise(effect.pipe(Effect.provide(runnerLayer())));
 
-/** Options of the curated experiences, so the inventory reports their state. */
-const curatedOptions = (scope: Target) =>
-  experiences
+/** Options of the curated experiences and the Computer page, so the inventory reports their state. */
+const curatedOptions = (scope: Target) => [
+  ...experiences
     .filter((experience) => experience.scope === scope)
     .flatMap((experience) => [
       ...Object.keys(experience.enable),
       ...experience.settings.map((setting) => setting.option),
-    ]);
+    ]),
+  ...(scope === "system" ? computerOptions : []),
+];
 
 /**
  * The software store's server side: the pending draft, what each host

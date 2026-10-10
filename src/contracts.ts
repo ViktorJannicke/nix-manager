@@ -198,6 +198,8 @@ export interface Snapshot {
     hosts: Hosts;
     hostKey: string;
     homeProfile: string;
+    /** The user running Nix Manager. */
+    user: string;
   };
   active?: Operation;
   operations: Operation[];
