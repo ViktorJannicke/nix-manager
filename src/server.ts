@@ -9,6 +9,7 @@ import { Observer } from "./observe";
 import { listReviews, removeReview } from "./reviews";
 import type { SessionMessage, Snapshot } from "./contracts";
 import { Store } from "./store";
+import { detectHardware } from "./hardware";
 
 export interface UiAsset {
   body: string;
@@ -92,6 +93,8 @@ export function startServer(
   const store = new Store(manager.config, () => broadcastLater());
   const fingerprint = () => observer.current?.repository.fingerprint ?? "";
   const lockHash = () => observer.current?.repository.lockHash;
+  // Read once; suggestions for hardware plugged in later appear after a restart.
+  const hardware = detectHardware(process.env.NIX_MANAGER_SYSFS);
   let clients = 0;
   let connected = false;
   let disconnectedAt: number | undefined;
@@ -106,6 +109,7 @@ export function startServer(
       hostKey: manager.config.hostKey,
       homeProfile: manager.config.homeProfile,
       user: userInfo().username,
+      hardware,
     },
     active: manager.active,
     operations: manager.history(),

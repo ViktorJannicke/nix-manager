@@ -45,9 +45,13 @@ when it is finished. Tick items off in the commit that completes them.
   are shown read-only; a user defined across several files cannot be removed
   from the page; port lists show ports that features open too; passwords are
   set after applying, never written into the configuration.
-- [ ] **Hardware suggestions.** Suggest features from the hardware found: power
+- [x] **Hardware suggestions.** Suggest features from the hardware found: power
   profiles on laptops, the NVIDIA driver setup, Bluetooth, printers, fingerprint
   readers.
+  Follow-ups: hardware is read from `/sys` once when the dashboard starts, and
+  only for the computer it runs on; the NVIDIA feature always uses the open
+  kernel module (GeForce 16 series and newer) because `hardware.nvidia.open`
+  cannot be read while the driver is off; network printers are not detected.
 
 ## 3. One-click changes
 

@@ -256,7 +256,7 @@ of the selected log. Individual stored logs are capped at 16 MiB; older operatio
 files remain on disk. The OS releases the shared advisory lock even if a manager
 process crashes. It covers CLI, dashboard, tray, and different checkout selections
 using that state directory. It does not lock out native Nix commands or other users.
-`NIX_MANAGER_STATE_DIR` can select an isolated state directory for testing.
+`NIX_MANAGER_STATE_DIR` can select an isolated state directory for testing. `NIX_MANAGER_SYSFS` points hardware detection at a fake `/sys` tree.
 Pending software edits are stored in `draft.json` and the package index under
 `catalog/`, keyed by the lock file; building an index evaluates every package and
 needs several gigabytes of memory for about a quarter of a minute.

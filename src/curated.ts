@@ -25,7 +25,17 @@ export interface Experience {
   settings: CuratedSetting[];
   /** Optional extra packages (attribute path relative to pkgs, e.g. "gamescope") installed alongside. */
   packages?: string[];
+  /** Names of non-free packages the experience installs, which the configuration must allow. */
+  unfree?: string[];
+  /**
+   * Options also written when the experience is turned on, but never read:
+   * their value cannot be evaluated while it is off.
+   */
+  alsoSet?: Record<string, unknown>;
 }
+
+/** Options that are written but never read, see `Experience.alsoSet`. */
+export const unreadOptions = () => new Set(experiences.flatMap((experience) => Object.keys(experience.alsoSet ?? {})));
 
 export const experiences: Experience[] = [
   // System experiences
@@ -589,6 +599,50 @@ export const experiences: Experience[] = [
     scope: "system",
     enable: {
       "services.power-profiles-daemon.enable": true,
+    },
+    settings: [],
+  },
+  {
+    id: "nvidia",
+    title: "NVIDIA graphics driver",
+    summary: "Use NVIDIA's own driver for full speed in games, video and 3D apps. For GeForce 16 series and newer cards.",
+    icon: "monitor-cog",
+    category: "System",
+    scope: "system",
+    enable: {
+      "services.xserver.videoDrivers": ["nvidia"],
+    },
+    // NVIDIA's open kernel module, which GeForce 16 series (Turing) and newer cards need.
+    alsoSet: {
+      "hardware.nvidia.open": true,
+    },
+    settings: [
+      {
+        option: "hardware.nvidia.modesetting.enable",
+        label: "Kernel mode setting",
+        help: "Needed for Wayland desktops.",
+      },
+      {
+        option: "hardware.nvidia.powerManagement.enable",
+        label: "Save video memory on sleep",
+        help: "Turn on if apps show garbage after waking up.",
+      },
+      {
+        option: "hardware.nvidia.nvidiaSettings",
+        label: "NVIDIA Settings app",
+      },
+    ],
+    unfree: ["nvidia-x11", "nvidia-settings", "nvidia-persistenced"],
+  },
+  {
+    id: "fingerprint",
+    title: "Fingerprint login",
+    summary: "Log in, unlock the screen and confirm admin actions with your finger.",
+    icon: "fingerprint",
+    category: "System",
+    scope: "system",
+    enable: {
+      "services.fprintd.enable": true,
     },
     settings: [],
   },

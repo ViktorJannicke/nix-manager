@@ -10,6 +10,7 @@
   import CodeIcon from "@lucide/svelte/icons/code";
   import ContainerIcon from "@lucide/svelte/icons/container";
   import DownloadIcon from "@lucide/svelte/icons/download";
+  import FingerprintIcon from "@lucide/svelte/icons/fingerprint";
   import FileCodeIcon from "@lucide/svelte/icons/file-code";
   import FileTextIcon from "@lucide/svelte/icons/file-text";
   import FolderCogIcon from "@lucide/svelte/icons/folder-cog";
@@ -64,6 +65,7 @@
     "download": DownloadIcon,
     "file-code": FileCodeIcon,
     "file-text": FileTextIcon,
+    "fingerprint": FingerprintIcon,
     "folder-cog": FolderCogIcon,
     "folder-open": FolderOpenIcon,
     "folder-search": FolderSearchIcon,

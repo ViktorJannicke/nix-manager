@@ -18,10 +18,13 @@
   import { parseDefault } from "$lib/fields";
   import { plural } from "$lib/format";
   import { local, NEW_FILE, showValue, software } from "$lib/software.svelte";
+  import ExperienceDialog from "$lib/components/app/ExperienceDialog.svelte";
+  import ExperienceIcon from "$lib/components/app/ExperienceIcon.svelte";
   import NewModuleFields from "$lib/components/app/NewModuleFields.svelte";
   import OptionField from "$lib/components/app/OptionField.svelte";
   import PendingEdits from "$lib/components/app/PendingEdits.svelte";
-  import { ADMIN_GROUP, computerSections, inFlakeFile, keyboardLayouts, NEW_USER_GROUPS, userNameProblem, type UserAccount } from "../../src/computer";
+  import { ADMIN_GROUP, computerSections, hardwareSuggestions, inFlakeFile, keyboardLayouts, NEW_USER_GROUPS, userNameProblem, type UserAccount } from "../../src/computer";
+  import { experiences, type Experience } from "../../src/curated";
   import type { Change } from "../../src/draft";
 
   const SCOPE = "system";
@@ -72,6 +75,27 @@
   function set(option: string, value: unknown, fallback?: unknown) {
     if (same(value, current(option, fallback))) delete edits[option];
     else edits[option] = { value };
+  }
+
+  // --- Suggestions ------------------------------------------------------------
+
+  const DISMISSED = "nix-manager-dismissed-suggestions";
+  let dismissed = $state<string[]>(JSON.parse(localStorage.getItem(DISMISSED) ?? "[]"));
+  let experience = $state<Experience>();
+  /** Features for hardware found in this computer that are not on yet. Only for the computer Nix Manager runs on. */
+  const suggestions = $derived(
+    !inventory || app.foreignHost
+      ? []
+      : hardwareSuggestions.flatMap(({ hardware, experience: id, reason }) => {
+          const item = experiences.find((candidate) => candidate.id === id);
+          if (!item || !app.config?.hardware[hardware] || dismissed.includes(id) || !software.available(item) || software.enabled(item)) return [];
+          const pending = software.changes.some((change) => change.scope === SCOPE && change.label === item.title);
+          return [{ item, reason, pending }];
+        }),
+  );
+  function dismiss(id: string) {
+    dismissed = [...dismissed, id];
+    localStorage.setItem(DISMISSED, JSON.stringify(dismissed));
   }
 
   // --- Users ------------------------------------------------------------------
@@ -227,6 +251,30 @@
   {:else if !inventory}
     <p class="flex items-center gap-2 text-muted-foreground"><LoaderIcon class="size-4 animate-spin" /> Reading {app.host}'s settings</p>
   {:else}
+    {#if suggestions.length}
+      <section class="panel" aria-labelledby="computer-suggested">
+        <header class="p-4 pb-2">
+          <h2 id="computer-suggested" class="font-semibold">Suggested for this computer</h2>
+          <p class="text-xs text-muted-foreground">Nix Manager found this hardware. These features make it work fully.</p>
+        </header>
+        <ul class="divide-y px-4">
+          {#each suggestions as { item, reason, pending } (item.id)}
+            <li class="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+              <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground"><ExperienceIcon name={item.icon} class="size-4.5" /></span>
+              <div class="min-w-48 flex-1">
+                <p class="font-medium">{item.title}{#if pending}<span class="ml-2 text-xs font-normal text-prepared-foreground">pending</span>{/if}</p>
+                <p class="text-xs text-muted-foreground">{reason}</p>
+              </div>
+              {#if !pending}
+                <Button variant="ghost" size="sm" onclick={() => dismiss(item.id)}>Not now</Button>
+                <Button size="sm" variant="outline" onclick={() => (experience = item)}>Set up…</Button>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
+
     {#snippet section(item: (typeof sections)[number])}
       {@const Icon = icons[item.icon] ?? MonitorIcon}
       <section class="panel" aria-labelledby="computer-{item.id}">
@@ -369,3 +417,5 @@
     </div>
   {/if}
 </div>
+
+<ExperienceDialog bind:experience start />

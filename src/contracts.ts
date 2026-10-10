@@ -2,6 +2,7 @@ import type { Hosts, Plan, Request } from "./domain";
 import type { Change, DraftFile, RenderedDraft } from "./draft";
 import type { UpdateReport } from "./updates";
 import type { Explanation } from "./explain";
+import type { Hardware } from "./hardware";
 
 export type OperationStatus =
   | "running"
@@ -200,6 +201,8 @@ export interface Snapshot {
     homeProfile: string;
     /** The user running Nix Manager. */
     user: string;
+    /** Hardware of the computer Nix Manager runs on. */
+    hardware: Hardware;
   };
   active?: Operation;
   operations: Operation[];

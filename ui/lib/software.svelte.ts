@@ -128,8 +128,13 @@ class SoftwareState {
 
   /** Installing `entry` in `scope` would be refused as non-free software, even with the pending edits. */
   refusesUnfree(scope: Target, entry: CatalogEntry) {
-    if (entry.f || same(this.value(scope, UNFREE).value, true)) return false;
-    return !acceptsUnfree(this.inventory?.[scope].unfree, entry.n);
+    return !entry.f && this.refusesUnfreeName(scope, entry.n);
+  }
+
+  /** A non-free package called `name` would be refused in `scope`, even with the pending edits. */
+  refusesUnfreeName(scope: Target, name: string | null) {
+    if (same(this.value(scope, UNFREE).value, true)) return false;
+    return !acceptsUnfree(this.inventory?.[scope].unfree, name);
   }
 
   /**
@@ -140,7 +145,7 @@ class SoftwareState {
   allowUnfree(scope: Target): Change[] | undefined {
     const experience = experiences.find((item) => item.scope === scope && UNFREE in item.enable)!;
     const label = experience.title;
-    const target = this.definedIn(scope, UNFREE) ?? this.featureFile(scope, UNFREE, experience.id);
+    const target = this.editableIn(scope, UNFREE) ?? this.featureFile(scope, UNFREE, experience.id);
     if (target !== NEW_FILE) return [{ kind: "set-option", scope, file: target, option: UNFREE, value: true, label }];
     const near = this.moduleFiles(scope, UNFREE).find((module) => module.active !== false)?.file;
     const file = this.suggestFile(scope, experience.id, near);
@@ -171,10 +176,24 @@ class SoftwareState {
     return Object.keys(experience.enable).every((option) => options?.[option]?.exists);
   }
 
+  /**
+   * Every option that turns the experience on has its value; a list needs
+   * only the wanted items. Options also offered as settings may differ,
+   * unless only such options turn it on.
+   */
   enabled(experience: Experience) {
-    return Object.entries(experience.enable).every(([option, wanted]) =>
-      same(this.value(experience.scope, option).value, wanted),
-    );
+    const entries = Object.entries(experience.enable);
+    const core = entries.filter(([option]) => !experience.settings.some((setting) => setting.option === option));
+    return (core.length ? core : entries).every(([option, wanted]) => {
+      const { value } = this.value(experience.scope, option);
+      return Array.isArray(wanted) && Array.isArray(value) ? wanted.every((item) => value.some((have) => same(have, item))) : same(value, wanted);
+    });
+  }
+
+  /** The file that defines an option now, if it is a module Nix Manager can edit. */
+  editableIn(scope: Target, option: string) {
+    const file = this.definedIn(scope, option);
+    return file && this.inventory?.[scope].modules.some((module) => module.file === file) ? file : undefined;
   }
 
   /** Flake file that defines an option now, if exactly one does. */

@@ -2,6 +2,7 @@
   import * as Dialog from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
   import { Switch } from "$lib/components/ui/switch";
+  import LockOpenIcon from "@lucide/svelte/icons/lock-open";
   import { parseDefault } from "$lib/fields";
   import { app } from "$lib/app.svelte";
   import { local, NEW_FILE, software } from "$lib/software.svelte";
@@ -35,7 +36,7 @@
     );
     initial = { on, values: $state.snapshot(values) as Record<string, unknown> };
     if (start) on = true;
-    target = software.definedIn(experience.scope, options[0]) ?? software.featureFile(experience.scope, options[0], experience.id);
+    target = software.editableIn(experience.scope, options[0]) ?? software.featureFile(experience.scope, options[0], experience.id);
     newFile = software.suggestFile(experience.scope, experience.id, modules.find((module) => module.active !== false)?.file);
   });
   $effect(() => {
@@ -54,17 +55,20 @@
         ]
       : [],
   );
-  // New settings go to the chosen file; settings that are already defined are edited where they are.
-  const needsTarget = $derived(changed.some((option) => !software.definedIn(scope, option)));
+  // New settings go to the chosen file; settings that are already defined in an editable module are edited there.
+  const needsTarget = $derived(changed.some((option) => !software.editableIn(scope, option)));
   const creating = $derived(needsTarget && target === NEW_FILE);
   const ready = $derived(!needsTarget || (creating ? !software.newFileProblem(scope, newFile) && Boolean(importer) : Boolean(target)));
+  // Turning on a feature that installs non-free software also allows it, like adding a non-free app.
+  const refused = $derived(Boolean(experience && on && !initial.on && experience.unfree?.some((name) => software.refusesUnfreeName(scope, name))));
+  const allowing = $derived(refused ? software.allowUnfree(scope) : undefined);
 
   async function save() {
     if (!experience) return;
     const label = experience.title;
     const file = creating ? newFile : target;
-    const where = (option: string) => software.definedIn(scope, option) ?? file;
-    const edits: Change[] = creating ? [{ kind: "create-module", scope, file, importer, label }] : [];
+    const where = (option: string) => software.editableIn(scope, option) ?? file;
+    const edits: Change[] = [...(allowing ?? []), ...(creating ? [{ kind: "create-module", scope, file, importer, label } as const] : [])];
     if (on !== initial.on)
       for (const [option, value] of Object.entries(experience.enable))
         edits.push(
@@ -80,6 +84,8 @@
       edits.push({ kind: "set-option", scope, file: where(setting.option), option: setting.option, value: value as never, label });
     }
     if (on && !initial.on) {
+      for (const [option, value] of Object.entries(experience.alsoSet ?? {}))
+        edits.push({ kind: "set-option", scope, file: where(option), option, value: value as never, label });
       // A new file keeps everything about the feature together.
       const packages = creating ? file : software.packageFiles(scope)[0]?.file;
       for (const attr of experience.packages ?? [])
@@ -87,7 +93,7 @@
     }
     if (needsTarget && !creating) software.remember(scope, target);
     await software.stage(edits);
-    app.toast({ tone: "success", title: `${experience.title}: ${edits.length === 1 ? "edit" : `${edits.length} edits`} pending`, body: "Prepare your pending edits to build them." });
+    app.toast({ tone: "success", title: `${experience.title}: ${edits.length === 1 ? "edit" : `${edits.length} edits`} pending`, body: `${allowing ? "Non-free software will be allowed too. " : ""}Prepare your pending edits to build them.` });
     experience = undefined;
   }
 </script>
@@ -150,13 +156,26 @@
           {/if}
         </label>
       {/if}
+      {#if refused}
+        <div class="flex gap-2 rounded-lg bg-muted px-3 py-2 text-xs">
+          <LockOpenIcon class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+          <div class="space-y-1">
+            <p class="font-medium">{experience.title} is not free software</p>
+            {#if allowing}
+              <p class="text-muted-foreground">This computer only installs software with a free license. Turning it on also allows non-free software, in {allowing.at(-1)!.file}.</p>
+            {:else}
+              <p class="text-muted-foreground">This computer only installs software with a free license. Allow non-free software first, then turn it on.</p>
+            {/if}
+          </div>
+        </div>
+      {/if}
       {#if !on && initial.on}
-        <p class="text-xs text-muted-foreground">Turning it off writes <code>false</code> into {software.definedIn(scope, Object.keys(experience.enable)[0]) ?? (creating ? newFile : target)}.</p>
+        <p class="text-xs text-muted-foreground">Turning it off writes <code>false</code> into {software.editableIn(scope, Object.keys(experience.enable)[0]) ?? (creating ? newFile : target)}.</p>
       {/if}
 
       <Dialog.Footer>
         <Button variant="ghost" onclick={() => (experience = undefined)}>Cancel</Button>
-        <Button disabled={!changed.length || !ready || software.saving} onclick={save}>
+        <Button disabled={!changed.length || !ready || (refused && !allowing) || software.saving} onclick={save}>
           {changed.length ? "Add to pending edits" : "No changes"}
         </Button>
       </Dialog.Footer>

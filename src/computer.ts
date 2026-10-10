@@ -5,6 +5,7 @@
 // are system settings.
 
 import type { CuratedSetting } from "./curated";
+import type { Hardware } from "./hardware";
 
 /** Form controls the option type alone would not give. */
 export type ComputerInput = "timezone" | "locale" | "formats" | "keyboard" | "ports" | "user";
@@ -244,3 +245,12 @@ export const keyboardLayouts: { code: string; label: string }[] = [
  * store path. Settings defined there cannot be edited from a module file.
  */
 export const inFlakeFile = (file: string) => /^\/nix\/store\/[a-z0-9]{32}-source\/flake\.nix$/.test(file);
+
+/** Features to suggest for detected hardware, by curated experience id, with the reason. */
+export const hardwareSuggestions: { hardware: keyof Hardware; experience: string; reason: string }[] = [
+  { hardware: "nvidia", experience: "nvidia", reason: "This computer has an NVIDIA graphics card. Its driver gives games and video full speed." },
+  { hardware: "laptop", experience: "power-profiles", reason: "This computer runs on a battery. Power profiles let you save power when you need to." },
+  { hardware: "bluetooth", experience: "bluetooth", reason: "This computer has Bluetooth." },
+  { hardware: "printer", experience: "printing", reason: "A printer is connected." },
+  { hardware: "fingerprint", experience: "fingerprint", reason: "This computer has a fingerprint reader. Use it to log in and unlock." },
+];

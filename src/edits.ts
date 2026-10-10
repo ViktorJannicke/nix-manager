@@ -6,6 +6,7 @@ import { Effect } from "effect";
 import { ManagerError, reviewRoot, type Config, type Request } from "./domain";
 import type { EditEffect, EditedPackage, ReviewEdits, UndoContents, UndoPoint } from "./contracts";
 import { changeHash, renderDraft, sourcePath, subject, type Change, type EditedFile } from "./draft";
+import { unreadOptions } from "./curated";
 import { explain } from "./explain";
 import { attr } from "./nix";
 import { hashText } from "./observe";
@@ -149,9 +150,11 @@ export const verifyEdits = (config: Config, r: Request, staged: Staged, changes:
           // Package settings must not replace the package set the flake builds.
           const settings = options.filter((option) => option.startsWith("nixpkgs.config.")).map((option) => option.split(".")[2]);
           const nixpkgs = settings.length > 0;
+          // Some options cannot be read before the feature they belong to is on.
+          const unread = unreadOptions();
           const [before, after] = yield* Effect.all(
             [
-              evaluateState(staged.original, attribute, scope, { options, attrs, nixpkgs }),
+              evaluateState(staged.original, attribute, scope, { options: options.filter((option) => !unread.has(option)), attrs, nixpkgs }),
               evaluateState(edited, attribute, scope, { options, attrs, nixpkgs }),
             ],
             { concurrency: 2 },
