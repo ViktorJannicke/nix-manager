@@ -262,6 +262,8 @@ export function startServer(
                   return json(store.lookup(lockHash(), strings(input.attrs)));
                 case "options":
                   return json(await store.searchOptions(host, scope, text(input.query), fingerprint()));
+                case "describe":
+                  return json(await store.describe(host, scope, strings(input.options), fingerprint()));
                 case "values":
                   return json(await store.values(host, scope, strings(input.options)));
               }

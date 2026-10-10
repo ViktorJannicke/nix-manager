@@ -5,12 +5,14 @@
   import TrashIcon from "@lucide/svelte/icons/trash-2";
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
-  import type { BuildReview, ReviewOutput } from "../../src/contracts";
+  import type { BuildReview, EditEffect, ReviewOutput } from "../../src/contracts";
   import { bytes, day, plural, relative, shortRev, summarize } from "$lib/format";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
   import Segmented from "$lib/components/app/Segmented.svelte";
   import PackageChanges from "$lib/components/app/PackageChanges.svelte";
   import ReviewTitle from "$lib/components/app/ReviewTitle.svelte";
+  import DiffView from "$lib/components/app/DiffView.svelte";
+  import { describeChange, showValue } from "$lib/software.svelte";
 
   const review = $derived(app.reviews.find((r) => r.id === app.selectedReview) ?? app.reviews[0]);
   let tab = $state<"home" | "system">("home");
@@ -30,9 +32,24 @@
     review?.system?.kernel && review.system.kernel.before !== review.system.kernel.after,
   );
   const preparing = $derived(app.active?.request.action === "review-build");
+  /** Packages only rebuilt by an edit (same name on both sides) are listed once, as updated. */
+  function packageEffects(effect: EditEffect) {
+    const removed = new Set(effect.removed.map((item) => item.name));
+    const added = new Set(effect.added.map((item) => item.name));
+    return {
+      added: effect.added.filter((item) => !removed.has(item.name)),
+      removed: effect.removed.filter((item) => !added.has(item.name)),
+      updated: effect.added.filter((item) => removed.has(item.name)),
+    };
+  }
+  const draftMoved = $derived(review?.edits && app.snapshot && review.edits.hash !== app.snapshot.draft.hash);
 
   function apply(review: BuildReview, activation: "switch" | "boot") {
     const points: string[] = [];
+    if (review.edits)
+      points.push(
+        `Writes your edits to ${review.edits.files.length === 1 ? review.edits.files[0].path : `${review.edits.files.length} files`} in your checkout.`,
+      );
     if (review.inputs) points.push("Writes the reviewed flake.lock into your checkout.");
     if (review.home && activation === "switch") points.push("Activates the reviewed Home Manager generation.");
     if (review.home && activation === "boot") points.push("Home changes are not applied on boot; apply them separately.");
@@ -118,7 +135,7 @@
         </div>
       </div>
 
-      {#if lockChanged || checkoutChanged || otherHost || kernelChange}
+      {#if lockChanged || checkoutChanged || otherHost || kernelChange || draftMoved}
         <div class="mt-4 space-y-2">
           {#if lockChanged}
             <p class="flex gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-destructive">
@@ -129,6 +146,12 @@
             <p class="flex gap-2 rounded-lg bg-warning/10 px-3 py-2">
               <TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-warning" />
               Your checkout changed since this was prepared. Applying activates exactly what was built here; prepare again to include newer edits.
+            </p>
+          {/if}
+          {#if draftMoved}
+            <p class="flex gap-2 rounded-lg bg-muted px-3 py-2">
+              <TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              Your pending edits changed since this was prepared. Applying writes the edits shown below; prepare again to include the others.
             </p>
           {/if}
           {#if otherHost}
@@ -176,6 +199,51 @@
       </dl>
     </section>
 
+    {#if review.edits}
+      <section class="panel overflow-hidden" aria-labelledby="edits-title">
+        <div class="border-b px-4 py-3">
+          <h2 id="edits-title" class="font-semibold">Your edits</h2>
+          <p class="text-xs text-muted-foreground">Checked by evaluating {review.host}'s configuration with and without them. They are written to your checkout when you apply.</p>
+        </div>
+        <div class="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
+          <div class="space-y-3">
+            {#each review.edits.effects as effect (effect.scope)}
+              {@const packages = packageEffects(effect)}
+              <div>
+                <p class="label">{effect.scope === "home" ? "Your user" : "System"}</p>
+                <ul class="mt-1 space-y-1">
+                  {#each packages.added as item (item.out + item.file)}
+                    <li><span class="font-medium text-success">Adds</span> {item.name} <span class="font-mono text-[0.72rem] text-muted-foreground">{item.version ?? ""}</span></li>
+                  {/each}
+                  {#each packages.removed as item (item.out + item.file)}
+                    <li><span class="font-medium text-destructive">Removes</span> {item.name} <span class="font-mono text-[0.72rem] text-muted-foreground">{item.version ?? ""}</span></li>
+                  {/each}
+                  {#each packages.updated as item (item.out + item.file)}
+                    <li class="text-muted-foreground">Updates {item.name} <span class="font-mono text-[0.72rem]">{item.version ?? ""}</span></li>
+                  {/each}
+                  {#each effect.options as option (option.option)}
+                    <li class="break-words">
+                      <span class="font-mono text-[0.75rem]">{option.option}</span>:
+                      <span class="text-muted-foreground">{showValue(option.before)}</span> → {showValue(option.after)}
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/each}
+            <details class="text-xs">
+              <summary class="focus-ring cursor-pointer rounded text-muted-foreground hover:text-foreground">{plural(review.edits.changes.length, "edit")} in this review</summary>
+              <ul class="mt-1 space-y-0.5">
+                {#each review.edits.changes as change, index (index)}<li>{describeChange(change).title}</li>{/each}
+              </ul>
+            </details>
+          </div>
+          <div class="space-y-2">
+            {#each review.edits.files as file (file.path)}<DiffView {file} />{/each}
+          </div>
+        </div>
+      </section>
+    {/if}
+
     {#if review.inputs?.changes.length}
       <section class="panel overflow-hidden">
         <h2 class="border-b px-4 py-3 font-semibold">Flake inputs</h2>
@@ -201,7 +269,7 @@
 
     <section class="panel p-4">
       <div class="mb-3 flex items-center justify-between gap-3">
-        <h2 class="heading">Packages</h2>
+        <h2 class="heading">{review.edits ? "Everything that differs from what's running" : "Packages"}</h2>
         {#if review.home && review.system}
           <Segmented
             label="Configuration"

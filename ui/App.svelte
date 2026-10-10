@@ -6,6 +6,7 @@
   import HistoryIcon from "@lucide/svelte/icons/history";
   import ListIcon from "@lucide/svelte/icons/list";
   import SettingsIcon from "@lucide/svelte/icons/settings";
+  import PackageIcon from "@lucide/svelte/icons/package";
   import SnowflakeIcon from "@lucide/svelte/icons/snowflake";
   import LoaderIcon from "@lucide/svelte/icons/loader-circle";
   import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
@@ -22,11 +23,13 @@
   import Generations from "./pages/Generations.svelte";
   import Activity from "./pages/Activity.svelte";
   import Settings from "./pages/Settings.svelte";
+  import Software from "./pages/Software.svelte";
 
   onMount(() => app.start());
 
   const nav = $derived<{ id: Page; label: string; icon: typeof LayoutIcon; count?: number }[]>([
     { id: "overview", label: "Overview", icon: LayoutIcon },
+    { id: "software", label: "Software", icon: PackageIcon, count: app.snapshot?.draft.changes.length || undefined },
     { id: "changes", label: "Changes", icon: GitCompareIcon, count: app.reviews.length || undefined },
     { id: "updates", label: "Updates", icon: CloudDownloadIcon, count: app.inputUpdates.length + app.packageUpdates.length || undefined },
     { id: "generations", label: "Generations", icon: HistoryIcon },
@@ -67,7 +70,7 @@
               {#if item.id === "activity" && running}
                 <LoaderIcon class="size-3.5 animate-spin text-primary" aria-label="Running" />
               {:else if item.count}
-                <span class="numeric text-[0.8rem] {item.id === 'changes' ? 'font-semibold text-prepared-foreground' : ''}">{item.count}</span>
+                <span class="numeric text-[0.8rem] {item.id === 'changes' || item.id === 'software' ? 'font-semibold text-prepared-foreground' : ''}">{item.count}</span>
               {/if}
             </button>
           </li>
@@ -101,6 +104,7 @@
               <p class="flex items-center gap-2"><LoaderIcon class="size-4 animate-spin" /> Reading this computer's state</p>
             </div>
           {:else if app.page === "overview"}<Overview />
+          {:else if app.page === "software"}<Software />
           {:else if app.page === "updates"}<Updates />
           {:else if app.page === "changes"}<Changes />
           {:else if app.page === "generations"}<Generations />

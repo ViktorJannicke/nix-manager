@@ -108,6 +108,28 @@ build targets another host, or the kernel changes. Applying activates exactly th
 outputs, now or on next boot; the checkout is not evaluated again. Nothing is
 switched without a review.
 
+The Software page installs packages and turns on features by editing the
+checkout's Nix files, through the same flow. Discover searches an index of every
+package in the locked nixpkgs (with overlays), built on first search and kept per
+lock file, and offers curated features such as Steam, Docker, Tailscale or fzf,
+each a small set of options with typed settings. Installed lists the packages each
+file adds, and the packages modules add as a result of settings. Changes are kept
+as pending edits until prepared:
+
+- Nix evaluation supplies the meaning: which file defines an option or a package
+  list, and what a value is now. A tree-sitter syntax tree locates the exact
+  binding, so an edit changes only those lines and keeps comments and formatting.
+  Computed values (`lib.mkDefault`, `let` bindings, conditionals) are refused
+  rather than overwritten.
+- Prepare copies the checkout, writes the edits into the copy, and evaluates the
+  configuration with and without them. Each edit must have exactly its intended
+  effect (the package appears in that file's list; the option has the value and is
+  defined in that file) before anything is built. The review shows the line diffs
+  next to their effects and the usual package differences.
+- Apply first writes the reviewed files, refusing if any of them changed since
+  preparing, then activates the reviewed outputs. Edited files must be tracked by
+  Git, because flakes only see tracked files.
+
 The other pages are Overview (active generations, the prepared next generation,
 reboot notices and recent activity), Updates (flake inputs and package pins, each
 selectable before preparing), Generations (rollback and cleanup), Activity (step
@@ -204,6 +226,9 @@ files remain on disk. The OS releases the shared advisory lock even if a manager
 process crashes. It covers CLI, dashboard, tray, and different checkout selections
 using that state directory. It does not lock out native Nix commands or other users.
 `NIX_MANAGER_STATE_DIR` can select an isolated state directory for testing.
+Pending software edits are stored in `draft.json` and the package index under
+`catalog/`, keyed by the lock file; building an index evaluates every package and
+needs several gigabytes of memory for about a quarter of a minute.
 
 New operation records include the status and timestamps of each planned step.
 Older records without step data remain readable and appear without inferred

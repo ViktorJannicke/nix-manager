@@ -12,9 +12,9 @@ import { actionLabels, request, type Request } from "../../src/domain";
 import { connectSession, managerApi } from "./api";
 import { plural } from "./format";
 
-export type Page = "overview" | "updates" | "changes" | "generations" | "activity" | "settings";
+export type Page = "overview" | "software" | "updates" | "changes" | "generations" | "activity" | "settings";
 export type Theme = "system" | "light" | "dark";
-const pages: Page[] = ["overview", "updates", "changes", "generations", "activity", "settings"];
+const pages: Page[] = ["overview", "software", "updates", "changes", "generations", "activity", "settings"];
 
 export interface Toast {
   id: number;

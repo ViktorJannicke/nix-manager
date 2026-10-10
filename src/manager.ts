@@ -448,7 +448,7 @@ export class Manager {
           if (step.internal === "compare") {
             const result = yield* compareReview(this.config, r, base!, operation.id, quiet, edits);
             const packages = (result.home?.changes.length ?? 0) + (result.system?.changes.length ?? 0);
-            log(`${packages} package changes are ready for review.`);
+            log(`${packages} package ${packages === 1 ? "change is" : "changes are"} ready for review.`);
           } else if (step.internal === "stage-sources") {
             staged = yield* stageSources(this.config, r, draft).pipe(
               Effect.provide(Layer.succeed(Runner, { run: quiet })),

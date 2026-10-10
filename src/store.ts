@@ -111,6 +111,12 @@ export class Store {
       .map(({ doc }) => doc);
   }
 
+  /** Documentation of exactly these options; unknown names are left out. */
+  async describe(host: string, scope: Target, names: readonly string[], fingerprint: string) {
+    const wanted = new Set(names.slice(0, 500));
+    return (await this.optionDocs(host, scope, fingerprint)).filter((doc) => wanted.has(doc.n));
+  }
+
   /** Current values and definition files of up to 200 options. */
   async values(host: string, scope: Target, options: readonly string[]) {
     if (options.length > 200 || options.some((option) => !/^[A-Za-z0-9_'.-]+$/.test(option)))
