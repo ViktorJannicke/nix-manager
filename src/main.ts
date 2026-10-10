@@ -1,10 +1,11 @@
 import { Cause, Effect, Exit, Option } from "effect";
 import { existsSync, realpathSync } from "node:fs";
-import { parseCli } from "./cli";
+import { parseCli, type Cli } from "./cli";
 import { loadConfig } from "./config";
-import { ManagerError, plan } from "./domain";
+import { ManagerError, type Config } from "./domain";
 import { runnerLayer, runProcess } from "./process";
 import { Manager } from "./manager";
+import { parseSoftware, runSoftware, software } from "./software-cli";
 import {
   printHistory,
   printPlan,
@@ -78,9 +79,87 @@ export async function privileged(args: string[]) {
       message: "Unknown privileged operation or unexpected arguments.",
     });
 }
+/** Runs one operation in the terminal and sets the exit code from its result. */
+async function execute(cli: Cli, config: Config, manager: Manager, terminal: TerminalRenderer) {
+  const r = { ...cli.request, host: cli.request.host || config.hostKey };
+  // A normal command preview is entirely read-only, including operation state.
+  if (r.dryRun && !r.action.endsWith("-update")) {
+    const p = manager.plan(r);
+    if (cli.json) console.log(JSON.stringify(p, null, 2));
+    else {
+      printPlan(p);
+    }
+    return;
+  }
+  const interrupt = () => manager.cancel();
+  process.on("SIGINT", interrupt);
+  process.on("SIGTERM", interrupt);
+  const heartbeat = setInterval(() => {
+    const active = manager.active;
+    if (active) terminal.heartbeat(active);
+  }, 15_000);
+  try {
+    terminal.begin(r, config);
+    try {
+      manager.start(r);
+    } catch (error) {
+      terminal.fail(error);
+      throw error;
+    }
+    const result = await manager.wait();
+    if (cli.json)
+      console.log(
+        JSON.stringify(
+          r.action === "check"
+            ? { operation: result, updates: manager.updates() }
+            : result,
+          null,
+          2,
+        ),
+      );
+    else terminal.finish(result);
+    process.exitCode =
+      result?.status === "succeeded"
+        ? 0
+        : result?.status === "cancelled"
+          ? 130
+          : 1;
+  } finally {
+    clearInterval(heartbeat);
+    process.off("SIGINT", interrupt);
+    process.off("SIGTERM", interrupt);
+  }
+}
 async function main(args: string[]) {
   if (args[0] === "--privileged") {
     await privileged(args.slice(1));
+    return;
+  }
+  const softwareArgs = software(args);
+  if (softwareArgs) {
+    const command = await parseSoftware(softwareArgs);
+    if (!command) return;
+    const config = await Effect.runPromise(
+      loadConfig(command.flake, command.host).pipe(Effect.provide(runnerLayer())),
+    );
+    const next = await runSoftware(config, command);
+    if (!next) return;
+    const cli: Cli = {
+      request: next,
+      mode: "run",
+      json: command.json,
+      plain: command.plain,
+      verbose: false,
+      browser: false,
+      noOpen: false,
+      interval: 360,
+    };
+    const terminal = new TerminalRenderer(cli);
+    await execute(cli, config, new Manager(config, terminal.output), terminal);
+    if (next.action === "review-build" && !next.dryRun && !cli.json && process.exitCode === 0)
+      console.error(
+        "Review the changes with nix-manager ui, or write and activate them with nix-manager software apply (--boot for the next boot).",
+      );
     return;
   }
   const cli = await parseCli(args);
@@ -112,54 +191,7 @@ async function main(args: string[]) {
     return;
   }
   if (cli.mode === "run") {
-    const r = { ...cli.request, host: cli.request.host || config.hostKey };
-    // A normal command preview is entirely read-only, including operation state.
-    if (r.dryRun && !r.action.endsWith("-update")) {
-      const p = plan(config, r);
-      if (cli.json) console.log(JSON.stringify(p, null, 2));
-      else {
-        printPlan(p);
-      }
-      return;
-    }
-    const interrupt = () => manager.cancel();
-    process.on("SIGINT", interrupt);
-    process.on("SIGTERM", interrupt);
-    const heartbeat = setInterval(() => {
-      const active = manager.active;
-      if (active) terminal.heartbeat(active);
-    }, 15_000);
-    try {
-      terminal.begin(r, config);
-      try {
-        manager.start(r);
-      } catch (error) {
-        terminal.fail(error);
-        throw error;
-      }
-      const result = await manager.wait();
-      if (cli.json)
-        console.log(
-          JSON.stringify(
-            r.action === "check"
-              ? { operation: result, updates: manager.updates() }
-              : result,
-            null,
-            2,
-          ),
-        );
-      else terminal.finish(result);
-      process.exitCode =
-        result?.status === "succeeded"
-          ? 0
-          : result?.status === "cancelled"
-            ? 130
-            : 1;
-    } finally {
-      clearInterval(heartbeat);
-      process.off("SIGINT", interrupt);
-      process.off("SIGTERM", interrupt);
-    }
+    await execute(cli, config, manager, terminal);
     return;
   }
   const { startServer, browserAssets } = await import("./server");

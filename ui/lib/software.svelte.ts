@@ -1,4 +1,5 @@
 import type { Change } from "../../src/draft";
+import { changesScope, dropChange, freePath, mergeChanges, newFileProblem, rankImporters } from "../../src/changes";
 import type { Experience } from "../../src/curated";
 import type {
   CatalogEntry,
@@ -20,17 +21,9 @@ const remembered = (scope: Target) => localStorage.getItem(`nix-manager-file-${s
 /** Select value standing for a module file the edits create. */
 export const NEW_FILE = "\0new";
 
-const directory = (file: string) => file.split("/").slice(0, -1).join("/");
-
 /** Files inside the flake are relative; module files from elsewhere are store paths. */
 export const local = (file: string) => !file.startsWith("/");
 
-/** "Home Manager: programs/git.nix" style names for module files outside the flake. */
-export function origin(file: string) {
-  const inner = file.replace(/^\/nix\/store\/[a-z0-9]{32}-[^/]+\//, "");
-  if (inner === file) return file;
-  return inner.startsWith("nixos/modules/") ? `NixOS: ${inner.slice(14)}` : `Home Manager: ${inner.replace(/^modules\//, "")}`;
-}
 
 class SoftwareState {
   inventory = $state.raw<Inventory>();
@@ -205,36 +198,15 @@ class SoftwareState {
 
   /** A free path for a new module named `name`, next to the file new settings would go to. */
   suggestFile(scope: Target, name: string, near?: string) {
-    const folder = near ? directory(near) : scope === "home" ? "modules/home" : "modules/nixos";
-    const slug = name.toLowerCase().replace(/[^a-z0-9+-]+/g, "-").replace(/^-|-$/g, "") || "module";
-    const known = this.known(scope);
-    for (let n = 1; ; n++) {
-      const file = `${folder ? `${folder}/` : ""}${slug}${n > 1 ? `-${n}` : ""}.nix`;
-      if (!known.has(file)) return file;
-    }
+    return freePath(this.known(scope), name, near, scope === "home" ? "modules/home" : "modules/nixos");
   }
 
-  /** Why a path cannot be a new module file, if it cannot. */
   newFileProblem(scope: Target, file: string) {
-    if (!/^([A-Za-z0-9_+-][A-Za-z0-9._+-]*\/)*[A-Za-z0-9_+-][A-Za-z0-9._+-]*\.nix$/.test(file))
-      return "Use a path inside the flake ending in .nix, with letters, digits, dots, dashes and slashes.";
-    if (this.known(scope).has(file)) return "This file exists already.";
-    return undefined;
+    return newFileProblem(this.known(scope), file);
   }
 
-  /**
-   * The imported file a new module is best imported from: the folder's
-   * default.nix, a file in the same folder, then the closest folder above.
-   */
   importers(scope: Target, file: string) {
-    const folder = directory(file);
-    const score = (candidate: string) => {
-      const at = directory(candidate);
-      const inside = folder === at || folder.startsWith(`${at}/`) || !at;
-      const depth = at ? at.split("/").length : 0;
-      return (inside ? 100 + depth * 10 : 0) + (candidate.endsWith("/default.nix") || candidate === "default.nix" ? 5 : 0);
-    };
-    return [...(this.inventory?.[scope].importers ?? [])].sort((a, b) => score(b) - score(a) || a.localeCompare(b));
+    return rankImporters(this.inventory?.[scope].importers ?? [], file);
   }
 
   remember(scope: Target, file: string) {
@@ -254,46 +226,19 @@ class SoftwareState {
     }
   }
 
-  /**
-   * Adds edits to the draft. An edit replaces a pending edit of the same
-   * option, and cancels a pending opposite package edit instead of stacking.
-   */
+  /** Adds edits to the draft; setting an option back to its current value only drops the pending edit. */
   stage(next: Change[]) {
-    let changes = [...this.changes];
-    for (const change of next) {
-      if (change.kind === "create-module") {
-        if (!changes.some((item) => item.kind === "create-module" && item.file === change.file)) changes.push(change);
-      } else if ("attr" in change) {
-        const opposite = changes.findIndex(
-          (item) => "attr" in item && item.attr === change.attr && item.file === change.file && item.kind !== change.kind,
-        );
-        if (opposite >= 0) {
-          changes.splice(opposite, 1);
-          continue;
-        }
-        if (changes.some((item) => same(item, change))) continue;
-        changes.push(change);
-      } else {
-        changes = changes.filter(
-          (item) => !("option" in item && item.option === change.option && item.scope === change.scope),
-        );
-        // Setting an option back to its current value needs no edit.
+    return this.save(
+      mergeChanges(this.changes, next, (change) => {
+        if (change.kind !== "set-option") return false;
         const current = this.inventory?.[change.scope].options[change.option];
-        if (change.kind === "set-option" && current && !current.error && same(current.value, change.value)) continue;
-        changes.push(change);
-      }
-    }
-    return this.save(changes);
+        return Boolean(current && !current.error && same(current.value, change.value));
+      }),
+    );
   }
 
-  /** Removes an edit; removing a created file also removes the edits written into it. */
   unstage(index: number) {
-    const removed = this.changes[index];
-    return this.save(
-      this.changes.filter(
-        (change, position) => position !== index && !(removed?.kind === "create-module" && change.file === removed.file),
-      ),
-    );
+    return this.save(dropChange(this.changes, index));
   }
 
   clear() {
@@ -301,10 +246,7 @@ class SoftwareState {
   }
 
   /** The scope a review must build to include every pending edit. */
-  scope = $derived.by((): Scope => {
-    const scopes = new Set(this.changes.map((change) => change.scope));
-    return scopes.size > 1 ? "all" : scopes.has("system") ? "system" : "home";
-  });
+  scope = $derived<Scope>(changesScope(this.changes));
 
   prepare() {
     return app.prepare(this.scope, { edits: true });
@@ -313,27 +255,4 @@ class SoftwareState {
 
 export const software = new SoftwareState();
 
-const show = (value: unknown) => {
-  if (value === true) return "on";
-  if (value === false) return "off";
-  if (value === null || value === undefined) return "not set";
-  if (Array.isArray(value)) return value.length ? value.join(", ") : "empty";
-  return typeof value === "string" ? `"${value}"` : JSON.stringify(value);
-};
-export { show as showValue };
-
-/** A pending edit in words: what it does, and where. */
-export function describeChange(change: Change) {
-  switch (change.kind) {
-    case "add-package":
-      return { title: `Install ${change.attr.replace(/^pkgs\./, "")}`, detail: change.file };
-    case "remove-package":
-      return { title: `Remove ${change.attr.replace(/^pkgs\./, "")}`, detail: change.file };
-    case "set-option":
-      return { title: `${change.label ? `${change.label}: ` : ""}${change.option} ${show(change.value)}`, detail: change.file };
-    case "unset-option":
-      return { title: `Reset ${change.option} to its default`, detail: change.file };
-    case "create-module":
-      return { title: `Create ${change.file.split("/").at(-1)}`, detail: `${change.file}, imported from ${change.importer}` };
-  }
-}
+export { describeChange, origin, showValue } from "../../src/changes";

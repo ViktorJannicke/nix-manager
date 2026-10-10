@@ -136,6 +136,26 @@ as pending edits until prepared:
   Edited files must be tracked by Git, because flakes only see tracked files;
   created files are added with `git add --intent-to-add`.
 
+The same draft is available from a terminal. Edits are checked against the
+checkout before they are saved, and the dashboard shows them as pending edits:
+
+```bash
+nix-manager software search ripgrep
+nix-manager software add btop fd            # the used package list with most packages
+nix-manager software add --system htop --file modules/nixos/packages.nix
+nix-manager software set programs.fzf.enable true --new-file modules/home/programs/fzf.nix
+nix-manager software unset programs.zoxide.enable
+nix-manager software pending --diff
+nix-manager software drop 2                 # or clear
+nix-manager software prepare                # builds a review, like Prepare
+nix-manager software apply                  # writes and activates it; --boot, --dry-run
+```
+
+Values for `set` are JSON (`true`, `8080`, `["--height 40%"]`) or plain text.
+New settings go to the file that defines the option; `--file` or `--new-file`
+chooses one when the flake does not set it yet. `--new-file` imports the file from
+its folder's imported module unless `--import-from` names another.
+
 The other pages are Overview (active generations, the prepared next generation,
 reboot notices and recent activity), Updates (flake inputs and package pins, each
 selectable before preparing), Generations (rollback and cleanup), Activity (step

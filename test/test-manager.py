@@ -118,5 +118,16 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(calls, ["home-manager switch --rollback"])
 
+    def test_software_commands_use_the_draft_without_building(self):
+        result, calls, *_ = self.invoke(["software", "pending"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("No pending edits.", result.stdout)
+        for args in (["software", "prepare"], ["software", "drop", "1"], ["software", "apply"],
+                     ["software", "add", "--file", "../x.nix"], ["software", "frobnicate"]):
+            with self.subTest(args=args):
+                result, calls, *_ = self.invoke(args)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(calls, [])
+
 if __name__ == "__main__":
     unittest.main()
