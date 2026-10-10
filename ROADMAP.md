@@ -27,9 +27,11 @@ when it is finished. Tick items off in the commit that completes them.
 - [x] **Unfree up front.** Discover says before installing that an app is not free
   software and offers to allow it in the same pending edit, so prepare does not
   fail first.
-- [ ] **Undo.** A visible "Undo last change" that rolls back to the previous
+- [x] **Undo.** A visible "Undo last change" that rolls back to the previous
   generation (and offers to revert the edited files), described as going back
   to how the computer was at a given time.
+  Follow-up: the CLI has no `undo` command yet; a file edited since the change
+  blocks Undo (the Generations page still works then).
 
 ## 2. A settings page for the computer
 

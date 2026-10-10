@@ -218,3 +218,86 @@ test("edits only combine with reviewed builds of the checkout", () => {
   const steps = plan(config, request({ action: "review-build", reviewId: "ffffffff", edits: true })).steps;
   expect(steps.slice(0, 2).map((step) => step.internal)).toEqual(["stage-sources", "verify-edits"]);
 });
+
+test("an applied change can be undone, which puts its files back, and redone", async () => {
+  const config = setup();
+  // The home profile points at generation 5 before anything is applied.
+  rmSync(config.homeProfile);
+  symlinkSync("home-manager-5-link", config.homeProfile);
+  const snapshot = join(config.flake, "snapshot");
+  cpSync(join(config.flake, "modules"), join(snapshot, "modules"), { recursive: true });
+  writeFileSync(join(snapshot, "flake.nix"), "{}");
+  const output = join(config.flake, "home-output");
+  mkdirSync(output);
+  const package_ = (name: string) => ({ out: `/nix/store/${name}`, name, version: "1", description: null });
+  const calls: Command[] = [];
+  const manager = new Manager(config, undefined, (command) => {
+    calls.push(command);
+    const [program, verb, sub] = command.argv;
+    if (program === "cp") return runProcess(command);
+    return Effect.sync(() => {
+      if (verb === "flake" && sub === "metadata") {
+        const ref = command.argv[4];
+        return { code: 0, stdout: JSON.stringify({ path: ref === config.flake ? snapshot : ref.slice(5) }), stderr: "" };
+      }
+      if (verb === "eval") {
+        const source = command.argv[3].slice(5).split("#")[0];
+        const items = source === snapshot ? [package_("git")] : [package_("git"), package_("btop")];
+        return {
+          code: 0,
+          stdout: JSON.stringify({ packages: [{ file: `${source}/modules/apps.nix`, items }], options: [], resolved: ["/nix/store/btop"], used: [] }),
+          stderr: "",
+        };
+      }
+      if (command.argv.includes("--out-link")) symlinkSync(output, command.argv[command.argv.indexOf("--out-link") + 1]);
+      return { code: 0, stdout: "", stderr: "" };
+    });
+  });
+  const original = readFileSync(join(config.flake, "modules/apps.nix"), "utf8");
+  writeDraft(config, [btop]);
+  manager.start(request({ action: "review-build", reviewId: "aaaaaaaa", scope: "home", edits: true }));
+  expect((await manager.wait())?.status).toBe("succeeded");
+  manager.start(request({ action: "review-apply", reviewId: "aaaaaaaa", scope: "home" }));
+  const applied = (await manager.wait())!;
+  expect(applied.undo).toEqual({
+    changes: ["Install btop"],
+    generations: { home: 5 },
+    files: [{ path: "modules/apps.nix", created: false, written: expect.any(String) }],
+  });
+  const edited = readFileSync(join(config.flake, "modules/apps.nix"), "utf8");
+  expect(edited).toContain("btop");
+
+  // Undoing prepares the generation that was active before, for review.
+  manager.start(request({ action: "review-build", reviewId: "bbbbbbbb", scope: "home", undo: applied.id }));
+  expect((await manager.wait())?.status).toBe("succeeded");
+  expect(calls.some((command) => command.argv.includes(`${config.homeProfile}-5-link`))).toBe(true);
+  const [review] = await listReviews(config);
+  expect(review.undo?.operationId).toBe(applied.id);
+  expect(manager.plan(request({ action: "review-apply", reviewId: "bbbbbbbb", scope: "home" })).steps[0]).toMatchObject({
+    label: "Restore modules/apps.nix",
+    internal: "restore-sources",
+  });
+
+  // A file edited since is not overwritten.
+  writeFileSync(join(config.flake, "modules/apps.nix"), `${edited}# mine\n`);
+  manager.start(request({ action: "review-apply", reviewId: "bbbbbbbb", scope: "home" }));
+  const refused = (await manager.wait())!;
+  expect(refused.explanation?.title).toBe("modules/apps.nix was edited since");
+  expect(readFileSync(join(config.flake, "modules/apps.nix"), "utf8")).toEndWith("# mine\n");
+
+  writeFileSync(join(config.flake, "modules/apps.nix"), edited);
+  manager.start(request({ action: "review-build", reviewId: "cccccccc", scope: "home", undo: applied.id }));
+  await manager.wait();
+  manager.start(request({ action: "review-apply", reviewId: "cccccccc", scope: "home" }));
+  const undone = (await manager.wait())!;
+  expect(undone.status).toBe("succeeded");
+  expect(readFileSync(join(config.flake, "modules/apps.nix"), "utf8")).toBe(original);
+  expect(undone.undo?.changes).toEqual(["Undo: Install btop"]);
+
+  // The undo is itself a change that can be undone.
+  manager.start(request({ action: "review-build", reviewId: "dddddddd", scope: "home", undo: undone.id }));
+  await manager.wait();
+  manager.start(request({ action: "review-apply", reviewId: "dddddddd", scope: "home" }));
+  expect((await manager.wait())?.status).toBe("succeeded");
+  expect(readFileSync(join(config.flake, "modules/apps.nix"), "utf8")).toBe(edited);
+});

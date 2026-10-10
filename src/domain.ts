@@ -1,5 +1,5 @@
 import { Data, Schema } from "effect";
-import type { BuildReview } from "./contracts";
+import type { BuildReview, UndoPoint } from "./contracts";
 import type { Explanation } from "./explain";
 import { attr } from "./nix";
 
@@ -53,6 +53,8 @@ export const Request = Schema.Struct({
   activation: Schema.optional(Schema.Literal("switch", "boot")),
   /** Build the pending source edits into the review. */
   edits: Schema.optional(Schema.Boolean),
+  /** Review going back from the change this operation applied. */
+  undo: Schema.optional(Schema.String),
 });
 export type Request = typeof Request.Type;
 export const request = (overrides: Partial<Request> = {}): Request => ({
@@ -121,6 +123,12 @@ export function validate(r: Request): void {
     fail("A generation review cannot include edits.");
   if (r.generation !== undefined && r.action !== "review-build")
     fail("A generation can only be selected for review.");
+  if (r.undo !== undefined) {
+    if (r.action !== "review-build") fail("Undoing a change is prepared as a review.");
+    if (!validId(r.undo)) fail("A valid operation ID is required.");
+    if (r.edits || r.generation !== undefined || r.update || r.inputs?.length)
+      fail("An undo review cannot include edits, generations or input updates.");
+  }
   if (isReview(r.action)) {
     if (r.reviewId !== undefined && !validId(r.reviewId))
       fail("A valid review ID is required.");
@@ -156,7 +164,8 @@ export type InternalStep =
   | "write-lock"
   | "stage-sources"
   | "verify-edits"
-  | "write-sources";
+  | "write-sources"
+  | "restore-sources";
 export interface Command {
   label: string;
   argv: readonly string[];
@@ -189,7 +198,7 @@ export function resolveHost(hosts: Hosts, name: string): [string, Host] {
   return matches[0];
 }
 const nixFlags = ["--log-format", "internal-json", "--print-out-paths"];
-export function plan(config: Config, r: Request, review?: BuildReview): Plan {
+export function plan(config: Config, r: Request, review?: BuildReview, undo?: UndoPoint): Plan {
   validate(r);
   const [, h] = resolveHost(config.hosts, r.host || config.hostKey);
   const steps: Command[] = [];
@@ -280,6 +289,21 @@ export function plan(config: Config, r: Request, review?: BuildReview): Plan {
         `${profile}-${r.generation}-link`,
         `${root}/${r.scope}`,
       );
+    } else if (r.undo !== undefined) {
+      if (!undo) throw new ManagerError({ message: "The change to undo is unavailable." });
+      for (const scope of ["home", "system"] as const) {
+        if (scope === "home" ? !home : !system) continue;
+        const number = undo.generations[scope];
+        if (number === undefined)
+          throw new ManagerError({ message: `The change did not record the ${scope} generation it replaced.` });
+        build(
+          `Retain ${scope} generation ${number}`,
+          `${scope === "home" ? config.homeProfile : systemProfile}-${number}-link`,
+          `${root}/${scope}`,
+        );
+      }
+      if (undo.files.length)
+        notes.push("Applying the undo also restores the configuration files the change wrote.");
     } else {
       if (r.edits) {
         add("Stage the edited files", [], { internal: "stage-sources" });
@@ -334,6 +358,10 @@ export function plan(config: Config, r: Request, review?: BuildReview): Plan {
       );
     if (review.inputs)
       add("Write the reviewed flake.lock", [], { internal: "write-lock" });
+    if (review.undo?.point.files.length) {
+      const files = review.undo.point.files;
+      add(`Restore ${files.length === 1 ? files[0].path : `${files.length} files`}`, [], { internal: "restore-sources" });
+    }
     if (home && review.home && mode === "switch") activateHome(review.home.path);
     if (system && review.system) activateSystem(review.system.path, mode);
     if (!steps.some((step) => !step.internal))

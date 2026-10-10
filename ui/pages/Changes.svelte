@@ -6,7 +6,7 @@
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
   import type { BuildReview, EditEffect, ReviewOutput } from "../../src/contracts";
-  import { bytes, day, plural, relative, shortRev, summarize } from "$lib/format";
+  import { bytes, dateTime, day, plural, relative, shortRev, summarize } from "$lib/format";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
   import Segmented from "$lib/components/app/Segmented.svelte";
   import PackageChanges from "$lib/components/app/PackageChanges.svelte";
@@ -54,6 +54,11 @@
     if (created.length)
       points.push(`Creates ${created.map((file) => file.path).join(", ")} and adds ${created.length === 1 ? "it" : "them"} to Git, so the flake can read ${created.length === 1 ? "it" : "them"}.`);
     if (review.inputs) points.push("Writes the reviewed flake.lock into your checkout.");
+    const restored = review.undo?.point.files ?? [];
+    const deleted = restored.filter((file) => file.created).map((file) => file.path);
+    const put = restored.filter((file) => !file.created).map((file) => file.path);
+    if (put.length) points.push(`Puts back ${put.join(", ")} as ${put.length === 1 ? "it was" : "they were"} before that change.`);
+    if (deleted.length) points.push(`Deletes ${deleted.join(", ")}, which that change created.`);
     if (review.home && activation === "switch") points.push("Activates the reviewed Home Manager generation.");
     if (review.home && activation === "boot") points.push("Home changes are not applied on boot; apply them separately.");
     if (review.system)
@@ -167,6 +172,20 @@
             <p class="flex gap-2 rounded-lg bg-muted px-3 py-2">
               <TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
               New kernel {review.system?.kernel?.after}; a restart is needed to use it.
+            </p>
+          {/if}
+        </div>
+      {/if}
+
+      {#if review.undo}
+        <div class="mt-4 rounded-lg bg-card px-3 py-2">
+          <p class="font-medium">Goes back to how it was before {dateTime(review.undo.appliedAt)}, undoing:</p>
+          <ul class="mt-1 list-disc pl-5 text-muted-foreground">
+            {#each review.undo.point.changes as change, index (index)}<li>{change}</li>{/each}
+          </ul>
+          {#if review.undo.point.files.length}
+            <p class="mt-1 text-xs text-muted-foreground">
+              Applying also restores {review.undo.point.files.map((file) => file.path).join(", ")}.
             </p>
           {/if}
         </div>

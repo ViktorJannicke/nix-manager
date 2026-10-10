@@ -53,7 +53,26 @@ export interface Operation {
   /** The error in plain words, when it is a known one. */
   explanation?: Explanation;
   finishingPrivilegedStep?: boolean;
+  /** What an applied change replaced, so that it can be undone. */
+  undo?: UndoPoint;
 }
+
+/** The state an applied change replaced. */
+export interface UndoPoint {
+  /** What the change did, in words. */
+  changes: string[];
+  /** Profile generations that were active before. */
+  generations: { home?: number; system?: number };
+  /**
+   * Files the change wrote, with a hash of what it wrote (null when it deleted
+   * the file). Their earlier content is kept beside the operation, outside
+   * snapshots.
+   */
+  files: { path: string; created: boolean; written: string | null }[];
+}
+
+/** Earlier content of the files an undo point lists, by path; created files have none. */
+export type UndoContents = Record<string, string>;
 
 export interface Generation {
   number: number;
@@ -169,6 +188,8 @@ export interface BuildReview {
   home?: ReviewOutput;
   system?: ReviewOutput;
   operationId?: string;
+  /** For an undo: the applied change it reverses, from that change's operation. */
+  undo?: { operationId: string; appliedAt: string; point: UndoPoint };
 }
 
 export interface Snapshot {

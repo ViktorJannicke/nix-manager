@@ -1,10 +1,10 @@
-import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { Effect } from "effect";
 import { ManagerError, reviewRoot, type Config, type Request } from "./domain";
-import type { EditEffect, EditedPackage, ReviewEdits } from "./contracts";
+import type { EditEffect, EditedPackage, ReviewEdits, UndoContents, UndoPoint } from "./contracts";
 import { changeHash, renderDraft, sourcePath, subject, type Change, type EditedFile } from "./draft";
 import { explain } from "./explain";
 import { attr } from "./nix";
@@ -319,6 +319,77 @@ export const writeSources = (config: Config, reviewId: string, edits: ReviewEdit
       yield* command("Add created files to Git", ["git", "-C", config.flake, "add", "--intent-to-add", "--", ...created], {
         quiet: true,
       });
+  });
+
+/** A module file of the checkout, or its flake.lock. */
+const checkoutPath = (config: Config, path: string) =>
+  path === "flake.lock" ? join(config.flake, path) : sourcePath(config.flake, path);
+
+/** Checkout files as they are now, keyed by flake-relative path; absent files are undefined. */
+export const readSources = (config: Config, paths: readonly string[]) =>
+  new Map(
+    paths.map((path) => {
+      const file = checkoutPath(config, path);
+      return [path, existsSync(file) ? readFileSync(file, "utf8") : undefined] as const;
+    }),
+  );
+
+/** What writing the files in `before` replaced: their earlier content, and a hash of each file now. */
+export const undoFiles = (config: Config, before: Map<string, string | undefined>) => {
+  const contents: UndoContents = {};
+  const files = [...readSources(config, [...before.keys()])].map(([path, now]): UndoPoint["files"][number] => {
+    const earlier = before.get(path);
+    if (earlier !== undefined) contents[path] = earlier;
+    return { path, created: earlier === undefined, written: now === undefined ? null : hashText(now) };
+  });
+  return { files, contents };
+};
+
+/**
+ * Puts back the files an applied change wrote, unless any changed since.
+ * Files the change created are deleted and leave Git's index.
+ */
+export const restoreSources = (config: Config, point: UndoPoint, contents: UndoContents) =>
+  Effect.gen(function* () {
+    yield* Effect.try({
+      try: () => {
+        const now = readSources(config, point.files.map((file) => file.path));
+        for (const file of point.files) {
+          if (!file.created && contents[file.path] === undefined)
+            throw new ManagerError({ message: `The earlier content of ${file.path} is missing.` });
+          const current = now.get(file.path);
+          if (current === undefined ? file.written !== null : hashText(current) !== file.written)
+            throw new ManagerError({
+              message: `${file.path} changed after the change was applied, so it cannot be put back automatically.`,
+              explanation: {
+                title: `${file.path} was edited since`,
+                body: "Undo puts back the files exactly as they were and would lose those edits. Go back on the Generations page instead, which leaves your files as they are.",
+              },
+            });
+        }
+        for (const file of point.files) {
+          const path = checkoutPath(config, file.path);
+          if (file.created) rmSync(path, { force: true });
+          else {
+            mkdirSync(dirname(path), { recursive: true });
+            atomicWrite(path, contents[file.path], existsSync(path) ? statSync(path).mode & 0o777 : 0o644);
+          }
+        }
+      },
+      catch: (error) =>
+        error instanceof ManagerError ? error : new ManagerError({ message: `Restore files: ${error}` }),
+    });
+    // Git's index follows, so the flake sees exactly the files it saw before.
+    const removed = point.files.filter((file) => file.created).map((file) => file.path);
+    const recreated = point.files.filter((file) => !file.created && file.written === null).map((file) => file.path);
+    if (existsSync(join(config.flake, ".git"))) {
+      if (removed.length)
+        yield* command("Remove created files from Git", ["git", "-C", config.flake, "rm", "--cached", "--quiet", "--ignore-unmatch", "--", ...removed], {
+          quiet: true,
+        });
+      if (recreated.length)
+        yield* command("Add restored files to Git", ["git", "-C", config.flake, "add", "--intent-to-add", "--", ...recreated], { quiet: true });
+    }
   });
 
 /** The draft without the changes a review applied. */

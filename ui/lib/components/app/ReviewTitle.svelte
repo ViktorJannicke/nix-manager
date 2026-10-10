@@ -1,12 +1,14 @@
 <script lang="ts">
   import type { BuildReview } from "../../../../src/contracts";
-  import { scopeLabel } from "$lib/format";
+  import { dateTime, scopeLabel } from "$lib/format";
 
   let { review }: { review: BuildReview } = $props();
   const what = $derived(scopeLabel(review.scope).toLowerCase());
 </script>
 
-{#if review.source === "generation"}
+{#if review.undo}
+  Undo the change from {dateTime(review.undo.appliedAt)} <span class="font-normal text-muted-foreground">({what})</span>
+{:else if review.source === "generation"}
   Return {review.scope} to generation {review.generation}
 {:else if review.source === "inputs"}
   {#if review.inputs?.names.length}

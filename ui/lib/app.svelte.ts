@@ -51,6 +51,8 @@ interface LogView {
 const LOG_CHARACTERS = 400_000;
 const encoder = new TextEncoder();
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
+/** Actions that change what is active. */
+const activations = new Set<Request["action"]>(["review-apply", "switch", "boot", "rollback"]);
 
 function initialPage(): Page {
   const value = new URLSearchParams(location.search).get("view");
@@ -96,6 +98,21 @@ class AppState {
   foreignHost = $derived(Boolean(this.snapshot && this.host !== this.snapshot.config.hostKey));
   inputUpdates = $derived(this.updates?.items.filter((item) => item.kind === "input") ?? []);
   packageUpdates = $derived(this.updates?.items.filter((item) => item.kind === "package") ?? []);
+  /**
+   * The latest change that activated something, while it can be undone: it
+   * recorded what it replaced and those generations still exist.
+   */
+  lastChange = $derived.by(() => {
+    const last = this.snapshot?.operations.find(
+      (operation) => operation.status === "succeeded" && activations.has(operation.request.action) && !operation.request.dryRun,
+    );
+    if (!last?.undo || last.request.activation === "boot") return undefined;
+    const kept = (scope: "home" | "system") => {
+      const number = last.undo!.generations[scope];
+      return number === undefined || Boolean(this.system?.generations[scope].some((generation) => generation.number === number));
+    };
+    return kept("home") && kept("system") ? (last as Operation & { undo: NonNullable<Operation["undo"]> }) : undefined;
+  });
 
   start() {
     this.applyTheme(this.theme);
@@ -119,6 +136,11 @@ class AppState {
       media.removeEventListener("change", onScheme);
       removeEventListener("popstate", onPop);
     };
+  }
+
+  /** Prepares going back from an applied change, for review. */
+  undo(operation: Operation) {
+    return this.prepare(operation.request.scope, { host: operation.request.host, undo: operation.id });
   }
 
   /** Opens the feature that allows what a failure refused, for the configuration that refused it. */
@@ -369,6 +391,7 @@ class AppState {
         tone: "success",
         title: r.activation === "boot" ? "Will apply on next boot" : "Changes applied",
         body: r.activation === "boot" ? "The new system becomes active after a restart." : undefined,
+        action: operation.undo && r.activation !== "boot" ? { label: "Undo", run: () => void this.undo(operation) } : undefined,
       });
       this.navigate("overview");
     } else if (r.action === "check") {

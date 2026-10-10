@@ -96,6 +96,7 @@ export const compareReview = (
   operationId: string,
   run: Run,
   edits?: ReviewEdits,
+  undo?: BuildReview["undo"],
 ) =>
   Effect.gen(function* () {
     const id = r.reviewId!;
@@ -167,8 +168,9 @@ export const compareReview = (
       scope: r.scope,
       createdAt: new Date().toISOString(),
       fingerprint: base.fingerprint,
-      source: r.generation !== undefined ? "generation" : proposal ? "inputs" : "checkout",
+      source: r.generation !== undefined || undo ? "generation" : proposal ? "inputs" : "checkout",
       ...(r.generation !== undefined ? { generation: r.generation } : {}),
+      ...(undo ? { undo } : {}),
       ...(edits ? { edits } : {}),
       ...(proposal
         ? {

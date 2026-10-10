@@ -74,6 +74,13 @@ async function systemMeta(link: string) {
   return { version: version?.trim() || undefined, kernel: kernelVersion(kernel) };
 }
 
+/** The generation number a profile link points to, such as 79 for system-79-link. */
+export async function profileGeneration(profile: string): Promise<number | undefined> {
+  const target = await safe(() => readlink(profile));
+  const number = Number(target?.match(/-(\d+)-link$/)?.[1]);
+  return Number.isInteger(number) && number > 0 ? number : undefined;
+}
+
 export async function generations(
   profile: string,
   current: string | undefined,

@@ -3,6 +3,7 @@
   import CloudDownloadIcon from "@lucide/svelte/icons/cloud-download";
   import { Button } from "$lib/components/ui/button";
   import PencilLineIcon from "@lucide/svelte/icons/pencil-line";
+  import Undo2Icon from "@lucide/svelte/icons/undo-2";
   import { app } from "$lib/app.svelte";
   import { describeChange, software } from "$lib/software.svelte";
   import { bytes, duration, plural, relative, scopeLabel, shortRev } from "$lib/format";
@@ -21,6 +22,8 @@
   const disk = $derived(system?.disk);
   const draft = $derived(software.draft);
   const preparing = $derived(running?.request.action === "review-build" && running.request.edits);
+  const last = $derived(app.lastChange);
+  const undoing = $derived(Boolean(last && running?.request.undo === last.id));
 
   function open(id: string) {
     app.selectOperation(id);
@@ -75,6 +78,25 @@
           {preparing ? "Preparing…" : "Prepare"}
         </Button>
       </div>
+    </section>
+  {/if}
+
+  {#if last}
+    <section class="panel flex flex-wrap items-start gap-4 p-4" aria-labelledby="last-change">
+      <Undo2Icon class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <div class="min-w-0 flex-1">
+        <h2 id="last-change" class="font-semibold">Last change, {relative(last.finishedAt ?? last.startedAt, app.now)}</h2>
+        <ul class="mt-1 text-muted-foreground">
+          {#each last.undo.changes.slice(0, 3) as change, index (index)}<li class="truncate">{change}</li>{/each}
+          {#if last.undo.changes.length > 3}<li>and {last.undo.changes.length - 3} more</li>{/if}
+        </ul>
+        <p class="mt-1 text-xs text-muted-foreground">
+          Undo goes back to how {last.request.scope === "home" ? "your user's setup" : "this computer"} was before{last.undo.files.length ? ", configuration files included" : ""}. You see what changes before anything is applied.
+        </p>
+      </div>
+      <Button variant="outline" size="sm" disabled={app.busy || !app.connected} onclick={() => app.undo(last)}>
+        {undoing ? "Preparing…" : "Undo"}
+      </Button>
     </section>
   {/if}
 

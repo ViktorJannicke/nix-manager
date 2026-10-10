@@ -26,6 +26,7 @@ import {
   formatCommand,
   isPackage,
   reviewRoot,
+  systemProfile,
 } from "./domain";
 import { Runner, runProcess, type Output } from "./process";
 import {
@@ -41,14 +42,30 @@ import type {
   ManagerEvent,
   Operation,
   StepOutcome,
+  UndoContents,
+  UndoPoint,
 } from "./contracts";
 import { compareReview, getReview, removeReview, writeReviewedLock, type ReviewBase } from "./reviews";
-import { readLock, repositoryState } from "./observe";
+import { profileGeneration, readLock, repositoryState } from "./observe";
 import { readDraft, writeDraft } from "./draft";
-import { remaining, stageSources, verifyEdits, writeSources, type Staged } from "./edits";
+import { describeChange } from "./changes";
+import { readSources, remaining, restoreSources, stageSources, undoFiles, verifyEdits, writeSources, type Staged } from "./edits";
 import type { ReviewEdits } from "./contracts";
 import { stripAnsi } from "./nix";
 export type { Operation } from "./contracts";
+
+/** What applying a review changes, in words. */
+const describeReview = (review: BuildReview): string[] => {
+  const changes = [
+    ...(review.edits?.changes.map((change) => describeChange(change).title) ?? []),
+    ...(review.inputs ? [review.inputs.names.length ? `Update ${review.inputs.names.join(", ")}` : "Update all inputs"] : []),
+    ...(review.undo ? [`Undo: ${review.undo.point.changes.join("; ")}`] : []),
+    ...(review.source === "generation" && review.generation !== undefined && !review.undo
+      ? [`Go back to ${review.scope} generation ${review.generation}`]
+      : []),
+  ];
+  return changes.length ? changes : ["Apply the configuration"];
+};
 let libc: ReturnType<typeof openLibc> | undefined;
 const openLibc = () =>
   dlopen("libc.so.6", {
@@ -226,8 +243,25 @@ export class Manager {
   get active() {
     return this.current?.operation;
   }
-  /** Completes a request: new review IDs and the stored review to apply. */
-  resolve(r: Request): { request: Request; review?: BuildReview } {
+  /** The undo point an applied change recorded, with the earlier file contents. */
+  private undoPoint(id: string) {
+    const operation = this.history().find((op) => op.id === id);
+    if (!operation?.undo)
+      throw new ManagerError({ message: "This change cannot be undone: it recorded nothing to go back to." });
+    const path = this.path(id, "undo");
+    const contents: UndoContents = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {};
+    return { operation, point: operation.undo, contents };
+  }
+  /** Completes a request: new review IDs, the stored review to apply, and the change to undo. */
+  resolve(r: Request): { request: Request; review?: BuildReview; undo?: { operation: Operation; point: UndoPoint } } {
+    if (r.action === "review-build" && r.undo) {
+      const { operation, point } = this.undoPoint(r.undo);
+      // An undo covers what the change applied, on the host it applied to.
+      return {
+        request: { ...r, scope: operation.request.scope, host: operation.request.host, reviewId: r.reviewId ?? crypto.randomUUID() },
+        undo: { operation, point },
+      };
+    }
     if (r.action === "review-build" && !r.reviewId)
       return { request: { ...r, reviewId: crypto.randomUUID() } };
     if (r.action === "review-apply" && r.reviewId)
@@ -235,12 +269,12 @@ export class Manager {
     return { request: r };
   }
   plan(r: Request) {
-    const { request, review } = this.resolve(r);
-    return plan(this.config, request, review);
+    const { request, review, undo } = this.resolve(r);
+    return plan(this.config, request, review, undo?.point);
   }
   start(input: Request): Operation {
-    const { request: r, review } = this.resolve(input);
-    const preview = plan(this.config, r, review);
+    const { request: r, review, undo } = this.resolve(input);
+    const preview = plan(this.config, r, review, undo?.point);
     if (this.busy)
       throw new ManagerError({ message: "An operation is already running." });
     const release = acquireLock(this.config.stateDir);
@@ -381,6 +415,8 @@ export class Manager {
           return result;
         }),
     });
+    // Set when an activation succeeds, so the change can be undone.
+    let undoable: (Pick<UndoPoint, "generations" | "files"> & { contents: UndoContents }) | undefined;
     const program = Effect.gen(this, function* () {
       for (const note of preview.notes) log(note);
       if (r.action === "check") {
@@ -433,6 +469,20 @@ export class Manager {
       const draft = r.edits ? readDraft(this.config) : [];
       let staged: Staged | undefined;
       let edits: ReviewEdits | undefined;
+      // What applying replaces, recorded so the change can be undone.
+      const replaced: { files: UndoPoint["files"]; contents: UndoContents } = { files: [], contents: {} };
+      const record = (before: Map<string, string | undefined>) => {
+        const { files, contents } = undoFiles(this.config, before);
+        replaced.files.push(...files);
+        Object.assign(replaced.contents, contents);
+      };
+      const generations: UndoPoint["generations"] = {};
+      if (r.action === "review-apply" && !r.dryRun) {
+        if (r.scope !== "system" && review?.home)
+          generations.home = yield* Effect.promise(() => profileGeneration(this.config.homeProfile));
+        if (r.scope !== "home" && review?.system)
+          generations.system = yield* Effect.promise(() => profileGeneration(systemProfile));
+      }
       if (r.action === "review-build" && !r.dryRun)
         base = yield* Effect.promise(async () => ({
           fingerprint: (await repositoryState(this.config.flake)).fingerprint,
@@ -446,7 +496,15 @@ export class Manager {
         } else if (step.internal) {
           const outcome = startStep(step.label);
           if (step.internal === "compare") {
-            const result = yield* compareReview(this.config, r, base!, operation.id, quiet, edits);
+            const result = yield* compareReview(
+              this.config,
+              r,
+              base!,
+              operation.id,
+              quiet,
+              edits,
+              undo && { operationId: undo.operation.id, appliedAt: undo.operation.finishedAt ?? undo.operation.startedAt, point: undo.point },
+            );
             const packages = (result.home?.changes.length ?? 0) + (result.system?.changes.length ?? 0);
             log(`${packages} package ${packages === 1 ? "change is" : "changes are"} ready for review.`);
           } else if (step.internal === "stage-sources") {
@@ -465,11 +523,25 @@ export class Manager {
                 log(`${effect.scope}: ${option.option} = ${JSON.stringify(option.after) ?? "default"}`);
             }
           } else if (step.internal === "write-sources") {
+            const before = readSources(this.config, review!.edits!.files.map((file) => file.path));
             yield* writeSources(this.config, review!.id, review!.edits!);
-          } else yield* writeReviewedLock(this.config, review!);
+            record(before);
+          } else if (step.internal === "restore-sources") {
+            const { point } = review!.undo!;
+            const { contents } = this.undoPoint(review!.undo!.operationId);
+            const before = readSources(this.config, point.files.map((file) => file.path));
+            yield* restoreSources(this.config, point, contents).pipe(Effect.provide(Layer.succeed(Runner, { run: quiet })));
+            record(before);
+          } else {
+            const before = readSources(this.config, ["flake.lock"]);
+            yield* writeReviewedLock(this.config, review!);
+            record(before);
+          }
           finishStep(outcome, "succeeded");
         } else yield* (yield* Runner).run(step);
       }
+      if (r.action === "review-apply" && !r.dryRun && (r.activation ?? "switch") === "switch")
+        if (generations.home !== undefined || generations.system !== undefined) undoable = { generations, ...replaced };
     }).pipe(Effect.provide(Layer.merge(runLayer, this.network)));
     const promise = Promise.resolve().then(async () => {
       try {
@@ -479,6 +551,10 @@ export class Manager {
         if (Exit.isSuccess(exit)) {
           operation.status = "succeeded";
           operation.step = r.dryRun ? "Preview complete" : "Complete";
+          if (review && undoable) {
+            operation.undo = { changes: describeReview(review), generations: undoable.generations, files: undoable.files };
+            atomicJson(this.path(operation.id, "undo"), undoable.contents);
+          }
         } else {
           operation.status = Cause.isInterruptedOnly(exit.cause)
             ? "cancelled"
