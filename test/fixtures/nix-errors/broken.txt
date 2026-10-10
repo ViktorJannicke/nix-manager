@@ -1,0 +1,31 @@
+error:
+       … while evaluating the attribute 'drvPath'
+         at /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/lib/customisation.nix:416:11:
+          415|         // {
+          416|           drvPath =
+             |           ^
+          417|             assert condition;
+
+       … in the condition of the assert statement
+         at /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/lib/customisation.nix:417:13:
+          416|           drvPath =
+          417|             assert condition;
+             |             ^
+          418|             drv.drvPath;
+
+       (stack trace truncated; use '--show-trace' to show the full, detailed trace)
+
+       error: Refusing to evaluate package 'hello-2.12.3' in /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/pkgs/by-name/he/hello/package.nix:58 because it has problems:
+       - broken: This package is broken.
+
+       See also https://nixos.org/manual/nixpkgs/unstable#sec-problems
+       To allow evaluation regardless, use:
+       - Nixpkgs import: import nixpkgs { config = <below code>; }
+       - NixOS: nixpkgs.config = <below code>;
+       - nix-* commands: Put below code in ~/.config/nixpkgs/config.nix
+
+         {
+           problems.handlers = {
+             hello.broken = "warn"; # or "ignore"
+           };
+         }

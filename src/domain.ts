@@ -1,9 +1,12 @@
 import { Data, Schema } from "effect";
 import type { BuildReview } from "./contracts";
+import type { Explanation } from "./explain";
 import { attr } from "./nix";
 
 export class ManagerError extends Data.TaggedError("ManagerError")<{
   message: string;
+  /** The failure in plain words, when it is a known one. */
+  explanation?: Explanation;
 }> {}
 
 export const Host = Schema.Struct({

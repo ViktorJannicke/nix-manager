@@ -1,0 +1,23 @@
+error:
+       … while evaluating the attribute 'value'
+         at /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/lib/modules.nix:1181:7:
+         1180|     // {
+         1181|       value = addErrorContext "while evaluating the option `${showOption loc}':" (
+             |       ^
+         1182|         # Apply the 'apply' function to the merged value. This allows options to
+
+       … while evaluating the option `networking.hostName':
+
+       … while evaluating the attribute 'mergedValue'
+         at /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/lib/modules.nix:1276:5:
+         1275|     # Type-check the remaining definitions, and merge them. Or throw if no definitions.
+         1276|     mergedValue =
+             |     ^
+         1277|       if isDefined then
+
+       (stack trace truncated; use '--show-trace' to show the full, detailed trace)
+
+       error: The option `networking.hostName' has conflicting definition values:
+       - In `<unknown-file>': "b"
+       - In `<unknown-file>': "a"
+       Use `lib.mkForce value` or `lib.mkDefault value` to change the priority on any of these definitions.

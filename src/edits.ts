@@ -6,6 +6,8 @@ import { Effect } from "effect";
 import { ManagerError, reviewRoot, type Config, type Request } from "./domain";
 import type { EditEffect, EditedPackage, ReviewEdits } from "./contracts";
 import { changeHash, renderDraft, sourcePath, subject, type Change, type EditedFile } from "./draft";
+import { explain } from "./explain";
+import { attr } from "./nix";
 import { hashText } from "./observe";
 import { flakeSource } from "./packages";
 import { attempt, command } from "./process";
@@ -151,10 +153,24 @@ export const verifyEdits = (config: Config, r: Request, staged: Staged, changes:
             if ("attr" in change) {
               const position = index++;
               const out = (change.kind === "add-package" ? after : before).resolved[position];
-              if (!out)
-                return yield* Effect.fail(
-                  new ManagerError({ message: `${change.attr} does not exist in ${name}'s packages.` }),
+              if (!out) {
+                // Evaluating it again without tryEval yields Nix's reason, such as an unfree license.
+                const path = splitAttr(change.attr)!.slice(1).map(attr).join(".");
+                const result = yield* command(
+                  "Evaluate package",
+                  ["nix", "eval", "--raw", `path:${change.kind === "add-package" ? edited : staged.original}#${attribute}.pkgs.${path}.outPath`],
+                  { quiet: true, allowFailure: true },
                 );
+                const explanation = explain(result.stderr);
+                return yield* Effect.fail(
+                  new ManagerError({
+                    message: explanation
+                      ? `${change.attr} cannot be added to ${name}: ${explanation.title}.`
+                      : `${change.attr} does not exist in ${name}'s packages.`,
+                    explanation,
+                  }),
+                );
+              }
               const list = change.kind === "add-package" ? added : removed;
               if (!list.some((item) => item.out === out && item.file === change.file))
                 return yield* Effect.fail(

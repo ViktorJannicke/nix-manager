@@ -490,3 +490,17 @@ test("runner interruption terminates the entire child process group", async () =
     .catch(() => "");
   expect(status === "" || status.includes(") Z ")).toBe(true);
 }, 8000);
+
+test("a failed command explains a known Nix error", async () => {
+  const error = await Effect.runPromise(
+    Effect.flip(
+      runProcess({
+        label: "Build",
+        argv: [process.execPath, "-e", "console.error('error: writing to file: No space left on device'); process.exit(1)"],
+        quiet: true,
+      }),
+    ),
+  );
+  expect(error.message).toContain("Build failed (exit 1)");
+  expect(error.explanation?.title).toBe("The disk is full");
+});

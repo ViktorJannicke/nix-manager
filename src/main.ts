@@ -262,6 +262,8 @@ if (import.meta.main) {
     if (Option.isSome(failure) && failure.value instanceof ManagerError) {
       if (failure.value.message !== "Command-line parsing failed.")
         console.error(`Error: ${failure.value.message}`);
+      if (failure.value.explanation)
+        console.error(`\n${failure.value.explanation.title}.\n${failure.value.explanation.body}`);
     } else console.error(Cause.pretty(exit.cause));
     process.exitCode = 1;
   }

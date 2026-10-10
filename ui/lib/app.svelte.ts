@@ -336,8 +336,8 @@ class AppState {
     if (operation.status !== "succeeded") {
       this.toast({
         tone: "error",
-        title: `${label} failed`,
-        body: operation.error,
+        title: operation.explanation ? `${label} failed: ${operation.explanation.title}` : `${label} failed`,
+        body: operation.explanation?.body ?? operation.error,
         action: {
           label: "View log",
           run: () => {

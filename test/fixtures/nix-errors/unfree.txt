@@ -1,0 +1,39 @@
+error:
+       … while evaluating the attribute 'steam.drvPath'
+         at /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/lib/customisation.nix:416:11:
+          415|         // {
+          416|           drvPath =
+             |           ^
+          417|             assert condition;
+
+       … in the condition of the assert statement
+         at /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/lib/customisation.nix:417:13:
+          416|           drvPath =
+          417|             assert condition;
+             |             ^
+          418|             drv.drvPath;
+
+       (stack trace truncated; use '--show-trace' to show the full, detailed trace)
+
+       error: Refusing to evaluate package 'steam-1.0.0.87' in /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/pkgs/by-name/st/steam-unwrapped/package.nix:47 because it has an unfree license (‘unfreeRedistributable’)
+       a) To temporarily allow unfree packages, you can use an environment variable
+          for a single invocation of the nix tools.
+
+            $ export NIXPKGS_ALLOW_UNFREE=1
+
+          Note: When using `nix shell`, `nix build`, `nix develop`, etc with a flake,
+                then pass `--impure` in order to allow use of environment variables.
+
+       b) For `nixos-rebuild` you can set
+         { nixpkgs.config.allowUnfree = true; }
+       in configuration.nix to override this.
+
+       Alternatively you can configure a predicate to allow specific packages:
+         { nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
+             "steam"
+           ];
+         }
+
+       c) For `nix-env`, `nix-build`, `nix-shell` or any other Nix command you can add
+         { allowUnfree = true; }
+       to ~/.config/nixpkgs/config.nix.

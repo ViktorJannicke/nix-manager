@@ -1,0 +1,52 @@
+error:
+       … while evaluating the attribute 'drvPath'
+         at /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/lib/customisation.nix:416:11:
+          415|         // {
+          416|           drvPath =
+             |           ^
+          417|             assert condition;
+
+       … in the condition of the assert statement
+         at /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/lib/customisation.nix:417:13:
+          416|           drvPath =
+          417|             assert condition;
+             |             ^
+          418|             drv.drvPath;
+
+       (stack trace truncated; use '--show-trace' to show the full, detailed trace)
+
+       error: Refusing to evaluate package 'hello-2.12.3' in /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/pkgs/by-name/he/hello/package.nix:58 because it is marked as insecure
+
+       Known issues:
+        - CVE-1
+
+       You can install it anyway by allowing this package, using the
+       following methods:
+
+       a) To temporarily allow all insecure packages, you can use an environment
+          variable for a single invocation of the nix tools:
+
+            $ export NIXPKGS_ALLOW_INSECURE=1
+
+          Note: When using `nix shell`, `nix build`, `nix develop`, etc with a flake,
+                then pass `--impure` in order to allow use of environment variables.
+
+       b) for `nixos-rebuild` you can add ‘hello-2.12.3’ to
+          `nixpkgs.config.permittedInsecurePackages` in the configuration.nix,
+          like so:
+
+            {
+              nixpkgs.config.permittedInsecurePackages = [
+                "hello-2.12.3"
+              ];
+            }
+
+       c) For `nix-env`, `nix-build`, `nix-shell` or any other Nix command you can add
+          ‘hello-2.12.3’ to `permittedInsecurePackages` in
+          ~/.config/nixpkgs/config.nix, like so:
+
+            {
+              permittedInsecurePackages = [
+                "hello-2.12.3"
+              ];
+            }

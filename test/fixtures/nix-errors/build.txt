@@ -1,0 +1,11 @@
+this derivation will be built:
+  /nix/store/fr3lpnfcxkdd35avdaf89dnbzjn3ydzp-libfoo-1.2.drv
+building '/nix/store/fr3lpnfcxkdd35avdaf89dnbzjn3ydzp-libfoo-1.2.drv'...
+error: Cannot build '/nix/store/fr3lpnfcxkdd35avdaf89dnbzjn3ydzp-libfoo-1.2.drv'.
+       Reason: builder failed with exit code 3.
+       Output paths:
+         /nix/store/wm23wzs21s6953gj6srmmglw1bjmxlb3-libfoo-1.2
+       Last 1 log lines:
+       > compiling
+       For full logs, run:
+         nix log /nix/store/fr3lpnfcxkdd35avdaf89dnbzjn3ydzp-libfoo-1.2.drv

@@ -1,0 +1,12 @@
+error:
+       … while calling the 'import' builtin
+         at /home/user/config/flake.nix:1:22:
+            1| { outputs = _: { x = import ./a.nix; }; }
+             |                      ^
+            2|
+
+       error: Path 'a.nix' in the repository "/home/user/config" is not tracked by Git.
+
+       To make it visible to Nix, run:
+
+       git -C "/home/user/config" add "a.nix"

@@ -1,0 +1,96 @@
+error:
+       … while evaluating the attribute 'olm.drvPath'
+         at /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/lib/customisation.nix:416:11:
+          415|         // {
+          416|           drvPath =
+             |           ^
+          417|             assert condition;
+
+       … in the condition of the assert statement
+         at /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/lib/customisation.nix:417:13:
+          416|           drvPath =
+          417|             assert condition;
+             |             ^
+          418|             drv.drvPath;
+
+       (stack trace truncated; use '--show-trace' to show the full, detailed trace)
+
+       error: Refusing to evaluate package 'olm-3.2.16' in /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/pkgs/by-name/ol/olm/package.nix:45 because it is marked as insecure
+
+       Known issues:
+        - The libolm end‐to‐end encryption library used in many Matrix
+       clients and Jitsi Meet has been deprecated upstream, and relies
+       on a cryptography library that has known side‐channel issues and
+       disclaims that its implementations are not cryptographically secure
+       and should not be used when cryptographic security is required.
+
+       It is not known if the issues can be exploited over the network in
+       practical conditions. Upstream does not believe such an attack is
+       feasible, but has stated that the library should not be used going
+       forward, and there are no plans to move to another cryptography
+       implementation or otherwise further maintain the library at all.
+
+       You should make an informed decision about whether to override this
+       security warning, especially if you critically rely on end‐to‐end
+       encryption. If you don’t care about that, or don’t use the Matrix
+       functionality of a multi‐protocol client depending on libolm,
+       then there should be no additional risk.
+
+       Some clients are investigating migrating away from libolm to maintained
+       libraries without known vulnerabilities.
+
+       For further information, see:
+
+       * The CVE records for the known vulnerabilities:
+
+         * CVE-2024-45191
+         * CVE-2024-45192
+         * CVE-2024-45193
+
+       * The libolm deprecation notice:
+         <https://gitlab.matrix.org/matrix-org/olm/-/blob/6d4b5b07887821a95b144091c8497d09d377f985/README.md#important-libolm-is-now-deprecated>
+
+       * The warning from the cryptography code used by libolm:
+         <https://gitlab.matrix.org/matrix-org/olm/-/blob/6d4b5b07887821a95b144091c8497d09d377f985/lib/crypto-algorithms/README.md>
+
+       * The blog post disclosing the details of the known vulnerabilities:
+         <https://soatok.blog/2024/08/14/security-issues-in-matrixs-olm-library/>
+
+       * The statement about the deprecation and vulnerabilities from the
+         Matrix.org Foundation:
+         <https://matrix.org/blog/2024/08/libolm-deprecation/>
+
+       * A (likely incomplete) aggregation of client tracking issue links:
+         <https://github.com/NixOS/nixpkgs/pull/334638#issuecomment-2289025802>
+
+
+       You can install it anyway by allowing this package, using the
+       following methods:
+
+       a) To temporarily allow all insecure packages, you can use an environment
+          variable for a single invocation of the nix tools:
+
+            $ export NIXPKGS_ALLOW_INSECURE=1
+
+          Note: When using `nix shell`, `nix build`, `nix develop`, etc with a flake,
+                then pass `--impure` in order to allow use of environment variables.
+
+       b) for `nixos-rebuild` you can add ‘olm-3.2.16’ to
+          `nixpkgs.config.permittedInsecurePackages` in the configuration.nix,
+          like so:
+
+            {
+              nixpkgs.config.permittedInsecurePackages = [
+                "olm-3.2.16"
+              ];
+            }
+
+       c) For `nix-env`, `nix-build`, `nix-shell` or any other Nix command you can add
+          ‘olm-3.2.16’ to `permittedInsecurePackages` in
+          ~/.config/nixpkgs/config.nix, like so:
+
+            {
+              permittedInsecurePackages = [
+                "olm-3.2.16"
+              ];
+            }

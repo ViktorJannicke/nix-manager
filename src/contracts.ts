@@ -1,6 +1,7 @@
 import type { Hosts, Plan, Request } from "./domain";
 import type { Change, DraftFile, RenderedDraft } from "./draft";
 import type { UpdateReport } from "./updates";
+import type { Explanation } from "./explain";
 
 export type OperationStatus =
   | "running"
@@ -49,6 +50,8 @@ export interface Operation {
   step: string;
   steps?: StepOutcome[];
   error?: string;
+  /** The error in plain words, when it is a known one. */
+  explanation?: Explanation;
   finishingPrivilegedStep?: boolean;
 }
 

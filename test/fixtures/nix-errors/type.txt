@@ -1,0 +1,21 @@
+error:
+       … while evaluating the attribute 'value'
+         at /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/lib/modules.nix:1181:7:
+         1180|     // {
+         1181|       value = addErrorContext "while evaluating the option `${showOption loc}':" (
+             |       ^
+         1182|         # Apply the 'apply' function to the merged value. This allows options to
+
+       … while evaluating the option `networking.hostName':
+
+       … while evaluating the attribute 'mergedValue'
+         at /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/lib/modules.nix:1276:5:
+         1275|     # Type-check the remaining definitions, and merge them. Or throw if no definitions.
+         1276|     mergedValue =
+             |     ^
+         1277|       if isDefined then
+
+       (stack trace truncated; use '--show-trace' to show the full, detailed trace)
+
+       error: A definition for option `networking.hostName' is not of type `string matching the pattern ^$|^[[:alnum:]]([[:alnum:]_-]{0,61}[[:alnum:]])?$'. Definition values:
+       - In `<unknown-file>': 5

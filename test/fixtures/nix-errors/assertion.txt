@@ -1,0 +1,25 @@
+error:
+       … while calling the 'head' builtin
+         at /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/lib/attrsets.nix:1711:13:
+         1710|           if length values == 1 || pred here (elemAt values 1) (head values) then
+         1711|             head values
+             |             ^
+         1712|           else
+
+       … while evaluating the attribute 'value'
+         at /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/lib/modules.nix:1181:7:
+         1180|     // {
+         1181|       value = addErrorContext "while evaluating the option `${showOption loc}':" (
+             |       ^
+         1182|         # Apply the 'apply' function to the merged value. This allows options to
+
+       … while evaluating the option `system.build.toplevel':
+
+       … while evaluating definitions from `/nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/nixos/modules/system/activation/top-level.nix':
+
+       (stack trace truncated; use '--show-trace' to show the full, detailed trace)
+
+       error:
+       Failed assertions:
+       - The option definition `services.xserver.desktopManager.plasma5' in `<unknown-file>' no longer has any effect; please remove it.
+       the Plasma 5 desktop environment has been removed from nixpkgs, as it has reached EOL upstream.

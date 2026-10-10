@@ -1,5 +1,6 @@
 import { Context, Effect, Layer } from "effect";
 import { ManagerError, type Command } from "./domain";
+import { explain } from "./explain";
 import type { BuildProgress } from "./contracts";
 import { NixProgress } from "./nix";
 
@@ -133,6 +134,7 @@ export const runProcess = (
             Effect.fail(
               new ManagerError({
                 message: `${command.label} failed (exit ${code}). ${stderr.slice(-1500).trim()}`,
+                explanation: explain(stderr),
               }),
             ),
           );

@@ -91,7 +91,18 @@
             <Button variant="outline" size="sm" disabled={app.busy} onclick={() => retry(selected)}><RotateCcwIcon /> Try again</Button>
           {/if}
         </div>
-        {#if selected.error}
+        {#if selected.explanation}
+          <div class="mt-3 rounded-lg bg-destructive/10 px-3 py-2">
+            <p class="font-medium text-destructive">{selected.explanation.title}</p>
+            <p class="mt-0.5 text-xs">{selected.explanation.body}</p>
+            {#if selected.error}
+              <details class="mt-1.5 text-xs text-muted-foreground">
+                <summary class="cursor-pointer select-none">What Nix reported</summary>
+                <p class="mt-1 font-mono text-[0.7rem] break-words whitespace-pre-wrap">{selected.error}</p>
+              </details>
+            {/if}
+          </div>
+        {:else if selected.error}
           <p class="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs break-words text-destructive">{selected.error}</p>
         {/if}
       </div>

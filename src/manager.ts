@@ -484,6 +484,7 @@ export class Manager {
             ? "cancelled"
             : "failed";
           const failure = Cause.failureOption(exit.cause);
+          if (Option.isSome(failure) && operation.status === "failed") operation.explanation = failure.value.explanation;
           operation.error =
             operation.status === "cancelled"
               ? "Cancelled. Any completed activation or input update remains applied."

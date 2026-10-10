@@ -111,6 +111,8 @@ export class TerminalRenderer {
           .join("\n") + "\n",
       );
     }
+    if (!this.options.json && operation.status === "failed" && operation.explanation)
+      process.stderr.write(`\n${operation.explanation.title}.\n${operation.explanation.body}\n`);
   }
 
   fail(error: unknown) {

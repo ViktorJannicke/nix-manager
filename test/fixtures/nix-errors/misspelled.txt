@@ -1,0 +1,5 @@
+error: attribute 'exa' missing
+       at «string»:1:103:
+            1| let pkgs = import /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source { system = "x86_64-linux"; }; in pkgs.exa.drvPath
+             |                                                                                                       ^
+       Did you mean one of dxa, ea, era, eta or eva?
