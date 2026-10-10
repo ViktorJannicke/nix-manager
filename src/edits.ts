@@ -1,6 +1,6 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { Effect } from "effect";
 import { ManagerError, reviewRoot, type Config, type Request } from "./domain";
@@ -36,7 +36,8 @@ export interface Staged {
 
 /**
  * Copies the flake's tracked files into the review and applies the edits to
- * the copy. Each edited file must be visible to Nix and match the checkout.
+ * the copy. Each edited file must be visible to Nix and match the checkout;
+ * a created file must not exist yet.
  */
 export const stageSources = (config: Config, r: Request, changes: readonly Change[]) =>
   Effect.gen(function* () {
@@ -58,6 +59,11 @@ export const stageSources = (config: Config, r: Request, changes: readonly Chang
       return yield* Effect.fail(new ManagerError({ message: "The pending edits do not change any file." }));
     const original = yield* flakeSource(config.flake);
     for (const file of files) {
+      if (file.created) {
+        if (existsSync(join(original, file.path)) || existsSync(join(config.flake, file.path)))
+          return yield* Effect.fail(new ManagerError({ message: `${file.path} already exists.` }));
+        continue;
+      }
       const tracked = yield* Effect.promise(() =>
         readFile(join(original, file.path), "utf8").catch(() => undefined),
       );
@@ -75,7 +81,10 @@ export const stageSources = (config: Config, r: Request, changes: readonly Chang
     const copy = join(reviewRoot(config, r.reviewId!), "source");
     yield* command("Copy flake source", ["cp", "-rT", "--no-preserve=mode", original, copy], { quiet: true });
     for (const file of files)
-      yield* attempt(`Write ${file.path}`, () => writeFile(join(copy, file.path), file.after));
+      yield* attempt(`Write ${file.path}`, async () => {
+        await mkdir(dirname(join(copy, file.path)), { recursive: true });
+        await writeFile(join(copy, file.path), file.after);
+      });
     return { original, files } satisfies Staged;
   });
 
@@ -158,6 +167,8 @@ export const verifyEdits = (config: Config, r: Request, staged: Staged, changes:
                 );
               continue;
             }
+            // A created file is checked through the settings and packages written into it.
+            if (change.kind === "create-module") continue;
             const now = after.options[change.option];
             if (!now?.exists)
               return yield* Effect.fail(
@@ -197,29 +208,48 @@ export const verifyEdits = (config: Config, r: Request, staged: Staged, changes:
     return {
       changes: [...changes],
       hash: changeHash(changes),
-      files: staged.files.map(({ path, baseHash, hunks }) => ({ path, baseHash, hunks })),
+      files: staged.files.map(({ path, baseHash, created, hunks }) => ({ path, baseHash, created, hunks })),
       effects,
     } satisfies ReviewEdits;
   });
 
-/** Writes a review's edited files into the checkout unless any changed since. */
+/**
+ * Writes a review's edited files into the checkout unless any changed since.
+ * Created files are added to Git's index as intended, so the flake sees them.
+ */
 export const writeSources = (config: Config, reviewId: string, edits: ReviewEdits) =>
-  Effect.try({
-    try: () => {
-      const root = join(reviewRoot(config, reviewId), "source");
-      const writes = edits.files.map((file) => {
-        const path = sourcePath(config.flake, file.path);
-        const current = existsSync(path) ? readFileSync(path, "utf8") : undefined;
-        if (current === undefined || hashText(current) !== file.baseHash)
-          throw new ManagerError({
-            message: `${file.path} changed after this review was prepared. Prepare the edits again.`,
-          });
-        return { path, data: readFileSync(join(root, file.path)), mode: statSync(path).mode & 0o777 };
+  Effect.gen(function* () {
+    yield* Effect.try({
+      try: () => {
+        const root = join(reviewRoot(config, reviewId), "source");
+        const writes = edits.files.map((file) => {
+          const path = sourcePath(config.flake, file.path);
+          const current = existsSync(path) ? readFileSync(path, "utf8") : undefined;
+          if (file.created ? current !== undefined : current === undefined || hashText(current) !== file.baseHash)
+            throw new ManagerError({
+              message: file.created
+                ? `${file.path} was created after this review was prepared. Prepare the edits again.`
+                : `${file.path} changed after this review was prepared. Prepare the edits again.`,
+            });
+          return {
+            path,
+            data: readFileSync(join(root, file.path)),
+            mode: file.created ? 0o644 : statSync(path).mode & 0o777,
+          };
+        });
+        for (const write of writes) {
+          mkdirSync(dirname(write.path), { recursive: true });
+          atomicWrite(write.path, write.data, write.mode);
+        }
+      },
+      catch: (error) =>
+        error instanceof ManagerError ? error : new ManagerError({ message: `Write edited files: ${error}` }),
+    });
+    const created = edits.files.filter((file) => file.created).map((file) => file.path);
+    if (created.length && existsSync(join(config.flake, ".git")))
+      yield* command("Add created files to Git", ["git", "-C", config.flake, "add", "--intent-to-add", "--", ...created], {
+        quiet: true,
       });
-      for (const write of writes) atomicWrite(write.path, write.data, write.mode);
-    },
-    catch: (error) =>
-      error instanceof ManagerError ? error : new ManagerError({ message: `Write edited files: ${error}` }),
   });
 
 /** The draft without the changes a review applied. */

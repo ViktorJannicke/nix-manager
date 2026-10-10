@@ -240,6 +240,7 @@ export async function sourceLists(source: string) {
     names: string[];
     settings: string[];
     imports: string[];
+    importable: boolean;
     lists: string[];
   }[] = [];
   for (const file of await nixFiles(source)) {
@@ -321,6 +322,8 @@ export interface ScopeInventory {
   files: PackageFile[];
   /** Module files whose settings can be edited. */
   modules: ModuleFile[];
+  /** Files the host imports that import others, which a new module file can be imported from. */
+  importers: string[];
   options: Record<string, OptionValue>;
 }
 
@@ -381,6 +384,9 @@ export const inventory = (
         names,
         active: used.has(file) ? true : settings.length ? false : null,
       })),
+      importers: modules
+        .filter((module) => module.importable && module.imports.length > 0 && used.has(module.file))
+        .map((module) => module.file),
       options: state.options,
     } satisfies ScopeInventory;
   });

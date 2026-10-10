@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { isAbsolute, join, normalize, relative } from "node:path";
+import { isAbsolute, join, normalize, posix, relative } from "node:path";
 import { Schema } from "effect";
 import { ManagerError, type Config } from "./domain";
 import { hashText } from "./observe";
-import { setOption, unsetOption, type Value } from "./options";
+import { addImport, setOption, startList, unsetOption, type Value } from "./options";
 import { addPackage, removePackage, packageBindings } from "./packages";
 
 const Target = Schema.Literal("home", "system");
@@ -32,6 +32,12 @@ export const Change = Schema.Union(
     option: Schema.String.pipe(Schema.maxLength(256)),
     ...Fields,
   }),
+  /** Creates `file` as an empty module and imports it from an existing module. */
+  Schema.Struct({
+    kind: Schema.Literal("create-module"),
+    importer: Schema.String.pipe(Schema.maxLength(256)),
+    ...Fields,
+  }),
 );
 export type Change = typeof Change.Type;
 export const Changes = Schema.Array(Change).pipe(Schema.maxItems(200));
@@ -47,7 +53,9 @@ export interface Hunk {
 }
 export interface DraftFile {
   path: string;
+  /** Hash of the file the edits start from; empty for a file the edits create. */
   baseHash: string;
+  created?: boolean;
   hunks: Hunk[];
 }
 export interface DraftProblem {
@@ -66,7 +74,8 @@ export interface RenderedDraft {
 export const changeHash = (changes: readonly Change[]) => hashText(JSON.stringify(changes));
 
 /** A change's subject, for messages: the attribute or option it edits. */
-export const subject = (change: Change) => ("attr" in change ? change.attr : change.option);
+export const subject = (change: Change) =>
+  "attr" in change ? change.attr : "option" in change ? change.option : change.file;
 
 /** Resolves a flake-relative `.nix` path, refusing anything outside the flake. */
 export function sourcePath(flake: string, file: string) {
@@ -88,10 +97,26 @@ export const scopeBindings = {
   system: packageBindings.filter((binding) => binding !== "home.packages"),
 } as const;
 
-const edit = (source: string, change: Change) => {
+/** The list a package goes into when a module has no package list yet. */
+export const packagesOption = { home: "home.packages", system: "environment.systemPackages" } as const;
+
+/** What a module created for the draft starts as. */
+export const moduleTemplate = "{ pkgs, ... }:\n{\n}\n";
+
+/** The path an importer writes for a file, such as `./fzf.nix` or `../programs/fzf.nix`. */
+export function importPath(importer: string, file: string) {
+  const path = posix.relative(posix.dirname(importer), file);
+  return path.startsWith("../") ? path : `./${path}`;
+}
+
+const edit = (source: string, change: Exclude<Change, { kind: "create-module" }>) => {
   switch (change.kind) {
     case "add-package":
-      return addPackage(source, change.attr, scopeBindings[change.scope]);
+      return addPackage(source, change.attr, scopeBindings[change.scope]).catch((error) => {
+        if (error instanceof ManagerError && error.message.startsWith("No editable package list"))
+          return startList(source, packagesOption[change.scope], change.attr);
+        throw error;
+      });
     case "remove-package":
       return removePackage(source, change.attr);
     case "set-option":
@@ -158,16 +183,37 @@ export interface EditedFile extends DraftFile {
 export async function renderDraft(flake: string, changes: readonly Change[]) {
   const files = new Map<string, EditedFile>();
   const problems: DraftProblem[] = [];
+  const open = async (name: string) => {
+    const known = files.get(name);
+    if (known) return known;
+    const path = sourcePath(flake, name);
+    const before = await readFile(path, "utf8").catch(() => {
+      throw new ManagerError({ message: `${name} does not exist.` });
+    });
+    return { path: name, baseHash: hashText(before), before, after: before, hunks: [] } satisfies EditedFile;
+  };
   for (const [index, change] of changes.entries()) {
     try {
-      let file = files.get(change.file);
-      if (!file) {
-        const path = sourcePath(flake, change.file);
-        const before = await readFile(path, "utf8").catch(() => {
-          throw new ManagerError({ message: `${change.file} does not exist.` });
+      if (change.kind === "create-module") {
+        if (!/^[A-Za-z0-9._+\/-]+$/.test(change.file))
+          throw new ManagerError({ message: `${change.file} cannot be written as a Nix path.` });
+        if (files.has(change.file) || existsSync(sourcePath(flake, change.file)))
+          throw new ManagerError({ message: `${change.file} already exists.` });
+        if (change.importer === change.file) throw new ManagerError({ message: "A file cannot import itself." });
+        const importer = await open(change.importer);
+        importer.after = (await addImport(importer.after, importPath(change.importer, change.file))).source;
+        files.set(change.importer, importer);
+        files.set(change.file, {
+          path: change.file,
+          baseHash: "",
+          created: true,
+          before: "",
+          after: moduleTemplate,
+          hunks: [],
         });
-        file = { path: change.file, baseHash: hashText(before), before, after: before, hunks: [] };
+        continue;
       }
+      const file = await open(change.file);
       file.after = (await edit(file.after, change)).source;
       files.set(change.file, file);
     } catch (error) {
@@ -176,7 +222,7 @@ export async function renderDraft(flake: string, changes: readonly Change[]) {
   }
   for (const file of files.values()) file.hunks = diffLines(file.before, file.after);
   return {
-    files: [...files.values()].filter((file) => file.before !== file.after),
+    files: [...files.values()].filter((file) => file.created || file.before !== file.after),
     problems,
   };
 }
@@ -185,7 +231,7 @@ export const draftPublic = async (flake: string, changes: readonly Change[]): Pr
   const { files, problems } = await renderDraft(flake, changes);
   return {
     changes: [...changes],
-    files: files.map(({ path, baseHash, hunks }) => ({ path, baseHash, hunks })),
+    files: files.map(({ path, baseHash, created, hunks }) => ({ path, baseHash, created, hunks })),
     problems,
     hash: changeHash(changes),
   };

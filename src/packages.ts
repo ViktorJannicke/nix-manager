@@ -167,30 +167,41 @@ export async function addPackage(
       .sort((a, b) => b.score - a.score);
     const target = candidates[0]?.list;
     if (!target) throw new ManagerError({ message: "No editable package list was found." });
-    const text = spelling(target, attr);
-    const last = target.items.at(-1);
-    const close = target.end - 1;
-    const multiline = source.slice(target.start, target.end).includes("\n");
-    if (!multiline) {
-      // `[ a b ]` becomes `[ a b c ]`; `[ ]` and `[]` become `[ c ]`.
-      if (last) return apply(source, last.end, last.end, ` ${text}`);
-      return apply(source, target.start, target.end, `[ ${text} ]`);
-    }
-    if (last) {
-      const at = lineEnd(source, last.end);
-      // `c ];` on one line: continue that line instead of splitting the bracket.
-      if (!/^[ \t]*(#.*)?$/.test(source.slice(last.end, at)))
-        return apply(source, last.end, last.end, ` ${text}`);
-      // Keep a trailing comment on the last item's line attached to it.
-      const indent = source.slice(lineStart(source, last.start)).match(/^[ \t]*/)![0];
-      return apply(source, at, at, `\n${indent}${text}`);
-    }
-    const closing = lineStart(source, close);
-    const indent = source.slice(closing, close).match(/^\s*/)![0];
-    return apply(source, closing, closing, `${indent}  ${text}\n`);
+    return appendItem(source, target, target.items.at(-1), spelling(target, attr));
   } finally {
     tree.delete();
   }
+}
+
+/**
+ * Appends an item to the list spanning `list`, in its layout: on the same
+ * line for one-line lists, otherwise on its own line under the last item.
+ */
+export function appendItem(
+  source: string,
+  list: { start: number; end: number },
+  last: { start: number; end: number } | undefined,
+  text: string,
+): Edit {
+  const close = list.end - 1;
+  const multiline = source.slice(list.start, list.end).includes("\n");
+  if (!multiline) {
+    // `[ a b ]` becomes `[ a b c ]`; `[ ]` and `[]` become `[ c ]`.
+    if (last) return apply(source, last.end, last.end, ` ${text}`);
+    return apply(source, list.start, list.end, `[ ${text} ]`);
+  }
+  if (last) {
+    const at = lineEnd(source, last.end);
+    // `c ];` on one line: continue that line instead of splitting the bracket.
+    if (!/^[ \t]*(#.*)?$/.test(source.slice(last.end, at)))
+      return apply(source, last.end, last.end, ` ${text}`);
+    // Keep a trailing comment on the last item's line attached to it.
+    const indent = source.slice(lineStart(source, last.start)).match(/^[ \t]*/)![0];
+    return apply(source, at, at, `\n${indent}${text}`);
+  }
+  const closing = lineStart(source, close);
+  const indent = source.slice(closing, close).match(/^\s*/)![0];
+  return apply(source, closing, closing, `${indent}  ${text}\n`);
 }
 
 /** Removes every listing of `attr`, dropping the whole line when the item stands alone. */

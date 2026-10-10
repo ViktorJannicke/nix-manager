@@ -5,26 +5,41 @@
   import { Button } from "$lib/components/ui/button";
   import Segmented from "./Segmented.svelte";
   import { app } from "$lib/app.svelte";
-  import { origin, software } from "$lib/software.svelte";
+  import { NEW_FILE, origin, software } from "$lib/software.svelte";
+  import NewModuleFields from "./NewModuleFields.svelte";
   import type { CatalogEntry, Target } from "../../../../src/software";
 
   let { entry = $bindable() }: { entry?: CatalogEntry } = $props();
 
   let scope = $state<Target>("home");
   let file = $state("");
+  let newFile = $state("");
+  let importer = $state("");
   const attr = $derived(entry ? `pkgs.${entry.a}` : "");
   const files = $derived(software.packageFiles(scope));
   const installed = $derived(entry && software.installed(entry));
   const pending = $derived(attr ? software.pendingPackage(attr) : undefined);
   $effect(() => {
-    if (!files.some((item) => item.file === file)) file = files[0]?.file ?? "";
+    if (file !== NEW_FILE && !files.some((item) => item.file === file)) file = files[0]?.file ?? NEW_FILE;
   });
+  $effect(() => {
+    if (entry) newFile = software.suggestFile(scope, entry.a.split(".").at(-1)!, files.find((item) => item.active)?.file);
+  });
+  const creating = $derived(file === NEW_FILE);
+  const ready = $derived(creating ? !software.newFileProblem(scope, newFile) && Boolean(importer) : Boolean(file));
   const category = (path: string) => path.split("/").at(-1)!.replace(/\.nix$/, "");
 
   async function add() {
-    if (!entry || !file) return;
-    software.remember(scope, file);
-    await software.stage([{ kind: "add-package", scope, file, attr }]);
+    if (!entry || !ready) return;
+    if (creating) {
+      await software.stage([
+        { kind: "create-module", scope, file: newFile, importer },
+        { kind: "add-package", scope, file: newFile, attr },
+      ]);
+    } else {
+      software.remember(scope, file);
+      await software.stage([{ kind: "add-package", scope, file, attr }]);
+    }
     app.toast({ tone: "success", title: `${entry.n ?? entry.a} will be installed`, body: "Prepare your pending edits to build it." });
     entry = undefined;
   }
@@ -74,18 +89,20 @@
             <span class="font-medium">Install for</span>
             <Segmented label="Install for" bind:value={scope} options={[{ value: "home" as Target, label: "Just you" }, { value: "system" as Target, label: "Every user" }]} />
           </div>
-          {#if files.length}
-            <label class="block space-y-1">
-              <span class="font-medium">Add it to</span>
-              <select class="focus-ring h-9 w-full rounded-md border bg-card px-2" bind:value={file}>
-                {#each files as item (item.file)}
-                  <option value={item.file}>{category(item.file)}: {item.file}{item.active ? "" : " (not used by this host)"}</option>
-                {/each}
-              </select>
+          <label class="block space-y-1">
+            <span class="font-medium">Add it to</span>
+            <select class="focus-ring h-9 w-full rounded-md border bg-card px-2" bind:value={file}>
+              {#each files as item (item.file)}
+                <option value={item.file}>{category(item.file)}: {item.file}{item.active ? "" : " (not used by this host)"}</option>
+              {/each}
+              <option value={NEW_FILE}>New file…</option>
+            </select>
+            {#if !creating}
               <span class="block text-xs text-muted-foreground">The package is added to this file's package list, next to the others.</span>
-            </label>
-          {:else}
-            <p class="text-xs text-muted-foreground">No file of the {scope} configuration has a package list to add to. Add a <code>{scope === "home" ? "home.packages" : "environment.systemPackages"}</code> list to a module first.</p>
+            {/if}
+          </label>
+          {#if creating}
+            <NewModuleFields {scope} bind:file={newFile} bind:importer />
           {/if}
         </div>
       {/if}
@@ -95,7 +112,7 @@
         {#if !pending && installed?.attr}
           <Button variant="destructive" disabled={software.saving} onclick={remove}>Remove</Button>
         {:else if !pending && !installed}
-          <Button disabled={!file || software.saving} onclick={add}>Add to pending edits</Button>
+          <Button disabled={!ready || software.saving} onclick={add}>Add to pending edits</Button>
         {/if}
       </Dialog.Footer>
     {/if}

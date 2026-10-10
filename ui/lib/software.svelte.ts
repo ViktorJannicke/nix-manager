@@ -17,6 +17,11 @@ const message = (error: unknown) => (error instanceof Error ? error.message : St
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const remembered = (scope: Target) => localStorage.getItem(`nix-manager-file-${scope}`) || undefined;
 
+/** Select value standing for a module file the edits create. */
+export const NEW_FILE = "\0new";
+
+const directory = (file: string) => file.split("/").slice(0, -1).join("/");
+
 /** Files inside the flake are relative; module files from elsewhere are store paths. */
 export const local = (file: string) => !file.startsWith("/");
 
@@ -187,6 +192,51 @@ class SoftwareState {
     );
   }
 
+  /** Every flake file the inventory or the draft knows of, for refusing a new file over an existing one. */
+  private known(scope: Target) {
+    const inventory = this.inventory?.[scope];
+    return new Set([
+      ...(inventory?.modules.map((module) => module.file) ?? []),
+      ...(inventory?.files.map((file) => file.file) ?? []),
+      ...(inventory?.importers ?? []),
+      ...this.changes.filter((change) => change.kind === "create-module").map((change) => change.file),
+    ]);
+  }
+
+  /** A free path for a new module named `name`, next to the file new settings would go to. */
+  suggestFile(scope: Target, name: string, near?: string) {
+    const folder = near ? directory(near) : scope === "home" ? "modules/home" : "modules/nixos";
+    const slug = name.toLowerCase().replace(/[^a-z0-9+-]+/g, "-").replace(/^-|-$/g, "") || "module";
+    const known = this.known(scope);
+    for (let n = 1; ; n++) {
+      const file = `${folder ? `${folder}/` : ""}${slug}${n > 1 ? `-${n}` : ""}.nix`;
+      if (!known.has(file)) return file;
+    }
+  }
+
+  /** Why a path cannot be a new module file, if it cannot. */
+  newFileProblem(scope: Target, file: string) {
+    if (!/^([A-Za-z0-9_+-][A-Za-z0-9._+-]*\/)*[A-Za-z0-9_+-][A-Za-z0-9._+-]*\.nix$/.test(file))
+      return "Use a path inside the flake ending in .nix, with letters, digits, dots, dashes and slashes.";
+    if (this.known(scope).has(file)) return "This file exists already.";
+    return undefined;
+  }
+
+  /**
+   * The imported file a new module is best imported from: the folder's
+   * default.nix, a file in the same folder, then the closest folder above.
+   */
+  importers(scope: Target, file: string) {
+    const folder = directory(file);
+    const score = (candidate: string) => {
+      const at = directory(candidate);
+      const inside = folder === at || folder.startsWith(`${at}/`) || !at;
+      const depth = at ? at.split("/").length : 0;
+      return (inside ? 100 + depth * 10 : 0) + (candidate.endsWith("/default.nix") || candidate === "default.nix" ? 5 : 0);
+    };
+    return [...(this.inventory?.[scope].importers ?? [])].sort((a, b) => score(b) - score(a) || a.localeCompare(b));
+  }
+
   remember(scope: Target, file: string) {
     localStorage.setItem(`nix-manager-file-${scope}`, file);
   }
@@ -211,7 +261,9 @@ class SoftwareState {
   stage(next: Change[]) {
     let changes = [...this.changes];
     for (const change of next) {
-      if ("attr" in change) {
+      if (change.kind === "create-module") {
+        if (!changes.some((item) => item.kind === "create-module" && item.file === change.file)) changes.push(change);
+      } else if ("attr" in change) {
         const opposite = changes.findIndex(
           (item) => "attr" in item && item.attr === change.attr && item.file === change.file && item.kind !== change.kind,
         );
@@ -234,8 +286,14 @@ class SoftwareState {
     return this.save(changes);
   }
 
+  /** Removes an edit; removing a created file also removes the edits written into it. */
   unstage(index: number) {
-    return this.save(this.changes.filter((_, position) => position !== index));
+    const removed = this.changes[index];
+    return this.save(
+      this.changes.filter(
+        (change, position) => position !== index && !(removed?.kind === "create-module" && change.file === removed.file),
+      ),
+    );
   }
 
   clear() {
@@ -266,15 +324,16 @@ export { show as showValue };
 
 /** A pending edit in words: what it does, and where. */
 export function describeChange(change: Change) {
-  const name = "attr" in change ? change.attr.replace(/^pkgs\./, "") : change.option;
   switch (change.kind) {
     case "add-package":
-      return { title: `Install ${name}`, detail: change.file };
+      return { title: `Install ${change.attr.replace(/^pkgs\./, "")}`, detail: change.file };
     case "remove-package":
-      return { title: `Remove ${name}`, detail: change.file };
+      return { title: `Remove ${change.attr.replace(/^pkgs\./, "")}`, detail: change.file };
     case "set-option":
-      return { title: `${change.label ? `${change.label}: ` : ""}${name} ${show(change.value)}`, detail: change.file };
+      return { title: `${change.label ? `${change.label}: ` : ""}${change.option} ${show(change.value)}`, detail: change.file };
     case "unset-option":
-      return { title: `Reset ${name} to its default`, detail: change.file };
+      return { title: `Reset ${change.option} to its default`, detail: change.file };
+    case "create-module":
+      return { title: `Create ${change.file.split("/").at(-1)}`, detail: `${change.file}, imported from ${change.importer}` };
   }
 }

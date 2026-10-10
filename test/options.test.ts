@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { moduleShape, renderValue, setOption, unsetOption } from "../src/options";
+import { addImport, moduleShape, renderValue, setOption, startList, unsetOption } from "../src/options";
 import { parseNix } from "../src/syntax";
 
 const module = `{ config, pkgs, ... }:
@@ -96,6 +96,7 @@ test("module shape lists names, setting paths and static imports", async () => {
     names: ["programs.git", "programs.direnv.enable", "home.username"],
     settings: ["programs.git.enable", "programs.git.lfs.enable", "programs.direnv.enable", "home.username"],
     imports: [],
+    importable: true,
   });
   expect((await moduleShape("mkPackageModule { }")).editable).toBe(false);
   const aggregate = `{ lib, ... }: {
@@ -106,6 +107,29 @@ test("module shape lists names, setting paths and static imports", async () => {
 `;
   expect(await moduleShape(aggregate)).toMatchObject({ editable: false, imports: ["./git.nix", "../shared", "./missing.nix"] });
   expect((await moduleShape("{ imports = lib.optionals x [ ./a.nix ]; }")).imports).toEqual([]);
+  expect((await moduleShape("{ imports = lib.optionals x [ ./a.nix ]; }")).importable).toBe(false);
+  expect((await moduleShape(aggregate)).importable).toBe(true);
+});
+
+test("imports are added to the list in its layout, or start one", async () => {
+  const aggregate = "{ lib, ... }:\n{\n  imports = [\n    ./git.nix # vcs\n  ];\n  options.x = 1;\n}\n";
+  expect((await addImport(aggregate, "./fzf.nix")).source).toBe(
+    "{ lib, ... }:\n{\n  imports = [\n    ./git.nix # vcs\n    ./fzf.nix\n  ];\n  options.x = 1;\n}\n",
+  );
+  expect((await addImport("{ imports = [ ./a.nix ]; }", "../b/c.nix")).source).toBe("{ imports = [ ./a.nix ../b/c.nix ]; }");
+  expect((await addImport("{ pkgs, ... }:\n{\n  home.x = 1;\n}\n", "./fzf.nix")).source).toBe(
+    "{ pkgs, ... }:\n{\n  home.x = 1;\n  imports = [ ./fzf.nix ];\n}\n",
+  );
+  await expect(addImport("{ imports = [ ./a.nix ]; }", "./a.nix")).rejects.toThrow("already imports");
+  await expect(addImport("{ imports = map f xs; }", "./a.nix")).rejects.toThrow("computes its imports");
+  await expect(addImport("{ }", "./a b.nix")).rejects.toThrow("Nix path");
+});
+
+test("a list option starts in a module without one", async () => {
+  expect((await startList("{ pkgs, ... }:\n{\n}\n", "home.packages", "pkgs.fzf")).source).toBe(
+    "{ pkgs, ... }:\n{\n  home.packages = [ pkgs.fzf ];\n}\n",
+  );
+  await expect(startList("{ home.packages = cfg.extra; }", "home.packages", "pkgs.fzf")).rejects.toThrow("computed");
 });
 
 test("settings beside option declarations need a config set", async () => {

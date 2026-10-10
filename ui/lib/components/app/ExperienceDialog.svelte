@@ -3,7 +3,8 @@
   import { Button } from "$lib/components/ui/button";
   import { Switch } from "$lib/components/ui/switch";
   import { app } from "$lib/app.svelte";
-  import { local, showValue, software } from "$lib/software.svelte";
+  import { local, NEW_FILE, showValue, software } from "$lib/software.svelte";
+  import NewModuleFields from "./NewModuleFields.svelte";
   import type { Change } from "../../../../src/draft";
   import type { Experience } from "../../../../src/curated";
 
@@ -46,6 +47,8 @@
   let values = $state<Record<string, unknown>>({});
   let initial = $state.raw<{ on: boolean; values: Record<string, unknown> }>({ on: false, values: {} });
   let target = $state("");
+  let newFile = $state("");
+  let importer = $state("");
   let opened = "";
 
   const scope = $derived(experience?.scope ?? "home");
@@ -61,7 +64,8 @@
       experience.settings.map((setting) => [setting.option, software.value(experience!.scope, setting.option).value]),
     );
     initial = { on, values: $state.snapshot(values) as Record<string, unknown> };
-    target = software.definedIn(experience.scope, options[0]) ?? modules[0]?.file ?? "";
+    target = software.definedIn(experience.scope, options[0]) ?? modules[0]?.file ?? NEW_FILE;
+    newFile = software.suggestFile(experience.scope, experience.id, modules.find((module) => module.active)?.file);
   });
   $effect(() => {
     if (!experience) opened = "";
@@ -81,12 +85,15 @@
   );
   // New settings go to the chosen file; settings that are already defined are edited where they are.
   const needsTarget = $derived(changed.some((option) => !software.definedIn(scope, option)));
+  const creating = $derived(needsTarget && target === NEW_FILE);
+  const ready = $derived(!needsTarget || (creating ? !software.newFileProblem(scope, newFile) && Boolean(importer) : Boolean(target)));
 
   async function save() {
     if (!experience) return;
     const label = experience.title;
-    const where = (option: string) => software.definedIn(scope, option) ?? target;
-    const edits: Change[] = [];
+    const file = creating ? newFile : target;
+    const where = (option: string) => software.definedIn(scope, option) ?? file;
+    const edits: Change[] = creating ? [{ kind: "create-module", scope, file, importer, label }] : [];
     if (on !== initial.on)
       for (const [option, value] of Object.entries(experience.enable))
         edits.push(
@@ -102,11 +109,12 @@
       edits.push({ kind: "set-option", scope, file: where(setting.option), option: setting.option, value: value as never, label });
     }
     if (on && !initial.on) {
-      const packages = software.packageFiles(scope)[0];
+      // A new file keeps everything about the feature together.
+      const packages = creating ? file : software.packageFiles(scope)[0]?.file;
       for (const attr of experience.packages ?? [])
-        if (packages) edits.push({ kind: "add-package", scope, file: packages.file, attr: `pkgs.${attr}`, label });
+        if (packages) edits.push({ kind: "add-package", scope, file: packages, attr: `pkgs.${attr}`, label });
     }
-    if (needsTarget) software.remember(scope, target);
+    if (needsTarget && !creating) software.remember(scope, target);
     await software.stage(edits);
     app.toast({ tone: "success", title: `${experience.title}: ${edits.length === 1 ? "edit" : `${edits.length} edits`} pending`, body: "Prepare your pending edits to build them." });
     experience = undefined;
@@ -181,8 +189,11 @@
                 {#each modules.filter((module) => module.active === false) as module (module.file)}<option value={module.file}>{module.file}</option>{/each}
               </optgroup>
             {/if}
+            <option value={NEW_FILE}>New file…</option>
           </select>
-          {#if modules.find((module) => module.file === target)?.active === false}
+          {#if creating}
+            <NewModuleFields {scope} bind:file={newFile} bind:importer />
+          {:else if modules.find((module) => module.file === target)?.active === false}
             <span class="block text-xs text-warning">{app.host} does not import this file, so settings written here have no effect on it. Prepare will refuse them.</span>
           {:else}
             <span class="block text-xs text-muted-foreground">Prepare checks that every setting takes effect before anything is built.</span>
@@ -190,12 +201,12 @@
         </label>
       {/if}
       {#if !on && initial.on}
-        <p class="text-xs text-muted-foreground">Turning it off writes <code>false</code> into {software.definedIn(scope, Object.keys(experience.enable)[0]) ?? target}.</p>
+        <p class="text-xs text-muted-foreground">Turning it off writes <code>false</code> into {software.definedIn(scope, Object.keys(experience.enable)[0]) ?? (creating ? newFile : target)}.</p>
       {/if}
 
       <Dialog.Footer>
         <Button variant="ghost" onclick={() => (experience = undefined)}>Cancel</Button>
-        <Button disabled={!changed.length || (needsTarget && !target) || software.saving} onclick={save}>
+        <Button disabled={!changed.length || !ready || software.saving} onclick={save}>
           {changed.length ? "Add to pending edits" : "No changes"}
         </Button>
       </Dialog.Footer>

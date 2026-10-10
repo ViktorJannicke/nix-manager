@@ -126,9 +126,15 @@ as pending edits until prepared:
   effect (the package appears in that file's list; the option has the value and is
   defined in that file) before anything is built. The review shows the line diffs
   next to their effects and the usual package differences.
+- A package or feature can also go into a new file, such as
+  `modules/home/programs/fzf.nix`. The file's path is added to the `imports` of a
+  module the host already imports (its folder's `default.nix` by default), through
+  the same syntax-tree edit, and verification checks the settings take effect from
+  the new file.
 - Apply first writes the reviewed files, refusing if any of them changed since
-  preparing, then activates the reviewed outputs. Edited files must be tracked by
-  Git, because flakes only see tracked files.
+  preparing (or a file to create appeared), then activates the reviewed outputs.
+  Edited files must be tracked by Git, because flakes only see tracked files;
+  created files are added with `git add --intent-to-add`.
 
 The other pages are Overview (active generations, the prepared next generation,
 reboot notices and recent activity), Updates (flake inputs and package pins, each

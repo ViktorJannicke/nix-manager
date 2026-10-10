@@ -3,10 +3,11 @@ import { cpSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } f
 import { join } from "node:path";
 import { Effect } from "effect";
 import { plan, request, reviewRoot, type Command } from "../src/domain";
-import { diffLines, readDraft, renderDraft, writeDraft, type Change } from "../src/draft";
-import { remaining, splitAttr } from "../src/edits";
+import { diffLines, importPath, readDraft, renderDraft, writeDraft, type Change } from "../src/draft";
+import { remaining, splitAttr, writeSources } from "../src/edits";
+import type { ReviewEdits } from "../src/contracts";
 import { Manager } from "../src/manager";
-import { runProcess } from "../src/process";
+import { Runner, runProcess } from "../src/process";
 import { listReviews } from "../src/reviews";
 import { fixture } from "./helpers";
 
@@ -52,6 +53,56 @@ test("drafts apply changes in order and report the ones that cannot apply", asyn
   expect(problems.map((problem) => problem.index)).toEqual([1, 3]);
   expect(problems[0].message).toContain("already listed");
   expect(remaining([btop, btop], [btop])).toEqual([btop]);
+});
+
+test("a created module is imported by its parent and takes later edits", async () => {
+  const config = setup();
+  expect(importPath("modules/default.nix", "modules/programs/fzf.nix")).toBe("./programs/fzf.nix");
+  expect(importPath("modules/home/default.nix", "modules/fzf.nix")).toBe("../fzf.nix");
+  const create: Change = { kind: "create-module", scope: "home", file: "modules/programs/fzf.nix", importer: "modules/apps.nix" };
+  const { files, problems } = await renderDraft(config.flake, [
+    create,
+    { kind: "set-option", scope: "home", file: create.file, option: "programs.fzf.enable", value: true },
+    { kind: "add-package", scope: "home", file: create.file, attr: "pkgs.fd" },
+    create,
+    { ...create, file: "modules/apps.nix" },
+  ]);
+  expect(problems.map((problem) => [problem.index, problem.message])).toEqual([
+    [3, "modules/programs/fzf.nix already exists."],
+    [4, "modules/apps.nix already exists."],
+  ]);
+  expect(files.map((file) => [file.path, file.created ?? false, file.baseHash === ""])).toEqual([
+    ["modules/apps.nix", false, false],
+    ["modules/programs/fzf.nix", true, true],
+  ]);
+  expect(files[0].after).toContain("  imports = [ ./programs/fzf.nix ];\n}");
+  expect(files[1].after).toBe("{ pkgs, ... }:\n{\n  programs.fzf.enable = true;\n  home.packages = [ pkgs.fd ];\n}\n");
+  expect(files[1].hunks[0].lines.some((line) => line.kind === "-")).toBe(false);
+});
+
+test("applying writes created files and adds them to Git", async () => {
+  const config = setup();
+  mkdirSync(join(config.flake, ".git"));
+  const source = join(reviewRoot(config, "abababab"), "source");
+  mkdirSync(join(source, "modules/programs"), { recursive: true });
+  writeFileSync(join(source, "modules/programs/fzf.nix"), "{ }\n");
+  const edits: ReviewEdits = {
+    changes: [],
+    hash: "",
+    files: [{ path: "modules/programs/fzf.nix", baseHash: "", created: true, hunks: [] }],
+    effects: [],
+  };
+  const calls: string[][] = [];
+  const run = writeSources(config, "abababab", edits).pipe(
+    Effect.provideService(Runner, {
+      run: (command) => Effect.sync(() => (calls.push([...command.argv]), { code: 0, stdout: "", stderr: "" })),
+    }),
+  );
+  await Effect.runPromise(run);
+  expect(readFileSync(join(config.flake, "modules/programs/fzf.nix"), "utf8")).toBe("{ }\n");
+  expect(calls).toEqual([["git", "-C", config.flake, "add", "--intent-to-add", "--", "modules/programs/fzf.nix"]]);
+  // A file that appeared meanwhile is not overwritten.
+  await expect(Effect.runPromise(run)).rejects.toThrow("was created after");
 });
 
 test("edited reviews build a staged copy, verify the edits and write them on apply", async () => {

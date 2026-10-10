@@ -50,6 +50,9 @@
       points.push(
         `Writes your edits to ${review.edits.files.length === 1 ? review.edits.files[0].path : `${review.edits.files.length} files`} in your checkout.`,
       );
+    const created = review.edits?.files.filter((file) => file.created) ?? [];
+    if (created.length)
+      points.push(`Creates ${created.map((file) => file.path).join(", ")} and adds ${created.length === 1 ? "it" : "them"} to Git, so the flake can read ${created.length === 1 ? "it" : "them"}.`);
     if (review.inputs) points.push("Writes the reviewed flake.lock into your checkout.");
     if (review.home && activation === "switch") points.push("Activates the reviewed Home Manager generation.");
     if (review.home && activation === "boot") points.push("Home changes are not applied on boot; apply them separately.");

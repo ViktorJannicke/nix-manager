@@ -1,6 +1,6 @@
 import { ManagerError } from "./domain";
 import { attrNames, identifier, parseNix, staticPath, type Node } from "./syntax";
-import { apply, lineEnd, lineStart, type Edit } from "./packages";
+import { appendItem, apply, lineEnd, lineStart, type Edit } from "./packages";
 
 /** JSON values an option can be set to from a form. */
 export type Value = null | boolean | number | string | Value[] | { [key: string]: Value };
@@ -163,28 +163,77 @@ export async function setOption(source: string, option: string, value: Value): P
         });
       return apply(source, expression.startIndex, expression.endIndex, text);
     }
-    const binding = `${found.rest.join(".")} = ${text};`;
-    const set = found.set;
-    // Inherits and comments count as content: insert after whatever comes last.
-    const last = set.namedChildren.find((child) => child?.type === "binding_set")?.lastNamedChild;
-    const close = set.endIndex - 1;
-    const multiline = source.slice(set.startIndex, set.endIndex).includes("\n");
-    if (!multiline) {
-      if (last) return apply(source, last.endIndex, last.endIndex, ` ${binding}`);
-      return apply(source, set.startIndex, set.endIndex, `{ ${binding} }`);
-    }
-    if (last) {
-      const at = lineEnd(source, last.endIndex);
-      if (!/^[ \t]*(#.*)?$/.test(source.slice(last.endIndex, at)))
-        return apply(source, last.endIndex, last.endIndex, ` ${binding}`);
-      const indent = source.slice(lineStart(source, last.startIndex)).match(/^[ \t]*/)![0];
-      return apply(source, at, at, `\n${indent}${binding}`);
-    }
-    const closing = lineStart(source, close);
-    const indent = source.slice(closing, close).match(/^\s*/)![0];
-    if (/\S/.test(source.slice(closing, close)))
-      return apply(source, close, close, ` ${binding} `);
-    return apply(source, closing, closing, `${indent}  ${binding}\n`);
+    return insertBinding(source, found.set, `${found.rest.join(".")} = ${text};`);
+  } finally {
+    tree.delete();
+  }
+}
+
+/** Adds a binding as the last entry of a set, in the set's layout. */
+function insertBinding(source: string, set: Node, binding: string): Edit {
+  // Inherits and comments count as content: insert after whatever comes last.
+  const last = set.namedChildren.find((child) => child?.type === "binding_set")?.lastNamedChild;
+  const close = set.endIndex - 1;
+  const multiline = source.slice(set.startIndex, set.endIndex).includes("\n");
+  if (!multiline) {
+    if (last) return apply(source, last.endIndex, last.endIndex, ` ${binding}`);
+    return apply(source, set.startIndex, set.endIndex, `{ ${binding} }`);
+  }
+  if (last) {
+    const at = lineEnd(source, last.endIndex);
+    if (!/^[ \t]*(#.*)?$/.test(source.slice(last.endIndex, at)))
+      return apply(source, last.endIndex, last.endIndex, ` ${binding}`);
+    const indent = source.slice(lineStart(source, last.startIndex)).match(/^[ \t]*/)![0];
+    return apply(source, at, at, `\n${indent}${binding}`);
+  }
+  const closing = lineStart(source, close);
+  const indent = source.slice(closing, close).match(/^\s*/)![0];
+  if (/\S/.test(source.slice(closing, close)))
+    return apply(source, close, close, ` ${binding} `);
+  return apply(source, closing, closing, `${indent}  ${binding}\n`);
+}
+
+/**
+ * Starts a list option in a module that has none, such as
+ * `home.packages = [ pkgs.fzf ];`. A file that already binds the option
+ * is left alone: its list is not one Nix Manager can extend.
+ */
+export async function startList(source: string, option: string, item: string): Promise<Edit> {
+  const path = checkPath(option);
+  const { tree, body } = await parseModule(source);
+  try {
+    const found = locate(body, path);
+    if (found.binding) throw new ManagerError({ message: `${option} is computed here. Edit it in the file.` });
+    return insertBinding(source, found.set, `${found.rest.join(".")} = [ ${item} ];`);
+  } finally {
+    tree.delete();
+  }
+}
+
+/** Adds a relative path such as `./fzf.nix` to a module's `imports`, starting the list if needed. */
+export async function addImport(source: string, path: string): Promise<Edit> {
+  if (!/^\.{1,2}\/[A-Za-z0-9._+\/-]+$/.test(path))
+    throw new ManagerError({ message: `${path} cannot be written as a Nix path.` });
+  const tree = await parseNix(source);
+  try {
+    if (tree.rootNode.hasError) throw new ManagerError({ message: "The file has syntax errors." });
+    const set = moduleSet(tree.rootNode);
+    if (!set) throw new ManagerError({ message: "This file is not a module Nix Manager can edit." });
+    const binding = bindings(set).find((item) => names(item)?.join(".") === "imports");
+    if (!binding) return insertBinding(source, set, `imports = [ ${path} ];`);
+    const list = binding.childForFieldName("expression");
+    if (list?.type !== "list_expression")
+      throw new ManagerError({ message: "This file computes its imports. Add the import in the file." });
+    const elements = list.childrenForFieldName("element").filter((element): element is Node => !!element);
+    if (elements.some((element) => element.text === path))
+      throw new ManagerError({ message: `The file already imports ${path}.` });
+    const last = elements.at(-1);
+    return appendItem(
+      source,
+      { start: list.startIndex, end: list.endIndex },
+      last && { start: last.startIndex, end: last.endIndex },
+      path,
+    );
   } finally {
     tree.delete();
   }
@@ -226,20 +275,30 @@ function leaves(set: Node, prefix: readonly string[] = [], limit = 64): string[]
   return found.slice(0, limit);
 }
 
+const importList = (set: Node | undefined) =>
+  set && bindings(set).find((binding) => names(binding)?.join(".") === "imports")?.childForFieldName("expression");
+
 /** Relative paths a module always imports: the plain path items of its `imports` list. */
 function imports(root: Node): string[] {
-  const set = moduleSet(root);
-  const list = set && bindings(set).find((binding) => names(binding)?.join(".") === "imports")?.childForFieldName("expression");
+  const list = importList(moduleSet(root));
   if (list?.type !== "list_expression") return [];
   return list
     .childrenForFieldName("element")
     .flatMap((element) => (element?.type === "path_expression" && /^\.{1,2}\//.test(element.text) ? [element.text] : []));
 }
 
+/** Whether `addImport` can add to a module: it has a plain list of imports, or none. */
+function importable(root: Node) {
+  const set = moduleSet(root);
+  if (!set) return false;
+  const list = importList(set);
+  return !list || list.type === "list_expression";
+}
+
 /**
  * Whether a file is a module whose settings can be edited, the top-level
- * names it sets, the full paths of the settings it writes, and the relative
- * paths it imports unconditionally.
+ * names it sets, the full paths of the settings it writes, the relative
+ * paths it imports unconditionally, and whether an import can be added.
  */
 export async function moduleShape(source: string) {
   const tree = await parseNix(source);
@@ -251,6 +310,7 @@ export async function moduleShape(source: string) {
       names: body ? bindings(body).flatMap((binding) => (names(binding) ? [names(binding)!.join(".")] : [])) : [],
       settings: body ? leaves(body).map((path) => path.join(".")) : [],
       imports: failed ? [] : imports(tree.rootNode),
+      importable: !failed && importable(tree.rootNode),
     };
   } finally {
     tree.delete();
