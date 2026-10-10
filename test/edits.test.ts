@@ -81,6 +81,7 @@ test("edited reviews build a staged copy, verify the edits and write them on app
             packages: [{ file: `${source}/modules/apps.nix`, items }],
             options: [],
             resolved: ["/nix/store/btop"],
+            used: [],
           }),
           stderr: "",
         };

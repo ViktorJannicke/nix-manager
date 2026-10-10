@@ -1,5 +1,5 @@
 import { mkdir, readdir, readFile, rename, rm } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { join, posix, relative } from "node:path";
 import { Effect, Schema } from "effect";
 import { ManagerError, resolveHost, type Config } from "./domain";
 import { scopeBindings, type Change } from "./draft";
@@ -24,6 +24,12 @@ const nixString = (text: string) =>
   `"${text.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("${", "\\${")}"`;
 const nixPaths = (paths: readonly (readonly string[])[]) =>
   `[ ${paths.map((path) => `[ ${path.map(nixString).join(" ")} ]`).join(" ")} ]`;
+
+/** Names the module system may record for a flake file: `dir/default.nix` is also imported as `dir`. */
+const moduleKeys = (source: string, file: string) => {
+  const path = `${source}/${file}`;
+  return file.endsWith("/default.nix") ? [path, path.slice(0, -"/default.nix".length)] : file === "default.nix" ? [path, source] : [path];
+};
 
 /** Evaluation helpers shared by every expression applied to a configuration. */
 const prelude = `
@@ -64,6 +70,14 @@ export interface ConfigurationState {
   options: Record<string, OptionValue>;
   /** Output path of each requested `pkgs` attribute, or null. */
   resolved: (string | null)[];
+  /** For each probe, whether the option at its path has a definition in its file. */
+  used: boolean[];
+}
+
+/** A setting a flake file writes, to check whether the configuration imports that file. */
+export interface Probe {
+  file: string;
+  option: string;
 }
 
 const StateSchema = Schema.Struct({
@@ -89,6 +103,7 @@ const StateSchema = Schema.Struct({
     }),
   ),
   resolved: Schema.Array(Schema.NullOr(Schema.String)),
+  used: Schema.Array(Schema.Boolean),
 });
 
 const decodeJson = <A, I>(schema: Schema.Schema<A, I>, label: string) => (text: string) =>
@@ -105,7 +120,11 @@ export const evaluateState = (
   source: string,
   configuration: string,
   scope: Target,
-  request: { options?: readonly string[]; attrs?: readonly (readonly string[])[] } = {},
+  request: {
+    options?: readonly string[];
+    attrs?: readonly (readonly string[])[];
+    probes?: readonly Probe[];
+  } = {},
 ) => {
   const options = [...new Set(request.options ?? [])];
   const expression = `c:
@@ -138,11 +157,24 @@ let
   resolve = path:
     let r = tryEval (let v = get path c.pkgs; in if isAttrs v && v ? outPath then v.outPath else null);
     in if r.success then r.value else null;
+  # The option a setting path belongs to: freeform settings sit below one.
+  optionAt = path: o:
+    if isAttrs o && (o._type or "") == "option" then o
+    else if path == [ ] || !(isAttrs o) || !(o ? \${builtins.head path}) then null
+    else optionAt (builtins.tail path) o.\${builtins.head path};
+  used = probe:
+    let
+      o = optionAt probe.path c.options;
+      r = tryEval (o != null && builtins.any (file: elem (toString file) probe.files) o.files);
+    in r.success && r.value;
 in {
   packages = map (d: { file = d.file; items = concatMap items d.value; })
     c.options.${packagesOption(scope)}.definitionsWithLocations;
   options = map value ${nixPaths(options.map((option) => option.split(".")))};
   resolved = map resolve ${nixPaths(request.attrs ?? [])};
+  used = map used [ ${(request.probes ?? [])
+    .map((probe) => `{ files = [ ${moduleKeys(source, probe.file).map(nixString).join(" ")} ]; path = [ ${probe.option.split(".").map(nixString).join(" ")} ]; }`)
+    .join(" ")} ];
 }`;
   return command(
     "Evaluate configuration",
@@ -151,8 +183,12 @@ in {
   ).pipe(
     Effect.flatMap((result) => decodeJson(StateSchema, "Invalid configuration evaluation")(result.stdout)),
     Effect.map((state): ConfigurationState => {
-      const local = (file: string) =>
-        file.startsWith(`${source}/`) ? file.slice(source.length + 1) : file;
+      const local = (file: string) => {
+        if (!file.startsWith(`${source}/`)) return file;
+        const path = file.slice(source.length + 1);
+        // A directory import names the directory; its module is default.nix.
+        return path.endsWith(".nix") ? path : `${path}/default.nix`;
+      };
       const packages = new Map<string, PackageInfo[]>();
       for (const { file, items } of state.packages) {
         const key = local(file);
@@ -167,6 +203,7 @@ in {
           }),
         ),
         resolved: [...state.resolved],
+        used: [...state.used],
       };
     }),
   );
@@ -197,7 +234,14 @@ export interface SourceList {
 /** Package list items of every file, for mapping evaluated packages back to source. */
 export async function sourceLists(source: string) {
   const items: SourceList[] = [];
-  const modules: { file: string; editable: boolean; names: string[]; lists: string[] }[] = [];
+  const modules: {
+    file: string;
+    editable: boolean;
+    names: string[];
+    settings: string[];
+    imports: string[];
+    lists: string[];
+  }[] = [];
   for (const file of await nixFiles(source)) {
     const text = await readFile(join(source, file), "utf8");
     const tree = await parseNix(text);
@@ -218,6 +262,31 @@ export async function sourceLists(source: string) {
   return { items, modules };
 }
 
+/**
+ * Adds the files that used files import unconditionally, transitively: a
+ * module that only imports others shows no settings of its own.
+ */
+export function importedFiles(
+  modules: readonly { file: string; imports: readonly string[] }[],
+  used: Iterable<string>,
+) {
+  const known = new Map(modules.map((module) => [module.file, module.imports]));
+  const result = new Set(used);
+  const queue = [...result];
+  while (queue.length) {
+    const file = queue.pop()!;
+    for (const target of known.get(file) ?? []) {
+      const path = posix.normalize(posix.join(posix.dirname(file), target));
+      const child = path.endsWith(".nix") ? path : `${path}/default.nix`;
+      if (known.has(child) && !result.has(child)) {
+        result.add(child);
+        queue.push(child);
+      }
+    }
+  }
+  return result;
+}
+
 export interface InstalledPackage extends PackageInfo {
   /** Flake-relative file, or a module path outside the flake. */
   file: string;
@@ -235,13 +304,23 @@ export interface PackageFile {
   count: number;
 }
 
+export interface ModuleFile {
+  file: string;
+  names: string[];
+  /**
+   * The host's configuration imports this file: one of its settings is defined
+   * there. Null when the file sets nothing that could show it (only imports).
+   */
+  active: boolean | null;
+}
+
 export interface ScopeInventory {
   scope: Target;
   packages: InstalledPackage[];
   /** Files with a package list this scope could add to. */
   files: PackageFile[];
   /** Module files whose settings can be edited. */
-  modules: { file: string; names: string[] }[];
+  modules: ModuleFile[];
   options: Record<string, OptionValue>;
 }
 
@@ -256,10 +335,20 @@ export const inventory = (
     const source = yield* flakeSource(config.flake);
     const { items, modules } = yield* Effect.promise(() => sourceLists(source));
     const resolvable = items.filter((item) => item.path?.[0] === "pkgs" && item.path.length > 1);
+    const editable = modules.filter((module) => module.editable && module.file !== "flake.nix");
+    const probes = editable.flatMap((module) =>
+      module.settings.slice(0, 4).map((option): Probe => ({ file: module.file, option })),
+    );
     const state = yield* evaluateState(source, configurationAttr(config, host, scope), scope, {
       options,
       attrs: resolvable.map((item) => item.path!.slice(1)),
+      probes,
     });
+    const counts = new Map(state.packages.map(({ file, items }) => [file, items.length]));
+    const used = importedFiles(modules, [
+      ...probes.filter((_, index) => state.used[index]).map((probe) => probe.file),
+      ...counts.keys(),
+    ]);
     const bySource = new Map<string, string>();
     resolvable.forEach((item, index) => {
       const out = state.resolved[index];
@@ -274,7 +363,6 @@ export const inventory = (
         external: !files.has(file),
       })),
     );
-    const counts = new Map(state.packages.map(({ file, items }) => [file, items.length]));
     const bindings = scopeBindings[scope] as readonly string[];
     return {
       scope,
@@ -284,13 +372,15 @@ export const inventory = (
         .map((module) => ({
           file: module.file,
           bindings: module.lists,
-          active: counts.has(module.file),
+          active: used.has(module.file),
           count: counts.get(module.file) ?? 0,
         }))
         .sort((a, b) => Number(b.active) - Number(a.active) || a.file.localeCompare(b.file)),
-      modules: modules
-        .filter((module) => module.editable && module.file !== "flake.nix")
-        .map(({ file, names }) => ({ file, names })),
+      modules: editable.map(({ file, names, settings }): ModuleFile => ({
+        file,
+        names,
+        active: used.has(file) ? true : settings.length ? false : null,
+      })),
       options: state.options,
     } satisfies ScopeInventory;
   });

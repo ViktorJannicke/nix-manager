@@ -90,10 +90,30 @@ test("unsetting removes the binding's line or just the binding", async () => {
   await expect(unsetOption(module, "programs.fzf.enable")).rejects.toThrow("not set");
 });
 
-test("module shape lists top-level names", async () => {
+test("module shape lists names, setting paths and static imports", async () => {
   expect(await moduleShape(module)).toEqual({
     editable: true,
     names: ["programs.git", "programs.direnv.enable", "home.username"],
+    settings: ["programs.git.enable", "programs.git.lfs.enable", "programs.direnv.enable", "home.username"],
+    imports: [],
   });
   expect((await moduleShape("mkPackageModule { }")).editable).toBe(false);
+  const aggregate = `{ lib, ... }: {
+  imports = [ ./git.nix ../shared ./missing.nix ];
+  options.my.flag = lib.mkEnableOption "flag";
+  config.home.stateVersion = "25.05";
+}
+`;
+  expect(await moduleShape(aggregate)).toMatchObject({ editable: false, imports: ["./git.nix", "../shared", "./missing.nix"] });
+  expect((await moduleShape("{ imports = lib.optionals x [ ./a.nix ]; }")).imports).toEqual([]);
+});
+
+test("settings beside option declarations need a config set", async () => {
+  const conditional = `{ lib, config, ... }: {
+  options.my.flag = lib.mkEnableOption "flag";
+  config = lib.mkIf config.my.flag { services.a.enable = true; };
+}
+`;
+  await expect(setOption(conditional, "services.b.enable", true)).rejects.toThrow("not a module");
+  await expect(setOption(`{ lib, ... }: { options.my.flag = lib.mkEnableOption "x"; }`, "a.b", true)).rejects.toThrow("not a module");
 });

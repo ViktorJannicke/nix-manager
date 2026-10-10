@@ -26,12 +26,8 @@ export function renderValue(value: Value): string {
 
 const attrsets = new Set(["attrset_expression", "rec_attrset_expression"]);
 
-/**
- * The attribute set a module's settings are written in: the body of
- * `{ ... }: { ... }`, through `let ... in`, or its `config = { ... }` when the
- * module also declares options.
- */
-export function moduleBody(root: Node): Node | undefined {
+/** The attribute set a module evaluates to, through `{ ... }:`, `let ... in` and parentheses. */
+function moduleSet(root: Node): Node | undefined {
   let node: Node | null = root.namedChildren[0] ?? null;
   while (node) {
     if (node.type === "function_expression" || node.type === "let_expression")
@@ -39,10 +35,23 @@ export function moduleBody(root: Node): Node | undefined {
     else if (node.type === "parenthesized_expression") node = node.childForFieldName("expression");
     else break;
   }
-  if (!node || !attrsets.has(node.type)) return undefined;
-  const config = bindings(node).find((binding) => names(binding)?.join(".") === "config");
+  return node && attrsets.has(node.type) ? node : undefined;
+}
+
+/**
+ * The attribute set a module's settings are written in: the body of
+ * `{ ... }: { ... }`, through `let ... in`, or its `config = { ... }` when the
+ * module also declares options.
+ */
+export function moduleBody(root: Node): Node | undefined {
+  const node = moduleSet(root);
+  if (!node) return undefined;
+  const top = bindings(node);
+  const config = top.find((binding) => names(binding)?.join(".") === "config");
   const value = config?.childForFieldName("expression");
-  return value && attrsets.has(value.type) ? value : node;
+  if (value) return attrsets.has(value.type) ? value : undefined;
+  // Settings beside option declarations must be written under `config`.
+  return top.some((binding) => names(binding)?.[0] === "options") ? undefined : node;
 }
 
 const bindings = (set: Node) =>
@@ -199,14 +208,49 @@ export async function unsetOption(source: string, option: string): Promise<Edit>
   }
 }
 
-/** Whether a file is a module whose settings can be edited, and the top-level names it sets. */
+/** Names that structure a module rather than set options. */
+const structural = new Set(["imports", "options", "disabledModules", "_file", "key", "meta", "_class"]);
+
+/** Full paths of the settings below a set, following nested attribute sets. */
+function leaves(set: Node, prefix: readonly string[] = [], limit = 64): string[][] {
+  const found: string[][] = [];
+  for (const binding of bindings(set)) {
+    const bound = names(binding);
+    if (!bound || (!prefix.length && structural.has(bound[0]))) continue;
+    const path = [...prefix, ...bound];
+    const value = binding.childForFieldName("expression");
+    if (value?.type === "attrset_expression" && bindings(value).length) found.push(...leaves(value, path, limit));
+    else found.push(path);
+    if (found.length >= limit) break;
+  }
+  return found.slice(0, limit);
+}
+
+/** Relative paths a module always imports: the plain path items of its `imports` list. */
+function imports(root: Node): string[] {
+  const set = moduleSet(root);
+  const list = set && bindings(set).find((binding) => names(binding)?.join(".") === "imports")?.childForFieldName("expression");
+  if (list?.type !== "list_expression") return [];
+  return list
+    .childrenForFieldName("element")
+    .flatMap((element) => (element?.type === "path_expression" && /^\.{1,2}\//.test(element.text) ? [element.text] : []));
+}
+
+/**
+ * Whether a file is a module whose settings can be edited, the top-level
+ * names it sets, the full paths of the settings it writes, and the relative
+ * paths it imports unconditionally.
+ */
 export async function moduleShape(source: string) {
   const tree = await parseNix(source);
   try {
-    const body = tree.rootNode.hasError ? undefined : moduleBody(tree.rootNode);
+    const failed = tree.rootNode.hasError;
+    const body = failed ? undefined : moduleBody(tree.rootNode);
     return {
       editable: !!body,
       names: body ? bindings(body).flatMap((binding) => (names(binding) ? [names(binding)!.join(".")] : [])) : [],
+      settings: body ? leaves(body).map((path) => path.join(".")) : [],
+      imports: failed ? [] : imports(tree.rootNode),
     };
   } finally {
     tree.delete();

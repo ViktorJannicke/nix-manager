@@ -61,7 +61,7 @@
       experience.settings.map((setting) => [setting.option, software.value(experience!.scope, setting.option).value]),
     );
     initial = { on, values: $state.snapshot(values) as Record<string, unknown> };
-    target = software.definedIn(experience.scope, options[0]) ?? modules[0] ?? "";
+    target = software.definedIn(experience.scope, options[0]) ?? modules[0]?.file ?? "";
   });
   $effect(() => {
     if (!experience) opened = "";
@@ -173,9 +173,20 @@
         <label class="block space-y-1">
           <span class="font-medium">Write new settings to</span>
           <select class="focus-ring h-9 w-full rounded-md border bg-card px-2" bind:value={target}>
-            {#each modules as module (module)}<option value={module}>{module}</option>{/each}
+            <optgroup label="Used by {app.host}">
+              {#each modules.filter((module) => module.active !== false) as module (module.file)}<option value={module.file}>{module.file}</option>{/each}
+            </optgroup>
+            {#if modules.some((module) => module.active === false)}
+              <optgroup label="Not used by {app.host}">
+                {#each modules.filter((module) => module.active === false) as module (module.file)}<option value={module.file}>{module.file}</option>{/each}
+              </optgroup>
+            {/if}
           </select>
-          <span class="block text-xs text-muted-foreground">Prepare checks that this file is part of {app.host}'s configuration before anything is built.</span>
+          {#if modules.find((module) => module.file === target)?.active === false}
+            <span class="block text-xs text-warning">{app.host} does not import this file, so settings written here have no effect on it. Prepare will refuse them.</span>
+          {:else}
+            <span class="block text-xs text-muted-foreground">Prepare checks that every setting takes effect before anything is built.</span>
+          {/if}
         </label>
       {/if}
       {#if !on && initial.on}
