@@ -8,7 +8,8 @@ import type {
   Snapshot,
   StepOutcome,
 } from "../../src/contracts";
-import { actionLabels, request, type Request } from "../../src/domain";
+import { actionLabels, request, type Request, type Scope } from "../../src/domain";
+import type { Fix } from "../../src/explain";
 import { connectSession, managerApi } from "./api";
 import { plural } from "./format";
 
@@ -67,6 +68,8 @@ class AppState {
   theme = $state<Theme>((localStorage.getItem("nix-manager-theme") as Theme | null) || "system");
   toasts = $state<Toast[]>([]);
   confirmation = $state<Confirmation>();
+  /** A curated feature for the Software page to open, switched on, as the fix for a failure. */
+  offer = $state<string>();
   log = $state<LogView>({ id: "", text: "", end: 0, truncated: false, loading: false });
   /** Live progress for the running step, keyed by operation ID. */
   progress = $state.raw<Record<string, { stepId: string; progress: BuildProgress }>>({});
@@ -116,6 +119,13 @@ class AppState {
       media.removeEventListener("change", onScheme);
       removeEventListener("popstate", onPop);
     };
+  }
+
+  /** Opens the feature that allows what a failure refused, for the configuration that refused it. */
+  applyFix(fix: Fix, requested?: Scope) {
+    const scope = fix.scope ?? (requested === "home" ? "home" : "system");
+    this.offer = scope === "system" ? "non-free" : "non-free-home";
+    this.navigate("software");
   }
 
   navigate(page: Page) {
@@ -338,13 +348,15 @@ class AppState {
         tone: "error",
         title: operation.explanation ? `${label} failed: ${operation.explanation.title}` : `${label} failed`,
         body: operation.explanation?.body ?? operation.error,
-        action: {
-          label: "View log",
-          run: () => {
-            this.selectOperation(operation.id);
-            this.navigate("activity");
-          },
-        },
+        action: operation.explanation?.fix
+          ? { label: "Allow non-free software", run: () => this.applyFix(operation.explanation!.fix!, r.scope) }
+          : {
+              label: "View log",
+              run: () => {
+                this.selectOperation(operation.id);
+                this.navigate("activity");
+              },
+            },
       });
       return;
     }

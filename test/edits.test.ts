@@ -162,6 +162,53 @@ test("edited reviews build a staged copy, verify the edits and write them on app
   expect(readDraft(config)).toEqual([]);
 });
 
+test("a setting that does not take effect is reported before the package it was meant to allow", async () => {
+  const config = setup();
+  const snapshot = join(config.flake, "snapshot");
+  cpSync(join(config.flake, "modules"), join(snapshot, "modules"), { recursive: true });
+  writeFileSync(join(snapshot, "flake.nix"), "{}");
+  const calls: Command[] = [];
+  const manager = new Manager(config, undefined, (command) => {
+    calls.push(command);
+    const [program, verb, sub] = command.argv;
+    if (program === "cp") return runProcess(command);
+    return Effect.sync(() => {
+      if (verb === "flake" && sub === "metadata") {
+        const ref = command.argv[4];
+        return { code: 0, stdout: JSON.stringify({ path: ref === config.flake ? snapshot : ref.slice(5) }), stderr: "" };
+      }
+      if (verb === "eval") {
+        const source = command.argv[3].slice(5).split("#")[0];
+        const files = [`/nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/flake.nix`];
+        if (source !== snapshot) files.push(`${source}/modules/apps.nix`);
+        return {
+          code: 0,
+          stdout: JSON.stringify({
+            packages: [],
+            options: [{ exists: true, value: false, files }],
+            resolved: [],
+            used: [],
+          }),
+          stderr: "",
+        };
+      }
+      return { code: 0, stdout: "", stderr: "" };
+    });
+  });
+  const steam: Change = { kind: "add-package", scope: "home", file: "modules/apps.nix", attr: "pkgs.steam" };
+  writeDraft(config, [
+    steam,
+    { kind: "set-option", scope: "home", file: "modules/apps.nix", option: "nixpkgs.config.allowUnfree", value: true },
+  ]);
+  manager.start(request({ action: "review-build", reviewId: "ffffffff", scope: "home", edits: true }));
+  const failed = await manager.wait();
+  expect(failed?.explanation).toEqual({
+    title: "nixpkgs.config.allowUnfree is also set elsewhere",
+    body: "A module written directly in flake.nix sets nixpkgs.config.allowUnfree too, and that value wins. Change it there instead of adding a new definition.",
+  });
+  expect(calls.some((command) => command.argv.at(-1)?.endsWith(".pkgs.steam.outPath"))).toBe(false);
+});
+
 test("edits only combine with reviewed builds of the checkout", () => {
   const config = setup();
   expect(() => plan(config, request({ action: "build", edits: true }))).toThrow("reviews");

@@ -10,7 +10,7 @@ when it is finished. Tick items off in the commit that completes them.
 
 ## 1. Remove the dead ends
 
-- [ ] **Errors in plain words.** Recognise common evaluation and build failures
+- [x] **Errors in plain words.** Recognise common evaluation and build failures
   and show one sentence and, where possible, a button that fixes it as a
   pending edit. The original output stays one click away. First cases:
   - unfree package refused: "Steam is not free software" with "Allow it" (writes
@@ -21,6 +21,9 @@ when it is finished. Tick items off in the commit that completes them.
   - out of disk space during a build.
   Done when each case has a test with real Nix output and the review page and
   CLI show the explanation.
+  Follow-up: when the flake sets `nixpkgs.config` itself (for example from a
+  policy file), "Allow it" should edit that place instead of adding a module
+  definition that loses to it. Today the review explains the conflict.
 - [ ] **Unfree up front.** Discover says before installing that an app is not free
   software and offers to allow it in the same pending edit, so prepare does not
   fail first.

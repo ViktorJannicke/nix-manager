@@ -95,6 +95,9 @@
           <div class="mt-3 rounded-lg bg-destructive/10 px-3 py-2">
             <p class="font-medium text-destructive">{selected.explanation.title}</p>
             <p class="mt-0.5 text-xs">{selected.explanation.body}</p>
+            {#if selected.explanation.fix}
+              <Button size="sm" class="mt-2" disabled={app.busy} onclick={() => app.applyFix(selected.explanation!.fix!, selected.request.scope)}>Allow non-free software</Button>
+            {/if}
             {#if selected.error}
               <details class="mt-1.5 text-xs text-muted-foreground">
                 <summary class="cursor-pointer select-none">What Nix reported</summary>

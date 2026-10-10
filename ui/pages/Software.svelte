@@ -26,6 +26,7 @@
   let changingOnly = $state(false);
   let entry = $state<CatalogEntry>();
   let experience = $state<Experience>();
+  let start = $state(false);
   let searchInput = $state<HTMLInputElement>();
   let filterInput = $state<HTMLInputElement>();
   let content = $state<HTMLElement>();
@@ -67,10 +68,25 @@
   });
 
   const inventory = $derived(software.inventory);
+
+  // A failure's fix opens its feature, switched on.
+  $effect(() => {
+    const id = app.offer;
+    if (!id || !inventory) return;
+    app.offer = undefined;
+    view = "discover";
+    start = true;
+    experience = experiences.find((item) => item.id === id);
+  });
+  $effect(() => {
+    if (!experience) start = false;
+  });
   const categories = ["Games", "Development", "Internet", "Media", "Productivity", "System"] as const;
   const visible = $derived(inventory ? experiences.filter((item) => software.available(item)) : []);
   const pendingFor = (item: Experience) =>
-    software.changes.some((change) => change.label === item.title || ("option" in change && Object.keys(item.enable).includes(change.option)));
+    software.changes.some(
+      (change) => change.scope === item.scope && (change.label === item.title || ("option" in change && Object.keys(item.enable).includes(change.option))),
+    );
 
   /** Packages the next applied build installs or updates, compared with the running generation. */
   const changing = $derived((inventory?.[scope].packages ?? []).filter((item) => item.previous !== undefined && (showModules || !item.external)));
@@ -316,4 +332,4 @@
 </div>
 
 <PackageDialog bind:entry />
-<ExperienceDialog bind:experience />
+<ExperienceDialog bind:experience {start} />

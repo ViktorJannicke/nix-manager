@@ -25,6 +25,7 @@
   import HardDriveDownloadIcon from "@lucide/svelte/icons/hard-drive-download";
   import HistoryIcon from "@lucide/svelte/icons/history";
   import ListTreeIcon from "@lucide/svelte/icons/list-tree";
+  import LockOpenIcon from "@lucide/svelte/icons/lock-open";
   import MemoryStickIcon from "@lucide/svelte/icons/memory-stick";
   import MonitorCogIcon from "@lucide/svelte/icons/monitor-cog";
   import MonitorPlayIcon from "@lucide/svelte/icons/monitor-play";
@@ -76,6 +77,7 @@
     "hard-drive-download": HardDriveDownloadIcon,
     "history": HistoryIcon,
     "list-tree": ListTreeIcon,
+    "lock-open": LockOpenIcon,
     "memory-stick": MemoryStickIcon,
     "monitor-cog": MonitorCogIcon,
     "monitor-play": MonitorPlayIcon,

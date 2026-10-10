@@ -48,6 +48,12 @@ const prelude = `
     else v;
 `;
 
+/** The package set's configuration and a hash of its attribute names, to notice an edit that replaces it. */
+const nixpkgsFingerprint = `{
+    config = builtins.mapAttrs (_: v: let r = tryEval (let x = plain 0 v; in builtins.deepSeq x x); in if r.success then r.value else "<error>") c.pkgs.config;
+    names = builtins.hashString "sha256" (builtins.concatStringsSep "," (builtins.attrNames c.pkgs));
+  }`;
+
 const packagesOption = (scope: Target) =>
   scope === "home" ? "home.packages" : "environment.systemPackages";
 
@@ -63,6 +69,8 @@ export interface OptionValue {
   error?: boolean;
   exists: boolean;
   files: string[];
+  /** For a `nixpkgs.config` setting, the value the configuration's package set uses. */
+  effective?: unknown;
 }
 export interface ConfigurationState {
   /** Packages each file adds to the package option; flake files are relative. */
@@ -72,6 +80,8 @@ export interface ConfigurationState {
   resolved: (string | null)[];
   /** For each probe, whether the option at its path has a definition in its file. */
   used: boolean[];
+  /** With `nixpkgs` requested: the package set's configuration and a hash of its attribute names. */
+  nixpkgs?: { config: Record<string, unknown>; names: string };
 }
 
 /** A setting a flake file writes, to check whether the configuration imports that file. */
@@ -100,10 +110,14 @@ const StateSchema = Schema.Struct({
       error: Schema.optional(Schema.Boolean),
       exists: Schema.Boolean,
       files: Schema.Array(Schema.String),
+      effective: Schema.optional(Schema.Unknown),
     }),
   ),
   resolved: Schema.Array(Schema.NullOr(Schema.String)),
   used: Schema.Array(Schema.Boolean),
+  nixpkgs: Schema.optional(
+    Schema.NullOr(Schema.Struct({ config: Schema.Record({ key: Schema.String, value: Schema.Unknown }), names: Schema.String })),
+  ),
 });
 
 const decodeJson = <A, I>(schema: Schema.Schema<A, I>, label: string) => (text: string) =>
@@ -124,6 +138,8 @@ export const evaluateState = (
     options?: readonly string[];
     attrs?: readonly (readonly string[])[];
     probes?: readonly Probe[];
+    /** Describe the package set, to notice an edit that replaces it. */
+    nixpkgs?: boolean;
   } = {},
 ) => {
   const options = [...new Set(request.options ?? [])];
@@ -145,26 +161,38 @@ let
     else if (p._type or "") == "if" then (if p.condition then items p.content else [ ])
     else if elem (p._type or "") [ "override" "order" ] then items p.content
     else [ ];
+  # A setting below an option, such as nixpkgs.config.allowUnfree, exists when
+  # the option's value is a set; its files are those whose definition has it.
   value = path:
     let
-      option = get path c.options;
-      exists = isAttrs option && (option._type or "") == "option";
+      at = optionAt path c.options;
+      below = at != null && at.rest != [ ];
+      parent = tryEval (isAttrs (get (builtins.genList (builtins.elemAt path) (builtins.length path - 1)) c.config));
+      exists = at != null && (!below || (parent.success && parent.value));
       v = tryEval (let x = plain 0 (get path c.config); in builtins.deepSeq x x);
-      files = tryEval (let x = if exists then map toString option.files else [ ]; in builtins.deepSeq x x);
+      defines = d: let r = tryEval (isAttrs d.value && get at.rest d.value != null); in r.success && r.value;
+      files = tryEval (let x =
+        if !exists then [ ]
+        else if below then map (d: toString d.file) (builtins.filter defines at.option.definitionsWithLocations)
+        else map toString at.option.files; in builtins.deepSeq x x);
+      nixpkgsConfig = builtins.length path > 2 && builtins.head path == "nixpkgs" && builtins.elemAt path 1 == "config";
+      effective = tryEval (let x = plain 0 (get (builtins.tail (builtins.tail path)) c.pkgs.config); in builtins.deepSeq x x);
     in
       { inherit exists; files = if files.success then files.value else [ ]; }
-      // (if exists && v.success then { value = v.value; } else { error = true; });
+      // (if exists && v.success then { value = v.value; } else { error = true; })
+      // (if nixpkgsConfig && effective.success then { effective = effective.value; } else { });
   resolve = path:
     let r = tryEval (let v = get path c.pkgs; in if isAttrs v && v ? outPath then v.outPath else null);
     in if r.success then r.value else null;
-  # The option a setting path belongs to: freeform settings sit below one.
+  # The option a setting path belongs to and the path below it: freeform settings sit below one.
   optionAt = path: o:
-    if isAttrs o && (o._type or "") == "option" then o
+    if isAttrs o && (o._type or "") == "option" then { option = o; rest = path; }
     else if path == [ ] || !(isAttrs o) || !(o ? \${builtins.head path}) then null
     else optionAt (builtins.tail path) o.\${builtins.head path};
   used = probe:
     let
-      o = optionAt probe.path c.options;
+      at = optionAt probe.path c.options;
+      o = if at == null then null else at.option;
       r = tryEval (o != null && builtins.any (file: elem (toString file) probe.files) o.files);
     in r.success && r.value;
 in {
@@ -175,6 +203,7 @@ in {
   used = map used [ ${(request.probes ?? [])
     .map((probe) => `{ files = [ ${moduleKeys(source, probe.file).map(nixString).join(" ")} ]; path = [ ${probe.option.split(".").map(nixString).join(" ")} ]; }`)
     .join(" ")} ];
+  nixpkgs = ${request.nixpkgs ? nixpkgsFingerprint : "null"};
 }`;
   return command(
     "Evaluate configuration",
@@ -199,11 +228,13 @@ in {
         options: Object.fromEntries(
           options.map((option, index) => {
             const { files, ...rest } = state.options[index];
-            return [option, { ...rest, files: files.map(local) }];
+            // Definitions without a file, such as Home Manager's own, cannot be edited.
+            return [option, { ...rest, files: files.map(local).filter((file) => file !== "<unknown-file>") }];
           }),
         ),
         resolved: [...state.resolved],
         used: [...state.used],
+        ...(state.nixpkgs ? { nixpkgs: state.nixpkgs } : {}),
       };
     }),
   );

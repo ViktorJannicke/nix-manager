@@ -4,6 +4,7 @@ import { actionLabels, formatCommand } from "./domain";
 import type { BuildProgress, Operation } from "./contracts";
 import type { Output } from "./process";
 import type { UpdateReport } from "./updates";
+import { fixCommand } from "./explain";
 
 const actionName = (request: Request) => actionLabels[request.action];
 
@@ -112,7 +113,9 @@ export class TerminalRenderer {
       );
     }
     if (!this.options.json && operation.status === "failed" && operation.explanation)
-      process.stderr.write(`\n${operation.explanation.title}.\n${operation.explanation.body}\n`);
+      process.stderr.write(
+        `\n${operation.explanation.title}.\n${operation.explanation.body}\n${operation.explanation.fix ? `To allow it: ${fixCommand(operation.explanation.fix)}\n` : ""}`,
+      );
   }
 
   fail(error: unknown) {

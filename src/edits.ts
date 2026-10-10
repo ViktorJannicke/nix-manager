@@ -114,6 +114,14 @@ const show = (value: unknown) => {
   return text === undefined ? "nothing" : text.length > 80 ? `${text.slice(0, 77)}...` : text;
 };
 
+// lib.nixosSystem and homeManagerConfiguration attribute modules written inline
+// in the flake to the input's own flake.nix.
+const origin = (file: string) =>
+  /^\/nix\/store\/[a-z0-9]{32}-source\/flake\.nix$/.test(file) ? "a module written directly in flake.nix" : file;
+const joined = (items: readonly string[]) =>
+  items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+const sentence = (text: string) => `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+
 /**
  * Evaluates every edited configuration before and after the edits. Each change
  * must have its effect in the configuration that is being reviewed: a package
@@ -138,74 +146,119 @@ export const verifyEdits = (config: Config, r: Request, staged: Staged, changes:
           const options = own.flatMap((change) => ("option" in change ? [change.option] : []));
           const attrs = own.flatMap((change) => ("attr" in change ? [splitAttr(change.attr)!.slice(1)] : []));
           const attribute = configurationAttr(config, host, scope);
+          // Package settings must not replace the package set the flake builds.
+          const settings = options.filter((option) => option.startsWith("nixpkgs.config.")).map((option) => option.split(".")[2]);
+          const nixpkgs = settings.length > 0;
           const [before, after] = yield* Effect.all(
             [
-              evaluateState(staged.original, attribute, scope, { options, attrs }),
-              evaluateState(edited, attribute, scope, { options, attrs }),
+              evaluateState(staged.original, attribute, scope, { options, attrs, nixpkgs }),
+              evaluateState(edited, attribute, scope, { options, attrs, nixpkgs }),
             ],
             { concurrency: 2 },
           );
           const added = minus(packages(after), packages(before));
           const removed = minus(packages(before), packages(after));
           const name = scope === "home" ? `${host}'s home configuration` : `${host}'s system`;
-          let index = 0;
+          if (before.nixpkgs && after.nixpkgs) {
+            const keys = new Set([...Object.keys(before.nixpkgs.config), ...Object.keys(after.nixpkgs.config)]);
+            const changed = [...keys].filter(
+              (key) => !key.startsWith("_") && !settings.includes(key) && !isDeepStrictEqual(before.nixpkgs!.config[key], after.nixpkgs!.config[key]),
+            );
+            if (before.nixpkgs.names !== after.nixpkgs.names) changed.push("the packages the flake adds");
+            if (changed.length)
+              return yield* Effect.fail(
+                new ManagerError({
+                  message: `Setting nixpkgs.config in ${name} also changes ${changed.join(", ")}.`,
+                  explanation: {
+                    title: "This setting would change more than it says",
+                    body: `In ${name}, nixpkgs.config in a module makes the configuration import nixpkgs again, which also changes ${changed.join(", ")}. Set ${settings.join(", ")} where the flake imports nixpkgs instead, for example import nixpkgs { config.${settings[0]} = true; } in flake.nix.`,
+                  },
+                }),
+              );
+          }
+          // Settings are checked first: a setting without effect explains a
+          // package that is still refused better than the refusal does.
           for (const change of own) {
-            if ("attr" in change) {
-              const position = index++;
-              const out = (change.kind === "add-package" ? after : before).resolved[position];
-              if (!out) {
-                // Evaluating it again without tryEval yields Nix's reason, such as an unfree license.
-                const path = splitAttr(change.attr)!.slice(1).map(attr).join(".");
-                const result = yield* command(
-                  "Evaluate package",
-                  ["nix", "eval", "--raw", `path:${change.kind === "add-package" ? edited : staged.original}#${attribute}.pkgs.${path}.outPath`],
-                  { quiet: true, allowFailure: true },
-                );
-                const explanation = explain(result.stderr);
-                return yield* Effect.fail(
-                  new ManagerError({
-                    message: explanation
-                      ? `${change.attr} cannot be added to ${name}: ${explanation.title}.`
-                      : `${change.attr} does not exist in ${name}'s packages.`,
-                    explanation,
-                  }),
-                );
-              }
-              const list = change.kind === "add-package" ? added : removed;
-              if (!list.some((item) => item.out === out && item.file === change.file))
-                return yield* Effect.fail(
-                  new ManagerError({
-                    message:
-                      change.kind === "add-package"
-                        ? `${change.attr} was added to ${change.file}, but ${name} does not include it. Is the file part of this configuration?`
-                        : `Removing ${change.attr} from ${change.file} does not remove it from ${name}.`,
-                  }),
-                );
-              continue;
-            }
             // A created file is checked through the settings and packages written into it.
-            if (change.kind === "create-module") continue;
+            if ("attr" in change || change.kind === "create-module") continue;
             const now = after.options[change.option];
             if (!now?.exists)
               return yield* Effect.fail(
                 new ManagerError({ message: `${change.option} is not an option of ${name}.` }),
               );
             if (change.kind === "set-option") {
-              if (now.error || !includes(now.value, change.value))
+              if (now.error)
+                return yield* Effect.fail(
+                  new ManagerError({ message: `${change.option} no longer evaluates after the edit.` }),
+                );
+              const others = now.files.filter((file) => file !== change.file);
+              if (!includes(now.value, change.value))
                 return yield* Effect.fail(
                   new ManagerError({
-                    message: now.error
-                      ? `${change.option} no longer evaluates after the edit.`
-                      : `${change.option} is ${show(now.value)} instead of ${show(change.value)}. Another definition takes precedence, or ${change.file} is not part of ${name}.`,
+                    message: `${change.option} is ${show(now.value)} instead of ${show(change.value)}. Another definition takes precedence, or ${change.file} is not part of ${name}.`,
+                    explanation:
+                      now.files.includes(change.file) && others.length
+                        ? {
+                            title: `${change.option} is also set elsewhere`,
+                            body: `${sentence(joined(others.map(origin)))} ${others.length === 1 ? "sets" : "set"} ${change.option} too, and that value wins. Change it there instead of adding a new definition.`,
+                          }
+                        : undefined,
                   }),
                 );
               if (!now.files.includes(change.file))
                 return yield* Effect.fail(
                   new ManagerError({ message: `${change.file} is not part of ${name}, so ${change.option} is unchanged.` }),
                 );
+              if ("effective" in now && !includes(now.effective, change.value)) {
+                const setting = change.option.slice("nixpkgs.config.".length);
+                return yield* Effect.fail(
+                  new ManagerError({
+                    message: `${change.option} is set in ${change.file}, but ${name} takes its packages from a nixpkgs the flake imports itself.`,
+                    explanation: {
+                      title: "This setting does not reach your packages",
+                      body: `${name} gets its packages from a nixpkgs that the flake imports itself, so nixpkgs.config in modules has no effect. Set ${setting} where nixpkgs is imported instead, for example import nixpkgs { config.${setting} = ${show(change.value)}; } in flake.nix.`,
+                    },
+                  }),
+                );
+              }
             } else if (now.files.includes(change.file))
               return yield* Effect.fail(
                 new ManagerError({ message: `${change.option} is still set in ${change.file}.` }),
+              );
+          }
+          let index = 0;
+          for (const change of own) {
+            if (!("attr" in change)) continue;
+            const position = index++;
+            const out = (change.kind === "add-package" ? after : before).resolved[position];
+            if (!out) {
+              // Evaluating it again without tryEval yields Nix's reason, such as an unfree license.
+              const path = splitAttr(change.attr)!.slice(1).map(attr).join(".");
+              const result = yield* command(
+                "Evaluate package",
+                ["nix", "eval", "--raw", `path:${change.kind === "add-package" ? edited : staged.original}#${attribute}.pkgs.${path}.outPath`],
+                { quiet: true, allowFailure: true },
+              );
+              const found = explain(result.stderr);
+              const explanation = found?.fix ? { ...found, fix: { ...found.fix, scope } } : found;
+              return yield* Effect.fail(
+                new ManagerError({
+                  message: explanation
+                    ? `${change.attr} cannot be added to ${name}: ${explanation.title}.`
+                    : `${change.attr} does not exist in ${name}'s packages.`,
+                  explanation,
+                }),
+              );
+            }
+            const list = change.kind === "add-package" ? added : removed;
+            if (!list.some((item) => item.out === out && item.file === change.file))
+              return yield* Effect.fail(
+                new ManagerError({
+                  message:
+                    change.kind === "add-package"
+                      ? `${change.attr} was added to ${change.file}, but ${name} does not include it. Is the file part of this configuration?`
+                      : `Removing ${change.attr} from ${change.file} does not remove it from ${name}.`,
+                }),
               );
           }
           return {

@@ -1,10 +1,9 @@
 import type { Change } from "../../src/draft";
-import { changesScope, dropChange, featureModule, freePath, mergeChanges, newFileProblem, rankImporters } from "../../src/changes";
+import { changesScope, dropChange, featureModule, freePath, mergeChanges, newFileProblem, rankImporters, rankModules } from "../../src/changes";
 import type { Experience } from "../../src/curated";
 import type {
   CatalogEntry,
   InstalledPackage,
-  ModuleFile,
   OptionDoc,
   ScopeInventory,
   Target,
@@ -156,28 +155,9 @@ class SoftwareState {
     return files.length === 1 ? files[0] : undefined;
   }
 
-  /**
-   * Module files that could hold an option, best first: files this host
-   * imports, the last one used, files of the same kind of configuration, then
-   * files that already set options under the same name or live in a folder of
-   * that name. Packages, overlays, data, tests and docs are left out.
-   */
+  /** Module files that could hold an option, best first; see `rankModules`. */
   moduleFiles(scope: Target, option: string) {
-    const head = option.split(".")[0];
-    const modules = (this.inventory?.[scope].modules ?? []).filter(
-      (module) => !/(^|\/)(pkgs|overlays?|data|tests?|docs)\//.test(module.file),
-    );
-    const own = scope === "home" ? /home/ : /nixos|system/;
-    const other = scope === "home" ? /nixos|system/ : /home/;
-    const score = (module: ModuleFile) =>
-      (module.active === true ? 200 : module.active === false ? -200 : 0) +
-      (module.file === remembered(scope) ? 100 : 0) +
-      (own.test(module.file) ? 20 : 0) -
-      (other.test(module.file) ? 40 : 0) +
-      (module.names.some((name) => name.split(".")[0] === head) ? 6 : 0) +
-      (module.file.split("/").includes(head) ? 4 : 0) -
-      (/hosts\//.test(module.file) ? 3 : 0);
-    return [...modules].sort((a, b) => score(b) - score(a) || a.file.localeCompare(b.file));
+    return rankModules(this.inventory?.[scope].modules ?? [], scope, option, remembered(scope));
   }
 
   /** Files with a package list for a scope: the last one used, then active ones holding the most packages. */

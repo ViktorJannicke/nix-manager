@@ -3,9 +3,16 @@
 // available; an explanation only leads it.
 
 /** A change the dashboard can offer to make the failure go away. */
-export type Fix =
-  | { kind: "allow-unfree"; packages: string[] }
-  | { kind: "allow-insecure"; packages: string[] };
+export interface Fix {
+  kind: "allow-unfree";
+  packages: string[];
+  /** The configuration that refused the packages, when known. */
+  scope?: "home" | "system";
+}
+
+/** The command-line equivalent of a fix. */
+export const fixCommand = (fix: Fix) =>
+  `nix-manager software set nixpkgs.config.allowUnfree true${fix.scope === "system" ? " --system" : ""}`;
 
 export interface Explanation {
   /** What went wrong, as one sentence. */
@@ -77,8 +84,7 @@ const rules: Rule[] = [
       .filter(Boolean);
     return {
       title: `${packageName(match[1])} has known security problems`,
-      body: `Nixpkgs marks ${match[1]} as insecure${issues.length ? ` (${issues.slice(0, 3).join("; ")})` : ""}. Allow this version only if you need it, or choose another package.`,
-      fix: { kind: "allow-insecure", packages: [match[1]] },
+      body: `Nixpkgs marks ${match[1]} as insecure${issues.length ? ` (${issues.slice(0, 3).join("; ")})` : ""}. Choose another package, or allow this version in your configuration if you need it.`,
     };
   },
   (text) => {

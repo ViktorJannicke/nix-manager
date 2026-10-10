@@ -2,6 +2,7 @@
 // command line. Only types come from the draft module, so the browser bundle
 // stays free of Node code.
 import type { Change } from "./draft";
+import type { ModuleFile, Target } from "./software";
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -97,6 +98,35 @@ export function rankImporters(importers: readonly string[], file: string, import
   };
   return [...importers].sort((a, b) => score(b) - score(a) || a.localeCompare(b));
 }
+
+/**
+ * Module files that could hold an option, best first: files the host imports,
+ * the last one used, files of the same kind of configuration, then files that
+ * already set options under the same name or live in a folder of that name.
+ * Packages, overlays, data, tests and docs are left out.
+ */
+export function rankModules(modules: readonly ModuleFile[], scope: Target, option: string, last?: string) {
+  const head = option.split(".")[0];
+  const own = scope === "home" ? /home/ : /nixos|system/;
+  const other = scope === "home" ? /nixos|system/ : /home/;
+  const score = (module: ModuleFile) =>
+    (module.active === true ? 200 : module.active === false ? -200 : 0) +
+    (module.file === last ? 100 : 0) +
+    (own.test(module.file) ? 20 : 0) -
+    (other.test(module.file) ? 40 : 0) +
+    (module.names.some((name) => name.split(".")[0] === head) ? 6 : 0) +
+    (module.file.split("/").includes(head) ? 4 : 0) -
+    (/hosts\//.test(module.file) ? 3 : 0);
+  return modules
+    .filter((module) => !/(^|\/)(pkgs|overlays?|data|tests?|docs)\//.test(module.file))
+    .sort((a, b) => score(b) - score(a) || a.file.localeCompare(b.file));
+}
+
+/** The topic of an option, which names a module of its own: `fzf` for `programs.fzf.enable`. */
+export const optionTopic = (option: string) => {
+  const [head, next] = option.split(".");
+  return /^(programs|services|hardware|virtualisation|security)$/.test(head) && next ? next : head;
+};
 
 /** A path for a new module named `name` in the folder of `near`, not in `known`. */
 export function freePath(known: ReadonlySet<string>, name: string, near: string | undefined, fallback: string) {

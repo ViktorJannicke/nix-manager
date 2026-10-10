@@ -8,7 +8,8 @@
   import type { Change } from "../../../../src/draft";
   import type { Experience } from "../../../../src/curated";
 
-  let { experience = $bindable() }: { experience?: Experience } = $props();
+  /** `start` opens the experience switched on, as the fix for a failure. */
+  let { experience = $bindable(), start = false }: { experience?: Experience; start?: boolean } = $props();
 
   type Field =
     | { kind: "boolean" }
@@ -64,6 +65,7 @@
       experience.settings.map((setting) => [setting.option, software.value(experience!.scope, setting.option).value]),
     );
     initial = { on, values: $state.snapshot(values) as Record<string, unknown> };
+    if (start) on = true;
     target = software.definedIn(experience.scope, options[0]) ?? software.featureFile(experience.scope, options[0], experience.id);
     newFile = software.suggestFile(experience.scope, experience.id, modules.find((module) => module.active !== false)?.file);
   });

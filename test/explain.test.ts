@@ -20,8 +20,7 @@ test("refused packages say why and offer a fix where one exists", () => {
   });
   expect(explain(fixture("insecure"))).toEqual({
     title: "hello has known security problems",
-    body: "Nixpkgs marks hello-2.12.3 as insecure (CVE-1). Allow this version only if you need it, or choose another package.",
-    fix: { kind: "allow-insecure", packages: ["hello-2.12.3"] },
+    body: "Nixpkgs marks hello-2.12.3 as insecure (CVE-1). Choose another package, or allow this version in your configuration if you need it.",
   });
   expect(explain(fixture("broken"))?.title).toBe("hello does not work in this version of nixpkgs");
   expect(explain(fixture("platform"))?.title).toBe("hello does not run on this computer");
@@ -77,6 +76,6 @@ test("files, builds, disks and downloads", () => {
 
 test("long insecurity notes are shortened to their first sentence", () => {
   expect(explain(fixture("insecure-notes"))?.body).toBe(
-    "Nixpkgs marks olm-3.2.16 as insecure (The libolm end‐to‐end encryption library used in many Matrix clients and Jitsi Meet has been deprecated upstream, and relies on a cryptography library that has known side‐channel issues and disclaims that its implementations are not cryptographically secure and should not be used when cryptographic security is required). Allow this version only if you need it, or choose another package.",
+    "Nixpkgs marks olm-3.2.16 as insecure (The libolm end‐to‐end encryption library used in many Matrix clients and Jitsi Meet has been deprecated upstream, and relies on a cryptography library that has known side‐channel issues and disclaims that its implementations are not cryptographically secure and should not be used when cryptographic security is required). Choose another package, or allow this version in your configuration if you need it.",
   );
 });

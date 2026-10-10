@@ -31,6 +31,19 @@ export const experiences: Experience[] = [
   // System experiences
 
   {
+    id: "non-free",
+    title: "Non-free software",
+    summary: "Allow apps whose license is not free, such as Steam, Discord, Spotify or Chrome.",
+    icon: "lock-open",
+    category: "System",
+    scope: "system",
+    enable: {
+      "nixpkgs.config.allowUnfree": true,
+    },
+    settings: [],
+  },
+
+  {
     id: "steam",
     title: "Steam",
     summary: "Install Steam with Proton so you can play Windows and Linux games.",
@@ -656,6 +669,19 @@ export const experiences: Experience[] = [
   },
 
   // Home experiences
+
+  {
+    id: "non-free-home",
+    title: "Non-free software",
+    summary: "Allow apps whose license is not free, such as Discord, Spotify or Chrome, for your user.",
+    icon: "lock-open",
+    category: "System",
+    scope: "home",
+    enable: {
+      "nixpkgs.config.allowUnfree": true,
+    },
+    settings: [],
+  },
 
   {
     id: "git",

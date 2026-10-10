@@ -6,7 +6,20 @@ import { readFile } from "node:fs/promises";
 import { Args, Command, Options } from "@effect/cli";
 import { BunContext } from "@effect/platform-bun";
 import { Console, Effect, Option } from "effect";
-import { changesScope, describeChange, dropChange, mergeChanges, newFileProblem, origin, rankImporters, showValue } from "./changes";
+import {
+  changesScope,
+  describeChange,
+  dropChange,
+  featureModule,
+  freePath,
+  mergeChanges,
+  newFileProblem,
+  optionTopic,
+  origin,
+  rankImporters,
+  rankModules,
+  showValue,
+} from "./changes";
 import { ManagerError, request, type Config, type Request } from "./domain";
 import { changeHash, draftPublic, readDraft, writeDraft, type Change } from "./draft";
 import { splitAttr } from "./edits";
@@ -356,7 +369,21 @@ export async function runSoftware(config: Config, command: SoftwareCommand): Pro
     case "set":
     case "unset": {
       const current = await optionState(edit.option);
-      const target = await chosen();
+      let target = await chosen();
+      // A setting nothing sets yet goes where the dashboard would put it.
+      if (!target && edit.kind === "set" && !current.files.length) {
+        const state = await inventoryOf();
+        const ranked = rankModules(state.modules, scope, edit.option);
+        const topic = optionTopic(edit.option);
+        const existing = featureModule(ranked, topic);
+        if (existing) target = { file: existing, create: [] };
+        else {
+          const file = freePath(known(state), topic, ranked.find((module) => module.active !== false)?.file, scope === "home" ? "modules/home" : "modules/nixos");
+          const importer = rankImporters(state.importers, file, state.imports)[0];
+          if (importer) target = { file, create: [{ kind: "create-module", scope, file, importer }] };
+        }
+        if (target) note(`Writing to ${target.file}${target.create.length ? ` (new, imported from ${(target.create[0] as { importer: string }).importer})` : ""}.`);
+      }
       const file = target?.file ?? (current.files.length === 1 ? current.files[0] : undefined);
       if (!file)
         throw new ManagerError({
