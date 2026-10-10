@@ -82,6 +82,17 @@ export interface ConfigurationState {
   used: boolean[];
   /** With `nixpkgs` requested: the package set's configuration and a hash of its attribute names. */
   nixpkgs?: { config: Record<string, unknown>; names: string };
+  /** Which non-free packages the configuration's package set accepts, when that evaluates. */
+  unfree?: UnfreePolicy;
+}
+
+export interface UnfreePolicy {
+  /** `allowUnfree`. */
+  all: boolean;
+  /** `allowUnfreePackages`: package names allowed one by one. */
+  packages: string[];
+  /** An `allowUnfreePredicate` decides, which cannot be asked without the package. */
+  predicate: boolean;
 }
 
 /** A setting a flake file writes, to check whether the configuration imports that file. */
@@ -117,6 +128,9 @@ const StateSchema = Schema.Struct({
   used: Schema.Array(Schema.Boolean),
   nixpkgs: Schema.optional(
     Schema.NullOr(Schema.Struct({ config: Schema.Record({ key: Schema.String, value: Schema.Unknown }), names: Schema.String })),
+  ),
+  unfree: Schema.optional(
+    Schema.NullOr(Schema.Struct({ all: Schema.Boolean, packages: Schema.Array(Schema.String), predicate: Schema.Boolean })),
   ),
 });
 
@@ -204,6 +218,13 @@ in {
     .map((probe) => `{ files = [ ${moduleKeys(source, probe.file).map(nixString).join(" ")} ]; path = [ ${probe.option.split(".").map(nixString).join(" ")} ]; }`)
     .join(" ")} ];
   nixpkgs = ${request.nixpkgs ? nixpkgsFingerprint : "null"};
+  unfree =
+    let r = tryEval (let k = c.pkgs.config; x = {
+      all = k.allowUnfree or false == true;
+      packages = builtins.filter builtins.isString (k.allowUnfreePackages or [ ]);
+      predicate = builtins.isFunction (k.allowUnfreePredicate or null);
+    }; in builtins.deepSeq x x);
+    in if r.success then r.value else null;
 }`;
   return command(
     "Evaluate configuration",
@@ -235,6 +256,7 @@ in {
         resolved: [...state.resolved],
         used: [...state.used],
         ...(state.nixpkgs ? { nixpkgs: state.nixpkgs } : {}),
+        ...(state.unfree ? { unfree: { ...state.unfree, packages: [...state.unfree.packages] } } : {}),
       };
     }),
   );
@@ -393,6 +415,8 @@ export interface ScopeInventory {
   /** Flake paths each importer imports. */
   imports: Record<string, string[]>;
   options: Record<string, OptionValue>;
+  /** Which non-free packages it accepts; absent when that does not evaluate. */
+  unfree?: UnfreePolicy;
 }
 
 /** What a host's configuration installs, mapped back to the lines that install it. */
@@ -470,6 +494,7 @@ export const inventory = (
         ]),
       ),
       options: state.options,
+      ...(state.unfree ? { unfree: state.unfree } : {}),
     } satisfies ScopeInventory;
   });
 

@@ -1,5 +1,6 @@
 <script lang="ts">
   import ExternalLinkIcon from "@lucide/svelte/icons/external-link";
+  import LockOpenIcon from "@lucide/svelte/icons/lock-open";
   import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
   import * as Dialog from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
@@ -25,23 +26,37 @@
   $effect(() => {
     if (entry) newFile = software.suggestFile(scope, entry.a.split(".").at(-1)!, files.find((item) => item.active)?.file);
   });
+  // A non-free package is refused unless the configuration allows it, so the
+  // permission is added in the same pending edit.
+  const refused = $derived(Boolean(entry && !installed && !pending && software.refusesUnfree(scope, entry)));
+  const allowing = $derived(refused ? software.allowUnfree(scope) : undefined);
   const creating = $derived(file === NEW_FILE);
   const ready = $derived(creating ? !software.newFileProblem(scope, newFile) && Boolean(importer) : Boolean(file));
   const category = (path: string) => path.split("/").at(-1)!.replace(/\.nix$/, "");
 
   async function add() {
-    if (!entry || !ready) return;
+    if (!entry || !ready || (refused && !allowing)) return;
+    const allow = allowing ?? [];
     if (creating) {
       await software.stage([
+        ...allow,
         { kind: "create-module", scope, file: newFile, importer },
         { kind: "add-package", scope, file: newFile, attr },
       ]);
     } else {
       software.remember(scope, file);
-      await software.stage([{ kind: "add-package", scope, file, attr }]);
+      await software.stage([...allow, { kind: "add-package", scope, file, attr }]);
     }
-    app.toast({ tone: "success", title: `${entry.n ?? entry.a} will be installed`, body: "Prepare your pending edits to build it." });
+    app.toast({
+      tone: "success",
+      title: `${entry.n ?? entry.a} will be installed`,
+      body: `${allow.length ? "Non-free software will be allowed too. " : ""}Prepare your pending edits to build it.`,
+    });
     entry = undefined;
+  }
+  function allowFirst() {
+    entry = undefined;
+    app.applyFix({ kind: "allow-unfree", packages: [], scope }, scope);
   }
   async function remove() {
     if (!entry || !installed?.attr) return;
@@ -104,6 +119,22 @@
           {#if creating}
             <NewModuleFields {scope} bind:file={newFile} bind:importer />
           {/if}
+          {#if refused}
+            <div class="flex gap-2 rounded-lg bg-muted px-3 py-2 text-xs">
+              <LockOpenIcon class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+              <div class="space-y-1">
+                <p class="font-medium">{entry.n ?? entry.a} is not free software</p>
+                {#if allowing}
+                  <p class="text-muted-foreground">
+                    {scope === "home" ? "Your user only installs" : "This computer only installs"} software with a free license. Adding it also allows non-free software{scope === "home" ? " for you" : ""}, in {allowing.at(-1)!.file}.
+                  </p>
+                {:else}
+                  <p class="text-muted-foreground">{scope === "home" ? "Your user only installs" : "This computer only installs"} software with a free license. Allow non-free software first, then add it.</p>
+                  <Button size="sm" variant="outline" class="mt-1" onclick={allowFirst}>Allow non-free software…</Button>
+                {/if}
+              </div>
+            </div>
+          {/if}
         </div>
       {/if}
 
@@ -112,7 +143,7 @@
         {#if !pending && installed?.attr}
           <Button variant="destructive" disabled={software.saving} onclick={remove}>Remove</Button>
         {:else if !pending && !installed}
-          <Button disabled={!ready || software.saving} onclick={add}>Add to pending edits</Button>
+          <Button disabled={!ready || (refused && !allowing) || software.saving} onclick={add}>Add to pending edits</Button>
         {/if}
       </Dialog.Footer>
     {/if}

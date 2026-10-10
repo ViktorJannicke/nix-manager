@@ -1,6 +1,6 @@
 import type { Change } from "../../src/draft";
-import { changesScope, dropChange, featureModule, freePath, mergeChanges, newFileProblem, rankImporters, rankModules } from "../../src/changes";
-import type { Experience } from "../../src/curated";
+import { acceptsUnfree, changesScope, dropChange, featureModule, freePath, mergeChanges, newFileProblem, rankImporters, rankModules } from "../../src/changes";
+import { experiences, type Experience } from "../../src/curated";
 import type {
   CatalogEntry,
   InstalledPackage,
@@ -16,6 +16,8 @@ export type Inventory = Record<Target, ScopeInventory>;
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const remembered = (scope: Target) => localStorage.getItem(`nix-manager-file-${scope}`) || undefined;
+
+const UNFREE = "nixpkgs.config.allowUnfree";
 
 /** Select value standing for a module file the edits create. */
 export const NEW_FILE = "\0new";
@@ -122,6 +124,32 @@ class SoftwareState {
       if (found) return { ...found, scope };
     }
     return undefined;
+  }
+
+  /** Installing `entry` in `scope` would be refused as non-free software, even with the pending edits. */
+  refusesUnfree(scope: Target, entry: CatalogEntry) {
+    if (entry.f || same(this.value(scope, UNFREE).value, true)) return false;
+    return !acceptsUnfree(this.inventory?.[scope].unfree, entry.n);
+  }
+
+  /**
+   * Edits that allow non-free software in a scope, written where the Non-free
+   * software feature would write them. Undefined when a new file would have
+   * nothing to import it.
+   */
+  allowUnfree(scope: Target): Change[] | undefined {
+    const experience = experiences.find((item) => item.scope === scope && UNFREE in item.enable)!;
+    const label = experience.title;
+    const target = this.definedIn(scope, UNFREE) ?? this.featureFile(scope, UNFREE, experience.id);
+    if (target !== NEW_FILE) return [{ kind: "set-option", scope, file: target, option: UNFREE, value: true, label }];
+    const near = this.moduleFiles(scope, UNFREE).find((module) => module.active !== false)?.file;
+    const file = this.suggestFile(scope, experience.id, near);
+    const importer = this.importers(scope, file)[0];
+    if (!importer) return undefined;
+    return [
+      { kind: "create-module", scope, file, importer, label },
+      { kind: "set-option", scope, file, option: UNFREE, value: true, label },
+    ];
   }
 
   pendingPackage(attr: string) {

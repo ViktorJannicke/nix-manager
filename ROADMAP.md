@@ -24,7 +24,7 @@ when it is finished. Tick items off in the commit that completes them.
   Follow-up: when the flake sets `nixpkgs.config` itself (for example from a
   policy file), "Allow it" should edit that place instead of adding a module
   definition that loses to it. Today the review explains the conflict.
-- [ ] **Unfree up front.** Discover says before installing that an app is not free
+- [x] **Unfree up front.** Discover says before installing that an app is not free
   software and offers to allow it in the same pending edit, so prepare does not
   fail first.
 - [ ] **Undo.** A visible "Undo last change" that rolls back to the previous

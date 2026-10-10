@@ -7,6 +7,7 @@ import { Args, Command, Options } from "@effect/cli";
 import { BunContext } from "@effect/platform-bun";
 import { Console, Effect, Option } from "effect";
 import {
+  acceptsUnfree,
   changesScope,
   describeChange,
   dropChange,
@@ -23,6 +24,7 @@ import {
 import { ManagerError, request, type Config, type Request } from "./domain";
 import { changeHash, draftPublic, readDraft, writeDraft, type Change } from "./draft";
 import { splitAttr } from "./edits";
+import { fixCommand } from "./explain";
 import { hashText, readLock } from "./observe";
 import { flakeSource } from "./packages";
 import { runnerLayer, type Runner } from "./process";
@@ -350,7 +352,19 @@ export async function runSoftware(config: Config, command: SoftwareCommand): Pro
       if (!target)
         throw new ManagerError({ message: `No file of ${name} has a package list. Choose one with --file, or create one with --new-file.` });
       const next = [...target.create, ...attrs.map((attr): Change => ({ kind: "add-package", scope, file: target.file, attr }))];
-      return void (await save(config, changes, mergeChanges(changes, next), json));
+      await save(config, changes, mergeChanges(changes, next), json);
+      // Prepare would refuse these; say so now, with the edit that allows them.
+      const allowed = changes.some(
+        (change) => change.kind === "set-option" && change.scope === scope && change.option === "nixpkgs.config.allowUnfree" && change.value === true,
+      );
+      const refused = allowed
+        ? []
+        : (index ?? []).filter((entry) => attrs.includes(`pkgs.${entry.a}`) && !entry.f && !acceptsUnfree(state.unfree, entry.n));
+      if (refused.length)
+        note(
+          `${refused.map((entry) => entry.n ?? entry.a).join(", ")} ${refused.length === 1 ? "is" : "are"} not free software, which ${name} does not allow. To allow it: ${fixCommand({ kind: "allow-unfree", packages: [], scope })}`,
+        );
+      return;
     }
     case "remove": {
       const state = await inventoryOf();

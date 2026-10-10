@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { changesScope, dropChange, featureModule, freePath, mergeChanges, newFileProblem, rankImporters } from "../src/changes";
+import { acceptsUnfree, changesScope, dropChange, featureModule, freePath, mergeChanges, newFileProblem, rankImporters } from "../src/changes";
 import { readDraft, writeDraft, type Change } from "../src/draft";
 import { parseSoftware, runSoftware, software } from "../src/software-cli";
 import { fixture } from "./helpers";
@@ -99,4 +99,16 @@ test("draft commands edit the shared draft; prepare builds it into a review", as
   expect(readDraft(config)).toEqual([]);
   expect(lines.join("\n")).toContain("+  home.packages = [ pkgs.git pkgs.btop pkgs.fd ];");
   expect(lines.join("\n")).toContain("Dropped: Install btop.");
+});
+
+test("non-free packages are accepted by allowUnfree, by name, or by a predicate", () => {
+  const policy = { all: false, packages: ["steam"], predicate: false };
+  expect(acceptsUnfree(policy, "steam")).toBe(true);
+  expect(acceptsUnfree(policy, "discord")).toBe(false);
+  expect(acceptsUnfree(policy, null)).toBe(false);
+  expect(acceptsUnfree({ ...policy, all: true }, "discord")).toBe(true);
+  // A predicate cannot be asked without the package, so it is trusted.
+  expect(acceptsUnfree({ ...policy, predicate: true }, "discord")).toBe(true);
+  // Without a known policy nothing is claimed.
+  expect(acceptsUnfree(undefined, "discord")).toBe(true);
 });

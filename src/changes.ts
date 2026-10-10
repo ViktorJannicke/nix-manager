@@ -2,9 +2,13 @@
 // command line. Only types come from the draft module, so the browser bundle
 // stays free of Node code.
 import type { Change } from "./draft";
-import type { ModuleFile, Target } from "./software";
+import type { ModuleFile, Target, UnfreePolicy } from "./software";
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/** Whether a policy accepts a non-free package by its name; a predicate counts as accepting. */
+export const acceptsUnfree = (policy: UnfreePolicy | undefined, name: string | null) =>
+  !policy || policy.all || policy.predicate || (name !== null && policy.packages.includes(name));
 
 /**
  * Adds edits to a draft. An edit replaces a pending edit of the same option,
