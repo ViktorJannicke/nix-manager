@@ -1,15 +1,9 @@
 import { mkdir, readFile, readdir } from "node:fs/promises";
-import { extname, join, relative } from "node:path";
+import { join, relative } from "node:path";
 import { build as buildVite } from "vite";
+import { asset } from "./src/server";
 await mkdir("dist", { recursive: true });
 await buildVite({ configFile: new URL("vite.config.ts", import.meta.url).pathname });
-const mime = (path: string) =>
-  ({
-    ".html": "text/html; charset=utf-8",
-    ".js": "text/javascript; charset=utf-8",
-    ".css": "text/css; charset=utf-8",
-    ".svg": "image/svg+xml",
-  })[extname(path)] || "application/octet-stream";
 const root = new URL("ui-dist", import.meta.url).pathname;
 const walk = async (directory: string): Promise<string[]> => {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -28,7 +22,7 @@ const assets = Object.fromEntries(
       const name = relative(root, path);
       return [
         name === "index.html" ? "/" : `/${name}`,
-        { body: await readFile(path, "utf8"), type: mime(path) },
+        asset(path, await readFile(path)),
       ];
     }),
   ),

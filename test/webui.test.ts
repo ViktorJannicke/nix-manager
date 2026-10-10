@@ -35,7 +35,7 @@ async function dashboard(noOpen = false) {
     { mode: 0o755 },
   );
   writeFileSync(
-    join(bin, "home-manager"),
+    join(bin, "nix"),
     `#!${process.execPath}\nwhile (!(await Bun.file(process.env.NIX_MANAGER_TEST_RELEASE).exists())) await Bun.sleep(20);\n`,
     { mode: 0o755 },
   );

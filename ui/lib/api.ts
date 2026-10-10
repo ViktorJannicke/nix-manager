@@ -1,11 +1,9 @@
 import type {
   LogResult,
-  BuildReview,
-  InputProposal,
-  ManagerEvent,
-  ManagerState,
   Operation,
   Plan,
+  SessionMessage,
+  Snapshot,
 } from "../../src/contracts";
 import type { Request } from "../../src/domain";
 
@@ -14,10 +12,12 @@ const token = fragment || sessionStorage.getItem("nix-manager-token") || "";
 if (fragment) sessionStorage.setItem("nix-manager-token", fragment);
 history.replaceState(null, "", `${location.pathname}${location.search}`);
 
+export const hasToken = () => Boolean(token);
+
 export async function api<T>(
   path: string,
   data?: unknown,
-  timeout = 15_000,
+  timeout = 30_000,
 ): Promise<T> {
   const response = await fetch(`/api/${path}`, {
     method: data === undefined ? "GET" : "POST",
@@ -28,29 +28,25 @@ export async function api<T>(
     body: data === undefined ? undefined : JSON.stringify(data),
     signal: AbortSignal.timeout(timeout),
   });
-  const result = await response.json();
+  const result = await response.json().catch(() => ({}));
   if (!response.ok)
     throw new Error(result.error || `Request failed (${response.status})`);
-  return result;
+  return result as T;
 }
 
 export const managerApi = {
-  state: () => api<ManagerState>("state"),
+  state: () => api<Snapshot>("state"),
+  refresh: () => api<Snapshot>("refresh", {}, 60_000),
   plan: (request: Request) => api<Plan>("plan", request),
   run: (request: Request) => api<Operation>("run", request),
   cancel: (id: string) => api<{ ok: true }>("cancel", { id }),
   log: (id: string) => api<LogResult>(`log/${id}`),
-  generationReview: (kind: "home" | "system", number: number) =>
-    api<BuildReview>("generation-review", { kind, number }),
-  inputReview: (inputs: string[]) =>
-    api<InputProposal>("input-review", { inputs }, 5 * 60_000),
-  inputApply: (id: string, fingerprint: string) =>
-    api<InputProposal>("input-apply", { id, fingerprint }),
   removeReview: (id: string) => api<{ ok: true }>("review-remove", { id }),
 };
 
+/** Keeps a session open, reconnecting with backoff; each connect starts with a snapshot. */
 export function connectSession(options: {
-  onEvent: (event: ManagerEvent) => void;
+  onMessage: (message: SessionMessage) => void;
   onConnection: (connected: boolean) => void;
 }) {
   let closed = false;
@@ -69,9 +65,10 @@ export function connectSession(options: {
     });
     socket.addEventListener("message", (message) => {
       try {
-        options.onEvent(JSON.parse(String(message.data)) as ManagerEvent);
-      } catch {
-        // The next state snapshot recovers from a malformed event.
+        options.onMessage(JSON.parse(String(message.data)) as SessionMessage);
+      } catch (error) {
+        // The next snapshot recovers from a malformed or unhandled event.
+        console.error(error);
       }
     });
     socket.addEventListener("close", () => {

@@ -138,7 +138,12 @@ test("authenticated sessions receive ordered operation and output events", async
     text?: string;
     operation?: { status: string };
   }> = [];
-  socket.onmessage = (message) => events.push(JSON.parse(String(message.data)));
+  let snapshots = 0;
+  socket.onmessage = (message) => {
+    const event = JSON.parse(String(message.data));
+    if (event.type === "snapshot") snapshots++;
+    else events.push(event);
+  };
   try {
     await new Promise<void>((resolve, reject) => {
       socket.onopen = () => resolve();
@@ -159,6 +164,10 @@ test("authenticated sessions receive ordered operation and output events", async
       true,
     );
     expect(events.at(-1)?.operation?.status).toBe("succeeded");
+    // A full snapshot arrives on connect, so clients need no initial poll.
+    expect(snapshots).toBeGreaterThanOrEqual(1);
+    const output = events.find((event) => event.type === "output") as { offset?: number } | undefined;
+    expect(output?.offset).toBe(0);
     expect(events.map((event) => event.sequence)).toEqual(
       events.map((event) => event.sequence).slice().sort((a, b) => a - b),
     );

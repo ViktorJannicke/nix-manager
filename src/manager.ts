@@ -5,8 +5,11 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  readSync,
   readdirSync,
   renameSync,
+  rmSync,
+  statSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -18,9 +21,11 @@ import {
   type Request,
   type Command,
   ManagerError,
+  buildRoot,
   plan,
   formatCommand,
   isPackage,
+  reviewRoot,
 } from "./domain";
 import { Runner, runProcess, type Output } from "./process";
 import {
@@ -30,8 +35,16 @@ import {
   type UpdateReport,
   Network,
 } from "./updates";
-import type { ManagerEvent, Operation, StepOutcome } from "./contracts";
-import { finalizeReview, markReviewApplied, reviewPath } from "./advanced";
+import type {
+  BuildReview,
+  LogResult,
+  ManagerEvent,
+  Operation,
+  StepOutcome,
+} from "./contracts";
+import { compareReview, getReview, removeReview, writeReviewedLock, type ReviewBase } from "./reviews";
+import { readLock, repositoryState } from "./observe";
+import { stripAnsi } from "./nix";
 export type { Operation } from "./contracts";
 let libc: ReturnType<typeof openLibc> | undefined;
 const openLibc = () =>
@@ -69,6 +82,12 @@ const alive = (pid: number) => {
     return false;
   }
 };
+const LOG_LIMIT = 16 * 1024 * 1024;
+const LOG_TAIL = 256 * 1024;
+type EventBody =
+  | Omit<Extract<ManagerEvent, { type: "operation" }>, "sequence" | "timestamp">
+  | Omit<Extract<ManagerEvent, { type: "output" }>, "sequence" | "timestamp">
+  | Omit<Extract<ManagerEvent, { type: "progress" }>, "sequence" | "timestamp">;
 export class Manager {
   readonly config: Config;
   private current?: {
@@ -79,12 +98,14 @@ export class Manager {
   private listeners = new Set<() => void>();
   private eventListeners = new Set<(event: ManagerEvent) => void>();
   private sequence = 0;
-  private logBytes = 0;
-  private lastPersist = 0;
+  private historyCache?: { key: string; operations: Operation[] };
   constructor(
     config: Config,
     private readonly output: (event: Output) => void = () => {},
-    private readonly run = runProcess,
+    private readonly run: (
+      command: Command,
+      output?: (event: Output) => void,
+    ) => Effect.Effect<import("./process").Result, ManagerError> = runProcess,
     private readonly network: Layer.Layer<Network> = networkLayer,
   ) {
     this.config = config;
@@ -101,17 +122,7 @@ export class Manager {
       this.eventListeners.delete(listener);
     };
   }
-  private event(
-    event:
-      | Omit<
-          Extract<ManagerEvent, { type: "operation" }>,
-          "sequence" | "timestamp"
-        >
-      | Omit<
-          Extract<ManagerEvent, { type: "output" }>,
-          "sequence" | "timestamp"
-        >,
-  ) {
+  private event(event: EventBody) {
     const next = {
       ...event,
       sequence: ++this.sequence,
@@ -142,40 +153,59 @@ export class Manager {
     return join(this.config.stateDir, "operations", `${id}.${extension}`);
   }
   history(): Operation[] {
-    if (!existsSync(join(this.config.stateDir, "operations"))) return [];
-    return readdirSync(join(this.config.stateDir, "operations"))
+    const directory = join(this.config.stateDir, "operations");
+    if (!existsSync(directory)) return [];
+    // Every persisted change renames a file into the directory, which
+    // updates its modification time; reuse the parsed list until then.
+    const key = `${statSync(directory).mtimeMs}`;
+    if (this.historyCache?.key === key)
+      return this.withLiveState(this.historyCache.operations);
+    const operations = readdirSync(directory)
       .filter((n) => n.endsWith(".json"))
       .sort()
       .reverse()
       .slice(0, 50)
       .flatMap((file) => {
         try {
-          const op: Operation = JSON.parse(
-            readFileSync(
-              join(this.config.stateDir, "operations", file),
-              "utf8",
-            ),
-          );
-          if (op.flake !== this.config.flake) return [];
-          if (op.status === "running" && !alive(op.pid))
-            return [
-              {
-                ...op,
-                status: "interrupted" as const,
-                error:
-                  "The manager exited before recording completion. Check the log and active generations before retrying.",
-              },
-            ];
-          return [op];
+          const op: Operation = JSON.parse(readFileSync(join(directory, file), "utf8"));
+          return op.flake === this.config.flake ? [op] : [];
         } catch {
           return [];
         }
       });
+    this.historyCache = { key, operations };
+    return this.withLiveState(operations);
   }
-  log(id: string) {
-    return existsSync(this.path(id, "log"))
-      ? readFileSync(this.path(id, "log"), "utf8").slice(-128_000)
-      : "";
+  private withLiveState(operations: Operation[]) {
+    return operations.map((op) =>
+      op.status === "running" && op.id !== this.current?.operation.id && !alive(op.pid)
+        ? {
+            ...op,
+            status: "interrupted" as const,
+            error:
+              "The manager exited before recording completion. Check the log and active generations before retrying.",
+          }
+        : op.id === this.current?.operation.id
+          ? this.current.operation
+          : op,
+    );
+  }
+  log(id: string, limit = LOG_TAIL): LogResult {
+    const path = this.path(id, "log");
+    if (!existsSync(path)) return { text: "", end: 0, truncated: false };
+    const fd = openSync(path, "r");
+    try {
+      const size = statSync(path).size;
+      const length = Math.min(size, limit);
+      const buffer = Buffer.alloc(length);
+      readSync(fd, buffer, 0, length, size - length);
+      let text = buffer.toString("utf8");
+      // Drop a partial first line (and any split UTF-8 sequence) from the tail.
+      if (length < size) text = text.slice(text.indexOf("\n") + 1);
+      return { text, end: size, truncated: length < size };
+    } finally {
+      closeSync(fd);
+    }
   }
   updates(): UpdateReport | undefined {
     try {
@@ -193,8 +223,21 @@ export class Manager {
   get active() {
     return this.current?.operation;
   }
-  start(r: Request): Operation {
-    const preview = plan(this.config, r);
+  /** Completes a request: new review IDs and the stored review to apply. */
+  resolve(r: Request): { request: Request; review?: BuildReview } {
+    if (r.action === "review-build" && !r.reviewId)
+      return { request: { ...r, reviewId: crypto.randomUUID() } };
+    if (r.action === "review-apply" && r.reviewId)
+      return { request: r, review: getReview(this.config, r.reviewId) };
+    return { request: r };
+  }
+  plan(r: Request) {
+    const { request, review } = this.resolve(r);
+    return plan(this.config, request, review);
+  }
+  start(input: Request): Operation {
+    const { request: r, review } = this.resolve(input);
+    const preview = plan(this.config, r, review);
     if (this.busy)
       throw new ManagerError({ message: "An operation is already running." });
     const release = acquireLock(this.config.stateDir);
@@ -220,43 +263,59 @@ export class Manager {
       })),
     };
     const controller = new AbortController();
-    this.logBytes = 0;
-    const persist = () =>
+    let logBytes = 0;
+    let lastPersist = 0;
+    const persist = () => {
+      lastPersist = Date.now();
       atomicJson(this.path(operation.id, "json"), operation);
+    };
     try {
       mkdirSync(join(this.config.stateDir, "operations"), {
         recursive: true,
         mode: 0o700,
       });
       if (r.action === "review-build")
-        mkdirSync(reviewPath(this.config, r.reviewId!), {
-          recursive: true,
-          mode: 0o700,
-        });
+        mkdirSync(reviewRoot(this.config, r.reviewId!), { recursive: true, mode: 0o700 });
+      if (r.action === "switch" || r.action === "boot") {
+        rmSync(buildRoot(this.config), { recursive: true, force: true });
+        mkdirSync(buildRoot(this.config), { recursive: true, mode: 0o700 });
+      }
       persist();
     } catch (error) {
       release();
       throw error;
     }
+    let runningStep: StepOutcome | undefined;
     const output = (event: Output) => {
-      // Keep bounded logs on disk; the command runner separately retains a tail
-      // for hash discovery and errors. UI output is always rendered as text.
-      if (this.logBytes < 16 * 1024 * 1024) {
-        const text = event.text.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
-        appendFileSync(this.path(operation.id, "log"), text, { mode: 0o600 });
-        this.logBytes += Buffer.byteLength(text);
-        if (this.logBytes >= 16 * 1024 * 1024)
-          appendFileSync(
-            this.path(operation.id, "log"),
-            "\n[Log limit reached: 16 MiB]\n",
-          );
-      }
       this.output(event);
+      if (event.stream === "progress") {
+        if (!runningStep) return;
+        runningStep.progress = event.progress;
+        this.event({
+          type: "progress",
+          operationId: operation.id,
+          stepId: runningStep.id,
+          progress: event.progress,
+        });
+        if (Date.now() - lastPersist > 2_000) persist();
+        return;
+      }
+      // Keep bounded logs on disk; the command runner separately retains a tail
+      // for hash discovery and errors. Byte offsets let clients splice the
+      // live stream onto a fetched log tail without gaps or duplicates.
+      if (logBytes >= LOG_LIMIT) return;
+      let text = stripAnsi(event.text).replace(/\r(?!\n)/g, "\n");
+      if (logBytes + Buffer.byteLength(text) >= LOG_LIMIT)
+        text += "\n[Log limit reached: 16 MiB]\n";
+      appendFileSync(this.path(operation.id, "log"), text, { mode: 0o600 });
+      const offset = logBytes;
+      logBytes += Buffer.byteLength(text);
       this.event({
         type: "output",
         operationId: operation.id,
         stream: event.stream,
-        text: event.text.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, ""),
+        text,
+        offset,
       });
     };
     const log = (text: string) =>
@@ -269,6 +328,7 @@ export class Manager {
         step.status = "running";
         step.startedAt = new Date().toISOString();
       }
+      runningStep = step;
       operation.step = label;
       persist();
       this.changed(operation);
@@ -281,19 +341,18 @@ export class Manager {
       if (step) {
         step.status = status;
         step.finishedAt = new Date().toISOString();
+        if (step.progress) step.progress = { ...step.progress, current: [] };
       }
+      runningStep = undefined;
       persist();
       this.changed(operation);
     };
+    const quiet = (c: Command) => this.run({ ...c, quiet: true }, () => {});
     const runLayer = Layer.succeed(Runner, {
       run: (c: Command) =>
         Effect.gen(this, function* () {
           const outcome = startStep(c.label);
           log(`${c.label}\n  ${formatCommand(c)}`);
-          if (Date.now() - this.lastPersist > 500) {
-            persist();
-            this.lastPersist = Date.now();
-          }
           // An unprivileged process cannot signal root's rebuild descendants.
           // Defer cancellation until that command exits; keep the lock throughout.
           if (
@@ -354,22 +413,39 @@ export class Manager {
             }),
           );
         finishStep(outcome, "succeeded");
-      } else if (isPackage(r.action)) {
+        return;
+      }
+      if (isPackage(r.action)) {
         const outcome = startStep(
           `Update ${r.action.replace("-update", "")} package pin`,
         );
         yield* updatePackage(this.config, r, log);
         finishStep(outcome, "succeeded");
+        return;
       }
-      else
-        for (const step of preview.steps) {
-          if (r.dryRun) {
-            const outcome = startStep(step.label);
-            log(formatCommand(step));
-            finishStep(outcome, "succeeded");
-          }
-          else yield* (yield* Runner).run(step);
-        }
+      // The checkout state a review is evaluated from; captured before any
+      // command reads it, so later edits make the review visibly stale.
+      let base: ReviewBase | undefined;
+      if (r.action === "review-build" && !r.dryRun)
+        base = yield* Effect.promise(async () => ({
+          fingerprint: (await repositoryState(this.config.flake)).fingerprint,
+          lock: await readLock(this.config.flake),
+        }));
+      for (const step of preview.steps) {
+        if (r.dryRun) {
+          const outcome = startStep(step.label);
+          log(formatCommand(step));
+          finishStep(outcome, "succeeded");
+        } else if (step.internal) {
+          const outcome = startStep(step.label);
+          if (step.internal === "compare") {
+            const result = yield* compareReview(this.config, r, base!, operation.id, quiet);
+            const packages = (result.home?.changes.length ?? 0) + (result.system?.changes.length ?? 0);
+            log(`${packages} package changes are ready for review.`);
+          } else yield* writeReviewedLock(this.config, review!);
+          finishStep(outcome, "succeeded");
+        } else yield* (yield* Runner).run(step);
+      }
     }).pipe(Effect.provide(Layer.merge(runLayer, this.network)));
     const promise = Promise.resolve().then(async () => {
       try {
@@ -377,9 +453,6 @@ export class Manager {
           signal: controller.signal,
         });
         if (Exit.isSuccess(exit)) {
-          if (r.action === "review-build") finalizeReview(this.config, r);
-          if (r.action === "review-apply")
-            markReviewApplied(this.config, r.reviewId!);
           operation.status = "succeeded";
           operation.step = r.dryRun ? "Preview complete" : "Complete";
         } else {
@@ -411,6 +484,20 @@ export class Manager {
         }
       } finally {
         operation.finishedAt = new Date().toISOString();
+        try {
+          // Unfinished reviews would otherwise retain partial outputs, and a
+          // review's GC roots are redundant once its profiles reference them.
+          if (r.reviewId && !r.dryRun) {
+            if (r.action === "review-build" && operation.status !== "succeeded")
+              removeReview(this.config, r.reviewId);
+            if (r.action === "review-apply" && operation.status === "succeeded")
+              removeReview(this.config, r.reviewId);
+          }
+          if (r.action === "switch" || r.action === "boot")
+            rmSync(buildRoot(this.config), { recursive: true, force: true });
+        } catch (error) {
+          console.error(error);
+        }
         try {
           persist();
         } finally {

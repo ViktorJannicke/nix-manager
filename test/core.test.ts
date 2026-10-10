@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { parseCli } from "../src/cli";
@@ -13,7 +13,9 @@ import {
 import { Manager, acquireLock } from "../src/manager";
 import { runProcess } from "../src/process";
 import { fixture } from "./helpers";
-import { advancedState, applyInputProposal, generationReview, repositoryState, reviewPath, reviews } from "../src/advanced";
+import { generations, hashText, repositoryState } from "../src/observe";
+import { getReview, listReviews, writeReviewedLock } from "../src/reviews";
+import { buildRoot, reviewRoot } from "../src/domain";
 
 const cleanups: (() => void)[] = [];
 afterEach(() => {
@@ -95,16 +97,36 @@ test("plan builds all scopes before activations and cleanup; updates only once",
       config,
       request({ action: "switch", update: true, cleanup: true }),
     );
+  const root = buildRoot(config);
   expect(p.steps.map((s) => s.argv.slice(0, 2).join(" "))).toEqual([
     "nix flake",
-    "home-manager build",
-    "nixos-rebuild build",
-    "home-manager switch",
+    "nix build",
+    "nix build",
+    "nix-env --profile",
+    `${root}/home/activate --driver-version`,
     "pkexec /immutable/bin/nix-manager",
     "nix-env --profile",
     "pkexec /immutable/bin/nix-manager",
   ]);
-  expect(p.steps[5].argv).toContain(config.homeProfile);
+  // Activation uses exactly the outputs the build steps produced.
+  expect(p.steps[1].argv).toContain(`${root}/home`);
+  expect(p.steps[2].argv).toContain(`${root}/system`);
+  expect(p.steps[3].argv).toEqual(["nix-env", "--profile", config.homeProfile, "--set", `${root}/home`]);
+  expect(p.steps[4].env).toEqual({ HOME_MANAGER_BACKUP_EXT: "hm-backup" });
+  expect(p.steps[5].argv.slice(-3)).toEqual(["activate-output", "switch", `${root}/system`]);
+  expect(p.steps[6].argv).toContain(config.homeProfile);
+  expect(p.steps.filter((s) => s.progress)).toHaveLength(2);
+  expect(p.steps[1].argv).toContain(
+    `${config.flake}#homeConfigurations.user-test.activationPackage`,
+  );
+  // Names that are not plain Nix identifiers are quoted in the flake fragment.
+  const quoted = plan(
+    { ...config, hosts: { test: { ...config.hosts.test, homeConfiguration: "user@test" } } },
+    request({ action: "build", scope: "home" }),
+  );
+  expect(quoted.steps[0].argv).toContain(
+    `${config.flake}#homeConfigurations."user@test".activationPackage`,
+  );
   expect(p.steps.filter((s) => s.argv[1] === "flake")).toHaveLength(1);
   expect(p.notes.join(" ")).toContain("may already be active");
 });
@@ -132,15 +154,15 @@ test("home gc skips absent profiles and targets only the Home Manager profile", 
   ]);
 });
 for (const failure of [
-  "home-manager build",
-  "nixos-rebuild build",
-  "home-manager switch",
+  "Build home configuration",
+  "Build system configuration",
+  "Activate Home Manager",
 ])
   test(`${failure} failure prevents subsequent activation/cleanup`, async () => {
     const config = setup(),
       calls: string[] = [];
     const run = (c: Command) => {
-      const key = c.argv.slice(0, 2).join(" ");
+      const key = c.label;
       calls.push(key);
       return key === failure
         ? Effect.fail(new ManagerError({ message: "Test failure" }))
@@ -153,9 +175,10 @@ for (const failure of [
     expect(result?.steps?.some((step) => step.status === "failed")).toBe(true);
     expect(result?.steps?.some((step) => step.status === "skipped")).toBe(true);
     expect(calls.at(-1)).toBe(failure);
-    expect(
-      calls.some((c) => c.startsWith("pkexec") || c.startsWith("nix-env")),
-    ).toBe(false);
+    expect(calls.some((c) => c.startsWith("Activate system") || c.startsWith("Keep"))).toBe(
+      false,
+    );
+    expect(existsSync(buildRoot(config))).toBe(false);
     expect(new Manager(config).history()[0].status).toBe("failed");
   });
 test("operation events are ordered and persist step outcomes", async () => {
@@ -212,7 +235,7 @@ test("history remains compatible with records that predate step outcomes", () =>
   expect(operation.status).toBe("succeeded");
   expect(operation.steps).toBeUndefined();
 });
-test("generation inventory marks the active home output", () => {
+test("generation inventory marks the current home output", async () => {
   const config = setup();
   const first = join(config.flake, "generation-one");
   const second = join(config.flake, "generation-two");
@@ -222,54 +245,108 @@ test("generation inventory marks the active home output", () => {
   symlinkSync(second, config.homeProfile);
   symlinkSync(first, `${config.homeProfile}-1-link`);
   symlinkSync(second, `${config.homeProfile}-2-link`);
-  const state = advancedState(config);
-  expect(state.generations.home.map((generation) => generation.number)).toEqual([
-    2, 1,
-  ]);
-  expect(state.generations.home[0].active).toBe(true);
-  expect(state.generations.home[1].active).toBe(false);
-  const review = generationReview(config, "home", 1);
-  expect(realpathSync(join(reviewPath(config, review.id), "home"))).toBe(first);
+  const found = await generations(config.homeProfile, realpathSync(config.homeProfile));
+  expect(found.map((generation) => generation.number)).toEqual([2, 1]);
+  expect(found[0].current).toBe(true);
+  expect(found[1].current).toBe(false);
+  const rollback = plan(
+    config,
+    request({ action: "review-build", scope: "home", generation: 1, reviewId: "cccccccc" }),
+  );
+  expect(rollback.steps[0].argv).toContain(`${config.homeProfile}-1-link`);
+  expect(rollback.steps[0].argv).toContain(`${reviewRoot(config, "cccccccc")}/home`);
+  expect(rollback.steps.at(-1)?.internal).toBe("compare");
+  expect(() =>
+    plan(config, request({ action: "review-build", generation: 1, reviewId: "cccccccc" })),
+  ).toThrow("either");
 });
-test("reviewed builds retain and later apply the exact outputs", async () => {
+test("reviewed builds retain, compare and later apply the exact outputs", async () => {
   const config = setup();
-  const fingerprint = repositoryState(config.flake).fingerprint;
+  writeFileSync(join(config.flake, "flake.lock"), '{"nodes":{"root":{},"nixpkgs":{"locked":{"rev":"a","lastModified":1}}}}');
   const outputs = {
     home: join(config.flake, "home-output"),
     system: join(config.flake, "system-output"),
   };
   mkdirSync(outputs.home);
   mkdirSync(outputs.system);
+  const calls: Command[] = [];
   const manager = new Manager(config, undefined, (command) =>
     Effect.sync(() => {
-      const outLink = command.argv[command.argv.indexOf("--out-link") + 1];
-      symlinkSync(command.label.includes("home") ? outputs.home : outputs.system, outLink);
+      calls.push(command);
+      if (command.argv.includes("--output-lock-file"))
+        writeFileSync(
+          command.argv[command.argv.indexOf("--output-lock-file") + 1],
+          '{"nodes":{"root":{},"nixpkgs":{"locked":{"rev":"b","lastModified":2,"type":"github","owner":"NixOS","repo":"nixpkgs"}}}}',
+        );
+      if (command.argv.includes("--out-link"))
+        symlinkSync(
+          command.label.includes("home") ? outputs.home : outputs.system,
+          command.argv[command.argv.indexOf("--out-link") + 1],
+        );
+      if (command.argv[2] === "diff-closures")
+        return { code: 0, stdout: "firefox: 130.0 → 131.0, +12.0 KiB\n", stderr: "" };
       return { code: 0, stdout: "", stderr: "" };
     }),
   );
-  manager.start(
-    request({
-      action: "review-build",
-      reviewId: "aaaaaaaa",
-      fingerprint,
-    }),
-  );
-  expect((await manager.wait())?.status).toBe("succeeded");
-  const [review] = reviews(config);
-  expect(review.homeOutput).toBe(outputs.home);
-  expect(review.systemOutput).toBe(outputs.system);
-  const apply = plan(
-    config,
-    request({
-      action: "review-apply",
-      reviewId: review.id,
-      fingerprint,
-      homeOutput: review.homeOutput,
-      systemOutput: review.systemOutput,
-    }),
-  );
-  expect(apply.steps[0].argv).toContain(outputs.home);
+  manager.start(request({ action: "review-build", reviewId: "aaaaaaaa", inputs: ["nixpkgs"] }));
+  const built = await manager.wait();
+  expect(built?.status).toBe("succeeded");
+  // The checkout's lock is untouched until the review is applied.
+  expect(readFileSync(join(config.flake, "flake.lock"), "utf8")).toContain('"rev":"a"');
+  const builds = calls.filter((c) => c.argv[1] === "build");
+  expect(builds.every((c) => c.argv.includes("--reference-lock-file"))).toBe(true);
+  const [review] = await listReviews(config);
+  expect(review.source).toBe("inputs");
+  expect(review.home?.path).toBe(outputs.home);
+  expect(review.system?.path).toBe(outputs.system);
+  expect(review.inputs?.changes).toEqual([
+    expect.objectContaining({ name: "nixpkgs", after: expect.objectContaining({ rev: "b", source: "NixOS/nixpkgs" }) }),
+  ]);
+  const apply = manager.plan(request({ action: "review-apply", reviewId: review.id }));
+  expect(apply.steps[0].internal).toBe("write-lock");
+  expect(apply.steps[1].argv).toContain(outputs.home);
   expect(apply.steps.at(-1)?.argv).toContain(outputs.system);
+  const boot = manager.plan(request({ action: "review-apply", reviewId: review.id, activation: "boot" }));
+  expect(boot.steps.map((step) => step.label)).toEqual([
+    "Write the reviewed flake.lock",
+    "Activate system on next boot",
+  ]);
+  manager.start(request({ action: "review-apply", reviewId: review.id, scope: "home" }));
+  expect((await manager.wait())?.status).toBe("succeeded");
+  expect(readFileSync(join(config.flake, "flake.lock"), "utf8")).toContain('"rev":"b"');
+  // Applied reviews release their GC roots; the profile now references them.
+  expect(await listReviews(config)).toEqual([]);
+});
+test("a failed review build removes its partial outputs", async () => {
+  const config = setup();
+  const manager = new Manager(config, undefined, () =>
+    Effect.fail(new ManagerError({ message: "evaluation error" })),
+  );
+  manager.start(request({ action: "review-build", reviewId: "dddddddd", scope: "home" }));
+  expect((await manager.wait())?.status).toBe("failed");
+  expect(existsSync(reviewRoot(config, "dddddddd"))).toBe(false);
+});
+test("the reviewed lock is written only if flake.lock is unchanged", async () => {
+  const config = setup();
+  const lock = join(config.flake, "flake.lock");
+  writeFileSync(lock, '{"nodes":{"root":{}}}');
+  const id = "bbbbbbbb";
+  mkdirSync(reviewRoot(config, id), { recursive: true });
+  writeFileSync(join(reviewRoot(config, id), "flake.lock"), '{"nodes":{"root":{},"nixpkgs":{}}}');
+  const review = {
+    id,
+    host: "test",
+    scope: "home" as const,
+    createdAt: new Date().toISOString(),
+    fingerprint: (await repositoryState(config.flake)).fingerprint,
+    source: "inputs" as const,
+    inputs: { names: ["nixpkgs"], changes: [], baseLockHash: hashText('{"nodes":{"root":{}}}') },
+  };
+  writeFileSync(join(reviewRoot(config, id), "review.json"), JSON.stringify(review));
+  expect(getReview(config, id).id).toBe(id);
+  await Effect.runPromise(writeReviewedLock(config, review));
+  expect(readFileSync(lock, "utf8")).toContain("nixpkgs");
+  await expect(Effect.runPromise(writeReviewedLock(config, review))).rejects.toThrow("changed");
 });
 test("cleanup retention is validated and included in both profile plans", () => {
   const config = setup();
@@ -279,23 +356,6 @@ test("cleanup retention is validated and included in both profile plans", () => 
   expect(() => plan(config, request({ action: "gc", retention: 0 }))).toThrow(
     "Retention",
   );
-});
-test("an input proposal applies its exact lock and rejects stale checkouts", () => {
-  const config = setup();
-  const lock = join(config.flake, "flake.lock");
-  writeFileSync(lock, '{"nodes":{"root":{}}}');
-  const fingerprint = repositoryState(config.flake).fingerprint;
-  const id = "bbbbbbbb";
-  const root = join(config.stateDir, "input-proposals", id);
-  mkdirSync(root, { recursive: true });
-  writeFileSync(join(root, "flake.lock"), '{"nodes":{"root":{},"nixpkgs":{}}}');
-  writeFileSync(
-    join(root, "proposal.json"),
-    JSON.stringify({ id, fingerprint, createdAt: new Date().toISOString(), inputs: ["nixpkgs"], changes: [] }),
-  );
-  applyInputProposal(config, id, fingerprint);
-  expect(readFileSync(lock, "utf8")).toContain("nixpkgs");
-  expect(() => applyInputProposal(config, id, fingerprint)).toThrow("changed");
 });
 test("dry run does not invoke any external command", async () => {
   const manager = new Manager(setup(), undefined, () => {
@@ -369,6 +429,7 @@ test("an output sink failure terminates the child before returning an error", as
         ],
       },
       (e) => {
+        if (e.stream === "progress") return;
         pid = Number(e.text.trim());
         throw new Error("Disk full");
       },

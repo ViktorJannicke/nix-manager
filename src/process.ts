@@ -1,10 +1,11 @@
 import { Context, Effect, Layer } from "effect";
 import { ManagerError, type Command } from "./domain";
+import type { BuildProgress } from "./contracts";
+import { NixProgress } from "./nix";
 
-export interface Output {
-  stream: "stdout" | "stderr";
-  text: string;
-}
+export type Output =
+  | { stream: "stdout" | "stderr"; text: string }
+  | { stream: "progress"; progress: BuildProgress };
 export interface Result {
   code: number;
   stdout: string;
@@ -44,20 +45,46 @@ export const runProcess = (
       );
       return;
     }
+    // Nix's structured log is converted to readable lines and throttled
+    // progress snapshots; other output passes through unchanged.
+    const nix = command.progress ? new NixProgress() : undefined;
+    let lastProgress = 0;
     const read = async (
       stream: ReadableStream<Uint8Array>,
-      channel: Output["stream"],
+      channel: "stdout" | "stderr",
     ) => {
       let captured = "";
+      let pending = "";
       const decoder = new TextDecoder();
-      for await (const chunk of stream) {
-        const text = decoder.decode(chunk, { stream: true });
-        captured = (captured + text).slice(-8 * 1024 * 1024);
-        if (!command.quiet) output({ stream: channel, text });
-      }
-      const tail = decoder.decode();
-      if (tail && !command.quiet) output({ stream: channel, text: tail });
-      return captured + tail;
+      const accept = (text: string, final = false) => {
+        if (!nix || channel !== "stderr") {
+          captured = (captured + text).slice(-8 * 1024 * 1024);
+          if (text && !command.quiet) output({ stream: channel, text });
+          return;
+        }
+        pending += text;
+        const lines = pending.split("\n");
+        pending = lines.pop()!;
+        if (final && pending) lines.push(pending);
+        if (final) pending = "";
+        let readable = "";
+        for (const line of lines) {
+          const converted = nix.line(line);
+          if (converted !== undefined) readable += converted + "\n";
+        }
+        captured = (captured + readable).slice(-8 * 1024 * 1024);
+        if (command.quiet) return;
+        if (readable) output({ stream: channel, text: readable });
+        const now = Date.now();
+        if (final || now - lastProgress > 250) {
+          lastProgress = now;
+          output({ stream: "progress", progress: nix.snapshot() });
+        }
+      };
+      for await (const chunk of stream)
+        accept(decoder.decode(chunk, { stream: true }));
+      accept(decoder.decode(), true);
+      return captured;
     };
     const readers = [
       read(child.stdout as ReadableStream<Uint8Array>, "stdout"),

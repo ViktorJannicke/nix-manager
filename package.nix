@@ -9,7 +9,6 @@
   coreutils,
   nix,
   homeManager,
-  nixos-rebuild,
   git,
   diffutils,
   xdg-utils,
@@ -54,7 +53,7 @@ buildNpmPackage {
       ./test
     ];
   };
-  npmDepsHash = "sha256-1lPzB6ZCJ17Ae+XmhKU5QmV1fi8JngClelTckBRBXjg=";
+  npmDepsHash = "sha256-3uofsxV2pUpC7g0H0lltUGM//svuDsaJLQhsfwcEq2k=";
   npmFlags = [ "--ignore-scripts" ];
   nativeBuildInputs = [
     bun
@@ -86,7 +85,6 @@ buildNpmPackage {
           coreutils
           nix
           homeManager
-          nixos-rebuild
           git
           diffutils
           xdg-utils

@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { Context, Effect, Layer, Schedule, Schema } from "effect";
 import { ManagerError, resolveHost, type Config, type Request } from "./domain";
 import { attempt, command } from "./process";
+import { lockRef } from "./nix";
 
 export class Network extends Context.Tag("nix-manager/Network")<
   Network,
@@ -450,6 +451,11 @@ export interface UpdateItem {
   current: string;
   latest: string;
   kind: "input" | "package";
+  currentDate?: string;
+  latestDate?: string;
+  /** owner/repo or URL of the input source. */
+  source?: string;
+  url?: string;
 }
 export interface UpdateReport {
   checkedAt: string;
@@ -495,13 +501,20 @@ export const checkUpdates = (config: Config) =>
         for (const [name, node] of Object.entries(after.nodes)) {
           const old = before.nodes[name]?.locked,
             next = node.locked;
-          if (next && fingerprint(old) !== fingerprint(next))
+          if (next && fingerprint(old) !== fingerprint(next)) {
+            const from = lockRef({ locked: old }),
+              to = lockRef({ locked: next });
             report.items.push({
               name,
               current: revision(old, "new"),
               latest: revision(next, "changed"),
               kind: "input",
+              currentDate: from?.lastModified,
+              latestDate: to?.lastModified,
+              source: to?.source,
+              url: to?.url,
             });
+          }
         }
       });
       yield* flakeCheck.pipe(
@@ -526,6 +539,8 @@ export const checkUpdates = (config: Config) =>
               current: pin.version,
               latest: version,
               kind: "package",
+              source: `${packages[name].owner}/${packages[name].repo}`,
+              url: `https://github.com/${packages[name].owner}/${packages[name].repo}/releases/tag/v${version}`,
             });
         }).pipe(
           Effect.catchAll((e) =>

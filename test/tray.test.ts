@@ -77,12 +77,12 @@ test("tray registers StatusNotifierItem and exposes a working D-Bus menu on a pr
     const [revision, layout] = await menu.GetLayout(0, -1, []);
     expect(revision).toBeGreaterThan(0);
     expect(layout[2]).toHaveLength(4);
-    expect(layout[2][2].value[1].label.value).toBe("Update inputs and switch…");
+    expect(layout[2][2].value[1].label.value).toBe("Prepare all updates for review…");
     await menu.Event(3, "clicked", new dbus.Variant("s", ""), 0);
     await Bun.sleep(10);
     expect(opens).toBe(2);
     expect(manager.active?.request).toMatchObject({
-      action: "switch",
+      action: "review-build",
       update: true,
     });
     const busyLayout = await menu.GetLayout(0, -1, []);

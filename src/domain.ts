@@ -1,4 +1,6 @@
 import { Data, Schema } from "effect";
+import type { BuildReview } from "./contracts";
+import { attr } from "./nix";
 
 export class ManagerError extends Data.TaggedError("ManagerError")<{
   message: string;
@@ -40,11 +42,12 @@ export const Request = Schema.Struct({
   dryRun: Schema.Boolean,
   extra: Schema.Array(Schema.String),
   reviewId: Schema.optional(Schema.String),
-  fingerprint: Schema.optional(Schema.String),
   retention: Schema.optional(Schema.Number),
+  /** Existing generation to retain for review (rollback). */
   generation: Schema.optional(Schema.Number),
-  homeOutput: Schema.optional(Schema.String),
-  systemOutput: Schema.optional(Schema.String),
+  /** Flake inputs to update into a proposed lock file for review. */
+  inputs: Schema.optional(Schema.Array(Schema.String)),
+  activation: Schema.optional(Schema.Literal("switch", "boot")),
 });
 export type Request = typeof Request.Type;
 export const request = (overrides: Partial<Request> = {}): Request => ({
@@ -59,7 +62,24 @@ export const request = (overrides: Partial<Request> = {}): Request => ({
   retention: 3,
   ...overrides,
 });
+export const actionLabels: Record<Action, string> = {
+  build: "Build configuration",
+  switch: "Build and switch",
+  boot: "Apply on next boot",
+  rollback: "Roll back configuration",
+  gc: "Clean up generations",
+  check: "Check for updates",
+  "t3code-update": "Update T3 Code",
+  "opencode-update": "Update OpenCode",
+  "pince-update": "Update PINCE",
+  "review-build": "Prepare changes",
+  "review-apply": "Apply changes",
+};
 export const isPackage = (action: string) => action.endsWith("-update");
+export const isReview = (action: string) =>
+  action === "review-build" || action === "review-apply";
+export const validId = (id: string | undefined): id is string =>
+  !!id && /^[a-f0-9-]{8,64}$/.test(id);
 export function validate(r: Request): void {
   const fail = (message: string): never => {
     throw new ManagerError({ message });
@@ -79,15 +99,36 @@ export function validate(r: Request): void {
     fail("Cleanup requires successful activation or the gc action.");
   if (["gc", "check"].includes(r.action) && r.extra.length)
     fail(`${r.action} takes no extra arguments.`);
+  if (r.action === "rollback" && r.scope !== "home" && r.extra.length)
+    fail("System rollback takes no extra arguments.");
   const retention = r.retention ?? 3;
   if (!Number.isInteger(retention) || retention < 1 || retention > 100)
     fail("Retention must be between 1 and 100 generations.");
-  if (["review-build", "review-apply"].includes(r.action)) {
-    if (!r.reviewId || !/^[a-f0-9-]{8,64}$/.test(r.reviewId))
+  if (r.inputs && r.action !== "review-build")
+    fail("Input selection applies to reviewed builds.");
+  if (r.inputs?.some((name) => !/^[A-Za-z0-9_-]+$/.test(name)))
+    fail("Invalid flake input name.");
+  if (r.activation && r.action !== "review-apply")
+    fail("The activation mode applies to reviewed changes.");
+  if (r.generation !== undefined && r.action !== "review-build")
+    fail("A generation can only be selected for review.");
+  if (isReview(r.action)) {
+    if (r.reviewId !== undefined && !validId(r.reviewId))
       fail("A valid review ID is required.");
-    if (!r.fingerprint) fail("A repository fingerprint is required.");
-    if (r.update || r.cleanup || r.extra.length)
-      fail("Reviewed workflows cannot combine with modifiers or extra arguments.");
+    if (r.action === "review-apply" && !r.reviewId)
+      fail("A valid review ID is required.");
+    if (r.cleanup || r.extra.length)
+      fail("Reviewed workflows cannot combine with cleanup or extra arguments.");
+    if (r.action === "review-apply" && r.update)
+      fail("Applying a review cannot update inputs.");
+    if (r.generation !== undefined) {
+      if (!Number.isInteger(r.generation) || r.generation < 1)
+        fail("Invalid generation number.");
+      if (r.scope === "all")
+        fail("Select either the home or the system generation.");
+      if (r.update || r.inputs?.length)
+        fail("A generation review cannot update inputs.");
+    }
   }
 }
 
@@ -100,6 +141,8 @@ export interface Config {
   homeProfileExists: boolean;
   privileged: readonly string[];
 }
+/** Steps the manager performs itself instead of starting a process. */
+export type InternalStep = "compare" | "write-lock";
 export interface Command {
   label: string;
   argv: readonly string[];
@@ -107,11 +150,18 @@ export interface Command {
   env?: Record<string, string>;
   allowFailure?: boolean;
   quiet?: boolean;
+  /** Parse Nix's structured log for progress; argv must request it. */
+  progress?: boolean;
+  internal?: InternalStep;
 }
 export interface Plan {
   steps: Command[];
   notes: string[];
 }
+export const systemProfile = "/nix/var/nix/profiles/system";
+export const reviewRoot = (config: Config, id: string) =>
+  `${config.stateDir}/reviews/${id}`;
+export const buildRoot = (config: Config) => `${config.stateDir}/build`;
 export function resolveHost(hosts: Hosts, name: string): [string, Host] {
   const matches = Object.entries(hosts).filter(
     ([key, h]) => key === name || h.nixosHostName === name,
@@ -122,65 +172,157 @@ export function resolveHost(hosts: Hosts, name: string): [string, Host] {
     });
   return matches[0];
 }
-export function plan(config: Config, r: Request): Plan {
+const nixFlags = ["--log-format", "internal-json", "--print-out-paths"];
+export function plan(config: Config, r: Request, review?: BuildReview): Plan {
   validate(r);
   const [, h] = resolveHost(config.hosts, r.host || config.hostKey);
   const steps: Command[] = [];
   const notes: string[] = [];
-  const add = (label: string, ...argv: string[]) =>
-    steps.push({ label, argv, cwd: config.flake });
+  const add = (label: string, argv: string[], options: Partial<Command> = {}) =>
+    steps.push({ label, argv, cwd: config.flake, ...options });
   const privileged = (label: string, ...args: string[]) =>
-    add(label, ...config.privileged, ...args);
+    add(label, [...config.privileged, ...args]);
   const home = r.scope !== "system",
     system = r.scope !== "home";
-  if (r.action === "review-build") {
-    const root = `${config.stateDir}/reviews/${r.reviewId}`;
-    if (home)
-      add(
-        "Build reviewed home output",
+  const homeAttr = `${config.flake}#homeConfigurations.${attr(h.homeConfiguration)}.activationPackage`;
+  const systemAttr = `${config.flake}#nixosConfigurations.${attr(h.nixosConfiguration)}.config.system.build.toplevel`;
+  const build = (
+    label: string,
+    installable: string,
+    link: string | undefined,
+    extra: readonly string[] = [],
+  ) =>
+    add(
+      label,
+      [
         "nix",
         "build",
-        "--no-write-lock-file",
-        "--out-link",
-        `${root}/home`,
-        "--print-out-paths",
-        `${config.flake}#homeConfigurations.${h.homeConfiguration}.activationPackage`,
+        ...(link ? ["--out-link", link] : ["--no-link"]),
+        ...nixFlags,
+        ...extra,
+        installable,
+        ...r.extra,
+      ],
+      { progress: true },
+    );
+  const activateHome = (output: string) => {
+    add("Select Home Manager generation", [
+      "nix-env",
+      "--profile",
+      config.homeProfile,
+      "--set",
+      output,
+    ]);
+    add("Activate Home Manager", [`${output}/activate`, "--driver-version", "1"], {
+      env: { HOME_MANAGER_BACKUP_EXT: "hm-backup" },
+    });
+  };
+  const activateSystem = (output: string, mode: "switch" | "boot") =>
+    privileged(
+      mode === "boot" ? "Activate system on next boot" : "Activate system",
+      "activate-output",
+      mode,
+      output,
+    );
+  const cleanup = () => {
+    const retention = r.retention ?? 3;
+    if (home && config.homeProfileExists)
+      add(`Keep ${retention} home generations`, [
+        "nix-env",
+        "--profile",
+        config.homeProfile,
+        "--delete-generations",
+        `+${retention}`,
+      ]);
+    else if (home)
+      notes.push(
+        `No Home Manager profile at ${config.homeProfile}; generation deletion is skipped.`,
       );
     if (system)
-      add(
-        "Build reviewed system output",
-        "nix",
-        "build",
-        "--no-write-lock-file",
-        "--out-link",
-        `${root}/system`,
-        "--print-out-paths",
-        `${config.flake}#nixosConfigurations.${h.nixosConfiguration}.config.system.build.toplevel`,
+      privileged(
+        `Keep ${retention} system generations and collect garbage`,
+        "gc",
+        String(retention),
       );
-    notes.push("The resulting store paths are retained by GC roots until this review is removed.");
+    else add("Collect unreferenced store paths", ["nix-store", "--gc"]);
+    notes.push(
+      "Garbage collection deletes unreferenced store paths and older generations; these cannot be rolled back afterward.",
+    );
+  };
+
+  if (r.action === "review-build") {
+    const root = reviewRoot(config, r.reviewId ?? "<new>");
+    if (r.generation !== undefined) {
+      const profile = home ? config.homeProfile : systemProfile;
+      build(
+        `Retain ${home ? "home" : "system"} generation ${r.generation}`,
+        `${profile}-${r.generation}-link`,
+        `${root}/${r.scope}`,
+      );
+    } else {
+      const lock = r.update || r.inputs?.length ? `${root}/flake.lock` : undefined;
+      if (lock)
+        add(
+          r.inputs?.length
+            ? `Resolve ${r.inputs.length === 1 ? r.inputs[0] : `${r.inputs.length} inputs`}`
+            : "Resolve all flake inputs",
+          [
+            "nix",
+            "flake",
+            "update",
+            ...(r.inputs ?? []),
+            "--flake",
+            config.flake,
+            "--output-lock-file",
+            lock,
+            "--log-format",
+            "internal-json",
+          ],
+          { progress: true },
+        );
+      const lockFlags = lock
+        ? ["--reference-lock-file", lock, "--no-write-lock-file"]
+        : ["--no-write-lock-file"];
+      if (home) build("Build home configuration", homeAttr, `${root}/home`, lockFlags);
+      if (system)
+        build("Build system configuration", systemAttr, `${root}/system`, lockFlags);
+      if (lock)
+        notes.push(
+          "Inputs are resolved into a separate lock file. The checkout's flake.lock changes only when you apply this review.",
+        );
+    }
+    add("Compare with the active configuration", [], { internal: "compare" });
+    notes.push("Nothing is activated. The build is kept until you apply or discard it.");
     return { steps, notes };
   }
   if (r.action === "review-apply") {
-    if (home && r.homeOutput) {
-      add("Select reviewed home generation", "nix-env", "--profile", config.homeProfile, "--set", r.homeOutput);
-      add("Activate reviewed home output", `${r.homeOutput}/activate`, "-b", "hm-backup");
-    }
-    if (system && r.systemOutput)
-      privileged("Activate reviewed system output", "activate-output", "switch", r.systemOutput);
-    if (!steps.length)
-      throw new ManagerError({ message: "This review does not contain the selected outputs." });
-    notes.push("These exact retained outputs will be activated without reevaluating the checkout.");
+    if (!review || review.id !== r.reviewId)
+      throw new ManagerError({ message: "The selected review is unavailable." });
+    const mode = r.activation ?? "switch";
+    if (review.inputs)
+      add("Write the reviewed flake.lock", [], { internal: "write-lock" });
+    if (home && review.home && mode === "switch") activateHome(review.home.path);
+    if (system && review.system) activateSystem(review.system.path, mode);
+    if (!steps.some((step) => !step.internal))
+      throw new ManagerError({
+        message:
+          mode === "boot"
+            ? "Only a system configuration can be applied on next boot."
+            : "This review does not contain the selected configuration.",
+      });
+    if (steps.some((s) => s.label.startsWith("Activate Home")) && steps.some((s) => s.label.startsWith("Activate system")))
+      notes.push("Home activates before system. If system activation fails, home remains active.");
+    notes.push("The exact reviewed outputs are activated; the checkout is not evaluated again.");
     return { steps, notes };
   }
   if (r.update)
-    add(
-      "Update flake inputs",
+    add("Update flake inputs", [
       "nix",
       "flake",
       "update",
       "--flake",
       config.flake,
-    );
+    ]);
   if (r.action === "check") {
     notes.push(
       "Resolve inputs in a temporary copy and compare stable package releases. The checkout is unchanged.",
@@ -190,50 +332,16 @@ export function plan(config: Config, r: Request): Plan {
       "Compare stable release and inherited recipes, discover hashes, then build before atomically replacing the pin.",
     );
   } else {
-    if (["build", "switch", "boot"].includes(r.action)) {
-      if (home)
-        add(
-          "Build home configuration",
-          "home-manager",
-          "build",
-          "--flake",
-          `${config.flake}#${h.homeConfiguration}`,
-          "--no-out-link",
-          ...r.extra,
-        );
-      if (system)
-        add(
-          "Build system configuration",
-          "nixos-rebuild",
-          "build",
-          "--flake",
-          `${config.flake}#${h.nixosConfiguration}`,
-          "--no-link",
-          ...r.extra,
-        );
+    if (r.action === "build") {
+      if (home) build("Build home configuration", homeAttr, undefined);
+      if (system) build("Build system configuration", systemAttr, undefined);
     }
     if (r.action === "switch" || r.action === "boot") {
-      if (home)
-        add(
-          "Activate home configuration",
-          "home-manager",
-          "switch",
-          "--flake",
-          `${config.flake}#${h.homeConfiguration}`,
-          "-b",
-          "hm-backup",
-          ...r.extra,
-        );
-      if (system)
-        privileged(
-          r.action === "boot"
-            ? "Activate system on next boot"
-            : "Activate system configuration",
-          r.action,
-          "--flake",
-          `${config.flake}#${h.nixosConfiguration}`,
-          ...r.extra,
-        );
+      const root = buildRoot(config);
+      if (home) build("Build home configuration", homeAttr, `${root}/home`);
+      if (system) build("Build system configuration", systemAttr, `${root}/system`);
+      if (home) activateHome(`${root}/home`);
+      if (system) activateSystem(`${root}/system`, r.action);
       if (home && system)
         notes.push(
           "Home activates before system. If system activation fails, home may already be active.",
@@ -244,47 +352,23 @@ export function plan(config: Config, r: Request): Plan {
         );
     } else if (r.action === "rollback") {
       if (home)
-        add(
-          "Roll back home configuration",
+        add("Roll back home configuration", [
           "home-manager",
           "switch",
           "--rollback",
           ...r.extra,
-        );
-      if (system)
-        privileged("Roll back system configuration", "rollback", ...r.extra);
+        ]);
+      if (system) privileged("Roll back system configuration", "rollback");
     }
-    if (r.cleanup || r.action === "gc") {
-      if (home && config.homeProfileExists)
-        add(
-          "Retain three home generations",
-          "nix-env",
-          "--profile",
-          config.homeProfile,
-          "--delete-generations",
-          `+${r.retention ?? 3}`,
-        );
-      else if (home)
-        notes.push(
-          `No Home Manager profile at ${config.homeProfile}; generation deletion is skipped.`,
-        );
-      if (system)
-        privileged(
-          `Retain ${r.retention ?? 3} system generations and collect garbage`,
-          "gc",
-          String(r.retention ?? 3),
-        );
-      else add("Collect unreferenced store paths", "nix-store", "--gc");
-      notes.push(
-        "Garbage collection deletes unreferenced store paths and older generations; these cannot be rolled back afterward.",
-      );
-    }
+    if (r.cleanup || r.action === "gc") cleanup();
   }
   return { steps, notes };
 }
 export const formatCommand = (c: Command) =>
-  c.argv
-    .map((a) =>
-      /^[\w@%+=:,./#-]+$/.test(a) ? a : `'${a.replaceAll("'", "'\\''")}'`,
-    )
-    .join(" ");
+  c.internal
+    ? "(performed by Nix Manager)"
+    : c.argv
+        .map((a) =>
+          /^[\w@%+=:,./#-]+$/.test(a) ? a : `'${a.replaceAll("'", "'\\''")}'`,
+        )
+        .join(" ");

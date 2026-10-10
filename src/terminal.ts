@@ -1,27 +1,29 @@
 import * as clack from "@clack/prompts";
 import type { Config, Plan, Request } from "./domain";
-import { formatCommand } from "./domain";
-import type { Operation } from "./contracts";
+import { actionLabels, formatCommand } from "./domain";
+import type { BuildProgress, Operation } from "./contracts";
 import type { Output } from "./process";
 import type { UpdateReport } from "./updates";
 
-const actionName = (request: Request) =>
-  ({
-    build: "Build configuration",
-    switch: "Build and switch",
-    boot: "Apply on next boot",
-    rollback: "Roll back configuration",
-    gc: "Clean generations and store",
-    check: "Check for updates",
-    "t3code-update": "Update T3 Code pin",
-    "opencode-update": "Update OpenCode pin",
-    "pince-update": "Update PINCE pin",
-    "review-build": "Build reviewed outputs",
-    "review-apply": "Apply reviewed outputs",
-  })[request.action];
+const actionName = (request: Request) => actionLabels[request.action];
+
+export function describeProgress(progress: BuildProgress) {
+  if (progress.evaluating) return "evaluating";
+  const parts: string[] = [];
+  if (progress.builds.expected)
+    parts.push(`${progress.builds.done}/${progress.builds.expected} built`);
+  if (progress.downloads.expected)
+    parts.push(`${progress.downloads.done}/${progress.downloads.expected} downloaded`);
+  if (progress.bytes.expected)
+    parts.push(
+      `${(progress.bytes.done / 2 ** 20).toFixed(0)}/${(progress.bytes.expected / 2 ** 20).toFixed(0)} MiB`,
+    );
+  return parts.join(", ") || "preparing";
+}
 
 export class TerminalRenderer {
   private task?: ReturnType<typeof clack.taskLog>;
+  private progress?: BuildProgress;
   readonly dynamic: boolean;
 
   constructor(
@@ -54,6 +56,10 @@ export class TerminalRenderer {
   }
 
   output = (event: Output) => {
+    if (event.stream === "progress") {
+      this.progress = event.progress;
+      return;
+    }
     if (this.options.json) {
       process.stderr.write(event.text);
       return;
@@ -63,14 +69,16 @@ export class TerminalRenderer {
       return;
     }
     for (const line of event.text.replace(/\r/g, "").split("\n"))
-      if (line) this.task.message(line, { raw: true });
+      if (line) this.task.message(line);
   };
 
   heartbeat(operation: Operation) {
     const elapsed = Math.floor(
       (Date.now() - Date.parse(operation.startedAt)) / 1000,
     );
-    const message = `${elapsed}s elapsed · ${operation.step}`;
+    const running = operation.steps?.find((step) => step.status === "running");
+    const detail = running?.progress && this.progress ? ` · ${describeProgress(this.progress)}` : "";
+    const message = `${elapsed}s elapsed · ${operation.step}${detail}`;
     if (this.task) this.task.message(message);
     else process.stderr.write(`→ ${message}\n`);
   }

@@ -1,5 +1,5 @@
 import dbus from "dbus-next";
-import { ManagerError, request } from "./domain";
+import { ManagerError, actionLabels, request } from "./domain";
 import type { Manager } from "./manager";
 
 const { Interface } = dbus.interface;
@@ -73,16 +73,18 @@ export async function startTray(
     { id: 2, label: "Check for updates", run: check },
     {
       id: 3,
-      label: "Update inputs and switch…",
+      label: "Prepare all updates for review…",
       run: async () => {
-        await open();
+        // Nothing is activated from the tray; the dashboard shows the
+        // resulting package changes for confirmation.
         manager.start(
           request({
-            action: "switch",
+            action: "review-build",
             host: manager.config.hostKey,
             update: true,
           }),
         );
+        await open();
       },
     },
     {
@@ -345,11 +347,18 @@ export async function startTray(
               "An operation failed. Open the dashboard for its log.",
           ),
         );
+      else if (op.request.action === "review-build" && op.status === "succeeded")
+        invoke(() =>
+          notify(
+            "Changes are ready to review",
+            "The build finished. Open Nix Manager to see what changes and apply it.",
+          ),
+        );
       else if (op.request.action !== "check" && op.status === "succeeded")
         invoke(() =>
           notify(
             "Nix Manager finished",
-            `${op.request.action} completed for ${op.request.host || manager.config.hostKey}.`,
+            `${actionLabels[op.request.action]} completed for ${op.request.host || manager.config.hostKey}.`,
           ),
         );
     }

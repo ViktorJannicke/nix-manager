@@ -1,0 +1,225 @@
+<script lang="ts">
+  import GitCompareIcon from "@lucide/svelte/icons/git-compare";
+  import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
+  import ExternalLinkIcon from "@lucide/svelte/icons/external-link";
+  import TrashIcon from "@lucide/svelte/icons/trash-2";
+  import { Button } from "$lib/components/ui/button";
+  import { app } from "$lib/app.svelte";
+  import type { BuildReview, ReviewOutput } from "../../src/contracts";
+  import { bytes, day, plural, relative, shortRev, summarize } from "$lib/format";
+  import EmptyState from "$lib/components/app/EmptyState.svelte";
+  import Segmented from "$lib/components/app/Segmented.svelte";
+  import PackageChanges from "$lib/components/app/PackageChanges.svelte";
+  import ReviewTitle from "$lib/components/app/ReviewTitle.svelte";
+
+  const review = $derived(app.reviews.find((r) => r.id === app.selectedReview) ?? app.reviews[0]);
+  let tab = $state<"home" | "system">("home");
+  $effect(() => {
+    if (review && !review[tab]) tab = review.home ? "home" : "system";
+  });
+  const output = $derived(review?.[tab]);
+  const repository = $derived(app.system?.repository);
+  const checkoutChanged = $derived(
+    review && repository && review.source !== "generation" && review.fingerprint !== repository.fingerprint,
+  );
+  const lockChanged = $derived(
+    review?.inputs && repository && review.inputs.baseLockHash !== repository.lockHash,
+  );
+  const otherHost = $derived(review && review.host !== app.snapshot?.config.hostKey);
+  const kernelChange = $derived(
+    review?.system?.kernel && review.system.kernel.before !== review.system.kernel.after,
+  );
+  const preparing = $derived(app.active?.request.action === "review-build");
+
+  function apply(review: BuildReview, activation: "switch" | "boot") {
+    const points: string[] = [];
+    if (review.inputs) points.push("Writes the reviewed flake.lock into your checkout.");
+    if (review.home && activation === "switch") points.push("Activates the reviewed Home Manager generation.");
+    if (review.home && activation === "boot") points.push("Home changes are not applied on boot; apply them separately.");
+    if (review.system)
+      points.push(
+        activation === "boot"
+          ? "Makes the reviewed system the default boot entry. The running system is unchanged until you restart."
+          : "Switches the running system to the reviewed build. You'll be asked for your password.",
+      );
+    if (kernelChange && activation === "switch") points.push("The kernel changes; restart afterwards to use it.");
+    points.push("The previous generation stays available for rollback.");
+    app.confirm({
+      title: activation === "boot" ? "Apply on next boot?" : "Apply these changes now?",
+      description: `Prepared ${relative(review.createdAt, app.now)} for ${review.host}.`,
+      request: app.request("review-apply", {
+        host: review.host,
+        scope: review.scope,
+        reviewId: review.id,
+        activation,
+      }),
+      confirmLabel: activation === "boot" ? "Apply on next boot" : "Apply now",
+      points,
+    });
+  }
+
+  const sizeChange = (output: ReviewOutput) =>
+    output.closureSize !== undefined && output.currentClosureSize !== undefined
+      ? output.closureSize - output.currentClosureSize
+      : undefined;
+</script>
+
+<div class="space-y-6">
+  <header class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0">
+      <h1 class="title">Changes</h1>
+      <p class="mt-1 text-muted-foreground">Prepared builds waiting for your decision. Nothing here is active yet.</p>
+    </div>
+    {#if app.reviews.length > 1}
+      <select
+        class="focus-ring h-8 rounded-md border bg-card px-2 text-xs"
+        aria-label="Prepared changes"
+        value={review?.id}
+        onchange={(event) => (app.selectedReview = event.currentTarget.value)}
+      >
+        {#each app.reviews as item (item.id)}
+          <option value={item.id}>{item.host}, {item.scope}, prepared {relative(item.createdAt, app.now)}</option>
+        {/each}
+      </select>
+    {/if}
+  </header>
+
+  {#if !review}
+    <section class="panel">
+      <EmptyState icon={GitCompareIcon} title={preparing ? "Preparing changes…" : "No prepared changes"}>
+        {#if preparing}
+          The build is running; its changes will appear here when it finishes.
+        {:else}
+          Prepare changes to build your configuration and compare it with what's running.
+        {/if}
+        {#snippet actions()}
+          {#if preparing}
+            <Button variant="outline" onclick={() => app.navigate("activity")}>Show progress</Button>
+          {:else}
+            <Button disabled={app.busy || !app.connected} onclick={() => app.prepare("home")}>Prepare home</Button>
+            <Button variant="outline" disabled={app.busy || !app.connected} onclick={() => app.prepare("all")}>Prepare home & system</Button>
+          {/if}
+        {/snippet}
+      </EmptyState>
+    </section>
+  {:else}
+    <section class="prepared p-5">
+      <div class="flex flex-wrap items-start gap-4">
+        <div class="min-w-0 flex-1">
+          <p class="label">Prepared {relative(review.createdAt, app.now)} for {review.host}, not active yet</p>
+          <h2 class="heading mt-1"><ReviewTitle {review} /></h2>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <Button variant="ghost" disabled={app.busy} onclick={() => app.discard(review)}><TrashIcon /> Discard</Button>
+          {#if review.system}
+            <Button variant="outline" disabled={app.busy || Boolean(lockChanged)} onclick={() => apply(review, "boot")}>Apply on next boot</Button>
+          {/if}
+          <Button disabled={app.busy || Boolean(lockChanged)} onclick={() => apply(review, "switch")}>Apply now</Button>
+        </div>
+      </div>
+
+      {#if lockChanged || checkoutChanged || otherHost || kernelChange}
+        <div class="mt-4 space-y-2">
+          {#if lockChanged}
+            <p class="flex gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-destructive">
+              <TriangleAlertIcon class="mt-0.5 size-4 shrink-0" />
+              flake.lock changed since these updates were prepared. Discard and prepare them again.
+            </p>
+          {:else if checkoutChanged}
+            <p class="flex gap-2 rounded-lg bg-warning/10 px-3 py-2">
+              <TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-warning" />
+              Your checkout changed since this was prepared. Applying activates exactly what was built here; prepare again to include newer edits.
+            </p>
+          {/if}
+          {#if otherHost}
+            <p class="flex gap-2 rounded-lg bg-warning/10 px-3 py-2">
+              <TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-warning" />
+              Built for {review.host}, but this computer is {app.snapshot?.config.hostKey}.
+            </p>
+          {/if}
+          {#if kernelChange}
+            <p class="flex gap-2 rounded-lg bg-muted px-3 py-2">
+              <TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              New kernel {review.system?.kernel?.after}; a restart is needed to use it.
+            </p>
+          {/if}
+        </div>
+      {/if}
+
+      <dl class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {#each (["home", "system"] as const).filter((key) => review[key]) as key (key)}
+          {@const item = review[key]!}
+          {@const counts = summarize(item.changes)}
+          {@const delta = sizeChange(item)}
+          <div class="rounded-lg bg-card p-3">
+            <dt class="label">{key === "home" ? "Home packages" : "System packages"}</dt>
+            <dd class="mt-1 text-lg font-semibold">{item.compared ? plural(counts.changed + counts.added + counts.removed, "change") : "New"}</dd>
+            <dd class="text-xs text-muted-foreground">
+              {#if item.compared}{counts.changed} updated, {counts.added} new, {counts.removed} removed{:else}Nothing active to compare with{/if}
+            </dd>
+          </div>
+          <div class="rounded-lg bg-card p-3">
+            <dt class="label">{key === "home" ? "Home size" : "System size"}</dt>
+            <dd class="mt-1 text-lg font-semibold">{bytes(item.closureSize)}</dd>
+            <dd class="text-xs {delta && delta > 0 ? 'text-warning' : 'text-muted-foreground'}">
+              {delta === undefined ? "—" : `${bytes(delta, true)} compared to now`}
+            </dd>
+          </div>
+        {/each}
+        {#if review.system?.version?.after && review.system.version.after !== review.system.version.before}
+          <div class="rounded-lg bg-card p-3">
+            <dt class="label">NixOS</dt>
+            <dd class="mt-1 font-semibold">{review.system.version.after}</dd>
+            <dd class="text-xs text-muted-foreground">from {review.system.version.before ?? "unknown"}</dd>
+          </div>
+        {/if}
+      </dl>
+    </section>
+
+    {#if review.inputs?.changes.length}
+      <section class="panel overflow-hidden">
+        <h2 class="border-b px-4 py-3 font-semibold">Flake inputs</h2>
+        <ul class="divide-y">
+          {#each review.inputs.changes as change (change.name)}
+            <li class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5">
+              <div class="min-w-40 flex-1">
+                <p class="font-medium">{change.name}</p>
+                {#if change.after?.source ?? change.before?.source}<p class="text-xs text-muted-foreground">{change.after?.source ?? change.before?.source}</p>{/if}
+              </div>
+              <p class="text-xs text-muted-foreground">
+                {day(change.before?.lastModified)} <span class="font-mono">{shortRev(change.before?.rev)}</span>
+                → <span class="text-foreground">{day(change.after?.lastModified)}</span>
+                {#if change.after?.url}
+                  <a class="inline-flex items-center gap-0.5 font-mono text-primary hover:underline" href={change.after.url} target="_blank" rel="noreferrer">{shortRev(change.after.rev)}<ExternalLinkIcon class="size-3" /></a>
+                {:else}<span class="font-mono">{shortRev(change.after?.rev)}</span>{/if}
+              </p>
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
+
+    <section class="panel p-4">
+      <div class="mb-3 flex items-center justify-between gap-3">
+        <h2 class="heading">Packages</h2>
+        {#if review.home && review.system}
+          <Segmented
+            label="Configuration"
+            bind:value={tab}
+            options={[
+              { value: "home", label: "Home", count: review.home.changes.length },
+              { value: "system", label: "System", count: review.system.changes.length },
+            ]}
+          />
+        {/if}
+      </div>
+      {#if output}
+        {#if output.compared}
+          {#key `${review.id}-${tab}`}<PackageChanges changes={output.changes} />{/key}
+        {:else}
+          <p class="text-muted-foreground">There's no active {tab} configuration to compare with, so everything in this build is new.</p>
+        {/if}
+      {/if}
+    </section>
+  {/if}
+</div>

@@ -1,15 +1,19 @@
 import { Schema } from "effect";
 import { timingSafeEqual } from "node:crypto";
-import { Request as RequestSchema, ManagerError, plan } from "./domain";
-import { acquireLock, type Manager } from "./manager";
+import { Request as RequestSchema, ManagerError } from "./domain";
+import type { Manager } from "./manager";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
 import { tmpdir } from "node:os";
-import { advancedState, applyInputProposal, generationReview, getReview, proposeInputs, removeReview, repositoryState } from "./advanced";
+import { Observer } from "./observe";
+import { listReviews, removeReview } from "./reviews";
+import type { SessionMessage, Snapshot } from "./contracts";
 
 export interface UiAsset {
   body: string;
   type: string;
+  /** Binary assets such as fonts are embedded as base64. */
+  base64?: boolean;
 }
 export type UiAssets = Record<string, UiAsset>;
 declare const NIX_MANAGER_UI_ASSETS: string;
@@ -19,7 +23,14 @@ const mime = (path: string) =>
     ".js": "text/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
     ".svg": "image/svg+xml",
+    ".woff2": "font/woff2",
   })[extname(path)] || "application/octet-stream";
+export function asset(path: string, data: Buffer): UiAsset {
+  const type = mime(path);
+  return /^text\/|svg/.test(type)
+    ? { body: data.toString("utf8"), type }
+    : { body: data.toString("base64"), type, base64: true };
+}
 async function readAssets(root: string): Promise<UiAssets> {
   const walk = async (directory: string): Promise<string[]> =>
     (
@@ -36,7 +47,7 @@ async function readAssets(root: string): Promise<UiAssets> {
         const name = relative(root, path);
         return [
           name === "index.html" ? "/" : `/${name}`,
-          { body: await readFile(path, "utf8"), type: mime(path) },
+          asset(path, await readFile(path)),
         ];
       }),
     ),
@@ -74,6 +85,7 @@ export function startServer(
         }
       : input;
   const token = crypto.randomUUID() + crypto.randomUUID();
+  const observer = new Observer(manager.config);
   let clients = 0;
   let connected = false;
   let disconnectedAt: number | undefined;
@@ -81,6 +93,59 @@ export function startServer(
     send(data: string): unknown;
     getBufferedAmount(): number;
   }>();
+  const snapshot = async (): Promise<Snapshot> => ({
+    config: {
+      flake: manager.config.flake,
+      hosts: manager.config.hosts,
+      hostKey: manager.config.hostKey,
+      homeProfile: manager.config.homeProfile,
+    },
+    active: manager.active,
+    operations: manager.history(),
+    updates: manager.updates(),
+    system: observer.current,
+    reviews: await listReviews(manager.config),
+  });
+  const send = (message: SessionMessage) => {
+    const text = JSON.stringify(message);
+    for (const socket of sockets) {
+      // Output is recoverable from the bounded log API. Drop chunks for a slow
+      // client instead of allowing it to put pressure on the executor.
+      if (message.type !== "snapshot" && message.type !== "operation" && socket.getBufferedAmount() > 256_000)
+        continue;
+      socket.send(text);
+    }
+  };
+  // Coalesce bursts of step changes into one snapshot per tick.
+  let scheduled: ReturnType<typeof setTimeout> | undefined;
+  const broadcast = () => {
+    if (scheduled || !sockets.size) return;
+    scheduled = setTimeout(async () => {
+      scheduled = undefined;
+      try {
+        send({ type: "snapshot", snapshot: await snapshot() });
+      } catch (error) {
+        console.error(error);
+      }
+    }, 100);
+  };
+  const observe = () =>
+    observer.refresh().catch((error) => console.error(`Observe system: ${error}`));
+  let wasBusy = manager.busy;
+  const unsubscribeChange = manager.onChange(() => {
+    // Generations, the checkout and reviews change when an operation ends.
+    if (wasBusy && !manager.busy) void observe();
+    wasBusy = manager.busy;
+    broadcast();
+  });
+  const unsubscribeObserver = observer.onChange(broadcast);
+  const unsubscribeEvents = manager.onEvent((event) => send(event));
+  void observe();
+  // Notice edits to the checkout and changes made outside the manager while
+  // a dashboard is open.
+  const ticker = setInterval(() => {
+    if (sockets.size) void observe();
+  }, 30_000);
   const headers = {
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",
@@ -88,10 +153,14 @@ export function startServer(
     "Content-Security-Policy":
       // Bits UI applies transient inline styles for dialog scroll locking and
       // positioning. Scripts remain restricted to the bundled same-origin app.
-      "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+      "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
   };
   const json = (data: unknown, status = 200) =>
     Response.json(data, { status, headers });
+  const body = async (req: Request) => {
+    const value = await req.json().catch(() => undefined);
+    return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  };
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port,
@@ -137,97 +206,38 @@ export function startServer(
         }
         try {
           if (req.method === "GET" && url.pathname === "/api/state")
-            return json({
-              config: {
-                flake: manager.config.flake,
-                hosts: manager.config.hosts,
-                hostKey: manager.config.hostKey,
-                homeProfile: manager.config.homeProfile,
-              },
-              active: manager.active,
-              operations: manager.history(),
-              updates: manager.updates(),
-              advanced: advancedState(manager.config),
-            });
+            return json(await snapshot());
           if (req.method === "GET" && url.pathname.startsWith("/api/log/"))
-            return json({ text: manager.log(url.pathname.slice(9)) });
+            return json(manager.log(url.pathname.slice(9)));
           if (req.method === "POST") {
             if (req.headers.get("content-type") !== "application/json")
               return json({ error: "Expected application/json." }, 415);
-            if (url.pathname === "/api/generation-review") {
-              const body = await req.json();
-              if (
-                !body ||
-                !["home", "system"].includes(body.kind) ||
-                !Number.isInteger(body.number)
-              )
-                return json({ error: "Invalid generation selection." }, 400);
-              return json(
-                generationReview(manager.config, body.kind, body.number),
-                201,
-              );
-            }
-            if (url.pathname === "/api/input-review") {
-              const body = await req.json();
-              if (!body || !Array.isArray(body.inputs))
-                return json({ error: "Select flake inputs to update." }, 400);
-              const release = acquireLock(manager.config.stateDir);
-              try {
-                return json(await proposeInputs(manager.config, body.inputs), 201);
-              } finally {
-                release();
-              }
-            }
-            if (url.pathname === "/api/input-apply") {
-              const body = await req.json();
-              if (!body || typeof body.id !== "string" || typeof body.fingerprint !== "string")
-                return json({ error: "Invalid input proposal." }, 400);
-              const release = acquireLock(manager.config.stateDir);
-              try {
-                return json(applyInputProposal(manager.config, body.id, body.fingerprint));
-              } finally {
-                release();
-              }
+            if (url.pathname === "/api/refresh") {
+              await observer.refresh();
+              return json(await snapshot());
             }
             if (url.pathname === "/api/review-remove") {
-              const body = await req.json();
-              if (!body || typeof body.id !== "string")
-                return json({ error: "Invalid build review." }, 400);
-              removeReview(manager.config, body.id);
+              const { id } = await body(req);
+              if (typeof id !== "string")
+                return json({ error: "Invalid review." }, 400);
+              if (manager.active?.request.reviewId === id)
+                return json({ error: "This review is in use by the running operation." }, 409);
+              removeReview(manager.config, id);
+              broadcast();
               return json({ ok: true });
             }
-            if (["/api/plan", "/api/run"].includes(url.pathname)) {
+            if (url.pathname === "/api/plan" || url.pathname === "/api/run") {
               const r = Schema.decodeUnknownSync(RequestSchema, {
                 onExcessProperty: "error",
               })(await req.json());
-              if (
-                ["review-build", "review-apply"].includes(r.action) &&
-                r.fingerprint !== repositoryState(manager.config.flake).fingerprint
-              )
-                return json(
-                  { error: "The checkout changed. Refresh and review the plan again." },
-                  409,
-                );
-              const resolved =
-                r.action === "review-apply"
-                  ? (() => {
-                      const review = getReview(manager.config, r.reviewId!);
-                      if (review.fingerprint !== r.fingerprint)
-                        throw new ManagerError({ message: "The checkout changed after this review was built." });
-                      return { ...r, homeOutput: review.homeOutput, systemOutput: review.systemOutput };
-                    })()
-                  : { ...r, homeOutput: undefined, systemOutput: undefined };
-              if (url.pathname === "/api/plan")
-                return json(plan(manager.config, resolved));
-              return json(manager.start(resolved), 202);
+              if (url.pathname === "/api/plan") return json(manager.plan(r));
+              return json(manager.start(r), 202);
             }
             if (url.pathname === "/api/cancel") {
-              const body = await req.json();
-              if (!body || body.id !== manager.active?.id)
+              const { id } = await body(req);
+              if (id !== manager.active?.id)
                 return json(
-                  {
-                    error: "That operation is no longer active in this window.",
-                  },
+                  { error: "That operation is no longer active in this window." },
                   409,
                 );
               manager.cancel();
@@ -248,7 +258,7 @@ export function startServer(
         return json({ error: "Method not allowed." }, 405);
       const asset = assets[url.pathname];
       return asset
-        ? new Response(asset.body, {
+        ? new Response(asset.base64 ? Buffer.from(asset.body, "base64") : asset.body, {
             headers: {
               ...headers,
               "Content-Type": asset.type,
@@ -266,11 +276,14 @@ export function startServer(
       // Native ping/pong keeps hidden tabs connected without JavaScript timers.
       sendPings: true,
       idleTimeout: 60,
-      open(socket) {
+      async open(socket) {
         sockets.add(socket);
         clients++;
         connected = true;
         disconnectedAt = undefined;
+        socket.send(JSON.stringify({ type: "snapshot", snapshot: await snapshot() } satisfies SessionMessage));
+        if (!observer.current || Date.now() - Date.parse(observer.current.observedAt) > 5_000)
+          void observe();
       },
       close(socket) {
         sockets.delete(socket);
@@ -279,19 +292,10 @@ export function startServer(
       message() {},
     },
   });
-  const unsubscribe = manager.onEvent((event) => {
-    const message = JSON.stringify(event);
-    for (const socket of sockets) {
-      // Output is recoverable from the bounded log API. Drop chunks for a slow
-      // client instead of allowing it to put pressure on the executor.
-      if (event.type === "output" && socket.getBufferedAmount() > 256_000)
-        continue;
-      socket.send(message);
-    }
-  });
   return {
     server,
     token,
+    observer,
     url: `http://127.0.0.1:${server.port}/#${token}`,
     get clients() {
       return clients;
@@ -303,7 +307,11 @@ export function startServer(
       return disconnectedAt;
     },
     close() {
-      unsubscribe();
+      clearInterval(ticker);
+      if (scheduled) clearTimeout(scheduled);
+      unsubscribeChange();
+      unsubscribeObserver();
+      unsubscribeEvents();
       server.stop(true);
     },
   };

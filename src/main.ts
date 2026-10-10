@@ -16,34 +16,51 @@ export async function privileged(args: string[]) {
   if (process.getuid?.() !== 0)
     throw new ManagerError({ message: "Privileged operations require root." });
   const [action, ...extra] = args;
-  const run = (argv: string[]) =>
+  const run = (argv: string[], env?: Record<string, string>) =>
     Effect.runPromise(
-      runProcess({ label: "Privileged operation", argv }, (e) =>
-        process[e.stream].write(e.text),
-      ),
+      runProcess({ label: "Privileged operation", argv, env }, (e) => {
+        if (e.stream !== "progress") process[e.stream].write(e.text);
+      }),
     );
-  if (action === "switch" || action === "boot")
-    await run(["nixos-rebuild", action, ...extra]);
-  else if (action === "rollback")
-    await run(["nixos-rebuild", "switch", "--rollback", ...extra]);
-  else if (action === "activate-output" && extra.length === 2) {
+  // Like nixos-rebuild, run switch-to-configuration in its own transient
+  // unit so a restarting display manager or session cannot interrupt it.
+  const switchTo = async (output: string, mode: string) => {
+    const systemdRun = "/run/current-system/sw/bin/systemd-run";
+    const command = [`${output}/bin/switch-to-configuration`, mode];
+    if (existsSync(systemdRun) && existsSync("/run/systemd/system"))
+      await run([
+        systemdRun,
+        "-E",
+        "LOCALE_ARCHIVE",
+        "-E",
+        "NIXOS_INSTALL_BOOTLOADER",
+        "--collect",
+        "--no-ask-password",
+        "--pipe",
+        "--quiet",
+        "--service-type=exec",
+        "--unit=nix-manager-switch-to-configuration",
+        ...command,
+      ]);
+    else await run(command);
+  };
+  const profile = "/nix/var/nix/profiles/system";
+  if (action === "rollback" && extra.length === 0) {
+    await run(["nix-env", "--profile", profile, "--rollback"]);
+    await switchTo(realpathSync(profile), "switch");
+  } else if (action === "activate-output" && extra.length === 2) {
     const [mode, requested] = extra;
     if (mode !== "switch" && mode !== "boot")
-      throw new ManagerError({ message: "Invalid reviewed activation mode." });
+      throw new ManagerError({ message: "Invalid activation mode." });
+    // The caller may pass a build out-link; only its store path is trusted.
+    const output = existsSync(requested) ? realpathSync(requested) : "";
     if (
-      !/^\/nix\/store\/[a-z0-9]{32}-[^/]+$/.test(requested) ||
-      !existsSync(requested)
+      !/^\/nix\/store\/[a-z0-9]{32}-nixos-system-[^/]+$/.test(output) ||
+      !existsSync(`${output}/bin/switch-to-configuration`)
     )
-      throw new ManagerError({ message: "Invalid reviewed system output." });
-    const output = realpathSync(requested);
-    await run([
-      "nix-env",
-      "--profile",
-      "/nix/var/nix/profiles/system",
-      "--set",
-      output,
-    ]);
-    await run([`${output}/bin/switch-to-configuration`, mode]);
+      throw new ManagerError({ message: "Invalid NixOS system output." });
+    await run(["nix-env", "--profile", profile, "--set", output]);
+    await switchTo(output, mode);
   } else if (action === "gc" && extra.length <= 1) {
     const retention = extra.length ? Number(extra[0]) : 3;
     if (!Number.isInteger(retention) || retention < 1 || retention > 100)

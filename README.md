@@ -99,42 +99,47 @@ pinned WebUI native library; nothing is downloaded at application startup.
 An installed browser is required. `--browser` uses the desktop's default browser;
 `--no-open` prints the local session link for manual use.
 
-The dashboard provides host and scope selection, build/activation previews,
-update results, package-pin updates, rollback and garbage collection, operation
-history, durable per-step outcomes, live log output and log export. Its Svelte 5
-interface uses local shadcn-svelte components and supports light, dark, and system
-themes. Flake input updates and package-pin updates are distinct: refreshing the
-lock does not automatically refresh the
-three local package pins. After updating a pin, use a home switch to apply it.
-Host selection chooses a configuration to build or apply on the local machine;
-it does not connect to another computer.
+The dashboard is organised around one flow: prepare, review, apply. Preparing
+builds the selected Home Manager and NixOS configurations without privileges and
+keeps the exact outputs. The Changes page shows the package differences from
+`nix store diff-closures`, changed lock nodes (including transitive inputs), the
+closure size, and warnings when the checkout or lock changed since the build, the
+build targets another host, or the kernel changes. Applying activates exactly those
+outputs, now or on next boot; the checkout is not evaluated again. Nothing is
+switched without a review.
+
+The other pages are Overview (active generations, the prepared next generation,
+reboot notices and recent activity), Updates (flake inputs and package pins, each
+selectable before preparing), Generations (rollback and cleanup), Activity (step
+outcomes and a filterable live log with copy and download) and Settings. The
+Svelte 5 interface supports light, dark and system themes. Flake input updates and
+package-pin updates are distinct: refreshing the lock does not refresh the three
+local package pins. After updating a pin, prepare a home build to apply it.
+
+The detected host is used by default. Settings can override it to build another
+configuration from the same checkout on this machine; the dashboard then shows a
+warning. It does not connect to another computer.
 
 The Generations page observes the actual Home Manager and system profile links,
 marks their active store paths, and shows which entries the selected retention
-count would remove. A rollback first creates a review for the selected exact
+count would remove. A rollback first prepares a review for the selected exact
 generation, then uses the same reviewed-output activation path as a fresh build.
 Retention can be set from 1–100 generations and is validated again by the
 privileged system-cleanup entry point.
 
-“Build for review” creates GC roots under the manager state directory and records
-the exact Home Manager activation package and NixOS toplevel. Where Nix can provide
-them, the review includes closure size and `nix store diff-closures` package changes.
-Applying a review sets the matching profile and activates those retained paths; it
-does not reevaluate the checkout. Repository fingerprints cover the lock file and
-working-tree state, so changed checkouts make old reviews visibly stale. Removing
-a review removes its manager-owned GC roots, allowing a later garbage collection
-to reclaim the outputs.
-
-Input rows can be selected individually. Nix resolves those inputs into a separate
-proposed lock file, and the UI displays every changed lock node, including transitive
-changes. Applying copies that exact reviewed lock atomically and refuses if the
-checkout changed in the meantime.
+Preparing creates GC roots under the manager state directory and records the exact
+Home Manager activation package and NixOS toplevel. Repository fingerprints cover
+the lock file and working-tree state, so changed checkouts make old reviews visibly
+stale. Selected input updates are resolved into a separate proposed lock file;
+applying copies that exact reviewed lock atomically and refuses if the checkout
+changed in the meantime. Discarding a review removes its manager-owned GC roots,
+allowing a later garbage collection to reclaim the outputs.
 
 `tray` registers a StatusNotifierItem and D-Bus menu, supported by Plasma and
 other compatible Linux desktops. Its menu opens the dashboard, checks updates,
-updates inputs and switches, or quits. The update shortcut starts an explicit
-update-and-switch operation immediately and opens its dashboard; system changes
-still require Polkit authentication. Checks run ten seconds after startup and
+prepares all updates for review, or quits. Preparing builds with every input
+updated and opens the dashboard, where the changes are reviewed before anything
+is applied. Checks run ten seconds after startup and
 then every six hours (`--interval MINUTES` changes this). Notifications report
 new update sets, failed operations, and completed changes. Clicking a notification
 opens the dashboard. Checks never activate a configuration automatically.
@@ -161,12 +166,14 @@ Tray mode and `--no-open` stay resident until quit or interrupted.
 
 ## Execution and state
 
-All selected configurations build before either activation. Home activates
-before system; activation is sequential, not transactional. Failure during the
-second activation can leave home already switched. Cleanup runs only after all
-selected activations succeed and retains three generations in each selected
-profile. Garbage collection removes unreferenced store paths, which can require
-downloads or rebuilds if needed again.
+All selected configurations build once, before either activation, and the CLI's
+`switch` and `boot` activate those build results directly instead of rebuilding.
+Arguments after `--` are forwarded to `nix build`. Home activates before system;
+activation is sequential, not transactional. Failure during the second activation
+can leave home already switched. Cleanup runs only after all selected activations
+succeed and retains three generations in each selected profile. Garbage
+collection removes unreferenced store paths, which can require downloads or
+rebuilds if needed again.
 
 Effect services isolate subprocesses and network access, and scoped finalizers
 clean temporary workspaces. Subprocess output is streamed to the CLI and saved
@@ -180,6 +187,9 @@ cancellation. Interrupted operations retain their logs.
 
 System activation, system rollback and system cleanup go through the immutable
 packaged executable's `--privileged` entry point and the existing Polkit policy.
+Its `activate-output` command accepts only a NixOS system store path, sets the
+system profile to it and runs its `switch-to-configuration`. `rollback` takes no
+arguments, and `gc` accepts only a retention count from 1 to 100.
 The dashboard and tray run as the ordinary user. The HTTP server binds only to
 `127.0.0.1` on a random port and checks a per-session bearer token, Host and Origin.
 The token is passed in the initial URL fragment and then kept in session storage.
