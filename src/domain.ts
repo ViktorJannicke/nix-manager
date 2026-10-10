@@ -161,6 +161,8 @@ export interface Command {
   env?: Record<string, string>;
   allowFailure?: boolean;
   quiet?: boolean;
+  /** Keep all of stdout instead of its last 8 MiB, for results such as large JSON documents. */
+  fullOutput?: boolean;
   /** Parse Nix's structured log for progress; argv must request it. */
   progress?: boolean;
   internal?: InternalStep;

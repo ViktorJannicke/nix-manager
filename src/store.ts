@@ -16,6 +16,7 @@ import {
   evaluateState,
   configurationAttr,
   type CatalogEntry,
+  type CatalogFilter,
   type OptionDoc,
   type ScopeInventory,
   type Target,
@@ -181,9 +182,9 @@ export class Store {
     this.changed();
   }
 
-  search(lockHash: string | undefined, query: string) {
+  search(lockHash: string | undefined, query: string, filter: CatalogFilter = {}) {
     if (!lockHash || this.catalog?.key !== lockHash) return [];
-    return searchCatalog(this.catalog.entries, query);
+    return searchCatalog(this.catalog.entries, query, 60, filter);
   }
 
   /** Catalog entries by attribute, for details of installed packages. */

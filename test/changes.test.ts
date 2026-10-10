@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { changesScope, dropChange, freePath, mergeChanges, newFileProblem, rankImporters } from "../src/changes";
+import { changesScope, dropChange, featureModule, freePath, mergeChanges, newFileProblem, rankImporters } from "../src/changes";
 import { readDraft, writeDraft, type Change } from "../src/draft";
 import { parseSoftware, runSoftware, software } from "../src/software-cli";
 import { fixture } from "./helpers";
@@ -29,6 +29,15 @@ test("dropping a created file drops the edits written into it", () => {
   expect(dropChange([add, create, into], 2)).toEqual([add, create]);
 });
 
+test("features go into their own module or a new one beside single-topic modules", () => {
+  const services = ["bluetooth", "podman", "ssh"].map((name) => ({ file: `modules/nixos/services/${name}.nix`, active: true }));
+  expect(featureModule(services, "podman")).toBe("modules/nixos/services/podman.nix");
+  expect(featureModule(services, "flatpak")).toBeUndefined();
+  expect(featureModule([{ file: "configuration.nix", active: true }, { file: "hardware.nix", active: true }], "flatpak")).toBe("configuration.nix");
+  expect(featureModule([{ file: "old/flatpak.nix", active: false }, { file: "configuration.nix", active: true }], "flatpak")).toBe("configuration.nix");
+  expect(featureModule([], "flatpak")).toBeUndefined();
+});
+
 test("new module paths are free, valid and imported from the closest folder", () => {
   const known = new Set(["modules/home/programs/fzf.nix"]);
   expect(freePath(known, "fzf", "modules/home/programs/git.nix", "modules/home")).toBe("modules/home/programs/fzf-2.nix");
@@ -40,6 +49,9 @@ test("new module paths are free, valid and imported from the closest folder", ()
   expect(
     rankImporters(["hosts/desktop/home.nix", "modules/home/default.nix", "modules/home/programs/default.nix", "modules/home/programs/git.nix"], "modules/home/programs/fzf.nix"),
   ).toEqual(["modules/home/programs/default.nix", "modules/home/programs/git.nix", "modules/home/default.nix", "hosts/desktop/home.nix"]);
+  const services = ["ssh", "podman"].map((name) => `modules/nixos/services/${name}.nix`);
+  const imports = { "profiles/workstation.nix": services, "hosts/desktop/system.nix": ["profiles/workstation.nix", "modules/nixos/services/libvirt.nix"] };
+  expect(rankImporters(["hosts/desktop/system.nix", "profiles/workstation.nix"], "modules/nixos/services/flatpak.nix", imports)[0]).toBe("profiles/workstation.nix");
 });
 
 test("software commands accept options anywhere", async () => {

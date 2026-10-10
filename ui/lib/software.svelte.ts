@@ -1,5 +1,5 @@
 import type { Change } from "../../src/draft";
-import { changesScope, dropChange, freePath, mergeChanges, newFileProblem, rankImporters } from "../../src/changes";
+import { changesScope, dropChange, featureModule, freePath, mergeChanges, newFileProblem, rankImporters } from "../../src/changes";
 import type { Experience } from "../../src/curated";
 import type {
   CatalogEntry,
@@ -34,6 +34,9 @@ class SoftwareState {
   /** Option documentation by `scope:name`. */
   docs = $state.raw<Record<string, OptionDoc>>({});
   saving = $state(false);
+  /** Search restrictions, remembered between visits. */
+  free = $state(localStorage.getItem("nix-manager-search-free") === "1");
+  working = $state(localStorage.getItem("nix-manager-search-working") !== "0");
   private key = "";
   private searchToken = 0;
 
@@ -69,7 +72,7 @@ class SoftwareState {
       return;
     }
     try {
-      const results = await api<CatalogEntry[]>("software/search", { query });
+      const results = await api<CatalogEntry[]>("software/search", { query, free: this.free, working: this.working });
       if (token === this.searchToken) {
         this.results = results;
         this.searched = query;
@@ -77,6 +80,11 @@ class SoftwareState {
     } catch (error) {
       app.fail(error, "Search failed");
     }
+  }
+
+  setFilter(name: "free" | "working", value: boolean) {
+    this[name] = value;
+    localStorage.setItem(`nix-manager-search-${name}`, value ? "1" : "0");
   }
 
   async buildCatalog(rebuild = false) {
@@ -196,6 +204,11 @@ class SoftwareState {
     ]);
   }
 
+  /** The file a curated experience writes to, or `NEW_FILE` for one beside similar modules. */
+  featureFile(scope: Target, option: string, name: string) {
+    return featureModule(this.moduleFiles(scope, option), name) ?? NEW_FILE;
+  }
+
   /** A free path for a new module named `name`, next to the file new settings would go to. */
   suggestFile(scope: Target, name: string, near?: string) {
     return freePath(this.known(scope), name, near, scope === "home" ? "modules/home" : "modules/nixos");
@@ -206,7 +219,7 @@ class SoftwareState {
   }
 
   importers(scope: Target, file: string) {
-    return rankImporters(this.inventory?.[scope].importers ?? [], file);
+    return rankImporters(this.inventory?.[scope].importers ?? [], file, this.inventory?.[scope].imports);
   }
 
   remember(scope: Target, file: string) {

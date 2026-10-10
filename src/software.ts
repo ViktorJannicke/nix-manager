@@ -295,6 +295,41 @@ export interface InstalledPackage extends PackageInfo {
   attr?: string;
   /** Added by a module (for example `programs.git.enable`), not a package list. */
   external: boolean;
+  /**
+   * Version in the generation running now when the checkout builds another
+   * one, or null when the running generation lacks the package. Absent when
+   * nothing changes or the running generation is not this configuration's.
+   */
+  previous?: string | null;
+}
+
+/** Store path names of the generation a scope runs now, when the host is this computer. */
+const runningGeneration = (config: Config, host: string, scope: Target) => {
+  if (host !== config.hostKey || (scope === "home" && !config.homeProfileExists)) return Effect.succeed(undefined);
+  const profile = scope === "home" ? config.homeProfile : "/run/current-system";
+  return command("Read the running generation", ["nix-store", "--query", "--requisites", profile], {
+    quiet: true,
+    allowFailure: true,
+  }).pipe(
+    Effect.map((result) => {
+      const paths = result.code === 0 ? result.stdout.split("\n").filter(Boolean) : [];
+      return paths.length ? paths : undefined;
+    }),
+    Effect.orElseSucceed(() => undefined),
+  );
+};
+
+/** What the running generation has of a package: nothing to report, another version, or nothing. */
+export function previousVersion(paths: ReadonlySet<string>, names: readonly string[], item: PackageInfo) {
+  if (paths.has(item.out)) return undefined;
+  const prefix = `${item.name}-`;
+  const versions = new Set(
+    names.flatMap((name) => (name.startsWith(prefix) && /^\d/.test(name.slice(prefix.length)) ? [name.slice(prefix.length)] : [])),
+  );
+  // The same version built again, for example after a dependency changed.
+  if (item.version && [...versions].some((version) => version === item.version || version.startsWith(`${item.version}-`)))
+    return undefined;
+  return versions.size ? [...versions].sort()[0] : null;
 }
 
 export interface PackageFile {
@@ -324,6 +359,8 @@ export interface ScopeInventory {
   modules: ModuleFile[];
   /** Files the host imports that import others, which a new module file can be imported from. */
   importers: string[];
+  /** Flake paths each importer imports. */
+  imports: Record<string, string[]>;
   options: Record<string, OptionValue>;
 }
 
@@ -342,11 +379,19 @@ export const inventory = (
     const probes = editable.flatMap((module) =>
       module.settings.slice(0, 4).map((option): Probe => ({ file: module.file, option })),
     );
-    const state = yield* evaluateState(source, configurationAttr(config, host, scope), scope, {
-      options,
-      attrs: resolvable.map((item) => item.path!.slice(1)),
-      probes,
-    });
+    const [state, running] = yield* Effect.all(
+      [
+        evaluateState(source, configurationAttr(config, host, scope), scope, {
+          options,
+          attrs: resolvable.map((item) => item.path!.slice(1)),
+          probes,
+        }),
+        runningGeneration(config, host, scope),
+      ],
+      { concurrency: 2 },
+    );
+    const paths = new Set(running ?? []);
+    const names = (running ?? []).map((path) => path.replace(/^\/nix\/store\/[a-z0-9]{32}-/, ""));
     const counts = new Map(state.packages.map(({ file, items }) => [file, items.length]));
     const used = importedFiles(modules, [
       ...probes.filter((_, index) => state.used[index]).map((probe) => probe.file),
@@ -364,9 +409,11 @@ export const inventory = (
         file,
         attr: bySource.get(`${file}\0${item.out}`),
         external: !files.has(file),
+        ...(running ? { previous: previousVersion(paths, names, item) } : {}),
       })),
     );
     const bindings = scopeBindings[scope] as readonly string[];
+    const importers = modules.filter((module) => module.importable && module.imports.length > 0 && used.has(module.file));
     return {
       scope,
       packages: packages.sort((a, b) => a.name.localeCompare(b.name)),
@@ -384,9 +431,13 @@ export const inventory = (
         names,
         active: used.has(file) ? true : settings.length ? false : null,
       })),
-      importers: modules
-        .filter((module) => module.importable && module.imports.length > 0 && used.has(module.file))
-        .map((module) => module.file),
+      importers: importers.map((module) => module.file),
+      imports: Object.fromEntries(
+        importers.map((module) => [
+          module.file,
+          module.imports.map((path) => posix.normalize(posix.join(posix.dirname(module.file), path))),
+        ]),
+      ),
       options: state.options,
     } satisfies ScopeInventory;
   });
@@ -503,17 +554,32 @@ export const optionDocs = (config: Config, host: string, scope: Target) =>
   command(
     "Read option documentation",
     ["nix", "eval", "--json", `${config.flake}#${configurationAttr(config, host, scope)}`, "--apply", optionsExpression],
-    { quiet: true },
-  ).pipe(Effect.map((result) => JSON.parse(result.stdout) as OptionDoc[]));
+    // NixOS documents tens of thousands of options: more than the usual capture.
+    { quiet: true, fullOutput: true },
+  ).pipe(
+    Effect.flatMap((result) =>
+      Effect.try({
+        try: () => JSON.parse(result.stdout) as OptionDoc[],
+        catch: (error) => new ManagerError({ message: `Invalid option documentation: ${error}` }),
+      }),
+    ),
+  );
 
 const words = (text: string) => text.toLowerCase().split(/[^a-z0-9+]+/).filter(Boolean);
 
+/** Search restrictions: only free licenses, only packages not marked broken. */
+export interface CatalogFilter {
+  free?: boolean;
+  working?: boolean;
+}
+
 /** Ranks catalog entries: exact names first, then prefixes, then descriptions. */
-export function searchCatalog(entries: readonly CatalogEntry[], query: string, limit = 60) {
+export function searchCatalog(entries: readonly CatalogEntry[], query: string, limit = 60, filter: CatalogFilter = {}) {
   const terms = words(query);
   if (!terms.length) return [];
   const scored: { entry: CatalogEntry; score: number }[] = [];
   for (const entry of entries) {
+    if ((filter.free && !entry.f) || (filter.working && entry.b)) continue;
     const name = (entry.n ?? entry.a).toLowerCase();
     const attribute = entry.a.toLowerCase();
     const leaf = attribute.slice(attribute.lastIndexOf(".") + 1);

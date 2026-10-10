@@ -109,6 +109,8 @@ test("module shape lists names, setting paths and static imports", async () => {
   expect((await moduleShape("{ imports = lib.optionals x [ ./a.nix ]; }")).imports).toEqual([]);
   expect((await moduleShape("{ imports = lib.optionals x [ ./a.nix ]; }")).importable).toBe(false);
   expect((await moduleShape(aggregate)).importable).toBe(true);
+  const commented = "# Shared host settings\n\n{ pkgs, ... }:\nlet x = 1; in\n{\n  imports = [ ./a.nix ];\n  services.x.enable = true;\n}\n";
+  expect(await moduleShape(commented)).toMatchObject({ editable: true, imports: ["./a.nix"], importable: true });
 });
 
 test("imports are added to the list in its layout, or start one", async () => {

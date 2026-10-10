@@ -56,7 +56,13 @@ export const runProcess = (
       let captured = "";
       let pending = "";
       const decoder = new TextDecoder();
+      const whole: string[] = [];
       const accept = (text: string, final = false) => {
+        if (command.fullOutput && channel === "stdout") {
+          whole.push(text);
+          if (text && !command.quiet) output({ stream: channel, text });
+          return;
+        }
         if (!nix || channel !== "stderr") {
           captured = (captured + text).slice(-8 * 1024 * 1024);
           if (text && !command.quiet) output({ stream: channel, text });
@@ -84,7 +90,7 @@ export const runProcess = (
       for await (const chunk of stream)
         accept(decoder.decode(chunk, { stream: true }));
       accept(decoder.decode(), true);
-      return captured;
+      return whole.length ? whole.join("") : captured;
     };
     const readers = [
       read(child.stdout as ReadableStream<Uint8Array>, "stdout"),

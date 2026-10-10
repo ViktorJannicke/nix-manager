@@ -28,7 +28,7 @@ const attrsets = new Set(["attrset_expression", "rec_attrset_expression"]);
 
 /** The attribute set a module evaluates to, through `{ ... }:`, `let ... in` and parentheses. */
 function moduleSet(root: Node): Node | undefined {
-  let node: Node | null = root.namedChildren[0] ?? null;
+  let node: Node | null = root.namedChildren.find((child) => child?.type !== "comment") ?? null;
   while (node) {
     if (node.type === "function_expression" || node.type === "let_expression")
       node = node.childForFieldName("body");

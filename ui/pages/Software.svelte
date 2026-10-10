@@ -16,14 +16,38 @@
   import PackageDialog from "$lib/components/app/PackageDialog.svelte";
   import ExperienceDialog from "$lib/components/app/ExperienceDialog.svelte";
   import ExperienceIcon from "$lib/components/app/ExperienceIcon.svelte";
+  import { arrows, typing } from "$lib/keyboard";
 
   let view = $state<"discover" | "installed">("discover");
   let query = $state("");
   let scope = $state<Target>("home");
   let filter = $state("");
   let showModules = $state(false);
+  let changingOnly = $state(false);
   let entry = $state<CatalogEntry>();
   let experience = $state<Experience>();
+  let searchInput = $state<HTMLInputElement>();
+  let filterInput = $state<HTMLInputElement>();
+  let content = $state<HTMLElement>();
+
+  // "/" finds: the search on Discover, the filter on Installed.
+  function shortcut(event: KeyboardEvent) {
+    if (event.key !== "/" || typing(event) || entry || experience) return;
+    event.preventDefault();
+    (view === "discover" ? searchInput : filterInput)?.focus();
+  }
+  function searchKey(event: KeyboardEvent) {
+    if (event.key === "ArrowDown") {
+      const first = content?.querySelector<HTMLElement>("[data-nav]");
+      if (first) {
+        event.preventDefault();
+        first.focus();
+      }
+    } else if (event.key === "Escape" && query) {
+      event.preventDefault();
+      query = "";
+    }
+  }
 
   $effect(() => {
     void app.host;
@@ -34,6 +58,8 @@
   // Search as you type, once the index exists; the first search builds it.
   $effect(() => {
     const text = query;
+    void software.free;
+    void software.working;
     const ready = software.catalog?.state === "ready";
     if (text.trim() && software.catalog?.state === "missing") void software.buildCatalog();
     const timer = setTimeout(() => ready && software.search(text), 150);
@@ -46,10 +72,13 @@
   const pendingFor = (item: Experience) =>
     software.changes.some((change) => change.label === item.title || ("option" in change && Object.keys(item.enable).includes(change.option)));
 
+  /** Packages the next applied build installs or updates, compared with the running generation. */
+  const changing = $derived((inventory?.[scope].packages ?? []).filter((item) => item.previous !== undefined && (showModules || !item.external)));
   const installed = $derived(
     (inventory?.[scope].packages ?? []).filter(
       (item) =>
         (showModules || !item.external) &&
+        (!changingOnly || item.previous !== undefined) &&
         `${item.name} ${item.attr ?? ""} ${item.description ?? ""}`.toLowerCase().includes(filter.trim().toLowerCase()),
     ),
   );
@@ -64,7 +93,9 @@
     software.changes.some((change) => change.kind === "remove-package" && change.attr === item.attr && change.file === item.file);
 </script>
 
-<div class="space-y-6">
+<svelte:window onkeydown={shortcut} />
+
+<div class="space-y-6" bind:this={content}>
   <header class="flex flex-wrap items-end justify-between gap-4">
     <div class="min-w-0">
       <h1 class="title">Software</h1>
@@ -94,23 +125,31 @@
     <label class="flex h-12 items-center gap-3 rounded-xl border bg-card px-4 shadow-xs focus-within:ring-3 focus-within:ring-ring/30">
       <SearchIcon class="size-5 text-muted-foreground" />
       <input
+        bind:this={searchInput}
         bind:value={query}
+        onkeydown={searchKey}
         aria-label="Search packages"
+        aria-keyshortcuts="/"
         placeholder="Search over a hundred thousand packages"
-        class="w-full bg-transparent text-base outline-none placeholder:text-muted-foreground"
+        class="peer w-full bg-transparent text-base outline-none placeholder:text-muted-foreground"
       />
+      {#if !query}<kbd class="rounded border bg-muted px-1.5 font-mono text-xs text-muted-foreground peer-focus:hidden" title="Press / to search">/</kbd>{/if}
       {#if software.catalog?.state === "building"}<LoaderIcon class="size-4 animate-spin text-muted-foreground" aria-label="Building the package index" />{/if}
     </label>
 
     {#if query.trim()}
+      <div class="-mt-3 flex flex-wrap gap-4 px-1 text-xs">
+        <label class="flex items-center gap-1.5"><input type="checkbox" class="focus-ring accent-primary" checked={software.free} onchange={(event) => software.setFilter("free", event.currentTarget.checked)} /> Free software only</label>
+        <label class="flex items-center gap-1.5"><input type="checkbox" class="focus-ring accent-primary" checked={software.working} onchange={(event) => software.setFilter("working", event.currentTarget.checked)} /> Hide packages marked as broken</label>
+      </div>
       {#if software.catalog?.state === "ready"}
         {#if software.results.length}
-          <ul class="panel divide-y overflow-hidden">
+          <ul class="panel divide-y overflow-hidden" use:arrows={{ before: () => searchInput }}>
             {#each software.results as result (result.a)}
               {@const owned = software.installed(result)}
               {@const pending = software.pendingPackage(`pkgs.${result.a}`)}
               <li>
-                <button class="focus-ring flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-muted/40" onclick={() => (entry = result)}>
+                <button data-nav class="focus-ring flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-muted/40 focus-visible:bg-muted/40" onclick={() => (entry = result)}>
                   <div class="min-w-0 flex-1">
                     <p class="flex flex-wrap items-baseline gap-x-2">
                       <span class="font-semibold">{result.n ?? result.a}</span>
@@ -122,7 +161,8 @@
                   <span class="shrink-0 pt-0.5 text-xs font-medium">
                     {#if pending}<span class="text-prepared-foreground">{pending.kind === "add-package" ? "Will be installed" : "Will be removed"}</span>
                     {:else if owned}<span class="text-primary">Installed</span>
-                    {:else if result.b}<span class="text-warning">Broken</span>{/if}
+                    {:else if result.b}<span class="text-warning">Broken</span>
+                    {:else if !result.f}<span class="text-muted-foreground">Not free</span>{/if}
                   </span>
                 </button>
               </li>
@@ -156,6 +196,7 @@
         </EmptyState>
       </section>
     {:else}
+      <div class="space-y-6" use:arrows={{ before: () => searchInput }}>
       {#each categories as name (name)}
         {@const items = visible.filter((item) => item.category === name)}
         {#if items.length}
@@ -167,6 +208,7 @@
                 {@const pending = pendingFor(item)}
                 <li>
                   <button
+                    data-nav
                     class="focus-ring flex h-full w-full items-start gap-3 rounded-xl border bg-card p-3 text-left transition-colors hover:border-primary/40
                       {pending ? 'border-2 border-dashed border-prepared/70 bg-accent/40' : ''}"
                     onclick={() => (experience = item)}
@@ -190,6 +232,7 @@
           </section>
         {/if}
       {/each}
+      </div>
     {/if}
   {:else}
     <section class="panel p-4">
@@ -202,9 +245,17 @@
             { value: "system" as Target, label: "System", count: inventory?.system.packages.filter((p) => !p.external).length },
           ]}
         />
+        {#if changing.length}
+          <button
+            class="focus-ring rounded-md px-2 py-1 text-xs font-medium {changingOnly ? 'bg-accent text-accent-foreground' : 'text-primary hover:underline'}"
+            aria-pressed={changingOnly}
+            onclick={() => (changingOnly = !changingOnly)}
+            title="Compared with the generation running now. Apply a build of the checkout to get them."
+          >{plural(changing.length, "package")} {changing.length === 1 ? "changes" : "change"} on the next apply</button>
+        {/if}
         <label class="ml-auto flex h-8 w-56 items-center gap-2 rounded-md border bg-card px-2 text-muted-foreground focus-within:ring-2 focus-within:ring-ring/40">
           <SearchIcon class="size-3.5" />
-          <input bind:value={filter} aria-label="Filter installed packages" placeholder="Filter" class="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground" />
+          <input bind:this={filterInput} bind:value={filter} aria-label="Filter installed packages" aria-keyshortcuts="/" placeholder="Filter (/)" class="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground" />
         </label>
       </div>
       {#if !inventory}
@@ -228,7 +279,16 @@
                     <p class="font-medium {removing ? 'line-through decoration-prepared-foreground' : ''}">{item.name}</p>
                     {#if item.description}<p class="line-clamp-1 text-muted-foreground">{item.description}</p>{/if}
                   </td>
-                  <td class="px-3 py-1.5 font-mono text-[0.7rem]">{item.version ?? ""}</td>
+                  <td class="px-3 py-1.5 font-mono text-[0.7rem]">
+                    {#if item.previous}
+                      <span title="The running generation has {item.previous}; the checkout builds {item.version}.">
+                        <span class="text-muted-foreground">{item.previous} →</span> <span class="font-semibold text-primary">{item.version ?? "?"}</span>
+                      </span>
+                    {:else}
+                      {item.version ?? ""}
+                      {#if item.previous === null}<span class="ml-1 font-sans text-[0.68rem] font-medium text-primary" title="Not in the generation running now.">new</span>{/if}
+                    {/if}
+                  </td>
                   <td class="px-3 py-1.5" title={item.file}>
                     {#if item.external}<span class="text-muted-foreground">{origin(item.file)}</span>
                     {:else}{category(item.file)}<span class="block font-mono text-[0.68rem] text-muted-foreground">{item.file}</span>{/if}
@@ -244,7 +304,7 @@
           </table>
         </div>
       {:else}
-        <p class="rounded-lg border border-dashed px-3 py-6 text-center text-muted-foreground">{filter ? "No installed packages match." : "Nothing installed here yet."}</p>
+        <p class="rounded-lg border border-dashed px-3 py-6 text-center text-muted-foreground">{filter || changingOnly ? "No installed packages match." : "Nothing installed here yet."}</p>
       {/if}
       {#if moduleCount}
         <button class="focus-ring mt-3 rounded text-xs font-medium text-primary hover:underline" onclick={() => (showModules = !showModules)}>

@@ -2,7 +2,9 @@
   import RotateCwIcon from "@lucide/svelte/icons/rotate-cw";
   import CloudDownloadIcon from "@lucide/svelte/icons/cloud-download";
   import { Button } from "$lib/components/ui/button";
+  import PencilLineIcon from "@lucide/svelte/icons/pencil-line";
   import { app } from "$lib/app.svelte";
+  import { describeChange, software } from "$lib/software.svelte";
   import { bytes, duration, plural, relative, scopeLabel, shortRev } from "$lib/format";
   import { actionLabels } from "../../src/domain";
   import BuildProgress from "$lib/components/app/BuildProgress.svelte";
@@ -17,6 +19,8 @@
   const recent = $derived(app.snapshot?.operations.slice(0, 5) ?? []);
   const repo = $derived(system?.repository);
   const disk = $derived(system?.disk);
+  const draft = $derived(software.draft);
+  const preparing = $derived(running?.request.action === "review-build" && running.request.edits);
 
   function open(id: string) {
     app.selectOperation(id);
@@ -50,6 +54,28 @@
         The system is still running kernel {system.kernel.booted ?? "unknown"}; the active configuration uses {system.kernel.current ?? "unknown"}.
       </p>
     </div>
+  {/if}
+
+  {#if draft?.changes.length}
+    <section class="prepared flex flex-wrap items-start gap-4 p-4" aria-labelledby="pending-overview">
+      <PencilLineIcon class="mt-0.5 size-4 shrink-0 text-prepared-foreground" />
+      <div class="min-w-0 flex-1">
+        <h2 id="pending-overview" class="font-semibold">{plural(draft.changes.length, "pending edit")} to your configuration</h2>
+        <ul class="mt-1 text-muted-foreground">
+          {#each draft.changes.slice(0, 3) as change, index (index)}<li class="truncate">{describeChange(change).title}</li>{/each}
+          {#if draft.changes.length > 3}<li>and {draft.changes.length - 3} more</li>{/if}
+        </ul>
+        {#if draft.problems.length}
+          <p class="mt-1 text-xs text-destructive">{plural(draft.problems.length, "edit")} cannot be applied to the checkout as it is now.</p>
+        {/if}
+      </div>
+      <div class="flex gap-2">
+        <Button variant="ghost" size="sm" onclick={() => app.navigate("software")}>Show edits</Button>
+        <Button size="sm" disabled={app.busy || !app.connected || draft.problems.length === draft.changes.length} onclick={() => software.prepare()}>
+          {preparing ? "Preparing…" : "Prepare"}
+        </Button>
+      </div>
+    </section>
   {/if}
 
   <section class="panel space-y-5 p-5" aria-labelledby="generations-heading">

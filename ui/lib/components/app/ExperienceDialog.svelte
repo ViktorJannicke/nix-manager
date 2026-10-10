@@ -22,13 +22,13 @@
   function field(type: string | null | undefined): Field {
     if (!type) return { kind: "other" };
     if (type === "boolean" || type === "null or boolean") return { kind: "boolean" };
-    if (type.startsWith("one of ")) return { kind: "choice", choices: [...type.matchAll(/"([^"]*)"/g)].map((match) => match[1]) };
+    if (/^(null or )?one of /.test(type)) return { kind: "choice", choices: [...type.matchAll(/"([^"]*)"/g)].map((match) => match[1]) };
     if (type === "list of string") return { kind: "lines" };
     if (/integer/.test(type)) {
       const range = type.match(/between (-?\d+) and (-?\d+)/);
       return { kind: "number", min: range ? Number(range[1]) : /unsigned|positive/.test(type) ? 0 : undefined, max: range ? Number(range[2]) : undefined };
     }
-    if (/^(null or )?(non-empty )?string/.test(type) || type.startsWith("strings concatenated")) return { kind: "text", nullable: type.startsWith("null or") };
+    if (/^(null or )?(non-empty )?(\(optionally newline-terminated\) )?(single-line )?string/.test(type) || type.startsWith("strings concatenated")) return { kind: "text", nullable: type.startsWith("null or") };
     return { kind: "other" };
   }
 
@@ -64,8 +64,8 @@
       experience.settings.map((setting) => [setting.option, software.value(experience!.scope, setting.option).value]),
     );
     initial = { on, values: $state.snapshot(values) as Record<string, unknown> };
-    target = software.definedIn(experience.scope, options[0]) ?? modules[0]?.file ?? NEW_FILE;
-    newFile = software.suggestFile(experience.scope, experience.id, modules.find((module) => module.active)?.file);
+    target = software.definedIn(experience.scope, options[0]) ?? software.featureFile(experience.scope, options[0], experience.id);
+    newFile = software.suggestFile(experience.scope, experience.id, modules.find((module) => module.active !== false)?.file);
   });
   $effect(() => {
     if (!experience) opened = "";

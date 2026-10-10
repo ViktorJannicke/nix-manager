@@ -257,7 +257,7 @@ export function startServer(
                   return json(store.catalogStatus(hash));
                 }
                 case "search":
-                  return json(store.search(lockHash(), text(input.query)));
+                  return json(store.search(lockHash(), text(input.query), { free: input.free === true, working: input.working === true }));
                 case "lookup":
                   return json(store.lookup(lockHash(), strings(input.attrs)));
                 case "options":

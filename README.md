@@ -111,10 +111,14 @@ switched without a review.
 The Software page installs packages and turns on features by editing the
 checkout's Nix files, through the same flow. Discover searches an index of every
 package in the locked nixpkgs (with overlays), built on first search and kept per
-lock file, and offers curated features such as Steam, Docker, Tailscale or fzf,
-each a small set of options with typed settings. Installed lists the packages each
-file adds, and the packages modules add as a result of settings. Changes are kept
-as pending edits until prepared:
+lock file, and offers about fifty curated features such as Steam, Docker, Flatpak,
+an SSH server, Tailscale or fzf, each a small set of options with typed settings.
+Search can be limited to free software and can leave out broken packages. Results
+show versions and licenses, and say whether a package is installed. `/` focuses
+the search, and the arrow keys move between it and the results. Installed lists
+the packages each file adds with their versions, and the packages modules add as
+a result of settings. Changes are kept as pending edits until prepared, and the
+Overview lists them beside the next generation:
 
 - Nix evaluation supplies the meaning: which file defines an option or a package
   list, and what a value is now. A tree-sitter syntax tree locates the exact
@@ -128,9 +132,10 @@ as pending edits until prepared:
   next to their effects and the usual package differences.
 - A package or feature can also go into a new file, such as
   `modules/home/programs/fzf.nix`. The file's path is added to the `imports` of a
-  module the host already imports (its folder's `default.nix` by default), through
-  the same syntax-tree edit, and verification checks the settings take effect from
-  the new file.
+  module the host already imports (by default the one that imports the most
+  modules from the same folder), through the same syntax-tree edit, and
+  verification checks the settings take effect from the new file. A feature gets a
+  file of its own when its folder already holds several modules.
 - Apply first writes the reviewed files, refusing if any of them changed since
   preparing (or a file to create appeared), then activates the reviewed outputs.
   Edited files must be tracked by Git, because flakes only see tracked files;
@@ -140,7 +145,7 @@ The same draft is available from a terminal. Edits are checked against the
 checkout before they are saved, and the dashboard shows them as pending edits:
 
 ```bash
-nix-manager software search ripgrep
+nix-manager software search ripgrep --free  # --working leaves out broken packages
 nix-manager software add btop fd            # the used package list with most packages
 nix-manager software add --system htop --file modules/nixos/packages.nix
 nix-manager software set programs.fzf.enable true --new-file modules/home/programs/fzf.nix

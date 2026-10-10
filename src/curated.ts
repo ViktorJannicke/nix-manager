@@ -449,6 +449,212 @@ export const experiences: Experience[] = [
     ],
   },
 
+  {
+    id: "flatpak",
+    title: "Flatpak",
+    summary: "Install apps from Flathub alongside Nix packages.",
+    icon: "store",
+    category: "System",
+    scope: "system",
+    enable: {
+      "services.flatpak.enable": true,
+    },
+    settings: [],
+  },
+  {
+    id: "podman",
+    title: "Podman",
+    summary: "Run containers without a background daemon.",
+    icon: "boxes",
+    category: "Development",
+    scope: "system",
+    enable: {
+      "virtualisation.podman.enable": true,
+    },
+    settings: [
+      {
+        option: "virtualisation.podman.dockerCompat",
+        label: "Answer to the docker command",
+        help: "Conflicts with Docker itself.",
+      },
+      {
+        option: "virtualisation.podman.autoPrune.enable",
+        label: "Clean up unused images automatically",
+      },
+    ],
+  },
+  {
+    id: "wireshark",
+    title: "Wireshark",
+    summary: "Capture and inspect network traffic.",
+    icon: "radar",
+    category: "Development",
+    scope: "system",
+    enable: {
+      "programs.wireshark.enable": true,
+    },
+    settings: [
+      {
+        option: "programs.wireshark.dumpcap.enable",
+        label: "Capture without root",
+        help: "Members of the wireshark group can capture.",
+      },
+      {
+        option: "programs.wireshark.usbmon.enable",
+        label: "Capture USB traffic",
+      },
+    ],
+    packages: ["wireshark"],
+  },
+  {
+    id: "openssh",
+    title: "SSH server",
+    summary: "Log in to this computer from other devices.",
+    icon: "server",
+    category: "Internet",
+    scope: "system",
+    enable: {
+      "services.openssh.enable": true,
+    },
+    settings: [
+      {
+        option: "services.openssh.settings.PasswordAuthentication",
+        label: "Allow password logins",
+        help: "Turn off once your SSH keys are set up.",
+      },
+      {
+        option: "services.openssh.settings.PermitRootLogin",
+        label: "Root login",
+      },
+      {
+        option: "services.openssh.openFirewall",
+        label: "Open firewall for SSH",
+      },
+    ],
+  },
+  {
+    id: "localsend",
+    title: "LocalSend",
+    summary: "Share files with nearby phones and computers.",
+    icon: "share-2",
+    category: "Internet",
+    scope: "system",
+    enable: {
+      "programs.localsend.enable": true,
+    },
+    settings: [
+      {
+        option: "programs.localsend.openFirewall",
+        label: "Open firewall for transfers",
+      },
+    ],
+  },
+  {
+    id: "obs-studio",
+    title: "OBS Studio",
+    summary: "Record and stream your screen, camera and games.",
+    icon: "video",
+    category: "Media",
+    scope: "system",
+    enable: {
+      "programs.obs-studio.enable": true,
+    },
+    settings: [
+      {
+        option: "programs.obs-studio.enableVirtualCamera",
+        label: "Virtual camera",
+        help: "Use OBS output as a webcam in calls.",
+      },
+    ],
+  },
+  {
+    id: "power-profiles",
+    title: "Power profiles",
+    summary: "Switch between power saving and performance from the panel.",
+    icon: "zap",
+    category: "System",
+    scope: "system",
+    enable: {
+      "services.power-profiles-daemon.enable": true,
+    },
+    settings: [],
+  },
+  {
+    id: "earlyoom",
+    title: "Out-of-memory protection",
+    summary: "Stop the biggest program before the computer freezes when memory runs out.",
+    icon: "shield-alert",
+    category: "System",
+    scope: "system",
+    enable: {
+      "services.earlyoom.enable": true,
+    },
+    settings: [
+      {
+        option: "services.earlyoom.freeMemThreshold",
+        label: "Act below this much free memory (%)",
+      },
+      {
+        option: "services.earlyoom.enableNotifications",
+        label: "Notify me when a program is stopped",
+      },
+    ],
+  },
+  {
+    id: "nix-cleanup",
+    title: "Automatic Nix cleanup",
+    summary: "Delete old generations and deduplicate the Nix store on a schedule.",
+    icon: "recycle",
+    category: "System",
+    scope: "system",
+    enable: {
+      "nix.gc.automatic": true,
+      "nix.optimise.automatic": true,
+    },
+    settings: [
+      {
+        option: "nix.gc.automatic",
+        label: "Delete unused store paths",
+      },
+      {
+        option: "nix.gc.options",
+        label: "Cleanup options",
+        help: "For example --delete-older-than 14d.",
+      },
+      {
+        option: "nix.optimise.automatic",
+        label: "Deduplicate identical files",
+      },
+    ],
+  },
+  {
+    id: "nh",
+    title: "nh",
+    summary: "Rebuild and clean up NixOS with clearer output.",
+    icon: "square-terminal",
+    category: "System",
+    scope: "system",
+    enable: {
+      "programs.nh.enable": true,
+    },
+    settings: [
+      {
+        option: "programs.nh.clean.enable",
+        label: "Clean up periodically",
+        help: "Do not combine with automatic Nix cleanup.",
+      },
+      {
+        option: "programs.nh.clean.dates",
+        label: "Cleanup schedule",
+      },
+      {
+        option: "programs.nh.clean.extraArgs",
+        label: "Cleanup options",
+        help: "For example --keep-since 7d --keep 5.",
+      },
+    ],
+  },
+
   // Home experiences
 
   {
@@ -841,6 +1047,211 @@ export const experiences: Experience[] = [
         option: "services.syncthing.overrideDevices",
         label: "Remove devices not declared in Nix",
         help: "Leave off if you add devices in the web interface.",
+      },
+    ],
+  },
+  {
+    id: "bat",
+    title: "bat",
+    summary: "Read files with syntax highlighting and line numbers.",
+    icon: "file-text",
+    category: "Productivity",
+    scope: "home",
+    enable: {
+      "programs.bat.enable": true,
+    },
+    settings: [],
+  },
+  {
+    id: "eza",
+    title: "eza",
+    summary: "List files with colors, icons and Git status.",
+    icon: "list-tree",
+    category: "Productivity",
+    scope: "home",
+    enable: {
+      "programs.eza.enable": true,
+    },
+    settings: [
+      {
+        option: "programs.eza.icons",
+        label: "Icons",
+      },
+      {
+        option: "programs.eza.git",
+        label: "Show Git status",
+      },
+    ],
+  },
+  {
+    id: "btop",
+    title: "btop",
+    summary: "Watch processor, memory, disk and network use.",
+    icon: "activity",
+    category: "System",
+    scope: "home",
+    enable: {
+      "programs.btop.enable": true,
+    },
+    settings: [],
+  },
+  {
+    id: "lazygit",
+    title: "lazygit",
+    summary: "Stage, commit and rebase in a terminal interface.",
+    icon: "git-merge",
+    category: "Development",
+    scope: "home",
+    enable: {
+      "programs.lazygit.enable": true,
+    },
+    settings: [],
+  },
+  {
+    id: "helix",
+    title: "Helix",
+    summary: "Edit code in a modal editor with language support built in.",
+    icon: "pen-line",
+    category: "Development",
+    scope: "home",
+    enable: {
+      "programs.helix.enable": true,
+    },
+    settings: [
+      {
+        option: "programs.helix.defaultEditor",
+        label: "Use as default editor",
+      },
+    ],
+  },
+  {
+    id: "yazi",
+    title: "Yazi",
+    summary: "Browse files in the terminal with previews.",
+    icon: "folder-open",
+    category: "Productivity",
+    scope: "home",
+    enable: {
+      "programs.yazi.enable": true,
+    },
+    settings: [
+      {
+        option: "programs.yazi.enableBashIntegration",
+        label: "Use in Bash",
+      },
+      {
+        option: "programs.yazi.enableZshIntegration",
+        label: "Use in Zsh",
+      },
+      {
+        option: "programs.yazi.enableFishIntegration",
+        label: "Use in fish",
+      },
+    ],
+  },
+  {
+    id: "atuin",
+    title: "Atuin",
+    summary: "Search your shell history across sessions and devices.",
+    icon: "history",
+    category: "Productivity",
+    scope: "home",
+    enable: {
+      "programs.atuin.enable": true,
+    },
+    settings: [
+      {
+        option: "programs.atuin.flags",
+        label: "Flags",
+        help: "Use --disable-up-arrow to keep the normal up arrow.",
+      },
+      {
+        option: "programs.atuin.enableBashIntegration",
+        label: "Use in Bash",
+      },
+      {
+        option: "programs.atuin.enableZshIntegration",
+        label: "Use in Zsh",
+      },
+    ],
+  },
+  {
+    id: "nix-index",
+    title: "nix-index",
+    summary: "Find which package provides a missing command.",
+    icon: "book-search",
+    category: "Development",
+    scope: "home",
+    enable: {
+      "programs.nix-index.enable": true,
+    },
+    settings: [
+      {
+        option: "programs.nix-index.enableBashIntegration",
+        label: "Suggest packages in Bash",
+      },
+      {
+        option: "programs.nix-index.enableZshIntegration",
+        label: "Suggest packages in Zsh",
+      },
+    ],
+  },
+  {
+    id: "mpv",
+    title: "mpv",
+    summary: "Play almost any video or audio file.",
+    icon: "clapperboard",
+    category: "Media",
+    scope: "home",
+    enable: {
+      "programs.mpv.enable": true,
+    },
+    settings: [],
+  },
+  {
+    id: "yt-dlp",
+    title: "yt-dlp",
+    summary: "Download videos and audio from many websites.",
+    icon: "download",
+    category: "Media",
+    scope: "home",
+    enable: {
+      "programs.yt-dlp.enable": true,
+    },
+    settings: [],
+  },
+  {
+    id: "easyeffects",
+    title: "EasyEffects",
+    summary: "Improve microphone and speaker sound with effects.",
+    icon: "audio-lines",
+    category: "Media",
+    scope: "home",
+    enable: {
+      "services.easyeffects.enable": true,
+    },
+    settings: [
+      {
+        option: "services.easyeffects.preset",
+        label: "Preset to load",
+        help: "The name of a preset you saved in EasyEffects.",
+      },
+    ],
+  },
+  {
+    id: "mangohud",
+    title: "MangoHud",
+    summary: "Show frame rate and temperatures over games.",
+    icon: "gauge",
+    category: "Games",
+    scope: "home",
+    enable: {
+      "programs.mangohud.enable": true,
+    },
+    settings: [
+      {
+        option: "programs.mangohud.enableSessionWide",
+        label: "Show in every Vulkan and OpenGL program",
       },
     ],
   },

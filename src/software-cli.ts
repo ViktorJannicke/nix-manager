@@ -27,7 +27,7 @@ import {
 } from "./software";
 
 type Edit =
-  | { kind: "search"; query: string[]; limit: number }
+  | { kind: "search"; query: string[]; limit: number; free: boolean; working: boolean }
   | { kind: "add"; packages: string[] }
   | { kind: "remove"; packages: string[] }
   | { kind: "set"; option: string; value: string }
@@ -70,7 +70,13 @@ const packages = Args.text({ name: "package" }).pipe(Args.atLeast(1));
 const option = Args.text({ name: "option" });
 
 const definitions = {
-  search: Command.make("search", { ...shared, limit: Options.integer("limit").pipe(Options.withDefault(20)), query: Args.text({ name: "query" }).pipe(Args.atLeast(1)) }).pipe(
+  search: Command.make("search", {
+    ...shared,
+    limit: described(Options.integer("limit").pipe(Options.withDefault(20)), "Show at most this many packages"),
+    free: described(Options.boolean("free"), "Only packages with a free license"),
+    working: described(Options.boolean("working"), "Leave out packages marked as broken"),
+    query: Args.text({ name: "query" }).pipe(Args.atLeast(1)),
+  }).pipe(
     Command.withDescription("Search the packages of the locked nixpkgs"),
   ),
   add: Command.make("add", { ...shared, ...target, packages }).pipe(Command.withDescription("Install packages")),
@@ -132,7 +138,7 @@ export async function parseSoftware(args: readonly string[]): Promise<SoftwareCo
   const software = Command.make("software").pipe(
     Command.withDescription("Install packages and change options through pending edits, like the Software page"),
     Command.withSubcommands([
-      d.search.pipe(Command.withHandler((v) => finish({ kind: "search", query: [...v.query], limit: v.limit })(v))),
+      d.search.pipe(Command.withHandler((v) => finish({ kind: "search", query: [...v.query], limit: v.limit, free: v.free, working: v.working })(v))),
       d.add.pipe(Command.withHandler((v) => finish({ kind: "add", packages: [...v.packages] })(v))),
       d.remove.pipe(Command.withHandler((v) => finish({ kind: "remove", packages: [...v.packages] })(v))),
       d.set.pipe(Command.withHandler((v) => finish({ kind: "set", option: v.option, value: v.value })(v))),
@@ -275,7 +281,7 @@ export async function runSoftware(config: Config, command: SoftwareCommand): Pro
     const state = await inventoryOf();
     const problem = newFileProblem(known(state), command.newFile);
     if (problem) throw new ManagerError({ message: `${command.newFile}: ${problem}` });
-    const importer = command.importFrom ?? rankImporters(state.importers, command.newFile)[0];
+    const importer = command.importFrom ?? rankImporters(state.importers, command.newFile, state.imports)[0];
     if (!importer)
       throw new ManagerError({ message: `No file ${host} imports has an imports list to add ${command.newFile} to. Use --import-from.` });
     return { file: command.newFile, create: [{ kind: "create-module", scope, file: command.newFile, importer }] };
@@ -296,7 +302,7 @@ export async function runSoftware(config: Config, command: SoftwareCommand): Pro
   switch (edit.kind) {
     case "search": {
       const entries = (await catalog(config, true))!;
-      const results = searchCatalog(entries, edit.query.join(" "), Math.max(1, Math.min(edit.limit, 200)));
+      const results = searchCatalog(entries, edit.query.join(" "), Math.max(1, Math.min(edit.limit, 200)), edit);
       if (json) console.log(JSON.stringify(results, null, 2));
       else if (!results.length) console.log(`No packages match "${edit.query.join(" ")}".`);
       else

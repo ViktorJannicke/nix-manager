@@ -81,12 +81,15 @@ export function changesScope(changes: readonly Change[]): "all" | "home" | "syst
 const directory = (file: string) => file.split("/").slice(0, -1).join("/");
 
 /**
- * The files a new module is best imported from, best first: the folder's
- * default.nix, a file in the same folder, then the closest folder above.
+ * The files a new module is best imported from, best first: the one importing
+ * most of its neighbours already (per `imports`), the folder's default.nix, a file
+ * in the same folder, then the closest folder above.
  */
-export function rankImporters(importers: readonly string[], file: string) {
+export function rankImporters(importers: readonly string[], file: string, imports: Readonly<Record<string, readonly string[]>> = {}) {
   const folder = directory(file);
   const score = (candidate: string) => {
+    const neighbours = imports[candidate]?.filter((path) => directory(path) === folder).length ?? 0;
+    if (neighbours) return 1000 + neighbours;
     const at = directory(candidate);
     const inside = folder === at || folder.startsWith(`${at}/`) || !at;
     const depth = at ? at.split("/").length : 0;
@@ -103,6 +106,22 @@ export function freePath(known: ReadonlySet<string>, name: string, near: string 
     const file = `${folder ? `${folder}/` : ""}${slug}${n > 1 ? `-${n}` : ""}.nix`;
     if (!known.has(file)) return file;
   }
+}
+
+/**
+ * The module a feature's options belong in, from candidates ranked best
+ * first: one named after the feature, or the best candidate unless it sits
+ * among several single-topic modules. `undefined` means a new file.
+ */
+export function featureModule(modules: readonly { file: string; active?: boolean | null }[], name: string) {
+  const usable = modules.filter((module) => module.active !== false);
+  const named = usable.find((module) => module.file.split("/").at(-1) === `${name}.nix`);
+  if (named) return named.file;
+  const best = usable[0];
+  if (!best) return undefined;
+  const folder = directory(best.file);
+  const siblings = usable.filter((module) => module.active && directory(module.file) === folder).length;
+  return siblings >= 3 ? undefined : best.file;
 }
 
 /** Why a path cannot be a new module file, if it cannot. */
