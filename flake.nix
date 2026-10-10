@@ -30,6 +30,7 @@
           pkgs = pkgsFor system;
           manager = pkgs.callPackage ./package.nix {
             homeManager = home-manager.packages.${system}.home-manager;
+            nixGrammar = pkgs.pkgsCross.wasm32-wasip1.tree-sitter.builtGrammars.tree-sitter-nix;
           };
         in
         {
@@ -71,6 +72,7 @@
               python3
             ];
             NIX_MANAGER_WEBUI_LIBRARY = "${self.packages.${system}.default.webui}/lib/libwebui-2.so";
+            NIX_MANAGER_NIX_GRAMMAR = "${self.packages.${system}.default.nixGrammar}/parser.wasm";
           };
         }
       );

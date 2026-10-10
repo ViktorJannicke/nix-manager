@@ -31,7 +31,8 @@ const result = await Bun.build({
   entrypoints: ["src/main.ts"],
   outdir: "dist",
   target: "bun",
-  external: ["dbus-next", "vite"],
+  // web-tree-sitter locates its runtime WebAssembly next to its module.
+  external: ["dbus-next", "vite", "web-tree-sitter"],
   define: {
     NIX_MANAGER_UI_ASSETS: JSON.stringify(JSON.stringify(assets)),
   },

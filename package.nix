@@ -9,6 +9,7 @@
   coreutils,
   nix,
   homeManager,
+  nixGrammar,
   git,
   diffutils,
   xdg-utils,
@@ -53,7 +54,7 @@ buildNpmPackage {
       ./test
     ];
   };
-  npmDepsHash = "sha256-3uofsxV2pUpC7g0H0lltUGM//svuDsaJLQhsfwcEq2k=";
+  npmDepsHash = "sha256-hMfYWE+M4ha4G+icDFjZ7DnEgMJD2/33dvkwaIpCoZg=";
   npmFlags = [ "--ignore-scripts" ];
   nativeBuildInputs = [
     bun
@@ -65,6 +66,7 @@ buildNpmPackage {
   checkPhase = ''
     runHook preCheck
     export NIX_MANAGER_WEBUI_LIBRARY=${webui}/lib/libwebui-2.so
+    export NIX_MANAGER_NIX_GRAMMAR=${nixGrammar}/parser.wasm
     npm run typecheck
     bun test
     runHook postCheck
@@ -80,6 +82,7 @@ buildNpmPackage {
       --add-flags "$out/share/nix-manager/main.js" \
       --set NIX_MANAGER_EXECUTABLE "$out/bin/nix-manager" \
       --set NIX_MANAGER_WEBUI_LIBRARY ${webui}/lib/libwebui-2.so \
+      --set NIX_MANAGER_NIX_GRAMMAR ${nixGrammar}/parser.wasm \
       --prefix PATH : ${
         lib.makeBinPath [
           coreutils
@@ -93,7 +96,7 @@ buildNpmPackage {
     cp -r ${desktop}/share/applications $out/share/
     runHook postInstall
   '';
-  passthru = { inherit webui; };
+  passthru = { inherit webui nixGrammar; };
   meta = {
     description = "Bun and Effect application for NixOS and Home Manager, with CLI, WebUI and system tray";
     homepage = "https://github.com/ViktorJannicke/nix-manager";
