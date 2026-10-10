@@ -336,3 +336,5 @@ Core modules:
 - `server.ts`, `window.ts`, `tray.ts`: authenticated UI transport and desktop adapters.
 - `terminal.ts`: Clack and plain terminal presentation.
 - `ui/`: Svelte dashboard, browser transport and shadcn-svelte components.
+
+Planned work, aimed at people who do not know Nix, is in [ROADMAP.md](ROADMAP.md).
