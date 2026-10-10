@@ -1,4 +1,5 @@
 import type { Hosts, Plan, Request } from "./domain";
+import type { Change, DraftFile, RenderedDraft } from "./draft";
 import type { UpdateReport } from "./updates";
 
 export type OperationStatus =
@@ -121,6 +122,31 @@ export interface ReviewOutput {
   kernel?: { before?: string; after?: string };
 }
 
+export interface EditedPackage {
+  out: string;
+  name: string;
+  version?: string | null;
+  description?: string | null;
+  file: string;
+}
+
+/** What the edits themselves did to one configuration, by evaluation. */
+export interface EditEffect {
+  scope: "home" | "system";
+  added: EditedPackage[];
+  removed: EditedPackage[];
+  options: { option: string; before?: unknown; after?: unknown }[];
+}
+
+/** Source edits a review was built with, written to the checkout on apply. */
+export interface ReviewEdits {
+  changes: Change[];
+  /** Hash of the change list, compared with the current draft. */
+  hash: string;
+  files: DraftFile[];
+  effects: EditEffect[];
+}
+
 export interface BuildReview {
   id: string;
   host: string;
@@ -129,6 +155,7 @@ export interface BuildReview {
   /** Checkout state the outputs were evaluated from. */
   fingerprint: string;
   source: "checkout" | "inputs" | "generation";
+  edits?: ReviewEdits;
   generation?: number;
   inputs?: {
     names: string[];
@@ -153,6 +180,15 @@ export interface Snapshot {
   updates?: UpdateReport;
   system?: SystemState;
   reviews: BuildReview[];
+  draft: RenderedDraft;
+  catalog: CatalogStatus;
+}
+
+export interface CatalogStatus {
+  state: "missing" | "building" | "ready" | "failed";
+  count?: number;
+  builtAt?: string;
+  error?: string;
 }
 
 export interface LogResult {

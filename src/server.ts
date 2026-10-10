@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { timingSafeEqual } from "node:crypto";
-import { Request as RequestSchema, ManagerError } from "./domain";
+import { Request as RequestSchema, ManagerError, resolveHost } from "./domain";
 import type { Manager } from "./manager";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { Observer } from "./observe";
 import { listReviews, removeReview } from "./reviews";
 import type { SessionMessage, Snapshot } from "./contracts";
+import { Store } from "./store";
 
 export interface UiAsset {
   body: string;
@@ -86,6 +87,11 @@ export function startServer(
       : input;
   const token = crypto.randomUUID() + crypto.randomUUID();
   const observer = new Observer(manager.config);
+  // Assigned below; the store reports catalog and draft changes as snapshots.
+  let broadcastLater = () => {};
+  const store = new Store(manager.config, () => broadcastLater());
+  const fingerprint = () => observer.current?.repository.fingerprint ?? "";
+  const lockHash = () => observer.current?.repository.lockHash;
   let clients = 0;
   let connected = false;
   let disconnectedAt: number | undefined;
@@ -105,6 +111,8 @@ export function startServer(
     updates: manager.updates(),
     system: observer.current,
     reviews: await listReviews(manager.config),
+    draft: await store.draft(fingerprint()),
+    catalog: store.catalogStatus(lockHash()),
   });
   const send = (message: SessionMessage) => {
     const text = JSON.stringify(message);
@@ -129,6 +137,7 @@ export function startServer(
       }
     }, 100);
   };
+  broadcastLater = broadcast;
   const observe = () =>
     observer.refresh().catch((error) => console.error(`Observe system: ${error}`));
   let wasBusy = manager.busy;
@@ -164,7 +173,7 @@ export function startServer(
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port,
-    maxRequestBodySize: 16_384,
+    maxRequestBodySize: 65_536,
     async fetch(req, server) {
       const url = new URL(req.url);
       const origin = `http://127.0.0.1:${server.port}`;
@@ -225,6 +234,37 @@ export function startServer(
               removeReview(manager.config, id);
               broadcast();
               return json({ ok: true });
+            }
+            if (url.pathname === "/api/draft") {
+              const { changes } = await body(req);
+              return json(await store.setDraft(changes));
+            }
+            if (url.pathname.startsWith("/api/software/")) {
+              const input = await body(req);
+              const host = typeof input.host === "string" && input.host ? input.host : manager.config.hostKey;
+              resolveHost(manager.config.hosts, host);
+              const scope = input.scope === "system" ? "system" : "home";
+              const text = (value: unknown) => (typeof value === "string" ? value.slice(0, 200) : "");
+              const strings = (value: unknown) =>
+                Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+              switch (url.pathname.slice(14)) {
+                case "inventory":
+                  return json(await store.inventory(host, fingerprint()));
+                case "catalog": {
+                  const hash = lockHash();
+                  if (!hash) return json({ error: "The checkout has not been read yet." }, 409);
+                  store.buildCatalog(hash, input.rebuild === true);
+                  return json(store.catalogStatus(hash));
+                }
+                case "search":
+                  return json(store.search(lockHash(), text(input.query)));
+                case "lookup":
+                  return json(store.lookup(lockHash(), strings(input.attrs)));
+                case "options":
+                  return json(await store.searchOptions(host, scope, text(input.query), fingerprint()));
+                case "values":
+                  return json(await store.values(host, scope, strings(input.options)));
+              }
             }
             if (url.pathname === "/api/plan" || url.pathname === "/api/run") {
               const r = Schema.decodeUnknownSync(RequestSchema, {

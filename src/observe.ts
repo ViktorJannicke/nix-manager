@@ -36,17 +36,25 @@ export async function readLock(flake: string) {
 }
 
 export async function repositoryState(flake: string): Promise<Repository> {
-  const [status, branch, head, lockDiff, lock] = await Promise.all([
+  const [status, branch, head, lockDiff, lock, diff] = await Promise.all([
     git(flake, "status", "--porcelain=v1", "--untracked-files=normal"),
     git(flake, "symbolic-ref", "--quiet", "--short", "HEAD"),
     git(flake, "log", "-1", "--format=%H%x00%s%x00%cI"),
     git(flake, "status", "--porcelain=v1", "--", "flake.lock"),
     readLock(flake),
+    // Status alone misses further edits to an already modified file.
+    git(flake, "diff", "HEAD", "--binary"),
   ]);
   const [revision, subject, committedAt] = head?.trim().split("\0") ?? [];
   const known = status ?? "unknown";
   return {
-    fingerprint: createHash("sha256").update(lock).update("\0").update(known).digest("hex"),
+    fingerprint: createHash("sha256")
+      .update(lock)
+      .update("\0")
+      .update(known)
+      .update("\0")
+      .update(diff ?? "")
+      .digest("hex"),
     clean: status === "",
     changes: status ? status.split("\n").filter(Boolean) : [],
     branch: branch?.trim() || undefined,

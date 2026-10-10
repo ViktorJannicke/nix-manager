@@ -18,7 +18,7 @@ import {
   type Config,
   type Request,
 } from "./domain";
-import type { BuildReview, ReviewOutput } from "./contracts";
+import type { BuildReview, ReviewEdits, ReviewOutput } from "./contracts";
 import type { Result } from "./process";
 import { kernelVersion, lockChanges, parseClosureDiff } from "./nix";
 import { hashText, readLock } from "./observe";
@@ -60,7 +60,7 @@ export function removeReview(config: Config, id: string) {
   rmSync(reviewRoot(config, id), { recursive: true, force: true });
 }
 
-const atomicWrite = (path: string, data: string | Buffer, mode = 0o600) => {
+export const atomicWrite = (path: string, data: string | Buffer, mode = 0o600) => {
   const temporary = `${path}.${crypto.randomUUID()}.tmp`;
   try {
     writeFileSync(temporary, data, { mode, flag: "wx" });
@@ -95,6 +95,7 @@ export const compareReview = (
   base: ReviewBase,
   operationId: string,
   run: Run,
+  edits?: ReviewEdits,
 ) =>
   Effect.gen(function* () {
     const id = r.reviewId!;
@@ -168,6 +169,7 @@ export const compareReview = (
       fingerprint: base.fingerprint,
       source: r.generation !== undefined ? "generation" : proposal ? "inputs" : "checkout",
       ...(r.generation !== undefined ? { generation: r.generation } : {}),
+      ...(edits ? { edits } : {}),
       ...(proposal
         ? {
             inputs: {

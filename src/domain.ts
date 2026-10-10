@@ -48,6 +48,8 @@ export const Request = Schema.Struct({
   /** Flake inputs to update into a proposed lock file for review. */
   inputs: Schema.optional(Schema.Array(Schema.String)),
   activation: Schema.optional(Schema.Literal("switch", "boot")),
+  /** Build the pending source edits into the review. */
+  edits: Schema.optional(Schema.Boolean),
 });
 export type Request = typeof Request.Type;
 export const request = (overrides: Partial<Request> = {}): Request => ({
@@ -110,6 +112,10 @@ export function validate(r: Request): void {
     fail("Invalid flake input name.");
   if (r.activation && r.action !== "review-apply")
     fail("The activation mode applies to reviewed changes.");
+  if (r.edits && r.action !== "review-build")
+    fail("Pending edits are built into reviews.");
+  if (r.edits && r.generation !== undefined)
+    fail("A generation review cannot include edits.");
   if (r.generation !== undefined && r.action !== "review-build")
     fail("A generation can only be selected for review.");
   if (isReview(r.action)) {
@@ -142,7 +148,12 @@ export interface Config {
   privileged: readonly string[];
 }
 /** Steps the manager performs itself instead of starting a process. */
-export type InternalStep = "compare" | "write-lock";
+export type InternalStep =
+  | "compare"
+  | "write-lock"
+  | "stage-sources"
+  | "verify-edits"
+  | "write-sources";
 export interface Command {
   label: string;
   argv: readonly string[];
@@ -184,8 +195,13 @@ export function plan(config: Config, r: Request, review?: BuildReview): Plan {
     add(label, [...config.privileged, ...args]);
   const home = r.scope !== "system",
     system = r.scope !== "home";
-  const homeAttr = `${config.flake}#homeConfigurations.${attr(h.homeConfiguration)}.activationPackage`;
-  const systemAttr = `${config.flake}#nixosConfigurations.${attr(h.nixosConfiguration)}.config.system.build.toplevel`;
+  // Edited reviews build a copy of the flake's files with the edits applied.
+  const flake =
+    r.action === "review-build" && r.edits
+      ? `path:${reviewRoot(config, r.reviewId ?? "<new>")}/source`
+      : config.flake;
+  const homeAttr = `${flake}#homeConfigurations.${attr(h.homeConfiguration)}.activationPackage`;
+  const systemAttr = `${flake}#nixosConfigurations.${attr(h.nixosConfiguration)}.config.system.build.toplevel`;
   const build = (
     label: string,
     installable: string,
@@ -260,6 +276,10 @@ export function plan(config: Config, r: Request, review?: BuildReview): Plan {
         `${root}/${r.scope}`,
       );
     } else {
+      if (r.edits) {
+        add("Stage the edited files", [], { internal: "stage-sources" });
+        add("Check the edits", [], { internal: "verify-edits" });
+      }
       const lock = r.update || r.inputs?.length ? `${root}/flake.lock` : undefined;
       if (lock)
         add(
@@ -290,6 +310,8 @@ export function plan(config: Config, r: Request, review?: BuildReview): Plan {
         notes.push(
           "Inputs are resolved into a separate lock file. The checkout's flake.lock changes only when you apply this review.",
         );
+      if (r.edits)
+        notes.push("Edits are built from a copy of the checkout. Your files change only when you apply this review.");
     }
     add("Compare with the active configuration", [], { internal: "compare" });
     notes.push("Nothing is activated. The build is kept until you apply or discard it.");
@@ -299,6 +321,12 @@ export function plan(config: Config, r: Request, review?: BuildReview): Plan {
     if (!review || review.id !== r.reviewId)
       throw new ManagerError({ message: "The selected review is unavailable." });
     const mode = r.activation ?? "switch";
+    if (review.edits)
+      add(
+        `Write ${review.edits.files.length === 1 ? review.edits.files[0].path : `${review.edits.files.length} edited files`}`,
+        [],
+        { internal: "write-sources" },
+      );
     if (review.inputs)
       add("Write the reviewed flake.lock", [], { internal: "write-lock" });
     if (home && review.home && mode === "switch") activateHome(review.home.path);

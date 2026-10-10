@@ -44,6 +44,9 @@ import type {
 } from "./contracts";
 import { compareReview, getReview, removeReview, writeReviewedLock, type ReviewBase } from "./reviews";
 import { readLock, repositoryState } from "./observe";
+import { readDraft, writeDraft } from "./draft";
+import { remaining, stageSources, verifyEdits, writeSources, type Staged } from "./edits";
+import type { ReviewEdits } from "./contracts";
 import { stripAnsi } from "./nix";
 export type { Operation } from "./contracts";
 let libc: ReturnType<typeof openLibc> | undefined;
@@ -426,6 +429,10 @@ export class Manager {
       // The checkout state a review is evaluated from; captured before any
       // command reads it, so later edits make the review visibly stale.
       let base: ReviewBase | undefined;
+      // The draft as it was when the review started; later edits wait for the next one.
+      const draft = r.edits ? readDraft(this.config) : [];
+      let staged: Staged | undefined;
+      let edits: ReviewEdits | undefined;
       if (r.action === "review-build" && !r.dryRun)
         base = yield* Effect.promise(async () => ({
           fingerprint: (await repositoryState(this.config.flake)).fingerprint,
@@ -439,9 +446,26 @@ export class Manager {
         } else if (step.internal) {
           const outcome = startStep(step.label);
           if (step.internal === "compare") {
-            const result = yield* compareReview(this.config, r, base!, operation.id, quiet);
+            const result = yield* compareReview(this.config, r, base!, operation.id, quiet, edits);
             const packages = (result.home?.changes.length ?? 0) + (result.system?.changes.length ?? 0);
             log(`${packages} package changes are ready for review.`);
+          } else if (step.internal === "stage-sources") {
+            staged = yield* stageSources(this.config, r, draft).pipe(
+              Effect.provide(Layer.succeed(Runner, { run: quiet })),
+            );
+            for (const file of staged.files) log(`Edited ${file.path}`);
+          } else if (step.internal === "verify-edits") {
+            edits = yield* verifyEdits(this.config, r, staged!, draft).pipe(
+              Effect.provide(Layer.succeed(Runner, { run: quiet })),
+            );
+            for (const effect of edits.effects) {
+              for (const item of effect.added) log(`${effect.scope}: adds ${item.name} (${item.file})`);
+              for (const item of effect.removed) log(`${effect.scope}: removes ${item.name} (${item.file})`);
+              for (const option of effect.options)
+                log(`${effect.scope}: ${option.option} = ${JSON.stringify(option.after) ?? "default"}`);
+            }
+          } else if (step.internal === "write-sources") {
+            yield* writeSources(this.config, review!.id, review!.edits!);
           } else yield* writeReviewedLock(this.config, review!);
           finishStep(outcome, "succeeded");
         } else yield* (yield* Runner).run(step);
@@ -490,8 +514,11 @@ export class Manager {
           if (r.reviewId && !r.dryRun) {
             if (r.action === "review-build" && operation.status !== "succeeded")
               removeReview(this.config, r.reviewId);
-            if (r.action === "review-apply" && operation.status === "succeeded")
+            if (r.action === "review-apply" && operation.status === "succeeded") {
+              if (review?.edits)
+                writeDraft(this.config, remaining(readDraft(this.config), review.edits.changes));
               removeReview(this.config, r.reviewId);
+            }
           }
           if (r.action === "switch" || r.action === "boot")
             rmSync(buildRoot(this.config), { recursive: true, force: true });
