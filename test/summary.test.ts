@@ -49,8 +49,8 @@ test("a review of edits names what is installed and removed", () => {
 test("an update counts packages, sources, space and a new kernel", () => {
   const system = output(["changed", "changed", "added", "removed"], [2048 * MiB, 1024 * MiB], { kernel: { before: "6.1", after: "6.6" } });
   const inputs = { names: ["nixpkgs"], baseLockHash: "", changes: [{ name: "nixpkgs" }] } as BuildReview["inputs"];
-  expect(reviewSummary(review({ scope: "all", source: "inputs", inputs, home: output(["changed"]), system }))).toBe(
-    "Updates 1 software source. Updates 3 packages, adds 1 and removes 1. It frees about 1.0 GiB of disk space. Restart afterwards to use the new kernel.",
+  expect(reviewSummary(review({ scope: "all", source: "inputs", inputs, home: output(["changed"]), system, downloaded: 300 * MiB }))).toBe(
+    "Updates 1 software source. Updates 3 packages, adds 1 and removes 1. It frees about 1.0 GiB of disk space. 300 MiB were downloaded to prepare it. Restart afterwards to use the new kernel.",
   );
   expect(reviewSummary(review({ home: output(["rebuilt"], [MiB, MiB]) }))).toBe("Nothing you use changes.");
   expect(reviewSummary(review({ home: output([], undefined, { compared: false }) }))).toBe(

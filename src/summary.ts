@@ -71,6 +71,7 @@ export function reviewSummary(review: BuildReview) {
   const delta = sizes.reduce((total, output) => total + output.closureSize! - output.currentClosureSize!, 0);
   if (sizes.length && Math.abs(delta) >= 1024 * 1024)
     sentences.push(delta > 0 ? `It needs about ${bytes(delta)} more disk space.` : `It frees about ${bytes(-delta)} of disk space.`);
+  if (review.downloaded && review.downloaded >= 1024 * 1024) sentences.push(`${bytes(review.downloaded)} were downloaded to prepare it.`);
   const kernel = review.system?.kernel;
   if (kernel?.after && kernel.before !== kernel.after) sentences.push("Restart afterwards to use the new kernel.");
   return sentences.join(" ");

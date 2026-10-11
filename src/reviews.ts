@@ -121,6 +121,7 @@ export const compareReview = (
   run: Run,
   edits?: ReviewEdits,
   undo?: BuildReview["undo"],
+  downloaded?: number,
 ) =>
   Effect.gen(function* () {
     const id = r.reviewId!;
@@ -208,6 +209,7 @@ export const compareReview = (
       ...(home ? { home } : {}),
       ...(system ? { system } : {}),
       operationId,
+      ...(downloaded ? { downloaded } : {}),
     };
     yield* Effect.try({
       try: () => atomicWrite(reviewFile(config, id), JSON.stringify(review, null, 2) + "\n"),

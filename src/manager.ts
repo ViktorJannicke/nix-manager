@@ -564,6 +564,7 @@ export class Manager {
                 quiet,
                 edits,
                 undo && { operationId: undo.operation.id, appliedAt: undo.operation.finishedAt ?? undo.operation.startedAt, point: undo.point },
+                operation.steps?.reduce((total, step) => total + (step.progress?.bytes.done ?? 0), 0),
               );
               const packages = (result.home?.changes.length ?? 0) + (result.system?.changes.length ?? 0);
               log(`${packages} package ${packages === 1 ? "change is" : "changes are"} ready for review.`);

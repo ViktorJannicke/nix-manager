@@ -146,11 +146,14 @@ The tray already checks for updates read-only and sends notifications.
   Follow-ups: step labels in progress lists and logs, and the CLI, keep their
   technical names; package names and input names (nixpkgs) are shown as they
   are.
-- [ ] **Review summary line.** Every review starts with one sentence: what is
+- [x] **Review summary line.** Every review starts with one sentence: what is
   added, updated and removed, download size, whether a restart is needed.
-  Started with simple mode (`reviewSummary`): it names installed and removed
-  packages, counts updates and gives the change in disk use and a kernel restart.
-  Missing: the download size, which the review does not record yet.
+  `reviewSummary` names installed and removed packages, counts updates and gives
+  the change in disk use, what was downloaded and a kernel restart. The review
+  records the bytes Nix reported transferring while preparing it.
+  Decided: the download is reported as done ("were downloaded to prepare it"),
+  since a review exists only after its build; amounts under 1 MiB are left out.
+  Follow-up: an estimate before preparing would need a dry run of the build.
 - [ ] **Time estimates** for builds and downloads based on earlier runs.
 
 ## 6. Discover as an app store

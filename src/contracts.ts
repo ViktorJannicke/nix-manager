@@ -196,6 +196,8 @@ export interface BuildReview {
   home?: ReviewOutput;
   system?: ReviewOutput;
   operationId?: string;
+  /** Bytes Nix downloaded while preparing the review. */
+  downloaded?: number;
   /** For an undo: the applied change it reverses, from that change's operation. */
   undo?: { operationId: string; appliedAt: string; point: UndoPoint };
   /** The system part was applied on next boot; the home part follows once the computer runs that system. */
