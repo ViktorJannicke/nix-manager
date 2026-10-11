@@ -6,6 +6,7 @@
   let { scope, file = $bindable(), importer = $bindable() }: { scope: Target; file: string; importer: string } = $props();
 
   // The importer follows the path until it is chosen by hand.
+  const uid = $props.id();
   let chosen = $state(false);
   const importers = $derived(software.importers(scope, file));
   const problem = $derived(software.newFileProblem(scope, file));
@@ -15,11 +16,13 @@
 </script>
 
 <div class="space-y-2 rounded-lg border border-dashed p-3">
-  <label class="block space-y-1">
-    <span class="text-xs font-medium">New file</span>
-    <input class="focus-ring h-8 w-full rounded-md border bg-card px-2 font-mono text-xs" bind:value={file} spellcheck="false" aria-invalid={Boolean(problem)} />
-    {#if problem}<span class="block text-xs text-destructive">{problem}</span>{/if}
-  </label>
+  <div class="space-y-1">
+    <label class="block space-y-1">
+      <span class="text-xs font-medium">New file</span>
+      <input class="focus-ring h-8 w-full rounded-md border bg-card px-2 font-mono text-xs" bind:value={file} spellcheck="false" aria-invalid={Boolean(problem)} aria-describedby={problem ? `${uid}-problem` : undefined} />
+    </label>
+    {#if problem}<span id="{uid}-problem" class="block text-xs text-destructive">{problem}</span>{/if}
+  </div>
   <label class="block space-y-1">
     <span class="text-xs font-medium">Imported from</span>
     {#if importers.length}

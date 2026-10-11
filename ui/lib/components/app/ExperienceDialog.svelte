@@ -134,19 +134,21 @@
       </div>
 
       {#if needsTarget}
-        <label class="block space-y-1">
-          <span class="font-medium">Write new settings to</span>
-          <select class="focus-ring h-9 w-full rounded-md border bg-card px-2" bind:value={target}>
-            <optgroup label="Used by {app.host}">
-              {#each modules.filter((module) => module.active !== false) as module (module.file)}<option value={module.file}>{module.file}</option>{/each}
-            </optgroup>
-            {#if modules.some((module) => module.active === false)}
-              <optgroup label="Not used by {app.host}">
-                {#each modules.filter((module) => module.active === false) as module (module.file)}<option value={module.file}>{module.file}</option>{/each}
+        <div class="block space-y-1">
+          <label class="block space-y-1">
+            <span class="font-medium">Write new settings to</span>
+            <select class="focus-ring h-9 w-full rounded-md border bg-card px-2" bind:value={target}>
+              <optgroup label="Used by {app.host}">
+                {#each modules.filter((module) => module.active !== false) as module (module.file)}<option value={module.file}>{module.file}</option>{/each}
               </optgroup>
-            {/if}
-            <option value={NEW_FILE}>New file…</option>
-          </select>
+              {#if modules.some((module) => module.active === false)}
+                <optgroup label="Not used by {app.host}">
+                  {#each modules.filter((module) => module.active === false) as module (module.file)}<option value={module.file}>{module.file}</option>{/each}
+                </optgroup>
+              {/if}
+              <option value={NEW_FILE}>New file…</option>
+            </select>
+          </label>
           {#if creating}
             <NewModuleFields {scope} bind:file={newFile} bind:importer />
           {:else if modules.find((module) => module.file === target)?.active === false}
@@ -154,7 +156,7 @@
           {:else}
             <span class="block text-xs text-muted-foreground">Prepare checks that every setting takes effect before anything is built.</span>
           {/if}
-        </label>
+        </div>
       {/if}
       {#if refused}
         <div class="flex gap-2 rounded-lg bg-muted px-3 py-2 text-xs">

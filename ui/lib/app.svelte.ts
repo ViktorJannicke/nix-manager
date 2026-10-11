@@ -211,10 +211,15 @@ class AppState {
     else localStorage.removeItem("nix-manager-host");
   }
 
+  /** True while the pointer or focus is on a toast, so none closes while it is being read. */
+  toastsHeld = false;
+  /** Toasts close on their own unless they offer an action, which stays until it is used or dismissed. */
   toast(toast: Omit<Toast, "id">, timeout = toast.tone === "error" ? 12_000 : 6_000) {
     const id = this.nextId++;
     this.toasts = [...this.toasts, { ...toast, id }].slice(-4);
-    setTimeout(() => this.dismiss(id), timeout);
+    if (toast.action) return;
+    const close = () => (this.toastsHeld ? setTimeout(close, 2_000) : this.dismiss(id));
+    setTimeout(close, timeout);
   }
   dismiss(id: number) {
     this.toasts = this.toasts.filter((toast) => toast.id !== id);

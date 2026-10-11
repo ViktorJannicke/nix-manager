@@ -16,7 +16,7 @@
   <section class="panel divide-y">
     <div class="flex items-center justify-between gap-4 p-4">
       <div>
-        <p class="font-medium">Appearance</p>
+        <h2 class="font-medium">Appearance</h2>
         <p class="text-xs text-muted-foreground">Follow the desktop or choose a theme.</p>
       </div>
       <Segmented
@@ -32,7 +32,7 @@
 
     <div class="flex items-center justify-between gap-4 p-4">
       <div>
-        <p class="font-medium">How much to show</p>
+        <h2 class="font-medium">How much to show</h2>
         <p class="text-xs text-muted-foreground">
           {#if app.detail === "simple"}
             One button applies your changes, with a short summary first when they need a look.
@@ -137,7 +137,7 @@
     <div class="space-y-3 p-4">
       <div class="flex items-center justify-between gap-4">
         <div>
-          <p class="font-medium">Target host</p>
+          <h2 class="font-medium">Target host</h2>
           <p class="text-xs text-muted-foreground">Detected as <span class="font-medium text-foreground">{app.config?.hostKey}</span>.</p>
         </div>
         <div class="flex items-center gap-2">
@@ -178,7 +178,7 @@
   </section>
 
   <section class="panel p-4">
-    <p class="font-medium">Nix Manager</p>
+    <h2 class="font-medium">Nix Manager</h2>
     <p class="mt-1 text-xs text-muted-foreground">
       Changes are prepared without special rights and shown for review. Only applying a reviewed system change,
       going back to an earlier system version and removing system restore points ask for your password.

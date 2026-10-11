@@ -50,7 +50,7 @@
   const runningStep = $derived(running?.steps?.find((step) => step.status === "running"));
 </script>
 
-<svelte:head><title>{running ? `${actionLabels[running.request.action]}… ` : ""}Nix Manager</title></svelte:head>
+<svelte:head><title>{running ? `${actionLabels[running.request.action]}… ` : ""}{setup ? "" : `${nav.find((item) => item.id === app.page)?.label} – `}Nix Manager</title></svelte:head>
 
 {#if !hasToken()}
   <main class="grid min-h-screen place-items-center p-8 text-center">
@@ -62,6 +62,9 @@
 {:else if setup}
   <Setup />
 {:else}
+  <a href="#main" class="focus-ring fixed top-2 left-2 z-50 -translate-y-16 rounded-lg border bg-card px-3 py-2 font-medium shadow-lg focus:translate-y-0">Skip to content</a>
+  <!-- Announces each step of a running operation; finishing and failing are announced by the toasts. -->
+  <p class="sr-only" role="status">{running ? `${actionLabels[running.request.action]}: ${runningStep?.label ?? running.step}` : ""}</p>
   <div class="flex h-screen overflow-hidden">
     <nav class="flex w-52 shrink-0 flex-col bg-sidebar px-3 py-4" aria-label="Sections">
       <div class="mb-6 flex items-center gap-2 px-2">
@@ -80,7 +83,7 @@
               <item.icon class="size-4 {app.page === item.id ? 'text-primary' : ''}" />
               <span class="flex-1">{item.label}</span>
               {#if item.id === "activity" && running}
-                <LoaderIcon class="size-3.5 animate-spin text-primary" aria-label="Running" />
+                <LoaderIcon class="size-3.5 animate-spin text-primary" /><span class="sr-only">, running</span>
               {:else if item.count}
                 <span class="numeric text-[0.8rem] {item.id === 'changes' || item.id === 'software' ? 'font-semibold text-prepared-foreground' : ''}">{item.count}</span>
               {/if}
@@ -94,9 +97,9 @@
             <TriangleAlertIcon class="mt-0.5 size-3.5 shrink-0" /> Targeting {app.host}
           </button>
         {/if}
-        {#if app.snapshot && !app.connected}
-          <p class="flex items-center gap-1.5 text-warning"><LoaderIcon class="size-3.5 animate-spin" /> Reconnecting</p>
-        {/if}
+        <p class="flex items-center gap-1.5 text-warning" role="status">
+          {#if app.snapshot && !app.connected}<LoaderIcon class="size-3.5 animate-spin" /> Reconnecting{/if}
+        </p>
       </div>
     </nav>
 
@@ -109,11 +112,11 @@
           <Button variant="ghost" size="sm" onclick={() => { app.selectOperation(running.id); app.navigate("activity"); }}>Show</Button>
         </div>
       {/if}
-      <main id="main" class="scroll-thin min-h-0 flex-1 {app.page === 'activity' ? 'overflow-hidden' : 'overflow-auto'}">
+      <main id="main" tabindex="-1" class="outline-none scroll-thin min-h-0 flex-1 {app.page === 'activity' ? 'overflow-hidden' : 'overflow-auto'}">
         <div class="mx-auto h-full max-w-5xl px-8 py-7">
           {#if !app.snapshot}
             <div class="grid h-full place-items-center text-muted-foreground">
-              <p class="flex items-center gap-2"><LoaderIcon class="size-4 animate-spin" /> Reading this computer's state</p>
+              <p class="flex items-center gap-2" role="status"><LoaderIcon class="size-4 animate-spin" /> Reading this computer's state</p>
             </div>
           {:else if app.page === "overview"}<Overview />
           {:else if app.page === "software"}<Software />

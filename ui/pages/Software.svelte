@@ -195,7 +195,7 @@
   {/if}
 
   {#if view === "discover"}
-    <label class="flex h-12 items-center gap-3 rounded-xl border bg-card px-4 shadow-xs focus-within:ring-3 focus-within:ring-ring/30">
+    <label class="flex h-12 items-center gap-3 rounded-xl border border-field bg-card px-4 shadow-xs focus-within:ring-3 focus-within:ring-ring/30">
       <SearchIcon class="size-5 text-muted-foreground" />
       <input
         bind:this={searchInput}
@@ -207,8 +207,10 @@
         class="peer w-full bg-transparent text-base outline-none placeholder:text-muted-foreground"
       />
       {#if !query}<kbd class="rounded border bg-muted px-1.5 font-mono text-xs text-muted-foreground peer-focus:hidden" title="Press / to search">/</kbd>{/if}
-      {#if software.catalog?.state === "building"}<LoaderIcon class="size-4 animate-spin text-muted-foreground" aria-label="Building the package index" />{/if}
+      {#if software.catalog?.state === "building"}<LoaderIcon class="size-4 animate-spin text-muted-foreground" aria-hidden="true" /><span class="sr-only">Building the package index</span>{/if}
     </label>
+
+    <p class="sr-only" role="status">{query.trim() && software.searched === query ? (software.results.length ? plural(software.results.length, "result") : "No packages match") : ""}</p>
 
     {#if query.trim()}
       <div class="-mt-3 flex flex-wrap gap-4 px-1 text-xs">
@@ -402,7 +404,7 @@
             title="Compared with the version in use now. Apply your configuration to get them."
           >{plural(changing.length, "package")} {changing.length === 1 ? "changes" : "change"} on the next apply</button>
         {/if}
-        <label class="ml-auto flex h-8 w-56 items-center gap-2 rounded-md border bg-card px-2 text-muted-foreground focus-within:ring-2 focus-within:ring-ring/40">
+        <label class="ml-auto flex h-8 w-56 items-center gap-2 rounded-md border border-field bg-card px-2 text-muted-foreground focus-within:ring-2 focus-within:ring-ring/40">
           <SearchIcon class="size-3.5" />
           <input bind:this={filterInput} bind:value={filter} aria-label="Filter installed packages" aria-keyshortcuts="/" placeholder="Filter (/)" class="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground" />
         </label>

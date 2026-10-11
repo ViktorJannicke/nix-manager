@@ -30,7 +30,7 @@
         </ul>
       {/if}
       {#if confirmation.error}
-        <p class="rounded-lg bg-destructive/10 px-3 py-2 text-destructive">{confirmation.error}</p>
+        <p class="rounded-lg bg-destructive/10 px-3 py-2 text-destructive" role="alert">{confirmation.error}</p>
       {/if}
       {#if confirmation.plan?.notes.length}
         <ul class="space-y-1 rounded-lg bg-warning/10 px-3 py-2 text-xs">
@@ -47,7 +47,8 @@
           <TerminalIcon class="size-3.5" /> Commands that will run
         </button>
         {#if details}
-          <ol class="scroll-thin mt-2 max-h-56 space-y-2 overflow-auto rounded-lg bg-muted p-3 text-xs">
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+          <ol tabindex="0" aria-label="Commands" class="focus-ring scroll-thin mt-2 max-h-56 space-y-2 overflow-auto rounded-lg bg-muted p-3 text-xs">
             {#if confirmation.plan}
               {#each confirmation.plan.steps as command, index}
                 <li>

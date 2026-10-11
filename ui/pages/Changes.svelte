@@ -294,7 +294,7 @@
                 {day(change.before?.lastModified)} <span class="font-mono">{shortRev(change.before?.rev)}</span>
                 → <span class="text-foreground">{day(change.after?.lastModified)}</span>
                 {#if change.after?.url}
-                  <a class="inline-flex items-center gap-0.5 font-mono text-primary hover:underline" href={change.after.url} target="_blank" rel="noreferrer">{shortRev(change.after.rev)}<ExternalLinkIcon class="size-3" /></a>
+                  <a class="inline-flex items-center gap-0.5 font-mono text-primary hover:underline" href={change.after.url} target="_blank" rel="noreferrer" aria-label="{change.name} at {shortRev(change.after.rev)}, opens in a new window">{shortRev(change.after.rev)}<ExternalLinkIcon class="size-3" /></a>
                 {:else}<span class="font-mono">{shortRev(change.after?.rev)}</span>{/if}
               </p>
             </li>

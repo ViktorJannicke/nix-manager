@@ -26,6 +26,15 @@
   const current = $derived(apply ?? prepare);
   const running = $derived(current?.status === "running" || (prepare?.status === "succeeded" && !prepare.held && !apply));
   const left = $derived(current?.status === "running" ? remaining(operations, current, app.now) : undefined);
+  /** Changes once per stage, never with each progress update, so screen readers are not flooded. */
+  const announcement = $derived(
+    !current ? "" :
+    current.status === "failed" || current.status === "interrupted" ? "" :
+    apply?.status === "succeeded" ? "Installed" :
+    apply ? "Installing" :
+    prepare?.status === "succeeded" ? (prepare.held ? "Ready for your review" : "Downloaded and checked") :
+    "Downloading and checking",
+  );
   const building = $derived(prepare?.steps?.find((item) => item.status === "running" && item.label.startsWith("Build")));
 
   function close() {
@@ -78,7 +87,8 @@
         </Dialog.Description>
       </Dialog.Header>
 
-      <ol class="space-y-2" aria-live="polite">
+      <p class="sr-only" role="status">{announcement}</p>
+      <ol class="space-y-2">
         <li class="flex items-center gap-3">
           <span class="flex-1">Download and check</span>
           <StatusBadge status={prepare.status} />
@@ -96,7 +106,7 @@
       {#if left}<p class="text-xs text-muted-foreground">{left}</p>{/if}
 
       {#if current && (current.status === "failed" || current.status === "interrupted")}
-        <div class="flex gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs">
+        <div class="flex gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs" role="alert">
           <TriangleAlertIcon class="mt-0.5 size-3.5 shrink-0 text-destructive" />
           <div class="space-y-1">
             <p class="font-medium">{current.explanation?.title ?? "Something went wrong"}</p>

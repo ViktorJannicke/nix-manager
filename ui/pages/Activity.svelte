@@ -109,7 +109,8 @@
           <p class="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs break-words text-destructive">{selected.error}</p>
         {/if}
       </div>
-      <div class="panel scroll-thin max-h-60 shrink-0 overflow-auto p-2"><StepList operation={selected} /></div>
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <div tabindex="0" role="region" aria-label="Steps" class="focus-ring panel scroll-thin max-h-60 shrink-0 overflow-auto p-2"><StepList operation={selected} /></div>
       <LogViewer id={selected.id} />
     {:else}
       <div class="panel"><EmptyState icon={ListIcon} title="No activity yet">Operations you start appear here with their steps and output.</EmptyState></div>

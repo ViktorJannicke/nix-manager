@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fly } from "svelte/transition";
+  import { prefersReducedMotion } from "svelte/motion";
   import XIcon from "@lucide/svelte/icons/x";
   import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
@@ -7,18 +8,27 @@
   import { app } from "$lib/app.svelte";
 </script>
 
-<div class="pointer-events-none fixed right-4 bottom-4 z-50 flex w-88 flex-col gap-2" aria-live="polite">
+<!-- One live region; roles on the items as well would make some screen readers announce each toast twice. -->
+<div
+  class="pointer-events-none fixed right-4 bottom-4 z-50 flex w-88 flex-col gap-2"
+  aria-live="polite"
+  role="region"
+  aria-label="Notifications"
+  onmouseenter={() => (app.toastsHeld = true)}
+  onmouseleave={() => (app.toastsHeld = false)}
+  onfocusin={() => (app.toastsHeld = true)}
+  onfocusout={() => (app.toastsHeld = false)}
+>
   {#each app.toasts as toast (toast.id)}
     <div
-      transition:fly={{ y: 12, duration: 150 }}
+      transition:fly={{ y: prefersReducedMotion.current ? 0 : 12, duration: 150 }}
       class="pointer-events-auto flex gap-3 rounded-xl border bg-popover p-3 text-popover-foreground shadow-lg"
-      role={toast.tone === "error" ? "alert" : "status"}
     >
       {#if toast.tone === "success"}<CircleCheckIcon class="mt-0.5 size-4 shrink-0 text-success" />
       {:else if toast.tone === "error"}<CircleAlertIcon class="mt-0.5 size-4 shrink-0 text-destructive" />
       {:else}<InfoIcon class="mt-0.5 size-4 shrink-0 text-primary" />{/if}
       <div class="min-w-0 flex-1">
-        <p class="font-medium">{toast.title}</p>
+        <p class="font-medium">{#if toast.tone === "error"}<span class="sr-only">Error: </span>{/if}{toast.title}</p>
         {#if toast.body}<p class="mt-0.5 line-clamp-4 text-xs break-words text-muted-foreground">{toast.body}</p>{/if}
         {#if toast.action}
           <button

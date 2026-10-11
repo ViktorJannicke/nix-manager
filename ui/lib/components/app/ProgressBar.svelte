@@ -27,6 +27,15 @@
   .indeterminate {
     animation: slide 1.4s ease-in-out infinite;
   }
+  /* A bar that runs once would end outside the track; a still, faint bar says "working". */
+  @media (prefers-reduced-motion: reduce) {
+    .indeterminate {
+      animation: none;
+      left: 0;
+      width: 100%;
+      opacity: 0.4;
+    }
+  }
   @keyframes slide {
     from { left: -33%; }
     to { left: 100%; }

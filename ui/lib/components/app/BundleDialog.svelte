@@ -94,8 +94,8 @@
       </Dialog.Header>
 
       {#if !ready}
-        <p class="flex items-center gap-2 text-muted-foreground">
-          <LoaderIcon class="size-4 animate-spin" />
+        <p class="flex items-center gap-2 text-muted-foreground" role="status">
+          <LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
           {software.catalog?.state === "failed" ? `The package index could not be built. ${software.catalog.error}` : "Reading the package index…"}
         </p>
       {:else}

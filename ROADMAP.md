@@ -214,9 +214,24 @@ The tray already checks for updates read-only and sends notifications.
 
 ## 8. For everyone
 
-- [ ] **Accessibility audit.** Screen reader labels, live regions for build
+- [x] **Accessibility audit.** Screen reader labels, live regions for build
   progress, focus order in dialogs, contrast in both themes, larger text,
   reduced motion.
+  *Decided:*
+  - **Contrast.** All text meets 4.5:1 in both themes, and form fields have a
+    3:1 outline. Panel borders stay soft because they only group content.
+  - **Focus.** Every focusable element shows focus, and a skip link leads to
+    the content. When the button that opened a dialog is gone or disabled,
+    focus moves to the content instead of the top of the window. The
+    segmented choices move with the arrow keys.
+  - **Announcements.** Running operations announce each step but never the
+    percentage. The one-step dialog announces its stage, search announces how
+    many results it found, and toasts use a single live region. Toasts wait
+    while the pointer or focus is on them, and toasts with an action stay
+    until it is used or dismissed.
+  - **Text size and motion.** Text follows the reader's default font size.
+    Reduced motion stops spinners after one turn and shows a still bar for
+    progress of unknown length.
 - [ ] **Translations.** Extract interface strings; German first.
 
 ## Open questions

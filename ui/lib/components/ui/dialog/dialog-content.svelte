@@ -14,12 +14,24 @@
 		portalProps,
 		children,
 		showCloseButton = true,
+		onCloseAutoFocus,
 		...restProps
 	}: WithoutChildrenOrChild<DialogPrimitive.ContentProps> & {
 		portalProps?: WithoutChildrenOrChild<ComponentProps<typeof DialogPortal>>;
 		children: Snippet;
 		showCloseButton?: boolean;
 	} = $props();
+
+	// Focus goes back to the button that opened the dialog. When that button
+	// is gone or disabled by then, focus would fall to the page itself, so it
+	// moves to the main content instead of the top of the window.
+	function restoreFocus(event: Event) {
+		onCloseAutoFocus?.(event);
+		setTimeout(() => {
+			const active = document.activeElement;
+			if (!active || active === document.body) document.getElementById("main")?.focus({ preventScroll: true });
+		}, 0);
+	}
 </script>
 
 <DialogPortal {...portalProps}>
@@ -32,6 +44,7 @@
 			className
 		)}
 		{...restProps}
+		onCloseAutoFocus={restoreFocus}
 	>
 		{@render children?.()}
 		{#if showCloseButton}

@@ -46,7 +46,7 @@
           </div>
           <button
             class="focus-ring grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:bg-card hover:text-foreground"
-            aria-label="Remove this edit"
+            aria-label="Remove {text.title}"
             disabled={software.saving}
             onclick={() => software.unstage(index)}
           ><XIcon class="size-3.5" /></button>

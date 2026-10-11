@@ -40,7 +40,7 @@
         { value: "rebuilt", label: "Rebuilt", count: counts.rebuilt },
       ]}
     />
-    <label class="ml-auto flex h-8 w-56 items-center gap-2 rounded-md border bg-card px-2 text-muted-foreground focus-within:ring-2 focus-within:ring-ring/40">
+    <label class="ml-auto flex h-8 w-56 items-center gap-2 rounded-md border border-field bg-card px-2 text-muted-foreground focus-within:ring-2 focus-within:ring-ring/40">
       <SearchIcon class="size-3.5" />
       <input bind:value={query} aria-label="Search packages" placeholder="Search packages" class="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground" />
     </label>

@@ -29,7 +29,7 @@
 <div class="space-y-1.5">
   <ProgressBar value={fraction} label="Build progress" />
   <div class="flex items-baseline justify-between gap-3 text-xs text-muted-foreground">
-    <span class="truncate">{summary[0].toUpperCase() + summary.slice(1)}</span>
+    <span class="truncate" title={summary[0].toUpperCase() + summary.slice(1)}>{summary[0].toUpperCase() + summary.slice(1)}</span>
     {#if fraction !== undefined}<span class="tabular-nums">{Math.round(fraction * 100)}%</span>{/if}
   </div>
   {#if !compact && progress?.current.length}

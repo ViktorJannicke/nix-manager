@@ -128,7 +128,8 @@
       <p class="text-muted-foreground">What changed in the configuration, newest first.</p>
     </div>
     {#if history?.length}
-      <ul class="max-h-96 divide-y overflow-y-auto">
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <ul tabindex="0" aria-label="Restore points" class="focus-ring max-h-96 divide-y overflow-y-auto">
         {#each history as entry (entry.revision)}
           <li class="flex items-start gap-4 px-4 py-3">
             <div class="min-w-0 flex-1">

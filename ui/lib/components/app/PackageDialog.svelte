@@ -14,6 +14,7 @@
   import type { Change } from "../../../../src/draft";
 
   let { entry = $bindable() }: { entry?: AppEntry } = $props();
+  const uid = $props.id();
 
   let scope = $state<Target>("home");
   let file = $state("");
@@ -130,18 +131,20 @@
             <span class="font-medium">Install for</span>
             <Segmented label="Install for" bind:value={scope} options={[{ value: "home" as Target, label: "Just you" }, { value: "system" as Target, label: "Every user" }]} />
           </div>
-          <label class="block space-y-1">
-            <span class="font-medium">Add it to</span>
-            <select class="focus-ring h-9 w-full rounded-md border bg-card px-2" bind:value={file}>
-              {#each files as item (item.file)}
-                <option value={item.file}>{category(item.file)}: {item.file}{item.active ? "" : " (not used by this host)"}</option>
-              {/each}
-              <option value={NEW_FILE}>New file…</option>
-            </select>
+          <div class="space-y-1">
+            <label class="block space-y-1">
+              <span class="font-medium">Add it to</span>
+              <select class="focus-ring h-9 w-full rounded-md border bg-card px-2" bind:value={file} aria-describedby={creating ? undefined : `${uid}-file-help`}>
+                {#each files as item (item.file)}
+                  <option value={item.file}>{category(item.file)}: {item.file}{item.active ? "" : " (not used by this host)"}</option>
+                {/each}
+                <option value={NEW_FILE}>New file…</option>
+              </select>
+            </label>
             {#if !creating}
-              <span class="block text-xs text-muted-foreground">The package is added to this file's package list, next to the others.</span>
+              <span id="{uid}-file-help" class="block text-xs text-muted-foreground">The package is added to this file's package list, next to the others.</span>
             {/if}
-          </label>
+          </div>
           {#if creating}
             <NewModuleFields {scope} bind:file={newFile} bind:importer />
           {/if}

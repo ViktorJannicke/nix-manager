@@ -137,7 +137,7 @@
               <td class="py-2.5">
                 <p>{day(item.latestDate)}</p>
                 {#if item.url}
-                  <a class="inline-flex items-center gap-1 font-mono text-xs text-primary hover:underline" href={item.url} target="_blank" rel="noreferrer">
+                  <a class="inline-flex items-center gap-1 font-mono text-xs text-primary hover:underline" href={item.url} target="_blank" rel="noreferrer" aria-label="{item.name} at {shortRev(item.latest)}, opens in a new window">
                     {shortRev(item.latest)}<ExternalLinkIcon class="size-3" />
                   </a>
                 {:else}<p class="font-mono text-xs text-muted-foreground">{shortRev(item.latest)}</p>{/if}

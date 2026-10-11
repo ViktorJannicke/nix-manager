@@ -32,6 +32,7 @@
   --color-warning: var(--warning);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-field: var(--field);
   --color-ring: var(--ring);
   --color-sidebar: var(--sidebar);
   --radius-sm: 0.3rem;
@@ -59,10 +60,11 @@
   --prepared: #7ebae4; /* lambda sky: built, not active */
   --prepared-foreground: #22659a;
   --destructive: #c0443a; /* brick */
-  --success: #2f8a66; /* moss */
-  --warning: #a8701a; /* ochre */
+  --success: #29795a; /* moss; 4.5:1 as text on frost */
+  --warning: #946317; /* ochre; 4.5:1 as text on frost */
   --border: #d6dee8;
   --input: #c6d0dd;
+  --field: #8d949d; /* text field outlines, 3:1 against cards */
   --ring: #3d5a98;
   --sidebar: #e5ebf2;
 }
@@ -89,6 +91,7 @@
   --warning: #e2aa4c;
   --border: #263149;
   --input: #33405c;
+  --field: #556b9a;
   --ring: #8fa9de;
   --sidebar: #0f1420;
 }
@@ -97,10 +100,17 @@
   * {
     @apply border-border;
   }
+  /* Fields need a visible outline; panels keep the softer border. */
+  input:not([type="checkbox"], [type="radio"], [type="range"]),
+  select,
+  textarea {
+    border-color: var(--field);
+  }
   html {
     @apply bg-background text-foreground;
     color-scheme: light;
-    font-size: 15px;
+    /* 15 px at the usual 16 px default, and larger when the reader chose larger text. */
+    font-size: 93.75%;
   }
   html.dark {
     color-scheme: dark;
@@ -118,8 +128,10 @@
   kbd {
     @apply font-mono;
   }
+  /* Everything focusable shows where focus is; .focus-ring and buttons draw a softer ring instead. */
   :focus-visible {
-    @apply outline-none;
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
   h1,
   h2,
@@ -147,7 +159,7 @@
     @apply rounded-xl border-2 border-dashed border-prepared/70 bg-accent/40;
   }
   .focus-ring {
-    @apply focus-visible:ring-3 focus-visible:ring-ring/40;
+    @apply outline-none focus-visible:ring-3 focus-visible:ring-ring/40;
   }
   .scroll-thin {
     scrollbar-width: thin;
@@ -163,6 +175,8 @@
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

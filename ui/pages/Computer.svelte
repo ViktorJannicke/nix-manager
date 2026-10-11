@@ -364,12 +364,14 @@
                 <span class="text-xs font-medium">Full name</span>
                 <input class="focus-ring h-8 w-full rounded-md border bg-card px-2 text-xs" bind:value={newDescription} placeholder="Alex Doe" />
               </label>
-              <label class="block space-y-1">
-                <span class="text-xs font-medium">User name</span>
-                <input class="focus-ring h-8 w-full rounded-md border bg-card px-2 font-mono text-xs" bind:value={newName} spellcheck="false" autocapitalize="off" placeholder="alex"
-                  aria-invalid={Boolean(newName && nameProblem)} />
-                {#if newName && nameProblem}<span class="block text-xs text-destructive">{nameProblem}</span>{/if}
-              </label>
+              <div class="space-y-1">
+                <label class="block space-y-1">
+                  <span class="text-xs font-medium">User name</span>
+                  <input class="focus-ring h-8 w-full rounded-md border bg-card px-2 font-mono text-xs" bind:value={newName} spellcheck="false" autocapitalize="off" placeholder="alex"
+                    aria-invalid={Boolean(newName && nameProblem)} aria-describedby={newName && nameProblem ? "computer-new-user-problem" : undefined} />
+                </label>
+                {#if newName && nameProblem}<span id="computer-new-user-problem" class="block text-xs text-destructive">{nameProblem}</span>{/if}
+              </div>
             </div>
             <label class="flex items-center gap-2 text-xs"><Switch bind:checked={newAdmin} aria-label="Administrator" /> Administrator</label>
             <p class="text-xs text-muted-foreground">
@@ -403,16 +405,18 @@
         <Button size="sm" disabled={!ready || software.saving} onclick={save}>Add to pending edits</Button>
       </div>
       {#if homeless.length}
-        <label class="block space-y-1">
-          <span class="text-xs font-medium">Write {[...new Set(homeless.map(name))].join(", ")} to</span>
-          <select class="focus-ring h-8 w-full rounded-md border bg-card px-2 text-xs" bind:value={target}>
-            <optgroup label="Used by {app.host}">
-              {#each modules.filter((module) => module.active !== false) as module (module.file)}<option value={module.file}>{module.file}</option>{/each}
-            </optgroup>
-            <option value={NEW_FILE}>New file…</option>
-          </select>
+        <div class="block space-y-1">
+          <label class="block space-y-1">
+            <span class="text-xs font-medium">Write {[...new Set(homeless.map(name))].join(", ")} to</span>
+            <select class="focus-ring h-8 w-full rounded-md border bg-card px-2 text-xs" bind:value={target}>
+              <optgroup label="Used by {app.host}">
+                {#each modules.filter((module) => module.active !== false) as module (module.file)}<option value={module.file}>{module.file}</option>{/each}
+              </optgroup>
+              <option value={NEW_FILE}>New file…</option>
+            </select>
+          </label>
           {#if creating}<NewModuleFields scope={SCOPE} bind:file={newFile} bind:importer />{/if}
-        </label>
+        </div>
       {/if}
     </div>
   {/if}
