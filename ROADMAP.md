@@ -194,9 +194,16 @@ The tray already checks for updates read-only and sends notifications.
   layout is an error that names the candidates. Follow-up: NixOS-integrated
   Home Manager needs the home scope to build and activate through the system,
   which changes generations, history and undo, so it is left for later.
-- [ ] **Setup assistant.** On a system without a flake: turn `/etc/nixos` into a
+- [x] **Setup assistant.** On a system without a flake: turn `/etc/nixos` into a
   flake in a user-owned checkout, start Git, check that flakes are enabled, and
   explain prepare and apply in three sentences.
+  Decided: the assistant runs in the dashboard window on its own small server
+  before there is a configuration, then hands the window over. nixpkgs is locked
+  to the running revision while `flake.nix` follows the release branch, so
+  updates move on as usual. A configuration that does not evaluate as a flake
+  (missing files, channel imports) is reported and the folder removed again;
+  converting channel imports is left to the user. An `/etc/nixos` that is a
+  flake already is not converted.
 - [ ] **Starts like an app.** Menu entry and icon from the NixOS module, opening
   the dashboard without a terminal.
 

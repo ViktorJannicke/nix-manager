@@ -1,7 +1,9 @@
 import { Cause, Effect, Exit, Option } from "effect";
 import { existsSync, realpathSync } from "node:fs";
+import { join } from "node:path";
 import { parseCli, type Cli } from "./cli";
-import { loadConfig } from "./config";
+import { loadConfig, selectCheckout } from "./config";
+import { allowFlakes } from "./setup";
 import { ManagerError, type Config } from "./domain";
 import { runnerLayer, runProcess } from "./process";
 import { Manager } from "./manager";
@@ -138,6 +140,44 @@ async function execute(cli: Cli, config: Config, manager: Manager, terminal: Ter
     process.off("SIGTERM", interrupt);
   }
 }
+/**
+ * Runs the setup assistant until it created a checkout. Resolves with the
+ * assistant's server and window, or undefined when its window was closed.
+ */
+async function setUp(cli: Cli) {
+  const { browserAssets } = await import("./server");
+  const { startSetupServer } = await import("./setup-server");
+  let finish!: (path: string | undefined) => void;
+  const created = new Promise<string | undefined>((resolve) => (finish = resolve));
+  const setup = startSetupServer(await browserAssets(), finish);
+  let window: ReturnType<typeof import("./window").createWindow> | undefined;
+  if (cli.noOpen) console.log(`Nix Manager setup: ${setup.url}`);
+  else if (cli.browser)
+    await Effect.runPromise(runProcess({ label: "Open browser", argv: ["xdg-open", setup.url] }));
+  else {
+    const { createWindow } = await import("./window");
+    window = createWindow();
+    window.show(setup.url);
+  }
+  const startedAt = Date.now();
+  const idle = setInterval(() => {
+    if (!cli.noOpen && Date.now() - startedAt > 60_000 && !setup.attended) finish(undefined);
+  }, 1_000);
+  const interrupt = () => finish(undefined);
+  process.on("SIGINT", interrupt);
+  process.on("SIGTERM", interrupt);
+  const path = await created;
+  clearInterval(idle);
+  process.off("SIGINT", interrupt);
+  process.off("SIGTERM", interrupt);
+  if (!path) {
+    setup.close();
+    window?.close();
+    return undefined;
+  }
+  return { setup, window };
+}
+
 async function main(args: string[]) {
   if (args[0] === "--privileged") {
     await privileged(args.slice(1));
@@ -172,6 +212,18 @@ async function main(args: string[]) {
   }
   const cli = await parseCli(args);
   if (!cli) return;
+  // A computer the assistant just set up turns flakes on with its first apply;
+  // asking for them again is harmless where they are on.
+  allowFlakes();
+  // Without any checkout, the dashboard starts with the setup assistant.
+  let setup: Awaited<ReturnType<typeof setUp>>;
+  if (cli.mode === "ui") {
+    const checkout = await Effect.runPromise(selectCheckout(cli.flake).pipe(Effect.provide(runnerLayer())));
+    if (!checkout.chosen && !existsSync(join(checkout.path, "flake.nix"))) {
+      setup = await setUp(cli);
+      if (!setup) return;
+    }
+  }
   const config = await Effect.runPromise(
     loadConfig(cli.flake, cli.host).pipe(Effect.provide(runnerLayer())),
   );
@@ -206,7 +258,7 @@ async function main(args: string[]) {
   const service = startServer(manager, await browserAssets());
   // Apps of an update applied on next boot follow once the computer runs it.
   manager.resumeAfterBoot().catch((error) => console.error(error));
-  let window: ReturnType<typeof import("./window").createWindow> | undefined;
+  let window: ReturnType<typeof import("./window").createWindow> | undefined = setup?.window;
   let tray: Awaited<ReturnType<typeof import("./tray").startTray>> | undefined;
   let resolveShutdown!: () => void;
   const stopped = new Promise<void>((resolve) => {
@@ -234,6 +286,11 @@ async function main(args: string[]) {
       const { startTray } = await import("./tray");
       tray = await startTray(manager, open, shutdown, cli.interval);
       console.log("Nix Manager is running in the tray.");
+    } else if (setup) {
+      // The assistant's page moves on to the dashboard by itself.
+      const assistant = setup.setup;
+      assistant.handOver(service.url);
+      setTimeout(() => assistant.close(), 10_000);
     } else if (!cli.noOpen) await open();
     if (cli.noOpen) console.log(`Nix Manager: ${service.url}`);
     // Only standalone UIs exit with the last dashboard. Give reloads a short

@@ -64,6 +64,16 @@ export const pickHome = (
   throw ambiguous("Home Manager configuration", own.length ? own : names);
 };
 
+/** The running machine's platform, without evaluating a configuration. */
+export const currentPlatform = () => `${{ x64: "x86_64", arm64: "aarch64" }[process.arch as string] ?? process.arch}-linux`;
+
+/** Where the setup assistant remembers the checkout it created. */
+export const rememberedCheckout = () =>
+  join(
+    process.env.NIX_MANAGER_STATE_DIR || join(process.env.XDG_STATE_HOME || join(homedir(), ".local/state"), "nix-manager"),
+    "checkout",
+  );
+
 /** A JSON value from the flake; with allowFailure, undefined when it is missing. */
 const evalJson = <A>(label: string, installable: string, apply: string, allowFailure = false) =>
   command(label, ["nix", "eval", "--json", installable, "--apply", apply], { quiet: true, allowFailure }).pipe(
@@ -108,10 +118,8 @@ export const detectHosts = (flake: string, target: string, user: string) =>
       );
       home = yield* pick(() => pickHome(user, hosts, homes ?? [], userNames));
     }
-    // The running machine's platform, without evaluating the configuration.
-    const platform = `${{ x64: "x86_64", arm64: "aarch64" }[process.arch as string] ?? process.arch}-linux`;
     return {
-      [system]: { system: platform, userName: user, nixosConfiguration: system, nixosHostName: hostName, homeConfiguration: home },
+      [system]: { system: currentPlatform(), userName: user, nixosConfiguration: system, nixosHostName: hostName, homeConfiguration: home },
     } satisfies Record<string, Host>;
   });
 
@@ -122,21 +130,31 @@ const isConfiguration = (path: string) =>
     (existsSync(join(path, "flake.nix")) && (await readFile(join(path, "flake.nix"), "utf8")).includes("nixosConfigurations")),
   );
 
+/**
+ * The checkout to manage: the one asked for, the Git checkout this runs in
+ * when it is a system configuration, the one the setup assistant created, or
+ * ~/my-flakes. `chosen` says whether it was asked for.
+ */
+export const selectCheckout = (flake?: string) =>
+  Effect.gen(function* () {
+    const asked = flake || process.env.NIX_MANAGER_FLAKE;
+    if (asked) return { path: asked, chosen: true };
+    const repo = yield* command(
+      "Find checkout",
+      ["git", "rev-parse", "--show-toplevel"],
+      { quiet: true, allowFailure: true },
+    );
+    const path = repo.stdout.trim();
+    if (repo.code === 0 && (yield* isConfiguration(path))) return { path, chosen: false };
+    const remembered = existsSync(rememberedCheckout())
+      ? (yield* attempt("Read the remembered checkout", () => readFile(rememberedCheckout(), "utf8"))).trim()
+      : "";
+    return { path: remembered || join(homedir(), "my-flakes"), chosen: false };
+  });
+
 export const loadConfig = (flake?: string, host?: string) =>
   Effect.gen(function* () {
-    let selected = flake || process.env.NIX_MANAGER_FLAKE;
-    if (!selected) {
-      const repo = yield* command(
-        "Find checkout",
-        ["git", "rev-parse", "--show-toplevel"],
-        { quiet: true, allowFailure: true },
-      );
-      const path = repo.stdout.trim();
-      selected =
-        repo.code === 0 && (yield* isConfiguration(path))
-          ? path
-          : join(homedir(), "my-flakes");
-    }
+    const selected = (yield* selectCheckout(flake)).path;
     const path = yield* attempt("Resolve flake directory", () =>
       realpath(selected),
     );

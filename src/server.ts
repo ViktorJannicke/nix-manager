@@ -75,6 +75,15 @@ export async function browserAssets(): Promise<UiAssets> {
     await rm(output, { recursive: true, force: true });
   }
 }
+export const securityHeaders = {
+  "Cache-Control": "no-store",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "no-referrer",
+  "Content-Security-Policy":
+    // Bits UI applies transient inline styles for dialog scroll locking and
+    // positioning. Scripts remain restricted to the bundled same-origin app.
+    "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+};
 export function startServer(
   manager: Manager,
   input: UiAssets | string,
@@ -169,15 +178,7 @@ export function startServer(
   const ticker = setInterval(() => {
     if (sockets.size) void observe();
   }, 30_000);
-  const headers = {
-    "Cache-Control": "no-store",
-    "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy": "no-referrer",
-    "Content-Security-Policy":
-      // Bits UI applies transient inline styles for dialog scroll locking and
-      // positioning. Scripts remain restricted to the bundled same-origin app.
-      "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
-  };
+  const headers = securityHeaders;
   const json = (data: unknown, status = 200) =>
     Response.json(data, { status, headers });
   const body = async (req: Request) => {

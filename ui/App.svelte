@@ -27,8 +27,14 @@
   import Settings from "./pages/Settings.svelte";
   import Software from "./pages/Software.svelte";
   import Computer from "./pages/Computer.svelte";
+  import Setup from "./pages/Setup.svelte";
 
-  onMount(() => app.start());
+  /** Started before there is a configuration: only the setup assistant runs. */
+  const setup = new URLSearchParams(location.search).has("setup");
+  onMount(() => {
+    if (setup) app.applyTheme(app.theme);
+    else app.start();
+  });
 
   const nav = $derived<{ id: Page; label: string; icon: typeof LayoutIcon; count?: number }[]>([
     { id: "overview", label: "Overview", icon: LayoutIcon },
@@ -53,6 +59,8 @@
       <p class="text-muted-foreground">This address needs the private session link Nix Manager creates when it starts. Run <code>nix-manager ui</code> to open a new window.</p>
     </div>
   </main>
+{:else if setup}
+  <Setup />
 {:else}
   <div class="flex h-screen overflow-hidden">
     <nav class="flex w-52 shrink-0 flex-col bg-sidebar px-3 py-4" aria-label="Sections">

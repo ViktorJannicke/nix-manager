@@ -107,6 +107,19 @@ pinned WebUI native library; nothing is downloaded at application startup.
 An installed browser is required. `--browser` uses the desktop's default browser;
 `--no-open` prints the local session link for manual use.
 
+On a computer without a configuration checkout, `ui` starts with a setup
+assistant. It copies `/etc/nixos` into a new folder in the home folder (by
+default `~/nixos-config`), adds a `flake.nix` with the computer's NixOS
+configuration and a `home.nix` for a standalone Home Manager configuration,
+starts Git, and pins nixpkgs to the revision the computer runs, so the first
+build matches the running system. It falls back to the unstable branches when
+Home Manager has no branch for the running release. It then evaluates both
+configurations and only keeps the folder when they evaluate; files only an
+administrator can read and channel imports such as `<home-manager/nixos>` are
+pointed out first. The folder is remembered, and the window moves on to the
+dashboard. When flakes are not enabled yet, the manager enables them for its own
+`nix` commands, and the new configuration turns them on for good once applied.
+
 The dashboard is organised around one flow: prepare, review, apply. Preparing
 builds the selected Home Manager and NixOS configurations without privileges and
 keeps the exact outputs. The Changes page shows the package differences from
@@ -315,7 +328,8 @@ of the selected log. Individual stored logs are capped at 16 MiB; older operatio
 files remain on disk. The OS releases the shared advisory lock even if a manager
 process crashes. It covers CLI, dashboard, tray, and different checkout selections
 using that state directory. It does not lock out native Nix commands or other users.
-`NIX_MANAGER_STATE_DIR` can select an isolated state directory for testing. `NIX_MANAGER_SYSFS` points hardware detection at a fake `/sys` tree.
+`NIX_MANAGER_STATE_DIR` can select an isolated state directory for testing. `NIX_MANAGER_SYSFS` points hardware detection at a fake `/sys` tree, and
+`NIX_MANAGER_SETUP_SOURCE` points the setup assistant at another classic configuration.
 Pending software edits are stored in `draft.json` and the package index under
 `catalog/`, keyed by the lock file; building an index evaluates every package and
 needs several gigabytes of memory for about a quarter of a minute. Flathub's app
