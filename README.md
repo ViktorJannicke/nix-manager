@@ -217,6 +217,11 @@ then every six hours (`--interval MINUTES` changes this). Notifications report
 new update sets, failed operations, and completed changes. Clicking a notification
 opens the dashboard. Checks never activate a configuration automatically.
 
+With "Keep a history of changes" switched on (the default for new users), every
+applied change commits exactly the files it wrote, with a message saying what it
+did; the Generations page lists the checkout's history. "Back up after each
+change" also pushes when the branch has an upstream. Neither ever fails an apply.
+
 The Generations page measures how much a cleanup frees before it runs. With
 "Clean up automatically" switched on, the tray removes all but the newest five
 home generations and unused store paths at most once a week, on mains power

@@ -130,14 +130,14 @@ test("preferences are kept in the state directory and only known ones are accept
   const state = async () => (await (await fetch(`${base}/api/state`, { headers })).json()).preferences;
   const save = (body: unknown) => fetch(`${base}/api/preferences`, { method: "POST", headers, body: JSON.stringify(body) });
   try {
-    // Without earlier operations the dashboard starts simple.
-    expect(await state()).toEqual({ detail: "simple" });
-    expect(await (await save({ detail: "detailed" })).json()).toEqual({ detail: "detailed" });
+    // Without earlier operations the dashboard starts simple, with a kept history.
+    expect(await state()).toEqual({ detail: "simple", history: true });
+    expect(await (await save({ detail: "detailed" })).json()).toEqual({ detail: "detailed", history: true });
     expect((await save({ theme: "dark" })).status).toBe(200);
-    expect(await state()).toEqual({ detail: "detailed", theme: "dark" });
+    expect(await state()).toEqual({ detail: "detailed", history: true, theme: "dark" });
     expect((await save({ detail: "expert" })).status).toBe(400);
     expect((await save({ token: "x" })).status).toBe(400);
-    expect(JSON.parse(readFileSync(join(config.stateDir, "preferences.json"), "utf8"))).toEqual({ detail: "detailed", theme: "dark" });
+    expect(JSON.parse(readFileSync(join(config.stateDir, "preferences.json"), "utf8"))).toEqual({ detail: "detailed", history: true, theme: "dark" });
     const estimate = (body: unknown) => fetch(`${base}/api/cleanup-estimate`, { method: "POST", headers, body: JSON.stringify(body) });
     for (const body of [{ scope: "system", retention: 3 }, { scope: "home", retention: 0 }, { scope: "home", retention: "3" }])
       expect((await estimate(body)).status).toBe(400);

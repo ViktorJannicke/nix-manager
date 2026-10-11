@@ -119,9 +119,20 @@ The tray already checks for updates read-only and sends notifications.
   needs the password and boot entries.
   Follow-ups: the number of kept generations for automatic cleanup is fixed;
   the Generations page still says "generation" (Phase 5).
-- [ ] **History without Git.** Commit after each apply with a readable message
+- [x] **History without Git.** Commit after each apply with a readable message
   ("Added Steam, turned on Bluetooth") and show that history; optional backup
   of the configuration to a Git remote.
+  After a successful apply, exactly the files it wrote are committed (`git
+  commit --only`), so other work in the checkout stays uncommitted. The message
+  uses the same words as the undo point, marked with an `Applied-with: Nix
+  Manager` trailer. The Generations page lists the history. Backup pushes after
+  each commit when the branch has an upstream.
+  Decided: on by default for new users, off for existing ones, like simple
+  mode. Without a Git identity, commits are made as "Nix Manager". A failed
+  commit or push never fails the apply; the log says what happened.
+  Follow-ups: messages are imperative ("Install steam"); setting up a remote
+  for the backup is left to Git (Phase 7); there is no way yet to go back to a
+  commit from the history.
 
 ## 5. Words people already know
 

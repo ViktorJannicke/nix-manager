@@ -2,6 +2,8 @@
   import MinusIcon from "@lucide/svelte/icons/minus";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import HistoryIcon from "@lucide/svelte/icons/history";
+  import ScrollTextIcon from "@lucide/svelte/icons/scroll-text";
+  import type { HistoryEntry } from "../../src/history";
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
   import { managerApi } from "$lib/api";
@@ -36,6 +38,17 @@
         .catch(() => {});
     }, 250);
     return () => clearTimeout(timer);
+  });
+
+  // The configuration's history is read again whenever its last commit changes.
+  let history = $state<HistoryEntry[]>();
+  $effect(() => {
+    void app.system?.repository.revision;
+    if (!app.connected) return;
+    managerApi
+      .history()
+      .then((entries) => (history = entries))
+      .catch(() => (history = []));
   });
 
   function cleanup() {
@@ -104,6 +117,35 @@
     {:else}
       <EmptyState icon={HistoryIcon} title="No generations">
         No {profile === "home" ? "Home Manager" : "NixOS system"} profile was found on this computer.
+      </EmptyState>
+    {/if}
+  </section>
+
+  <section class="panel overflow-hidden">
+    <div class="border-b px-4 py-3">
+      <h2 class="heading">History</h2>
+      <p class="text-muted-foreground">What changed in the configuration, newest first.</p>
+    </div>
+    {#if history?.length}
+      <ul class="max-h-96 divide-y overflow-y-auto">
+        {#each history as entry (entry.revision)}
+          <li class="flex items-start gap-4 px-4 py-3">
+            <div class="min-w-0 flex-1">
+              <p class="font-medium">{entry.subject}</p>
+              {#if entry.applied && entry.body}
+                <p class="mt-0.5 text-xs whitespace-pre-line text-muted-foreground">{entry.body}</p>
+              {/if}
+            </div>
+            <div class="shrink-0 text-right text-xs text-muted-foreground">
+              <p title={dateTime(entry.date)}>{relative(entry.date, app.now)}</p>
+              <p>{entry.applied ? "Applied here" : entry.author}</p>
+            </div>
+          </li>
+        {/each}
+      </ul>
+    {:else if history}
+      <EmptyState icon={ScrollTextIcon} title="No history yet">
+        With “Keep a history of changes” on in Settings, every change you apply is listed here.
       </EmptyState>
     {/if}
   </section>

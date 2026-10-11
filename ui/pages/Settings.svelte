@@ -83,6 +83,41 @@
       />
     </label>
 
+    <label class="flex items-center justify-between gap-4 p-4">
+      <span>
+        <span class="block font-medium">Keep a history of changes</span>
+        <span class="block text-xs text-muted-foreground">
+          Every change you apply is saved with a short description, so the Generations page shows what changed and when.
+          It is kept with Git in the configuration folder.
+        </span>
+      </span>
+      <Switch
+        aria-label="Keep a history of changes"
+        checked={app.snapshot?.preferences.history ?? false}
+        disabled={!app.connected}
+        onCheckedChange={(history) => app.savePreferences({ history })}
+      />
+    </label>
+
+    <label class="flex items-center justify-between gap-4 p-4">
+      <span>
+        <span class="block font-medium">Back up after each change</span>
+        <span class="block text-xs text-muted-foreground">
+          {#if app.system?.repository.upstream}
+            The history is sent to {app.system.repository.upstream} after each change you apply.
+          {:else}
+            The configuration folder has no remote copy to back up to yet.
+          {/if}
+        </span>
+      </span>
+      <Switch
+        aria-label="Back up after each change"
+        checked={(app.snapshot?.preferences.backup ?? false) && !!app.system?.repository.upstream}
+        disabled={!app.connected || !app.system?.repository.upstream || !app.snapshot?.preferences.history}
+        onCheckedChange={(backup) => app.savePreferences({ backup })}
+      />
+    </label>
+
     <div class="space-y-3 p-4">
       <div class="flex items-center justify-between gap-4">
         <div>

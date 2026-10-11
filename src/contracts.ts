@@ -99,6 +99,8 @@ export interface Repository {
   revision?: string;
   subject?: string;
   committedAt?: string;
+  /** The remote branch the checkout's branch pushes to, such as origin/main. */
+  upstream?: string;
   /** flake.lock differs from the committed version. */
   lockModified: boolean;
   lockHash: string;

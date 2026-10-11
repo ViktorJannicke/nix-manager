@@ -55,6 +55,8 @@ import { describeChange, oneStepReviewProblem } from "./changes";
 import { readSources, remaining, restoreSources, stageSources, undoFiles, verifyEdits, writeSources, type Staged } from "./edits";
 import type { ReviewEdits } from "./contracts";
 import { stripAnsi } from "./nix";
+import { recordChange } from "./history";
+import { readPreferences } from "./preferences";
 export type { Operation } from "./contracts";
 
 const stepId = (index: number, label: string) =>
@@ -602,6 +604,14 @@ export class Manager {
       yield* r.action === "review-apply" && !r.dryRun ? steps.pipe(Effect.catchAll(goBack)) : steps;
       if (r.action === "review-apply" && !r.dryRun && (r.activation ?? "switch") === "switch")
         if (generations.home !== undefined || generations.system !== undefined) undoable = { generations, ...replaced };
+      const preferences = readPreferences(this.config);
+      if (r.action === "review-apply" && !r.dryRun && replaced.files.length && preferences.history) {
+        const paths = replaced.files.map((file) => file.path);
+        const kept = yield* recordChange(this.config, paths, describeReview(review!), preferences.backup ?? false).pipe(
+          Effect.provide(Layer.succeed(Runner, { run: quiet })),
+        );
+        if (kept) log(kept);
+      }
     }).pipe(Effect.provide(Layer.merge(runLayer, this.network)));
     // Set when prepared edits are applied right after, in one step.
     let follow: Request | undefined;

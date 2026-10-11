@@ -15,7 +15,7 @@ const safe = async <A>(f: () => Promise<A>): Promise<A | undefined> => {
 };
 const resolved = (path: string) => safe(() => realpath(path));
 
-async function git(flake: string, ...args: string[]) {
+export async function git(flake: string, ...args: string[]) {
   const child = Bun.spawn(["git", "-C", flake, ...args], {
     stdin: "ignore",
     stdout: "pipe",
@@ -36,7 +36,7 @@ export async function readLock(flake: string) {
 }
 
 export async function repositoryState(flake: string): Promise<Repository> {
-  const [status, branch, head, lockDiff, lock, diff] = await Promise.all([
+  const [status, branch, head, lockDiff, lock, diff, upstream] = await Promise.all([
     git(flake, "status", "--porcelain=v1", "--untracked-files=normal"),
     git(flake, "symbolic-ref", "--quiet", "--short", "HEAD"),
     git(flake, "log", "-1", "--format=%H%x00%s%x00%cI"),
@@ -44,6 +44,7 @@ export async function repositoryState(flake: string): Promise<Repository> {
     readLock(flake),
     // Status alone misses further edits to an already modified file.
     git(flake, "diff", "HEAD", "--binary"),
+    git(flake, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"),
   ]);
   const [revision, subject, committedAt] = head?.trim().split("\0") ?? [];
   const known = status ?? "unknown";
@@ -61,6 +62,7 @@ export async function repositoryState(flake: string): Promise<Repository> {
     revision: revision || undefined,
     subject: subject || undefined,
     committedAt: committedAt || undefined,
+    upstream: upstream?.trim() || undefined,
     lockModified: Boolean(lockDiff?.trim()),
     lockHash: hashText(lock),
   };

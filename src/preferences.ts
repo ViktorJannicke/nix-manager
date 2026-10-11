@@ -16,13 +16,20 @@ export const Preferences = Schema.Struct({
   prepareUpdates: Schema.optional(Schema.Boolean),
   /** Remove older restore points of the apps once a week while plugged in and not busy. */
   cleanUp: Schema.optional(Schema.Boolean),
+  /** Commit the files each applied change writes, with a message saying what it did. */
+  history: Schema.optional(Schema.Boolean),
+  /** Push those commits when the branch has an upstream. */
+  backup: Schema.optional(Schema.Boolean),
 });
 export type Preferences = typeof Preferences.Type;
 
 const decode = Schema.decodeUnknownSync(Preferences, { onExcessProperty: "error" });
 const path = (config: Config) => join(config.stateDir, "preferences.json");
 
-/** Someone who has run operations before keeps the detailed view they know; everyone else starts simple. */
+/**
+ * Someone who has run operations before keeps the detailed view and the Git
+ * workflow they know; everyone else starts simple, with a kept history.
+ */
 const usedBefore = (config: Config) => {
   const operations = join(config.stateDir, "operations");
   return existsSync(operations) && readdirSync(operations).some((name) => name.endsWith(".json"));
@@ -40,7 +47,8 @@ function stored(config: Config): Preferences {
 export function readPreferences(config: Config): Preferences {
   const current = stored(config);
   // The first choice is written, so it does not change once operations exist.
-  return current.detail ? current : writePreferences(config, { detail: usedBefore(config) ? "detailed" : "simple" });
+  if (current.detail) return current;
+  return writePreferences(config, usedBefore(config) ? { detail: "detailed" } : { detail: "simple", history: true });
 }
 
 /** Merges `patch`, which must only hold known preferences, into the stored ones. */

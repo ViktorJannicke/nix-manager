@@ -12,6 +12,7 @@ import type { SessionMessage, Snapshot } from "./contracts";
 import { Store } from "./store";
 import { detectHardware } from "./hardware";
 import { estimateCleanup, type CleanupEstimate } from "./space";
+import { readHistory } from "./history";
 
 export interface UiAsset {
   body: string;
@@ -226,6 +227,8 @@ export function startServer(
         try {
           if (req.method === "GET" && url.pathname === "/api/state")
             return json(await snapshot());
+          if (req.method === "GET" && url.pathname === "/api/history")
+            return json(await readHistory(manager.config.flake));
           if (req.method === "GET" && url.pathname.startsWith("/api/log/"))
             return json(manager.log(url.pathname.slice(9)));
           if (req.method === "POST") {
