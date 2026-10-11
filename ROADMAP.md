@@ -184,10 +184,16 @@ The tray already checks for updates read-only and sends notifications.
 
 ## 7. Getting started
 
-- [ ] **No host registry needed.** Today a checkout needs `data/hosts.nix` or
+- [x] **No host registry needed.** Today a checkout needs `data/hosts.nix` or
   `programs.nix-manager.hosts`. Detect `nixosConfigurations` and
   `homeConfigurations` (and NixOS-integrated Home Manager) directly and only ask
   when it is ambiguous.
+  Decided: without a registry, the names decide first as `nixos-rebuild` and
+  `home-manager` would, which costs only listing them; `networking.hostName`
+  and `home.username` are evaluated only when the names do not. An ambiguous
+  layout is an error that names the candidates. Follow-up: NixOS-integrated
+  Home Manager needs the home scope to build and activate through the system,
+  which changes generations, history and undo, so it is left for later.
 - [ ] **Setup assistant.** On a system without a flake: turn `/etc/nixos` into a
   flake in a user-owned checkout, start Git, check that flakes are enabled, and
   explain prepare and apply in three sentences.

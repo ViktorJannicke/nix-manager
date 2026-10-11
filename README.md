@@ -44,7 +44,13 @@ modules = [
 The module installs the application, its Polkit policy and optional tray service.
 It writes the host registry to `/etc/nix-manager/hosts.json` and sets
 `NIX_MANAGER_HOSTS` for login sessions and the tray. An empty `hosts` option uses
-`data/hosts.nix` from the selected configuration checkout. An explicit
+`data/hosts.nix` from the selected configuration checkout when it exists, and
+otherwise reads the host from the flake itself: the NixOS configuration named
+like the computer (as `nixos-rebuild` picks it) or setting it as
+`networking.hostName`, and the Home Manager configuration named `user@host` or
+`user` (as `home-manager` picks it), or the user's one whose name shares a word
+with the host. When that is still ambiguous, `--host` chooses the NixOS
+configuration, and a registry settles the rest. An explicit
 `NIX_MANAGER_HOSTS` environment variable can point to another JSON registry.
 New login sessions pick up changed system environment variables.
 
@@ -55,8 +61,10 @@ dependency updates to leave the application build unchanged. Consume
 its recipe with the consumer's package set. Host metadata is runtime
 configuration, so changing it leaves the application store path unchanged.
 
-The manager still expects the selected configuration's `data/hosts.nix` layout
-when discovering a checkout automatically. The optional T3 Code, OpenCode and
+Home Manager has to be a standalone `homeConfigurations` entry; Home Manager
+imported as a NixOS module is not supported yet. Without `--flake`, the manager
+uses the Git checkout it runs in when that is a system configuration, and
+otherwise `~/my-flakes`. The optional T3 Code, OpenCode and
 PINCE package updaters expect the corresponding `pkgs/` recipes and source pins
 used by `my-flakes`; extraction does not make those commands generic.
 

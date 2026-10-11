@@ -48,7 +48,8 @@ in
       description = ''
         Runtime host registry. Each host needs system, nixosConfiguration,
         nixosHostName and homeConfiguration strings; userName is optional.
-        An empty registry uses data/hosts.nix from the selected checkout.
+        An empty registry uses data/hosts.nix from the selected checkout, or
+        detects the host from its nixosConfigurations and homeConfigurations.
         Changing this setting does not rebuild the application.
       '';
     };
