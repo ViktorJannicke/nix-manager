@@ -16,6 +16,8 @@
   import PackageDialog from "$lib/components/app/PackageDialog.svelte";
   import ExperienceDialog from "$lib/components/app/ExperienceDialog.svelte";
   import ExperienceIcon from "$lib/components/app/ExperienceIcon.svelte";
+  import BundleDialog from "$lib/components/app/BundleDialog.svelte";
+  import { bundles, type Bundle } from "../../src/bundles";
   import AppIcon from "$lib/components/app/AppIcon.svelte";
   import { arrows, typing } from "$lib/keyboard";
   import { appCategories, featuredApps, type AppCategory, type AppEntry } from "../../src/apps";
@@ -28,6 +30,7 @@
   let changingOnly = $state(false);
   let entry = $state<CatalogEntry>();
   let experience = $state<Experience>();
+  let bundle = $state<Bundle>();
   let start = $state(false);
   let searchInput = $state<HTMLInputElement>();
   let filterInput = $state<HTMLInputElement>();
@@ -35,7 +38,7 @@
 
   // "/" finds: the search on Discover, the filter on Installed.
   function shortcut(event: KeyboardEvent) {
-    if (event.key !== "/" || typing(event) || entry || experience) return;
+    if (event.key !== "/" || typing(event) || entry || experience || bundle) return;
     event.preventDefault();
     (view === "discover" ? searchInput : filterInput)?.focus();
   }
@@ -262,6 +265,24 @@
       </section>
     {:else}
       <div class="space-y-6" use:arrows={{ before: () => searchInput }}>
+      <section class="space-y-3" aria-labelledby="bundles-heading">
+        <h2 id="bundles-heading" class="heading">Starting points</h2>
+        <ul class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {#each bundles as item (item.id)}
+            <li>
+              <button
+                data-nav
+                class="focus-ring flex h-full w-full flex-col gap-2 rounded-xl border bg-card p-3 text-left transition-colors hover:border-primary/40"
+                onclick={() => (bundle = item)}
+              >
+                <span class="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary"><ExperienceIcon name={item.icon} class="size-4.5" /></span>
+                <span class="font-semibold">{item.title}</span>
+                <span class="text-muted-foreground">{item.summary}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      </section>
       {#if appsOn}
         <section class="space-y-3" aria-labelledby="apps-heading">
           <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -445,3 +466,4 @@
 
 <PackageDialog bind:entry />
 <ExperienceDialog bind:experience {start} />
+<BundleDialog bind:bundle />

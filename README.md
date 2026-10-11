@@ -113,7 +113,9 @@ checkout's Nix files, through the same flow. Discover searches an index of every
 package in the locked nixpkgs (with overlays), built on first search and kept per
 lock file, and offers about fifty curated features such as Steam, Docker, Flatpak,
 an SSH server, Tailscale or fzf, each a small set of options with typed settings.
-Discover opens with apps: popular ones first, then by category, with their
+Discover opens with starting points, Gaming, Office and school, Photo and video
+and Programming, each a set of features and apps added as one pending edit with
+anything unwanted unticked. Below them are apps: popular ones first, then by category, with their
 names, summaries and icons. Those details come from Flathub's public AppStream
 catalogue, downloaded when Discover opens and again after a week, and matched to
 nixpkgs packages by homepage and name; the apps are still installed from the

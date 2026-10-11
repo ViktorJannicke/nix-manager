@@ -176,6 +176,64 @@ class SoftwareState {
     ];
   }
 
+  /**
+   * Edits that turn on `features` and install `entries` for the current user,
+   * each where it would go on its own. What is on or installed already is
+   * left alone; what would need a new file with nothing to import it is
+   * named in `skipped` instead.
+   */
+  bundleChanges(features: readonly Experience[], entries: readonly CatalogEntry[]) {
+    const changes: Change[] = [];
+    const skipped: string[] = [];
+    const allowed = new Map<Target, boolean>();
+    // Non-free software is allowed once per scope, like adding one non-free app.
+    const allow = (scope: Target) => {
+      if (!allowed.has(scope)) {
+        const edits = this.allowUnfree(scope);
+        allowed.set(scope, Boolean(edits));
+        changes.push(...(edits ?? []));
+      }
+      return allowed.get(scope)!;
+    };
+    for (const experience of features) {
+      if (this.enabled(experience) || !this.available(experience)) continue;
+      const { scope, id, title: label } = experience;
+      const first = Object.keys(experience.enable)[0];
+      let file = this.editableIn(scope, first) ?? this.featureFile(scope, first, id);
+      const creating = file === NEW_FILE;
+      const edits: Change[] = [];
+      if (creating) {
+        file = this.suggestFile(scope, id, this.moduleFiles(scope, first).find((module) => module.active !== false)?.file);
+        const importer = this.importers(scope, file)[0];
+        if (!importer) {
+          skipped.push(label);
+          continue;
+        }
+        edits.push({ kind: "create-module", scope, file, importer, label });
+      }
+      if (experience.unfree?.some((name) => this.refusesUnfreeName(scope, name)) && !allow(scope)) {
+        skipped.push(label);
+        continue;
+      }
+      for (const [option, value] of Object.entries({ ...experience.enable, ...experience.alsoSet }))
+        edits.push({ kind: "set-option", scope, file: this.editableIn(scope, option) ?? file, option, value: value as never, label });
+      const packages = creating ? file : this.packageFiles(scope)[0]?.file;
+      for (const attr of experience.packages ?? [])
+        if (packages) edits.push({ kind: "add-package", scope, file: packages, attr: `pkgs.${attr}`, label });
+      changes.push(...edits);
+    }
+    const list = this.packageFiles("home")[0]?.file;
+    for (const entry of entries) {
+      if (this.installed(entry) || this.pendingPackage(`pkgs.${entry.a}`)) continue;
+      if (!list || (this.refusesUnfree("home", entry) && !allow("home"))) {
+        skipped.push(entry.n ?? entry.a);
+        continue;
+      }
+      changes.push({ kind: "add-package", scope: "home", file: list, attr: `pkgs.${entry.a}` });
+    }
+    return { changes, skipped };
+  }
+
   pendingPackage(attr: string) {
     return this.changes.find((change) => "attr" in change && change.attr === attr);
   }

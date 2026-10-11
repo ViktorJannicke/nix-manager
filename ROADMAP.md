@@ -174,8 +174,13 @@ The tray already checks for updates read-only and sends notifications.
 - [x] **Categories and real icons** from that metadata. Discover shows popular
   apps and the freedesktop main categories; icons are proxied and cached by the
   server. Follow-up: screenshots and longer descriptions in the app dialog.
-- [ ] **Bundles.** Starting points such as Gaming, Office and school, Photo and
+- [x] **Bundles.** Starting points such as Gaming, Office and school, Photo and
   video, Programming: sets of curated features and apps staged together.
+  Decided: a starting point lists every feature and app with a checkbox, marks
+  what is already on or installed, and stages the rest as one pending edit,
+  allowing non-free software where needed. Apps go to the user's first package
+  list; features that would need a new file without an obvious place are left
+  for Discover.
 
 ## 7. Getting started
 
