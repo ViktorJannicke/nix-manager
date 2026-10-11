@@ -9,6 +9,7 @@
   import { actionLabels, type Action, type Scope } from "../../src/domain";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
   import Segmented from "$lib/components/app/Segmented.svelte";
+  import TechName from "$lib/components/app/TechName.svelte";
 
   let selected = $state<string[]>([]);
   let scope = $state<Scope>("all");
@@ -32,12 +33,12 @@
   function updatePin(name: string, latest: string) {
     app.confirm({
       title: `Update ${pinName(name)} to ${latest}?`,
-      description: "Downloads the release, then rewrites the version and hashes pinned in your flake checkout.",
+      description: "Downloads the release, then writes its version into your configuration.",
       request: app.request(pinAction(name), { scope: "home" }),
       confirmLabel: "Update pin",
       points: [
-        "Your checkout gets modified; review the diff with git afterwards.",
-        "Nothing is activated. Prepare home changes to build and apply the new version.",
+        "Your configuration is changed; Git shows exactly what changed.",
+        "Nothing changes on the computer yet. Prepare your user's changes to build and apply the new version.",
       ],
     });
   }
@@ -67,7 +68,7 @@
   {#if !app.updates}
     <section class="panel">
       <EmptyState icon={RefreshCwIcon} title="No update check yet">
-        Checks flake inputs and pinned packages for newer versions without changing anything.
+        Looks for newer versions of your software sources and pinned apps without changing anything.
         {#snippet actions()}<Button disabled={app.busy} onclick={check}>Check for updates</Button>{/snippet}
       </EmptyState>
     </section>
@@ -79,7 +80,7 @@
         </EmptyState>
       {:else}
         <EmptyState icon={CircleCheckIcon} title="Everything is up to date">
-          All flake inputs and pinned packages match their latest versions.
+          All software sources and pinned apps are at their latest versions.
         </EmptyState>
       {/if}
     </section>
@@ -89,13 +90,13 @@
     <section class="panel overflow-hidden">
       <div class="flex flex-wrap items-center gap-3 border-b px-4 py-3">
         <div class="flex-1">
-          <h2 class="heading">Flake inputs</h2>
-          <p class="text-xs text-muted-foreground">Updates are built and shown for review before your flake.lock changes.</p>
+          <h2 class="heading">Software sources<TechName name="flake inputs" /></h2>
+          <p class="text-xs text-muted-foreground">Where your software comes from. Updates are built and shown for review before anything changes.</p>
         </div>
         <Segmented
           label="What to prepare"
           bind:value={scope}
-          options={[{ value: "home", label: "Home" }, { value: "system", label: "System" }, { value: "all", label: "Both" }]}
+          options={[{ value: "home", label: "Your user" }, { value: "system", label: "System" }, { value: "all", label: "Both" }]}
         />
         <Button disabled={!selected.length || app.busy || !app.connected} onclick={prepare}>
           Prepare {selected.length ? plural(selected.length, "update") : "updates"}
@@ -107,14 +108,14 @@
             <th class="w-10 py-2 pl-4">
               <input
                 type="checkbox"
-                aria-label="Select all inputs"
+                aria-label="Select all sources"
                 class="accent-primary"
                 checked={all}
                 indeterminate={selected.length > 0 && !all}
                 onchange={() => (selected = all ? [] : [...names])}
               />
             </th>
-            <th class="py-2 font-medium">Input</th>
+            <th class="py-2 font-medium">Source</th>
             <th class="py-2 font-medium">Current</th>
             <th class="py-2 font-medium">Latest</th>
             <th class="py-2 pr-4 text-right font-medium">Behind</th>

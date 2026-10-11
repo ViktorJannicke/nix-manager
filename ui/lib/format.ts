@@ -62,7 +62,7 @@ export function formatSeconds(seconds: number) {
 }
 
 export const scopeLabel = (scope: Scope) =>
-  scope === "all" ? "Home & system" : scope === "home" ? "Home" : "System";
+  scope === "all" ? "Your user and system" : scope === "home" ? "Your user" : "System";
 
 export const shortRev = (rev?: string) => (rev ? rev.slice(0, 7) : "—");
 

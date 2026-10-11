@@ -9,14 +9,14 @@
 {#if review.undo}
   Undo the change from {dateTime(review.undo.appliedAt)} <span class="font-normal text-muted-foreground">({what})</span>
 {:else if review.source === "generation"}
-  Return {review.scope} to generation {review.generation}
+  Go back to restore point {review.generation} <span class="font-normal text-muted-foreground">({what})</span>
 {:else if review.source === "inputs"}
   {#if review.inputs?.names.length}
-    Update {review.inputs.names.length > 3 ? `${review.inputs.names.length} inputs` : review.inputs.names.join(", ")}
+    Update {review.inputs.names.length > 3 ? `${review.inputs.names.length} software sources` : review.inputs.names.join(", ")}
   {:else}
-    Update all flake inputs
+    Update all software sources
   {/if}
   <span class="font-normal text-muted-foreground">({what})</span>
 {:else}
-  Apply your checkout <span class="font-normal text-muted-foreground">({what})</span>
+  Apply your configuration <span class="font-normal text-muted-foreground">({what})</span>
 {/if}

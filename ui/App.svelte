@@ -36,7 +36,7 @@
     { id: "computer", label: "Computer", icon: MonitorIcon },
     { id: "changes", label: "Changes", icon: GitCompareIcon, count: app.reviews.length || undefined },
     { id: "updates", label: "Updates", icon: CloudDownloadIcon, count: app.inputUpdates.length + app.packageUpdates.length || undefined },
-    { id: "generations", label: "Generations", icon: HistoryIcon },
+    { id: "generations", label: "Restore points", icon: HistoryIcon },
     { id: "activity", label: "Activity", icon: ListIcon },
     { id: "settings", label: "Settings", icon: SettingsIcon },
   ]);

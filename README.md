@@ -174,7 +174,7 @@ its folder's imported module unless `--import-from` names another.
 
 The other pages are Overview (active generations, the prepared next generation,
 reboot notices and recent activity), Updates (flake inputs and package pins, each
-selectable before preparing), Generations (rollback and cleanup), Activity (step
+selectable before preparing), Restore points (generations, rollback, cleanup and history), Activity (step
 outcomes and a filterable live log with copy and download) and Settings. The
 Svelte 5 interface supports light, dark and system themes.
 
@@ -193,7 +193,7 @@ The detected host is used by default. Settings can override it to build another
 configuration from the same checkout on this machine; the dashboard then shows a
 warning. It does not connect to another computer.
 
-The Generations page observes the actual Home Manager and system profile links,
+The Restore points page observes the actual Home Manager and system profile links,
 marks their active store paths, and shows which entries the selected retention
 count would remove. A rollback first prepares a review for the selected exact
 generation, then uses the same reviewed-output activation path as a fresh build.
@@ -219,10 +219,10 @@ opens the dashboard. Checks never activate a configuration automatically.
 
 With "Keep a history of changes" switched on (the default for new users), every
 applied change commits exactly the files it wrote, with a message saying what it
-did; the Generations page lists the checkout's history. "Back up after each
+did; the Restore points page lists the checkout's history. "Back up after each
 change" also pushes when the branch has an upstream. Neither ever fails an apply.
 
-The Generations page measures how much a cleanup frees before it runs. With
+The Restore points page measures how much a cleanup frees before it runs. With
 "Clean up automatically" switched on, the tray removes all but the newest five
 home generations and unused store paths at most once a week, on mains power
 and when the computer is not busy. System generations are only removed on

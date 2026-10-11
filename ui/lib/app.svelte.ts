@@ -457,7 +457,7 @@ class AppState {
       this.selectedReview = r.reviewId;
       if (shown) return;
       this.navigate("changes");
-      this.toast({ tone: "success", title: "Changes are ready to review", body: "Nothing has been activated yet." });
+      this.toast({ tone: "success", title: "Changes are ready to review", body: "Nothing on the computer has changed yet." });
     } else if (r.action === "review-apply") {
       if (shown) return;
       this.toast({
@@ -477,7 +477,7 @@ class AppState {
       this.toast({
         tone: "success",
         title: `${label}: pin saved`,
-        body: "Prepare home changes to build and apply the new version.",
+        body: "Prepare your user's changes to build and apply the new version.",
         action: { label: "Prepare", run: () => void this.prepare("home") },
       });
     } else this.toast({ tone: "success", title: `${label} finished` });

@@ -17,16 +17,16 @@
   );
   const changes = $derived(review?.[profile] ? summarize(review[profile].changes) : undefined);
   const describe = (generation: Generation) =>
-    generation.current ? `Active since ${relative(generation.createdAt, app.now)}` : day(generation.createdAt);
+    generation.current ? `In use since ${relative(generation.createdAt, app.now)}` : day(generation.createdAt);
 </script>
 
-<div class="grid grid-cols-[5.5rem_1fr] items-center gap-4">
+<div class="grid grid-cols-[7.5rem_1fr] items-center gap-4">
   <div>
     <p class="font-semibold">{title}</p>
-    <p class="label">{plural(app.system?.generations[profile].length ?? 0, "generation")}</p>
+    <p class="label">{plural(app.system?.generations[profile].length ?? 0, "restore point")}</p>
   </div>
-  <ol class="relative flex min-w-0 items-stretch gap-2" aria-label="{title} generations">
-    <!-- The line the generations sit on. -->
+  <ol class="relative flex min-w-0 items-stretch gap-2" aria-label="{title} restore points">
+    <!-- The line the restore points sit on. -->
     <span class="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-border" aria-hidden="true"></span>
     {#each generations as generation (generation.number)}
       <li class="relative">
@@ -40,7 +40,7 @@
         >
           <span class="numeric text-[1.35rem] leading-none font-bold tracking-tight">{generation.number}</span>
           <span class="mt-1 text-[0.72rem] whitespace-nowrap {generation.current ? 'opacity-85' : ''}">
-            {generation.current ? "Active" : day(generation.createdAt).replace(/,? \d{4}$/, "")}
+            {generation.current ? "In use" : day(generation.createdAt).replace(/,? \d{4}$/, "")}
           </span>
         </button>
         {#if generation.booted && !generation.current}
@@ -48,7 +48,7 @@
         {/if}
       </li>
     {:else}
-      <li class="relative rounded-lg bg-background px-3 py-2 text-muted-foreground">No generations yet</li>
+      <li class="relative rounded-lg bg-background px-3 py-2 text-muted-foreground">No restore points yet</li>
     {/each}
     <li class="relative min-w-0 flex-1">
       {#if building}
@@ -80,7 +80,7 @@
           onclick={() => app.prepare(profile)}
         >
           <PlusIcon class="size-4 shrink-0" />
-          <span class="truncate">Prepare the next {profile} generation</span>
+          <span class="truncate">Prepare the next {profile === "home" ? "version of your user" : "system version"}</span>
         </button>
       {/if}
     </li>

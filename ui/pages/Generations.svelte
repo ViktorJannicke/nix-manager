@@ -10,6 +10,7 @@
   import { bytes, dateTime, plural, relative, removedGenerations } from "$lib/format";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
   import Segmented from "$lib/components/app/Segmented.svelte";
+  import TechName from "$lib/components/app/TechName.svelte";
 
   let profile = $state<"system" | "home">("home");
   let retention = $state(3);
@@ -52,14 +53,14 @@
   });
 
   function cleanup() {
-    const points = [`Keeps the newest ${plural(retention, "generation")} of each selected profile and the active one.`];
-    if (removeHome) points.push(`Removes ${plural(removeHome, "home generation")}.`);
-    if (cleanupScope === "all") points.push(`Removes ${plural(removeSystem, "system generation")} and their boot entries; you'll be asked for your password.`);
+    const points = [`Keeps the newest ${plural(retention, "restore point")} of ${cleanupScope === "all" ? "your user and the system" : "your user"}, and the one in use.`];
+    if (removeHome) points.push(`Removes ${plural(removeHome, "restore point")} of your user.`);
+    if (cleanupScope === "all") points.push(`Removes ${plural(removeSystem, "system restore point")} and their boot menu entries; you'll be asked for your password.`);
     if (freed) points.push(`Frees about ${bytes(freed)}, and more if other unused files are found.`);
-    points.push("Deletes unreferenced store paths. Removed generations can't be restored.");
+    points.push("Deletes files nothing uses any more. You can't go back to removed restore points.");
     app.confirm({
-      title: "Clean up old generations?",
-      description: "Frees disk space by deleting old configurations you can no longer roll back to.",
+      title: "Remove old restore points?",
+      description: "Frees disk space by deleting older versions you then can't go back to.",
       request: app.request("gc", { scope: cleanupScope, retention }),
       confirmLabel: "Clean up",
       destructive: true,
@@ -71,14 +72,14 @@
 <div class="space-y-6">
   <header class="flex flex-wrap items-end justify-between gap-4">
     <div>
-      <h1 class="title">Generations</h1>
-      <p class="mt-1 text-muted-foreground">Every activation creates a generation you can return to.</p>
+      <h1 class="title">Restore points<TechName name="generations" /></h1>
+      <p class="mt-1 text-muted-foreground">Every change you apply keeps the version before it, so you can go back.</p>
     </div>
     <Segmented
       label="Profile"
       bind:value={profile}
       options={[
-        { value: "home", label: "Home", count: app.system?.generations.home.length },
+        { value: "home", label: "Your user", count: app.system?.generations.home.length },
         { value: "system", label: "System", count: app.system?.generations.system.length },
       ]}
     />
@@ -101,22 +102,22 @@
                 </p>
               {/if}
             </div>
-            {#if generation.current}<span class="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">Active</span>{/if}
-            {#if generation.booted && !generation.current}<span class="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">Running kernel</span>{/if}
+            {#if generation.current}<span class="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">In use</span>{/if}
+            {#if generation.booted && !generation.current}<span class="rounded-full bg-muted px-2 py-0.5 text-xs font-medium" title="The computer started with this version; it changes at the next restart.">Running until restart</span>{/if}
             {#if !generation.current}
               <Button
                 variant="outline"
                 size="sm"
                 disabled={app.busy || !app.connected}
                 onclick={() => app.prepare(profile, { generation: generation.number })}
-              >Review rollback</Button>
+              >Go back to this…</Button>
             {/if}
           </li>
         {/each}
       </ul>
     {:else}
-      <EmptyState icon={HistoryIcon} title="No generations">
-        No {profile === "home" ? "Home Manager" : "NixOS system"} profile was found on this computer.
+      <EmptyState icon={HistoryIcon} title="No restore points">
+        {profile === "home" ? "Your user has no restore points yet. They appear after the first change you apply." : "No system restore points were found on this computer."}
       </EmptyState>
     {/if}
   </section>
@@ -154,7 +155,7 @@
     <div class="flex flex-wrap items-center gap-6">
       <div class="min-w-60 flex-1">
         <h2 class="heading">Clean up</h2>
-        <p class="text-muted-foreground">Delete old generations and unused store paths to free disk space.</p>
+        <p class="text-muted-foreground">Remove old restore points and files nothing uses to free disk space.</p>
       </div>
       <div class="flex items-center gap-2">
         <span class="text-xs text-muted-foreground">Keep</span>
@@ -165,18 +166,18 @@
         </div>
         <span class="text-xs text-muted-foreground">newest</span>
       </div>
-      <Segmented label="Profiles to clean" bind:value={cleanupScope} options={[{ value: "home", label: "Home" }, { value: "all", label: "Home & system" }]} />
+      <Segmented label="What to clean up" bind:value={cleanupScope} options={[{ value: "home", label: "Your user" }, { value: "all", label: "Your user and system" }]} />
       <Button variant="outline" disabled={app.busy || !app.connected} onclick={cleanup}>Clean up…</Button>
     </div>
     <p class="mt-3 text-xs text-muted-foreground">
       {#if !(removeHome + removeSystem)}
-        No generations will be removed; unused store paths are still collected.
+        No restore points will be removed; files nothing uses are still deleted.
       {:else if freed === undefined}
-        {plural(removeHome + removeSystem, "generation")} will be removed. Measuring the space this frees…
+        {plural(removeHome + removeSystem, "restore point")} will be removed. Measuring the space this frees…
       {:else}
-        {plural(removeHome + removeSystem, "generation")} will be removed, freeing about <span class="font-medium text-foreground">{bytes(freed)}</span>{freed ? "" : " (other generations still use their files)"}.
+        {plural(removeHome + removeSystem, "restore point")} will be removed, freeing about <span class="font-medium text-foreground">{bytes(freed)}</span>{freed ? "" : " (other restore points still use their files)"}.
       {/if}
-      Settings can clean up home generations automatically.
+      Settings can remove your user's old restore points automatically.
     </p>
   </section>
 </div>

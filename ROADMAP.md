@@ -117,8 +117,7 @@ The tray already checks for updates read-only and sends notifications.
   was freed.
   Decided: automatic cleanup never touches system generations, because that
   needs the password and boot entries.
-  Follow-ups: the number of kept generations for automatic cleanup is fixed;
-  the Generations page still says "generation" (Phase 5).
+  Follow-up: the number of kept generations for automatic cleanup is fixed.
 - [x] **History without Git.** Commit after each apply with a readable message
   ("Added Steam, turned on Bluetooth") and show that history; optional backup
   of the configuration to a Git remote.
@@ -136,9 +135,17 @@ The tray already checks for updates read-only and sends notifications.
 
 ## 5. Words people already know
 
-- [ ] **Plain vocabulary.** "Generation" becomes restore point or system
+- [x] **Plain vocabulary.** "Generation" becomes restore point or system
   version, flake inputs become software sources, closure size becomes download
   and disk size. Technical names stay visible in detailed mode and tooltips.
+  Decided: one vocabulary in both modes. Home is "your user" (as the Software
+  page already said), the checkout is "your configuration", store paths are
+  "files nothing uses", "activate" becomes apply or switch. In detailed mode a
+  muted technical name follows the main headings (generations, flake inputs,
+  closure). The Generations page is now Restore points.
+  Follow-ups: step labels in progress lists and logs, and the CLI, keep their
+  technical names; package names and input names (nixpkgs) are shown as they
+  are.
 - [ ] **Review summary line.** Every review starts with one sentence: what is
   added, updated and removed, download size, whether a restart is needed.
   Started with simple mode (`reviewSummary`): it names installed and removed

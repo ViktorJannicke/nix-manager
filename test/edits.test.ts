@@ -250,7 +250,7 @@ test("going back that fails too is reported", async () => {
   const failed = await manager.wait();
   expect(failed?.rollback).toEqual({ done: false, error: "Activate the earlier home generation failed (exit 1)." });
   expect(failed?.explanation?.body).toBe(
-    "Activate Home Manager failed (exit 1). Going back did not work either: Activate the earlier home generation failed (exit 1). The Generations page can take you back.",
+    "Activate Home Manager failed (exit 1). Going back did not work either: Activate the earlier home generation failed (exit 1). The Restore points page can take you back.",
   );
   // The files go back anyway, so they match the pending edits that are kept.
   expect(failed?.steps?.map((step) => [step.label, step.status]).slice(-3)).toEqual([
@@ -272,7 +272,7 @@ test("without an earlier home generation only the files go back", async () => {
   const failed = await manager.wait();
   expect(failed?.rollback).toEqual({ done: false });
   expect(failed?.explanation?.body).toBe(
-    "Activate Home Manager failed (exit 1). The files were put back, but there was no earlier home generation to go back to, so the new one stays selected.",
+    "Activate Home Manager failed (exit 1). The files were put back, but there was no earlier restore point of your user to go back to, so the new version stays in use.",
   );
   expect(readFileSync(join(config.flake, "modules/apps.nix"), "utf8")).not.toContain("btop");
 });

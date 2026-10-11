@@ -69,7 +69,7 @@ const describeReview = (review: BuildReview): string[] => {
     ...(review.inputs ? [review.inputs.names.length ? `Update ${review.inputs.names.join(", ")}` : "Update all inputs"] : []),
     ...(review.undo ? [`Undo: ${review.undo.point.changes.join("; ")}`] : []),
     ...(review.source === "generation" && review.generation !== undefined && !review.undo
-      ? [`Go back to ${review.scope} generation ${review.generation}`]
+      ? [`Go back to restore point ${review.generation} of ${review.scope === "home" ? "your user" : "the system"}`]
       : []),
   ];
   return changes.length ? changes : ["Apply the configuration"];
@@ -535,9 +535,9 @@ export class Manager {
                 title: error.explanation?.title ?? `${failed?.label ?? "Applying"} failed`,
                 body: Either.isRight(outcome)
                   ? first
-                    ? `${what} ${files ? "The files were put back, but there" : "There"} was no earlier home generation to go back to, so the new one stays selected.`
+                    ? `${what} ${files ? "The files were put back, but there" : "There"} was no earlier restore point of your user to go back to, so the new version stays in use.`
                     : `${what} Everything went back to how it was before${files ? ", files included" : ""}.`
-                  : `${what} Going back did not work either: ${outcome.left.message} The Generations page can take you back.`,
+                  : `${what} Going back did not work either: ${outcome.left.message} The Restore points page can take you back.`,
               },
             }),
           );

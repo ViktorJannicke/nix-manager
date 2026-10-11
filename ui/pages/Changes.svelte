@@ -10,6 +10,7 @@
   import { bytes, dateTime, day, editedPackages, plural, relative, reviewSummary, shortRev, summarize } from "$lib/format";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
   import Segmented from "$lib/components/app/Segmented.svelte";
+  import TechName from "$lib/components/app/TechName.svelte";
   import PackageChanges from "$lib/components/app/PackageChanges.svelte";
   import ReviewTitle from "$lib/components/app/ReviewTitle.svelte";
   import DiffView from "$lib/components/app/DiffView.svelte";
@@ -42,28 +43,28 @@
     const points: string[] = [];
     if (review.edits)
       points.push(
-        `Writes your edits to ${review.edits.files.length === 1 ? review.edits.files[0].path : `${review.edits.files.length} files`} in your checkout.`,
+        `Writes your edits to ${review.edits.files.length === 1 ? review.edits.files[0].path : `${review.edits.files.length} files`} in your configuration.`,
       );
     const created = review.edits?.files.filter((file) => file.created) ?? [];
     if (created.length)
-      points.push(`Creates ${created.map((file) => file.path).join(", ")} and adds ${created.length === 1 ? "it" : "them"} to Git, so the flake can read ${created.length === 1 ? "it" : "them"}.`);
-    if (review.inputs) points.push("Writes the reviewed flake.lock into your checkout.");
+      points.push(`Creates ${created.map((file) => file.path).join(", ")} and adds ${created.length === 1 ? "it" : "them"} to Git, so Nix can read ${created.length === 1 ? "it" : "them"}.`);
+    if (review.inputs) points.push("Saves the reviewed source versions (flake.lock) in your configuration.");
     const restored = review.undo?.point.files ?? [];
     const deleted = restored.filter((file) => file.created).map((file) => file.path);
     const put = restored.filter((file) => !file.created).map((file) => file.path);
     if (put.length) points.push(`Puts back ${put.join(", ")} as ${put.length === 1 ? "it was" : "they were"} before that change.`);
     if (deleted.length) points.push(`Deletes ${deleted.join(", ")}, which that change created.`);
-    if (review.home && activation === "switch") points.push("Activates the reviewed Home Manager generation.");
+    if (review.home && activation === "switch") points.push("Switches your user's apps and settings to the reviewed version.");
     if (review.home && review.system && review.scope !== "system" && activation === "boot")
       points.push("Your apps are updated after the restart, once the computer runs the new system.");
     if (review.system)
       points.push(
         activation === "boot"
           ? "Makes the reviewed system the default boot entry. The running system is unchanged until you restart."
-          : "Switches the running system to the reviewed build. You'll be asked for your password.",
+          : "Switches the running system to the reviewed version. You'll be asked for your password.",
       );
     if (kernelChange && activation === "switch") points.push("The kernel changes; restart afterwards to use it.");
-    points.push("The previous generation stays available for rollback.");
+    points.push("The current version stays as a restore point you can go back to.");
     app.confirm({
       title: activation === "boot" ? "Apply on next boot?" : "Apply these changes now?",
       description: `Prepared ${relative(review.createdAt, app.now)} for ${review.host}.`,
@@ -116,8 +117,8 @@
           {#if preparing}
             <Button variant="outline" onclick={() => app.navigate("activity")}>Show progress</Button>
           {:else}
-            <Button disabled={app.busy || !app.connected} onclick={() => app.prepare("home")}>Prepare home</Button>
-            <Button variant="outline" disabled={app.busy || !app.connected} onclick={() => app.prepare("all")}>Prepare home & system</Button>
+            <Button disabled={app.busy || !app.connected} onclick={() => app.prepare("home")}>Prepare your user</Button>
+            <Button variant="outline" disabled={app.busy || !app.connected} onclick={() => app.prepare("all")}>Prepare your user and system</Button>
           {/if}
         {/snippet}
       </EmptyState>
@@ -144,12 +145,12 @@
           {#if lockChanged}
             <p class="flex gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-destructive">
               <TriangleAlertIcon class="mt-0.5 size-4 shrink-0" />
-              flake.lock changed since these updates were prepared. Discard and prepare them again.
+              The source versions changed since these updates were prepared. Discard and prepare them again.
             </p>
           {:else if checkoutChanged}
             <p class="flex gap-2 rounded-lg bg-warning/10 px-3 py-2">
               <TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-warning" />
-              Your checkout changed since this was prepared. Applying activates exactly what was built here; prepare again to include newer edits.
+              Your configuration changed since this was prepared. Applying uses exactly what was built here; prepare again to include newer edits.
             </p>
           {/if}
           {#if draftMoved}
@@ -201,14 +202,14 @@
             {@const counts = summarize(item.changes)}
             {@const delta = sizeChange(item)}
             <div class="rounded-lg bg-card p-3">
-              <dt class="label">{key === "home" ? "Home packages" : "System packages"}</dt>
+              <dt class="label">{key === "home" ? "Your user's apps" : "System apps"}</dt>
               <dd class="mt-1 text-lg font-semibold">{item.compared ? plural(counts.changed + counts.added + counts.removed, "change") : "New"}</dd>
               <dd class="text-xs text-muted-foreground">
                 {#if item.compared}{counts.changed} updated, {counts.added} new, {counts.removed} removed{:else}Nothing active to compare with{/if}
               </dd>
             </div>
             <div class="rounded-lg bg-card p-3">
-              <dt class="label">{key === "home" ? "Home size" : "System size"}</dt>
+              <dt class="label">{key === "home" ? "Your user's disk use" : "System disk use"}<TechName name="closure" /></dt>
               <dd class="mt-1 text-lg font-semibold">{bytes(item.closureSize)}</dd>
               <dd class="text-xs {delta && delta > 0 ? 'text-warning' : 'text-muted-foreground'}">
                 {delta === undefined ? "—" : `${bytes(delta, true)} compared to now`}
@@ -230,7 +231,7 @@
       <section class="panel overflow-hidden" aria-labelledby="edits-title">
         <div class="border-b px-4 py-3">
           <h2 id="edits-title" class="font-semibold">Your edits</h2>
-          <p class="text-xs text-muted-foreground">Checked by evaluating {review.host}'s configuration with and without them. They are written to your checkout when you apply.</p>
+          <p class="text-xs text-muted-foreground">Checked by evaluating {review.host}'s configuration with and without them. They are written to your configuration when you apply.</p>
         </div>
         <div class="grid gap-4 p-4 {detailed ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]' : ''}">
           <div class="space-y-3">
@@ -281,7 +282,7 @@
 
     {#if detailed && review.inputs?.changes.length}
       <section class="panel overflow-hidden">
-        <h2 class="border-b px-4 py-3 font-semibold">Flake inputs</h2>
+        <h2 class="border-b px-4 py-3 font-semibold">Software sources<TechName name="flake inputs" /></h2>
         <ul class="divide-y">
           {#each review.inputs.changes as change (change.name)}
             <li class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5">
@@ -311,7 +312,7 @@
               label="Configuration"
               bind:value={tab}
               options={[
-                { value: "home", label: "Home", count: review.home.changes.length },
+                { value: "home", label: "Your user", count: review.home.changes.length },
                 { value: "system", label: "System", count: review.system.changes.length },
               ]}
             />

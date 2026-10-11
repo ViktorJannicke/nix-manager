@@ -266,7 +266,7 @@
             class="focus-ring rounded-md px-2 py-1 text-xs font-medium {changingOnly ? 'bg-accent text-accent-foreground' : 'text-primary hover:underline'}"
             aria-pressed={changingOnly}
             onclick={() => (changingOnly = !changingOnly)}
-            title="Compared with the generation running now. Apply a build of the checkout to get them."
+            title="Compared with the version in use now. Apply your configuration to get them."
           >{plural(changing.length, "package")} {changing.length === 1 ? "changes" : "change"} on the next apply</button>
         {/if}
         <label class="ml-auto flex h-8 w-56 items-center gap-2 rounded-md border bg-card px-2 text-muted-foreground focus-within:ring-2 focus-within:ring-ring/40">
@@ -297,12 +297,12 @@
                   </td>
                   <td class="px-3 py-1.5 font-mono text-[0.7rem]">
                     {#if item.previous}
-                      <span title="The running generation has {item.previous}; the checkout builds {item.version}.">
+                      <span title="The version in use has {item.previous}; your configuration builds {item.version}.">
                         <span class="text-muted-foreground">{item.previous} →</span> <span class="font-semibold text-primary">{item.version ?? "?"}</span>
                       </span>
                     {:else}
                       {item.version ?? ""}
-                      {#if item.previous === null}<span class="ml-1 font-sans text-[0.68rem] font-medium text-primary" title="Not in the generation running now.">new</span>{/if}
+                      {#if item.previous === null}<span class="ml-1 font-sans text-[0.68rem] font-medium text-primary" title="Not in the version in use now.">new</span>{/if}
                     {/if}
                   </td>
                   <td class="px-3 py-1.5" title={item.file}>

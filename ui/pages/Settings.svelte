@@ -87,7 +87,7 @@
       <span>
         <span class="block font-medium">Keep a history of changes</span>
         <span class="block text-xs text-muted-foreground">
-          Every change you apply is saved with a short description, so the Generations page shows what changed and when.
+          Every change you apply is saved with a short description, so the Restore points page shows what changed and when.
           It is kept with Git in the configuration folder.
         </span>
       </span>
@@ -141,7 +141,7 @@
       {#if app.foreignHost}
         <p class="flex gap-2 rounded-lg bg-warning/10 px-3 py-2 text-xs">
           <TriangleAlertIcon class="size-4 shrink-0 text-warning" />
-          Builds and activations now use the {app.host} configuration. Activating another computer's configuration here can break this system; use this only for testing builds.
+          Changes are now built and applied with the {app.host} configuration. Applying another computer's configuration here can break this system; use this only to test builds.
         </p>
       {/if}
     </div>
@@ -164,8 +164,8 @@
   <section class="panel p-4">
     <p class="font-medium">Nix Manager</p>
     <p class="mt-1 text-xs text-muted-foreground">
-      Builds are prepared without privileges and shown for review. Only activating a reviewed system build,
-      rolling back, and cleaning system generations ask for your password.
+      Changes are prepared without special rights and shown for review. Only applying a reviewed system change,
+      going back to an earlier system version and removing system restore points ask for your password.
     </p>
   </section>
 </div>

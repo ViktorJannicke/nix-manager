@@ -11,6 +11,7 @@
   import BuildProgress from "$lib/components/app/BuildProgress.svelte";
   import StatusBadge from "$lib/components/app/StatusBadge.svelte";
   import ProgressBar from "$lib/components/app/ProgressBar.svelte";
+  import TechName from "$lib/components/app/TechName.svelte";
   import GenerationRail from "$lib/components/app/GenerationRail.svelte";
   import PendingButton from "$lib/components/app/PendingButton.svelte";
 
@@ -69,7 +70,7 @@
           {#if draft.changes.length > 3}<li>and {draft.changes.length - 3} more</li>{/if}
         </ul>
         {#if draft.problems.length}
-          <p class="mt-1 text-xs text-destructive">{plural(draft.problems.length, "edit")} cannot be applied to the checkout as it is now.</p>
+          <p class="mt-1 text-xs text-destructive">{plural(draft.problems.length, "edit")} cannot be applied to your configuration as it is now.</p>
         {/if}
       </div>
       <div class="flex gap-2">
@@ -100,16 +101,16 @@
 
   <section class="panel space-y-5 p-5" aria-labelledby="generations-heading">
     <div class="flex items-baseline justify-between gap-4">
-      <h2 id="generations-heading" class="heading">Generations</h2>
+      <h2 id="generations-heading" class="heading">Restore points<TechName name="generations" /></h2>
       {#if !running && !app.reviews.some((r) => r.host === app.host)}
         <button
           class="focus-ring rounded text-primary hover:underline disabled:opacity-50"
           disabled={!app.connected}
           onclick={() => app.prepare("all")}
-        >Prepare home and system together</button>
+        >Prepare your user and system together</button>
       {/if}
     </div>
-    <GenerationRail profile="home" title="Home" />
+    <GenerationRail profile="home" title="Your user" />
     <GenerationRail profile="system" title="System" />
   </section>
 
@@ -157,22 +158,22 @@
 
     <aside class="space-y-5">
       <div>
-        <h2 class="label">Checkout</h2>
+        <h2 class="label">Configuration</h2>
         {#if repo}
           <p class="mt-1 font-semibold">{repo.branch ?? "Detached"} <code class="font-normal text-muted-foreground">{shortRev(repo.revision)}</code></p>
           {#if repo.subject}<p class="truncate text-muted-foreground" title={repo.subject}>{repo.subject}</p>{/if}
           <p class="mt-1 text-[0.83rem] {repo.clean ? 'text-muted-foreground' : 'text-warning'}">
-            {repo.clean ? "No uncommitted changes" : plural(repo.changes.length, "uncommitted change")}{repo.lockModified ? ", flake.lock edited" : ""}
+            {repo.clean ? "Everything is saved" : `${plural(repo.changes.length, "unsaved change")} in the folder`}{repo.lockModified ? ", source versions edited" : ""}
           </p>
         {:else}<p class="mt-1 text-muted-foreground">Reading…</p>{/if}
       </div>
       <div>
-        <h2 class="label">Nix store disk</h2>
+        <h2 class="label">Disk space for software</h2>
         {#if disk}
           <p class="mt-1 font-semibold">{bytes(disk.free)} free <span class="font-normal text-muted-foreground">of {bytes(disk.total)}</span></p>
           <ProgressBar class="mt-2" value={1 - disk.free / disk.total} label="Disk used" />
           {#if disk.free / disk.total < 0.1}
-            <button class="focus-ring mt-2 rounded text-[0.83rem] text-primary hover:underline" onclick={() => app.navigate("generations")}>Free space by cleaning up generations</button>
+            <button class="focus-ring mt-2 rounded text-[0.83rem] text-primary hover:underline" onclick={() => app.navigate("generations")}>Free space by removing old restore points</button>
           {/if}
         {:else}<p class="mt-1 text-muted-foreground">Unknown</p>{/if}
       </div>

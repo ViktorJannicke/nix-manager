@@ -62,7 +62,7 @@
             {:else if current.request.action === "review-apply" && current.rollback && !current.rollback.error}
               It could not be applied, and only part of it could be undone. Your change is still in your pending edits.
             {:else if current.request.action === "review-apply" && current.rollback}
-              It could not be applied, and going back did not work. The Generations page can take you back.
+              It could not be applied, and going back did not work. The Restore points page can take you back.
             {:else if current.request.action === "review-apply"}
               It could not be applied before anything changed. Your change is still in your pending edits.
             {:else}
