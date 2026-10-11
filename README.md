@@ -113,6 +113,14 @@ checkout's Nix files, through the same flow. Discover searches an index of every
 package in the locked nixpkgs (with overlays), built on first search and kept per
 lock file, and offers about fifty curated features such as Steam, Docker, Flatpak,
 an SSH server, Tailscale or fzf, each a small set of options with typed settings.
+Discover opens with apps: popular ones first, then by category, with their
+names, summaries and icons. Those details come from Flathub's public AppStream
+catalogue, downloaded when Discover opens and again after a week, and matched to
+nixpkgs packages by homepage and name; the apps are still installed from the
+locked nixpkgs. Icons are fetched through the dashboard server and kept, so the
+window itself never contacts Flathub. Settings can turn this off. Search lists
+apps first, including packages built like graphical apps that Flathub does not
+know, then other software.
 Search can be limited to free software and can leave out broken packages. Results
 show versions and licenses, and say whether a package is installed. `/` focuses
 the search, and the arrow keys move between it and the results. Installed lists
@@ -300,7 +308,8 @@ using that state directory. It does not lock out native Nix commands or other us
 `NIX_MANAGER_STATE_DIR` can select an isolated state directory for testing. `NIX_MANAGER_SYSFS` points hardware detection at a fake `/sys` tree.
 Pending software edits are stored in `draft.json` and the package index under
 `catalog/`, keyed by the lock file; building an index evaluates every package and
-needs several gigabytes of memory for about a quarter of a minute.
+needs several gigabytes of memory for about a quarter of a minute. Flathub's app
+catalogue and icons are kept under `apps/`.
 
 New operation records include the status and timestamps of each planned step.
 Older records without step data remain readable and appear without inferred

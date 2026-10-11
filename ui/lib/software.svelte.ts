@@ -9,6 +9,7 @@ import type {
   Target,
 } from "../../src/software";
 import type { Scope } from "../../src/domain";
+import type { AppEntry } from "../../src/apps";
 import { api } from "./api";
 import { app } from "./app.svelte";
 
@@ -30,7 +31,9 @@ class SoftwareState {
   inventory = $state.raw<Inventory>();
   loading = $state(false);
   error = $state<string>();
-  results = $state.raw<CatalogEntry[]>([]);
+  results = $state.raw<AppEntry[]>([]);
+  /** Packages Flathub describes as apps, for browsing by category. */
+  apps = $state.raw<AppEntry[]>([]);
   searched = $state("");
   /** Option documentation by `scope:name`. */
   docs = $state.raw<Record<string, OptionDoc>>({});
@@ -40,10 +43,12 @@ class SoftwareState {
   working = $state(localStorage.getItem("nix-manager-search-working") !== "0");
   private key = "";
   private searchToken = 0;
+  private appsKey = "";
 
   draft = $derived(app.snapshot?.draft);
   changes = $derived(this.draft?.changes ?? []);
   catalog = $derived(app.snapshot?.catalog);
+  appStatus = $derived(app.snapshot?.apps);
 
   /** Reads what the selected host installs; repeated calls reuse the result for the same checkout. */
   async load(force = false) {
@@ -73,13 +78,27 @@ class SoftwareState {
       return;
     }
     try {
-      const results = await api<CatalogEntry[]>("software/search", { query, free: this.free, working: this.working });
+      const results = await api<AppEntry[]>("software/search", { query, free: this.free, working: this.working });
       if (token === this.searchToken) {
         this.results = results;
         this.searched = query;
       }
     } catch (error) {
       app.fail(error, "Search failed");
+    }
+  }
+
+  /** Loads the app list again when the package index or Flathub's catalogue changed; may start the download. */
+  async loadApps(refresh = false) {
+    const key = `${this.catalog?.state}\0${this.catalog?.builtAt}\0${this.appStatus?.state}\0${this.appStatus?.fetchedAt}`;
+    if (!refresh && key === this.appsKey) return;
+    this.appsKey = key;
+    try {
+      const apps = await api<AppEntry[]>("software/apps", { refresh }, 60_000);
+      if (this.appsKey === key) this.apps = apps;
+    } catch (error) {
+      this.appsKey = "";
+      app.fail(error, "Could not read the app list");
     }
   }
 

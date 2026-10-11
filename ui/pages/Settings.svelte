@@ -118,6 +118,22 @@
       />
     </label>
 
+    <label class="flex items-center justify-between gap-4 p-4">
+      <span>
+        <span class="block font-medium">Show app details from Flathub</span>
+        <span class="block text-xs text-muted-foreground">
+          Names, descriptions, categories and icons of apps come from Flathub's public catalogue, downloaded about once a week.
+          The apps themselves are still installed from your nixpkgs.
+        </span>
+      </span>
+      <Switch
+        aria-label="Show app details from Flathub"
+        checked={app.snapshot?.preferences.appDetails ?? true}
+        disabled={!app.connected}
+        onCheckedChange={(appDetails) => app.savePreferences({ appDetails })}
+      />
+    </label>
+
     <div class="space-y-3 p-4">
       <div class="flex items-center justify-between gap-4">
         <div>

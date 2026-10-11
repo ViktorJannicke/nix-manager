@@ -2,7 +2,8 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { Effect, Schema } from "effect";
 import { ManagerError, type Config } from "./domain";
-import type { CatalogStatus } from "./contracts";
+import type { AppsStatus, CatalogStatus } from "./contracts";
+import { appIcon, fetchAppStream, matchApps, readAppStream, type AppEntry, type AppInfo, type AppStream } from "./apps";
 import { computerOptions } from "./computer";
 import { experiences } from "./curated";
 import { Changes, changeHash, draftPublic, readDraft, writeDraft, type Change, type RenderedDraft } from "./draft";
@@ -51,6 +52,10 @@ export class Store {
   private building?: { key: string; promise: Promise<void> };
   private failure?: { key: string; error: string };
   private loading?: Promise<void>;
+  private appStream?: { value?: AppStream };
+  private fetchingApps?: Promise<void>;
+  private appsFailure?: { error: string; at: number };
+  private matched?: { key: string; apps: Map<string, AppInfo> };
 
   constructor(
     private readonly config: Config,
@@ -185,15 +190,83 @@ export class Store {
     this.changed();
   }
 
-  search(lockHash: string | undefined, query: string, filter: CatalogFilter = {}) {
+  search(lockHash: string | undefined, query: string, filter: CatalogFilter = {}): AppEntry[] {
     if (!lockHash || this.catalog?.key !== lockHash) return [];
-    return searchCatalog(this.catalog.entries, query, 60, filter);
+    const apps = this.apps(lockHash);
+    return searchCatalog(this.catalog.entries, query, 60, filter, apps).map((entry) => this.withApp(entry, apps));
   }
 
   /** Catalog entries by attribute, for details of installed packages. */
   lookup(lockHash: string | undefined, attrs: readonly string[]) {
     if (!lockHash || this.catalog?.key !== lockHash) return {};
     const wanted = new Set(attrs.slice(0, 500));
-    return Object.fromEntries(this.catalog.entries.filter((entry) => wanted.has(entry.a)).map((entry) => [entry.a, entry]));
+    const apps = this.apps(lockHash);
+    return Object.fromEntries(
+      this.catalog.entries.filter((entry) => wanted.has(entry.a)).map((entry) => [entry.a, this.withApp(entry, apps)]),
+    );
+  }
+
+  private withApp(entry: CatalogEntry, apps: Map<string, AppInfo>): AppEntry {
+    const app = apps.get(entry.a);
+    return app ? { ...entry, app } : entry;
+  }
+
+  /** The saved Flathub catalogue, read once. */
+  private stream() {
+    this.appStream ??= { value: readAppStream(this.config) };
+    return this.appStream.value;
+  }
+
+  appsStatus(enabled: boolean): AppsStatus {
+    if (!enabled) return { state: "off" };
+    if (this.fetchingApps) return { state: "fetching" };
+    const stream = this.stream();
+    if (stream) return { state: "ready", fetchedAt: stream.fetchedAt, error: this.appsFailure?.error };
+    return this.appsFailure ? { state: "failed", error: this.appsFailure.error } : { state: "missing" };
+  }
+
+  /** Downloads Flathub's catalogue when there is none or it is a week old; a failure waits an hour. */
+  fetchApps(force = false) {
+    const stream = this.stream();
+    if (this.fetchingApps) return;
+    if (!force && stream && Date.now() - Date.parse(stream.fetchedAt) < 7 * 24 * 3600_000) return;
+    if (!force && this.appsFailure && Date.now() - this.appsFailure.at < 3600_000) return;
+    this.fetchingApps = fetchAppStream(this.config, AbortSignal.timeout(120_000))
+      .then(
+        (value) => {
+          this.appStream = { value };
+          this.appsFailure = undefined;
+        },
+        (error) => {
+          this.appsFailure = { error: `App details could not be downloaded from Flathub. ${error instanceof Error ? error.message : error}`, at: Date.now() };
+        },
+      )
+      .finally(() => {
+        this.fetchingApps = undefined;
+        this.changed();
+      });
+    this.changed();
+  }
+
+  /** Apps of the current catalog by attribute. */
+  private apps(lockHash: string): Map<string, AppInfo> {
+    const stream = this.stream();
+    if (!stream || this.catalog?.key !== lockHash) return new Map();
+    const key = `${lockHash}\0${stream.fetchedAt}`;
+    if (this.matched?.key !== key) this.matched = { key, apps: matchApps(stream.apps, this.catalog.entries) };
+    return this.matched.apps;
+  }
+
+  /** Every package Flathub describes as an app. */
+  appList(lockHash: string | undefined): AppEntry[] {
+    if (!lockHash || this.catalog?.key !== lockHash) return [];
+    const apps = this.apps(lockHash);
+    return this.catalog.entries.flatMap((entry) => (apps.has(entry.a) ? [this.withApp(entry, apps)] : []));
+  }
+
+  /** An app's icon by AppStream id, if the catalogue knows it. */
+  icon(id: string) {
+    const app = this.stream()?.apps.find((item) => item.id === id);
+    return app ? appIcon(this.config, app, AbortSignal.timeout(30_000)) : Promise.resolve(undefined);
   }
 }

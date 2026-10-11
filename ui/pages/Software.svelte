@@ -16,7 +16,9 @@
   import PackageDialog from "$lib/components/app/PackageDialog.svelte";
   import ExperienceDialog from "$lib/components/app/ExperienceDialog.svelte";
   import ExperienceIcon from "$lib/components/app/ExperienceIcon.svelte";
+  import AppIcon from "$lib/components/app/AppIcon.svelte";
   import { arrows, typing } from "$lib/keyboard";
+  import { appCategories, featuredApps, type AppCategory, type AppEntry } from "../../src/apps";
 
   let view = $state<"discover" | "installed">("discover");
   let query = $state("");
@@ -67,6 +69,36 @@
     return () => clearTimeout(timer);
   });
 
+  // The app list needs the package index: build it when Discover opens.
+  const appsOn = $derived(software.appStatus !== undefined && software.appStatus.state !== "off");
+  $effect(() => {
+    if (view === "discover" && appsOn && software.catalog?.state === "missing") void software.buildCatalog();
+  });
+  $effect(() => {
+    void software.catalog?.builtAt;
+    void software.appStatus?.fetchedAt;
+    if (view === "discover" && appsOn && software.catalog?.state === "ready") void software.loadApps();
+  });
+
+  let shelf = $state<AppCategory | "featured">("featured");
+  let showAll = $state(false);
+  $effect(() => {
+    void shelf;
+    showAll = false;
+  });
+  const byName = (a: AppEntry, b: AppEntry) => a.app!.name.localeCompare(b.app!.name);
+  const featured = $derived(
+    featuredApps.flatMap((id) => software.apps.find((item) => item.app?.id === id) ?? []),
+  );
+  const shelves = $derived(
+    (Object.keys(appCategories) as AppCategory[])
+      .map((id) => ({ id, apps: software.apps.filter((item) => item.app?.categories[0] === id).sort(byName) }))
+      .filter((item) => item.apps.length),
+  );
+  const shown = $derived(shelf === "featured" ? featured : (shelves.find((item) => item.id === shelf)?.apps ?? []));
+  const appResults = $derived(software.results.filter((result) => result.app || result.g));
+  const otherResults = $derived(software.results.filter((result) => !result.app && !result.g));
+
   const inventory = $derived(software.inventory);
 
   // A failure's fix opens its feature, switched on.
@@ -111,6 +143,28 @@
 
 <svelte:window onkeydown={shortcut} />
 
+{#snippet resultRow(result: AppEntry)}
+  {@const owned = software.installed(result)}
+  {@const pending = software.pendingPackage(`pkgs.${result.a}`)}
+  <button data-nav class="focus-ring flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-muted/40 focus-visible:bg-muted/40" onclick={() => (entry = result)}>
+    {#if result.app || result.g}<AppIcon app={result.app} name={result.app?.name ?? result.n ?? result.a} class="size-9" />{/if}
+    <div class="min-w-0 flex-1">
+      <p class="flex flex-wrap items-baseline gap-x-2">
+        <span class="font-semibold">{result.app?.name ?? result.n ?? result.a}</span>
+        <span class="font-mono text-[0.72rem] text-muted-foreground">{result.v ?? ""}</span>
+        {#if result.a !== (result.app?.name ?? result.n)}<span class="font-mono text-[0.72rem] text-muted-foreground">{result.a}</span>{/if}
+      </p>
+      <p class="line-clamp-2 text-muted-foreground">{result.app?.summary ?? result.d ?? "No description."}</p>
+    </div>
+    <span class="shrink-0 pt-0.5 text-xs font-medium">
+      {#if pending}<span class="text-prepared-foreground">{pending.kind === "add-package" ? "Will be installed" : "Will be removed"}</span>
+      {:else if owned}<span class="text-primary">Installed</span>
+      {:else if result.b}<span class="text-warning">Broken</span>
+      {:else if !result.f}<span class="text-muted-foreground">Not free</span>{/if}
+    </span>
+  </button>
+{/snippet}
+
 <div class="space-y-6" bind:this={content}>
   <header class="flex flex-wrap items-end justify-between gap-4">
     <div class="min-w-0">
@@ -144,9 +198,9 @@
         bind:this={searchInput}
         bind:value={query}
         onkeydown={searchKey}
-        aria-label="Search packages"
+        aria-label="Search apps and packages"
         aria-keyshortcuts="/"
-        placeholder="Search over a hundred thousand packages"
+        placeholder="Search apps and over a hundred thousand packages"
         class="peer w-full bg-transparent text-base outline-none placeholder:text-muted-foreground"
       />
       {#if !query}<kbd class="rounded border bg-muted px-1.5 font-mono text-xs text-muted-foreground peer-focus:hidden" title="Press / to search">/</kbd>{/if}
@@ -160,30 +214,25 @@
       </div>
       {#if software.catalog?.state === "ready"}
         {#if software.results.length}
-          <ul class="panel divide-y overflow-hidden" use:arrows={{ before: () => searchInput }}>
-            {#each software.results as result (result.a)}
-              {@const owned = software.installed(result)}
-              {@const pending = software.pendingPackage(`pkgs.${result.a}`)}
-              <li>
-                <button data-nav class="focus-ring flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-muted/40 focus-visible:bg-muted/40" onclick={() => (entry = result)}>
-                  <div class="min-w-0 flex-1">
-                    <p class="flex flex-wrap items-baseline gap-x-2">
-                      <span class="font-semibold">{result.n ?? result.a}</span>
-                      <span class="font-mono text-[0.72rem] text-muted-foreground">{result.v ?? ""}</span>
-                      {#if result.a !== result.n}<span class="font-mono text-[0.72rem] text-muted-foreground">{result.a}</span>{/if}
-                    </p>
-                    <p class="line-clamp-2 text-muted-foreground">{result.d ?? "No description."}</p>
-                  </div>
-                  <span class="shrink-0 pt-0.5 text-xs font-medium">
-                    {#if pending}<span class="text-prepared-foreground">{pending.kind === "add-package" ? "Will be installed" : "Will be removed"}</span>
-                    {:else if owned}<span class="text-primary">Installed</span>
-                    {:else if result.b}<span class="text-warning">Broken</span>
-                    {:else if !result.f}<span class="text-muted-foreground">Not free</span>{/if}
-                  </span>
-                </button>
-              </li>
-            {/each}
-          </ul>
+          <div class="space-y-5" use:arrows={{ before: () => searchInput }}>
+            {#if appResults.length}
+              <section class="space-y-2" aria-labelledby="results-apps">
+                <h2 id="results-apps" class="heading">Apps</h2>
+                <ul class="panel divide-y overflow-hidden">
+                  {#each appResults as result (result.a)}<li>{@render resultRow(result)}</li>{/each}
+                </ul>
+              </section>
+            {/if}
+            {#if otherResults.length}
+              <section class="space-y-2" aria-labelledby="results-other">
+                <h2 id="results-other" class="heading">{appResults.length ? "Other software" : "Packages"}</h2>
+                <p class="-mt-1 text-xs text-muted-foreground">Command-line tools, libraries and parts other software uses.</p>
+                <ul class="panel divide-y overflow-hidden">
+                  {#each otherResults as result (result.a)}<li>{@render resultRow(result)}</li>{/each}
+                </ul>
+              </section>
+            {/if}
+          </div>
         {:else if software.searched === query}
           <section class="panel"><EmptyState icon={SearchIcon} title="No packages match “{query}”">Try the program's name, or a word from what it does.</EmptyState></section>
         {/if}
@@ -213,11 +262,74 @@
       </section>
     {:else}
       <div class="space-y-6" use:arrows={{ before: () => searchInput }}>
+      {#if appsOn}
+        <section class="space-y-3" aria-labelledby="apps-heading">
+          <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <h2 id="apps-heading" class="heading">Apps</h2>
+            {#if software.apps.length}<p class="text-xs text-muted-foreground">{software.apps.length.toLocaleString()} apps with details from Flathub</p>{/if}
+          </div>
+          {#if software.apps.length}
+            <div class="flex flex-wrap gap-1.5" role="group" aria-label="App categories">
+              {#each [{ id: "featured" as const, label: "Popular" }, ...shelves.map((item) => ({ id: item.id, label: appCategories[item.id] }))] as item (item.id)}
+                <button
+                  class="focus-ring rounded-full border px-3 py-1 text-xs font-medium transition-colors
+                    {shelf === item.id ? 'border-primary bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'}"
+                  aria-pressed={shelf === item.id}
+                  onclick={() => (shelf = item.id)}
+                >{item.label}</button>
+              {/each}
+            </div>
+            <ul class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {#each showAll ? shown : shown.slice(0, 18) as item (item.a)}
+                {@const owned = software.installed(item)}
+                {@const pending = software.pendingPackage(`pkgs.${item.a}`)}
+                <li>
+                  <button
+                    data-nav
+                    class="focus-ring flex h-full w-full items-center gap-3 rounded-xl border bg-card p-3 text-left transition-colors hover:border-primary/40
+                      {pending ? 'border-2 border-dashed border-prepared/70 bg-accent/40' : ''}"
+                    onclick={() => (entry = item)}
+                  >
+                    <AppIcon app={item.app} name={item.app!.name} />
+                    <span class="min-w-0 flex-1">
+                      <span class="flex items-baseline gap-2">
+                        <span class="truncate font-semibold">{item.app!.name}</span>
+                        {#if pending}<span class="shrink-0 text-xs font-medium text-prepared-foreground">Pending</span>
+                        {:else if owned}<span class="shrink-0 text-xs font-medium text-primary">Installed</span>{/if}
+                      </span>
+                      <span class="line-clamp-2 text-muted-foreground">{item.app!.summary ?? item.d ?? ""}</span>
+                    </span>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+            {#if shown.length > 18}
+              <Button variant="outline" size="sm" onclick={() => (showAll = !showAll)}>
+                {showAll ? "Show fewer" : `Show all ${shown.length} apps`}
+              </Button>
+            {/if}
+          {:else if software.appStatus?.state === "failed"}
+            <p class="flex gap-2 rounded-lg bg-warning/10 px-3 py-2 text-xs">
+              <TriangleAlertIcon class="size-4 shrink-0 text-warning" />
+              <span class="flex-1">{software.appStatus.error} Searching still finds every package.</span>
+              <button class="focus-ring rounded text-primary hover:underline" onclick={() => software.loadApps(true)}>Try again</button>
+            </p>
+          {:else if software.catalog?.state === "failed"}
+            <p class="text-muted-foreground">The app list needs the package index, which could not be built. {software.catalog.error}</p>
+          {:else}
+            <p class="flex items-center gap-2 text-muted-foreground">
+              <LoaderIcon class="size-4 animate-spin" />
+              {software.catalog?.state === "ready" ? "Downloading app details from Flathub…" : "Reading every package in your nixpkgs once. This takes about half a minute."}
+            </p>
+          {/if}
+        </section>
+        <h2 class="heading">Features</h2>
+      {/if}
       {#each categories as name (name)}
         {@const items = visible.filter((item) => item.category === name)}
         {#if items.length}
           <section class="space-y-2" aria-labelledby="category-{name}">
-            <h2 id="category-{name}" class="heading">{name}</h2>
+            <svelte:element this={appsOn ? "h3" : "h2"} id="category-{name}" class={appsOn ? "label" : "heading"}>{name}</svelte:element>
             <ul class="grid gap-2 sm:grid-cols-2">
               {#each items as item (item.id)}
                 {@const on = software.enabled(item)}

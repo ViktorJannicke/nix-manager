@@ -222,7 +222,16 @@ export interface Snapshot {
   reviews: BuildReview[];
   draft: RenderedDraft;
   catalog: CatalogStatus;
+  apps: AppsStatus;
   preferences: Preferences;
+}
+
+/** Flathub's app catalogue: "off" when the preference turned it off. */
+export interface AppsStatus {
+  state: "off" | "missing" | "fetching" | "ready" | "failed";
+  fetchedAt?: string;
+  /** The last download failed; a ready catalogue is older. */
+  error?: string;
 }
 
 export interface CatalogStatus {

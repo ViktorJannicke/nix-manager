@@ -8,10 +8,12 @@
   import { app } from "$lib/app.svelte";
   import { NEW_FILE, origin, software } from "$lib/software.svelte";
   import NewModuleFields from "./NewModuleFields.svelte";
-  import type { CatalogEntry, Target } from "../../../../src/software";
+  import type { Target } from "../../../../src/software";
+  import { appCategories, type AppEntry } from "../../../../src/apps";
+  import AppIcon from "./AppIcon.svelte";
   import type { Change } from "../../../../src/draft";
 
-  let { entry = $bindable() }: { entry?: CatalogEntry } = $props();
+  let { entry = $bindable() }: { entry?: AppEntry } = $props();
 
   let scope = $state<Target>("home");
   let file = $state("");
@@ -87,11 +89,18 @@
   <Dialog.Content class="sm:max-w-lg">
     {#if entry}
       <Dialog.Header>
-        <Dialog.Title>{entry.n ?? entry.a}</Dialog.Title>
-        <Dialog.Description>{entry.d ?? "No description."}</Dialog.Description>
+        <div class="flex items-center gap-3">
+          {#if entry.app}<AppIcon app={entry.app} name={entry.app.name} class="size-12" />{/if}
+          <div class="min-w-0">
+            <Dialog.Title>{entry.app?.name ?? entry.n ?? entry.a}</Dialog.Title>
+            <Dialog.Description>{entry.app?.summary ?? entry.d ?? "No description."}</Dialog.Description>
+          </div>
+        </div>
       </Dialog.Header>
+      {#if entry.app && entry.d && entry.d !== entry.app.summary}<p class="text-muted-foreground">{entry.d.replace(/\.?$/, ".")}</p>{/if}
       <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
         <dt class="text-muted-foreground">Version</dt><dd>{entry.v ?? "unknown"}</dd>
+        {#if entry.app?.categories.length}<dt class="text-muted-foreground">Category</dt><dd>{entry.app.categories.map((id) => appCategories[id]).join(", ")}</dd>{/if}
         <dt class="text-muted-foreground">Attribute</dt><dd class="font-mono break-all">{attr}</dd>
         {#if entry.p}<dt class="text-muted-foreground">Command</dt><dd class="font-mono">{entry.p}</dd>{/if}
         {#if entry.l.length}<dt class="text-muted-foreground">License</dt><dd>{entry.l.join(", ")}{entry.f ? "" : " (not free)"}</dd>{/if}

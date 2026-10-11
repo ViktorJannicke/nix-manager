@@ -37,6 +37,12 @@ export async function api<T>(
   return result as T;
 }
 
+/** An authenticated image as an object URL, or undefined when there is none. */
+export async function imageUrl(path: string) {
+  const response = await fetch(`/api/${path}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30_000) });
+  return response.ok ? URL.createObjectURL(await response.blob()) : undefined;
+}
+
 export const managerApi = {
   state: () => api<Snapshot>("state"),
   refresh: () => api<Snapshot>("refresh", {}, 60_000),

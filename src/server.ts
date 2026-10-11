@@ -13,6 +13,7 @@ import { Store } from "./store";
 import { detectHardware } from "./hardware";
 import { estimateCleanup, type CleanupEstimate } from "./space";
 import { readHistory } from "./history";
+import { validAppId } from "./apps";
 
 export interface UiAsset {
   body: string;
@@ -98,6 +99,7 @@ export function startServer(
   const store = new Store(manager.config, () => broadcastLater());
   const fingerprint = () => observer.current?.repository.fingerprint ?? "";
   const lockHash = () => observer.current?.repository.lockHash;
+  const appDetails = () => readPreferences(manager.config).appDetails !== false;
   // Read once; suggestions for hardware plugged in later appear after a restart.
   const hardware = detectHardware(process.env.NIX_MANAGER_SYSFS);
   let clients = 0;
@@ -123,6 +125,7 @@ export function startServer(
     reviews: await listReviews(manager.config),
     draft: await store.draft(fingerprint()),
     catalog: store.catalogStatus(lockHash()),
+    apps: store.appsStatus(appDetails()),
     preferences: readPreferences(manager.config),
   });
   const send = (message: SessionMessage) => {
@@ -173,7 +176,7 @@ export function startServer(
     "Content-Security-Policy":
       // Bits UI applies transient inline styles for dialog scroll locking and
       // positioning. Scripts remain restricted to the bundled same-origin app.
-      "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+      "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
   };
   const json = (data: unknown, status = 200) =>
     Response.json(data, { status, headers });
@@ -231,6 +234,12 @@ export function startServer(
             return json(await readHistory(manager.config.flake));
           if (req.method === "GET" && url.pathname.startsWith("/api/log/"))
             return json(manager.log(url.pathname.slice(9)));
+          if (req.method === "GET" && url.pathname.startsWith("/api/app-icon/")) {
+            const id = url.pathname.slice(14);
+            const icon = validAppId(id) && appDetails() ? await store.icon(id) : undefined;
+            if (!icon) return json({ error: "No icon." }, 404);
+            return new Response(icon, { headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=604800" } });
+          }
           if (req.method === "POST") {
             if (req.headers.get("content-type") !== "application/json")
               return json({ error: "Expected application/json." }, 415);
@@ -289,6 +298,10 @@ export function startServer(
                 }
                 case "search":
                   return json(store.search(lockHash(), text(input.query), { free: input.free === true, working: input.working === true }));
+                case "apps":
+                  if (!appDetails()) return json([]);
+                  store.fetchApps(input.refresh === true);
+                  return json(store.appList(lockHash()));
                 case "lookup":
                   return json(store.lookup(lockHash(), strings(input.attrs)));
                 case "options":

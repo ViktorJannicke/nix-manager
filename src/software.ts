@@ -6,6 +6,7 @@ import { scopeBindings, type Change } from "./draft";
 import { attr } from "./nix";
 import { hashText } from "./observe";
 import { moduleShape } from "./options";
+import type { AppInfo } from "./apps";
 import type { UserAccount } from "./computer";
 import { packageLists, flakeSource } from "./packages";
 import { command } from "./process";
@@ -558,6 +559,8 @@ export interface CatalogEntry {
   /** Free license. */
   f: boolean;
   b: boolean;
+  /** Built like a graphical app: with GTK or Qt wrapping or desktop entries. */
+  g?: boolean;
 }
 
 /** Walks `pkgs` (and package sets that ask to be recursed into) for searchable metadata. */
@@ -580,6 +583,10 @@ let
       l = map (x: if isAttrs x then (x.spdxId or x.shortName or "unknown") else toString x) licenses;
       f = builtins.all (x: !isAttrs x || (x.free or true)) licenses;
       b = m.broken or false;
+      g = let
+        hooks = [ "wrap-gapps-hook" "wrap-gapps-hook3" "wrap-gapps-hook4" "wrap-qt5-apps-hook" "wrap-qt6-apps-hook" "copy-desktop-items-hook" "desktop-file-utils" ];
+        hook = x: isAttrs x && builtins.elem (x.pname or x.name or "") hooks;
+      in (v ? desktopItems) || (v ? desktopItem) || builtins.any hook (v.nativeBuildInputs or [ ]);
     };
   walk = depth: path: set:
     concatMap (name:
@@ -618,6 +625,10 @@ export const buildCatalog = (config: Config, host: string, target: string) =>
         if (code !== 0)
           throw new ManagerError({ message: `Package catalog evaluation failed. ${stderr.slice(-1200).trim()}` });
         await rename(temporary, target);
+        // Catalogs of earlier lock files or versions are not read again.
+        const directory = join(target, "..");
+        for (const name of await readdir(directory))
+          if (name.endsWith(".json") && join(directory, name) !== target) await rm(join(directory, name), { force: true });
       } finally {
         await rm(temporary, { force: true });
       }
@@ -676,8 +687,18 @@ export interface CatalogFilter {
   working?: boolean;
 }
 
-/** Ranks catalog entries: exact names first, then prefixes, then descriptions. */
-export function searchCatalog(entries: readonly CatalogEntry[], query: string, limit = 60, filter: CatalogFilter = {}) {
+/**
+ * Ranks catalog entries: exact names first, then prefixes, then descriptions.
+ * Apps are also found by their shown name, summary and keywords, and come
+ * before other packages that match as well.
+ */
+export function searchCatalog(
+  entries: readonly CatalogEntry[],
+  query: string,
+  limit = 60,
+  filter: CatalogFilter = {},
+  apps: ReadonlyMap<string, AppInfo> = new Map(),
+) {
   const terms = words(query);
   if (!terms.length) return [];
   const scored: { entry: CatalogEntry; score: number }[] = [];
@@ -687,13 +708,15 @@ export function searchCatalog(entries: readonly CatalogEntry[], query: string, l
     const attribute = entry.a.toLowerCase();
     const leaf = attribute.slice(attribute.lastIndexOf(".") + 1);
     const program = entry.p?.toLowerCase();
-    const description = entry.d?.toLowerCase() ?? "";
+    const app = apps.get(entry.a);
+    const shown = app?.name.toLowerCase();
+    const description = `${entry.d ?? ""} ${app ? `${app.summary ?? ""} ${app.keywords.join(" ")}` : ""}`.toLowerCase();
     let score = 0;
     for (const term of terms) {
       let best = 0;
-      if (name === term || leaf === term || program === term) best = 100;
-      else if (name.startsWith(term) || leaf.startsWith(term)) best = 60;
-      else if (attribute.includes(term) || name.includes(term)) best = 35;
+      if (name === term || leaf === term || program === term || shown === term) best = 100;
+      else if (name.startsWith(term) || leaf.startsWith(term) || shown?.split(/\s+/).some((word) => word.startsWith(term))) best = 60;
+      else if (attribute.includes(term) || name.includes(term) || shown?.includes(term)) best = 35;
       else if (program?.includes(term)) best = 30;
       else if (new RegExp(`\\b${term.replace(/[+]/g, "\\+")}`).test(description)) best = 12;
       if (!best) {
@@ -707,6 +730,8 @@ export function searchCatalog(entries: readonly CatalogEntry[], query: string, l
     if (!entry.a.includes(".")) score += 6;
     if (entry.b) score -= 40;
     if (!entry.d) score -= 5;
+    if (app) score += 15;
+    else if (entry.g) score += 5;
     score -= Math.min(10, entry.a.length / 6);
     scored.push({ entry, score });
   }
@@ -735,8 +760,10 @@ export class Memo<A> {
   }
 }
 
+/** Raised when catalog entries gain fields, so older files are built again. */
+const catalogVersion = 2;
 export const catalogPath = (config: Config, lockHash: string) =>
-  join(config.stateDir, "catalog", `${lockHash.slice(0, 32)}.json`);
+  join(config.stateDir, "catalog", `${lockHash.slice(0, 32)}.v${catalogVersion}.json`);
 
 export const hashKey = (...parts: string[]) => hashText(parts.join("\0"));
 

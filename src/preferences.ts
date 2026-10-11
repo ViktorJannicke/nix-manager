@@ -20,6 +20,8 @@ export const Preferences = Schema.Struct({
   history: Schema.optional(Schema.Boolean),
   /** Push those commits when the branch has an upstream. */
   backup: Schema.optional(Schema.Boolean),
+  /** Name, describe and picture apps with Flathub's catalogue; on unless turned off. */
+  appDetails: Schema.optional(Schema.Boolean),
 });
 export type Preferences = typeof Preferences.Type;
 

@@ -159,11 +159,21 @@ The tray already checks for updates read-only and sends notifications.
 
 ## 6. Discover as an app store
 
-- [ ] **Apps first.** Separate graphical apps from command-line tools. Needs
+- [x] **Apps first.** Separate graphical apps from command-line tools. Needs
   research: nixpkgs has no complete AppStream catalogue; options are matching
   Flathub/AppStream metadata by name and homepage, or reading `.desktop` files
   and icons from substituted outputs.
-- [ ] **Categories and real icons** from that metadata.
+  Decided: Flathub's AppStream catalogue (about 3,300 desktop apps, 10 MB
+  compressed) is downloaded on demand and refreshed weekly; about 1,400 match a
+  nixpkgs package by homepage, or by name on the same site. Where homepages
+  moved apart, the name must also end the id and either the id's developer
+  appears in the package homepage or the descriptions share a word; sampling
+  found no wrong pairs left among the popular apps. Reading `.desktop` files
+  would need every output downloaded first. The catalog also records a cheap
+  hint, GTK or Qt wrapping or desktop items, for apps Flathub does not list.
+- [x] **Categories and real icons** from that metadata. Discover shows popular
+  apps and the freedesktop main categories; icons are proxied and cached by the
+  server. Follow-up: screenshots and longer descriptions in the app dialog.
 - [ ] **Bundles.** Starting points such as Gaming, Office and school, Photo and
   video, Programming: sets of curated features and apps staged together.
 
@@ -188,5 +198,6 @@ The tray already checks for updates read-only and sends notifications.
 
 ## Open questions
 
-- Where does app metadata come from, and can it be locked with nixpkgs?
+- App metadata comes from Flathub and is not locked with nixpkgs; a mirror in
+  the flake (for example a pinned AppStream input) would make it reproducible.
 - Should automatic updates be on by default once the tray is enabled?
