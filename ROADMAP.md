@@ -55,10 +55,17 @@ when it is finished. Tick items off in the commit that completes them.
 
 ## 3. One-click changes
 
-- [ ] **Install in one step.** For edits that only affect the home configuration
+- [x] **Install in one step.** For edits that only affect the home configuration
   (or that change no kernel, boot loader or service the user is running),
   "Install" prepares, verifies and applies in one action with progress. The
   review stays reachable from the progress view.
+  Decided: only installing and removing home packages (and allowing non-free
+  software for them) qualifies; settings, even home ones, can restart user
+  services and keep the review. The rule lives in `oneStepProblem` and is
+  checked again against the prepared review before applying.
+  Follow-ups: curated home features and the CLI have no one-step path yet; Undo
+  from the dialog prepares a review rather than applying in one step; a failed
+  activation leaves the written files and selected generation (next item).
 - [ ] **Automatic rollback.** If activation fails, return to the previous
   generation and restore the files, then explain what happened.
 - [ ] **Setting: simple or detailed.** Simple by default for new users: one
@@ -118,6 +125,5 @@ The tray already checks for updates read-only and sends notifications.
 
 ## Open questions
 
-- Which edits are safe enough for one-click installs, and how is that shown?
 - Where does app metadata come from, and can it be locked with nixpkgs?
 - Should automatic updates be on by default once the tray is enabled?

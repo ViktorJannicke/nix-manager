@@ -17,6 +17,7 @@
   import { actionLabels } from "../src/domain";
   import Toasts from "$lib/components/app/Toasts.svelte";
   import ConfirmDialog from "$lib/components/app/ConfirmDialog.svelte";
+  import OneStepDialog from "$lib/components/app/OneStepDialog.svelte";
   import BuildProgress from "$lib/components/app/BuildProgress.svelte";
   import Overview from "./pages/Overview.svelte";
   import Updates from "./pages/Updates.svelte";
@@ -119,5 +120,6 @@
     </div>
   </div>
   <ConfirmDialog />
+  <OneStepDialog />
   <Toasts />
 {/if}

@@ -23,6 +23,7 @@ import {
   ManagerError,
   buildRoot,
   plan,
+  request,
   formatCommand,
   isPackage,
   reviewRoot,
@@ -48,7 +49,7 @@ import type {
 import { compareReview, getReview, removeReview, writeReviewedLock, type ReviewBase } from "./reviews";
 import { profileGeneration, readLock, repositoryState } from "./observe";
 import { readDraft, writeDraft } from "./draft";
-import { describeChange } from "./changes";
+import { describeChange, oneStepReviewProblem } from "./changes";
 import { readSources, remaining, restoreSources, stageSources, undoFiles, verifyEdits, writeSources, type Staged } from "./edits";
 import type { ReviewEdits } from "./contracts";
 import { stripAnsi } from "./nix";
@@ -543,6 +544,8 @@ export class Manager {
       if (r.action === "review-apply" && !r.dryRun && (r.activation ?? "switch") === "switch")
         if (generations.home !== undefined || generations.system !== undefined) undoable = { generations, ...replaced };
     }).pipe(Effect.provide(Layer.merge(runLayer, this.network)));
+    // Set when prepared edits are applied right after, in one step.
+    let follow: Request | undefined;
     const promise = Promise.resolve().then(async () => {
       try {
         const exit = await Effect.runPromiseExit(program, {
@@ -554,6 +557,15 @@ export class Manager {
           if (review && undoable) {
             operation.undo = { changes: describeReview(review), generations: undoable.generations, files: undoable.files };
             atomicJson(this.path(operation.id, "undo"), undoable.contents);
+          }
+          if (r.then === "apply" && !r.dryRun) {
+            try {
+              operation.held ??= oneStepReviewProblem(getReview(this.config, r.reviewId!));
+            } catch (error) {
+              operation.held = error instanceof Error ? error.message : String(error);
+            }
+            if (operation.held) log(`Waiting for your review: ${operation.held}`);
+            else follow = request({ action: "review-apply", scope: "home", host: r.host, reviewId: r.reviewId, activation: "switch" });
           }
         } else {
           operation.status = Cause.isInterruptedOnly(exit.cause)
@@ -610,11 +622,27 @@ export class Manager {
           this.changed(operation);
         }
       }
+      if (follow)
+        try {
+          this.start(follow);
+        } catch (error) {
+          operation.held = `It could not be applied: ${error instanceof Error ? error.message : String(error)}`;
+          persist();
+          this.changed(operation);
+        }
       return operation;
     });
     this.current = { operation, controller, promise };
     this.changed(operation);
     return operation;
+  }
+  /** Keeps edits being prepared in one step from being applied, so they wait for review. */
+  hold(id: string) {
+    const operation = this.current?.operation;
+    if (operation?.id !== id || operation.request.then !== "apply") return false;
+    operation.held = "You chose to review it first.";
+    this.changed(operation);
+    return true;
   }
   async wait() {
     return this.current?.promise;

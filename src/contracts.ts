@@ -56,6 +56,8 @@ export interface Operation {
   finishingPrivilegedStep?: boolean;
   /** What an applied change replaced, so that it can be undone. */
   undo?: UndoPoint;
+  /** Edits prepared to apply in one step that wait for review instead, and why. */
+  held?: string;
 }
 
 /** The state an applied change replaced. */

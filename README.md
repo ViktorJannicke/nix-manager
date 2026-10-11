@@ -106,7 +106,7 @@ keeps the exact outputs. The Changes page shows the package differences from
 closure size, and warnings when the checkout or lock changed since the build, the
 build targets another host, or the kernel changes. Applying activates exactly those
 outputs, now or on next boot; the checkout is not evaluated again. Nothing is
-switched without a review.
+switched without a review, except installs in one step (below).
 
 The Software page installs packages and turns on features by editing the
 checkout's Nix files, through the same flow. Discover searches an index of every
@@ -140,6 +140,13 @@ Overview lists them beside the next generation:
   preparing (or a file to create appeared), then activates the reviewed outputs.
   Edited files must be tracked by Git, because flakes only see tracked files;
   created files are added with `git add --intent-to-add`.
+- Install now (and Remove now) prepares and applies in one step, with progress
+  in a dialog. It is offered only for installing and removing packages of your
+  own Home Manager configuration (and allowing non-free software for them), on
+  the computer the dashboard runs on, when no other edits are pending. Those
+  change no kernel, boot loader or service. The prepared review is checked again
+  before applying: if it builds the system or changes any other option, it waits
+  on the Changes page instead. "Review it first" in the dialog does the same.
 
 The same draft is available from a terminal. Edits are checked against the
 checkout before they are saved, and the dashboard shows them as pending edits:

@@ -3,6 +3,7 @@
 // stays free of Node code.
 import type { Change } from "./draft";
 import type { ModuleFile, Target, UnfreePolicy } from "./software";
+import type { BuildReview } from "./contracts";
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -171,4 +172,32 @@ export function origin(file: string) {
   const inner = file.replace(/^\/nix\/store\/[a-z0-9]{32}-[^/]+\//, "");
   if (inner === file) return file;
   return inner.startsWith("nixos/modules/") ? `NixOS: ${inner.slice(14)}` : `Home Manager: ${inner.replace(/^modules\//, "")}`;
+}
+
+/**
+ * Why edits cannot be prepared and applied in one step, or undefined when
+ * they can: only installing and removing your own apps (and allowing non-free
+ * software for them) qualifies. Those change no kernel, boot loader or
+ * service, and Undo takes them back.
+ */
+export function oneStepProblem(changes: readonly Change[]): string | undefined {
+  if (!changes.length) return "There is nothing to install.";
+  if (changes.some((change) => change.scope !== "home")) return "It changes the computer itself, not just your apps.";
+  const simple = changes.every(
+    (change) =>
+      change.kind === "add-package" ||
+      change.kind === "remove-package" ||
+      change.kind === "create-module" ||
+      (change.kind === "set-option" && change.option === "nixpkgs.config.allowUnfree" && change.value === true),
+  );
+  return simple ? undefined : "It changes settings, which can restart programs you are using.";
+}
+
+/** Why a prepared review is not applied in one step, checking what it turned out to change. */
+export function oneStepReviewProblem(review: BuildReview): string | undefined {
+  if (!review.edits || review.inputs || review.undo || review.source !== "checkout") return "It is not a change of your apps.";
+  if (review.system) return "It changes the computer itself, not just your apps.";
+  const changed = review.edits.effects.flatMap((effect) => effect.options.map((option) => option.option));
+  if (changed.some((option) => option !== "nixpkgs.config.allowUnfree")) return "It changes settings, which can restart programs you are using.";
+  return oneStepProblem(review.edits.changes);
 }

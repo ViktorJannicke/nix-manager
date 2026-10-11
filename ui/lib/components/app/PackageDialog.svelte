@@ -9,6 +9,7 @@
   import { NEW_FILE, origin, software } from "$lib/software.svelte";
   import NewModuleFields from "./NewModuleFields.svelte";
   import type { CatalogEntry, Target } from "../../../../src/software";
+  import type { Change } from "../../../../src/draft";
 
   let { entry = $bindable() }: { entry?: CatalogEntry } = $props();
 
@@ -20,8 +21,9 @@
   const files = $derived(software.packageFiles(scope));
   const installed = $derived(entry && software.installed(entry));
   const pending = $derived(attr ? software.pendingPackage(attr) : undefined);
+  // Each package starts with the best list, also when the dialog opened before the inventory arrived.
   $effect(() => {
-    if (file !== NEW_FILE && !files.some((item) => item.file === file)) file = files[0]?.file ?? NEW_FILE;
+    if (entry) file = files[0]?.file ?? NEW_FILE;
   });
   $effect(() => {
     if (entry) newFile = software.suggestFile(scope, entry.a.split(".").at(-1)!, files.find((item) => item.active)?.file);
@@ -34,19 +36,23 @@
   const ready = $derived(creating ? !software.newFileProblem(scope, newFile) && Boolean(importer) : Boolean(file));
   const category = (path: string) => path.split("/").at(-1)!.replace(/\.nix$/, "");
 
+  /** The edits that install the package. */
+  const adding = $derived.by((): Change[] => {
+    const allow = allowing ?? [];
+    return creating
+      ? [...allow, { kind: "create-module", scope, file: newFile, importer }, { kind: "add-package", scope, file: newFile, attr }]
+      : [...allow, { kind: "add-package", scope, file, attr }];
+  });
+  const removing = $derived<Change[]>(
+    installed?.attr ? [{ kind: "remove-package", scope: installed.scope, file: installed.file, attr: installed.attr }] : [],
+  );
+  const name = $derived(entry ? (entry.n ?? entry.a) : "");
+
   async function add() {
     if (!entry || !ready || (refused && !allowing)) return;
     const allow = allowing ?? [];
-    if (creating) {
-      await software.stage([
-        ...allow,
-        { kind: "create-module", scope, file: newFile, importer },
-        { kind: "add-package", scope, file: newFile, attr },
-      ]);
-    } else {
-      software.remember(scope, file);
-      await software.stage([...allow, { kind: "add-package", scope, file, attr }]);
-    }
+    if (!creating) software.remember(scope, file);
+    await software.stage(adding);
     app.toast({
       tone: "success",
       title: `${entry.n ?? entry.a} will be installed`,
@@ -58,9 +64,20 @@
     entry = undefined;
     app.applyFix({ kind: "allow-unfree", packages: [], scope }, scope);
   }
+  function installNow() {
+    if (!entry || !ready || (refused && !allowing)) return;
+    if (!creating) software.remember(scope, file);
+    void software.installNow(adding, `Installing ${name}`, `${name} is installed`);
+    entry = undefined;
+  }
+  function removeNow() {
+    if (!entry || !removing.length) return;
+    void software.installNow(removing, `Removing ${name}`, `${name} is removed`);
+    entry = undefined;
+  }
   async function remove() {
-    if (!entry || !installed?.attr) return;
-    await software.stage([{ kind: "remove-package", scope: installed.scope, file: installed.file, attr: installed.attr }]);
+    if (!entry || !removing.length) return;
+    await software.stage(removing);
     app.toast({ tone: "info", title: `${entry.n ?? entry.a} will be removed`, body: "Prepare your pending edits to build without it." });
     entry = undefined;
   }
@@ -141,9 +158,19 @@
       <Dialog.Footer>
         <Button variant="ghost" onclick={() => (entry = undefined)}>Close</Button>
         {#if !pending && installed?.attr}
-          <Button variant="destructive" disabled={software.saving} onclick={remove}>Remove</Button>
+          {#if software.canInstallNow(removing)}
+            <Button variant="outline" disabled={software.saving} onclick={remove}>Add to pending edits</Button>
+            <Button variant="destructive" disabled={software.saving} onclick={removeNow}>Remove now</Button>
+          {:else}
+            <Button variant="destructive" disabled={software.saving} onclick={remove}>Remove</Button>
+          {/if}
         {:else if !pending && !installed}
-          <Button disabled={!ready || (refused && !allowing) || software.saving} onclick={add}>Add to pending edits</Button>
+          {#if software.canInstallNow(adding)}
+            <Button variant="outline" disabled={!ready || (refused && !allowing) || software.saving} onclick={add}>Add to pending edits</Button>
+            <Button disabled={!ready || (refused && !allowing) || software.saving} onclick={installNow}>Install now</Button>
+          {:else}
+            <Button disabled={!ready || (refused && !allowing) || software.saving} onclick={add}>Add to pending edits</Button>
+          {/if}
         {/if}
       </Dialog.Footer>
     {/if}

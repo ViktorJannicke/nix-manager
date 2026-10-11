@@ -55,6 +55,8 @@ export const Request = Schema.Struct({
   edits: Schema.optional(Schema.Boolean),
   /** Review going back from the change this operation applied. */
   undo: Schema.optional(Schema.String),
+  /** Apply the prepared edits right away when `oneStepReviewProblem` finds nothing against it. */
+  then: Schema.optional(Schema.Literal("apply")),
 });
 export type Request = typeof Request.Type;
 export const request = (overrides: Partial<Request> = {}): Request => ({
@@ -129,6 +131,8 @@ export function validate(r: Request): void {
     if (r.edits || r.generation !== undefined || r.update || r.inputs?.length)
       fail("An undo review cannot include edits, generations or input updates.");
   }
+  if (r.then !== undefined && (r.action !== "review-build" || !r.edits || r.scope !== "home" || r.update || r.inputs?.length))
+    fail("Only edits of the home configuration are applied in one step.");
   if (isReview(r.action)) {
     if (r.reviewId !== undefined && !validId(r.reviewId))
       fail("A valid review ID is required.");

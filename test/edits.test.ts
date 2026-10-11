@@ -105,15 +105,14 @@ test("applying writes created files and adds them to Git", async () => {
   await expect(Effect.runPromise(run)).rejects.toThrow("was created after");
 });
 
-test("edited reviews build a staged copy, verify the edits and write them on apply", async () => {
-  const config = setup();
+/** A manager whose Nix finds btop added to modules/apps.nix by the edits and builds the home configuration. */
+const editManager = (config: ReturnType<typeof setup>, calls: Command[] = []) => {
   const snapshot = join(config.flake, "snapshot");
   cpSync(join(config.flake, "modules"), join(snapshot, "modules"), { recursive: true });
   writeFileSync(join(snapshot, "flake.nix"), "{}");
   const output = join(config.flake, "home-output");
   mkdirSync(output);
   const package_ = (name: string) => ({ out: `/nix/store/${name}`, name, version: "1", description: null });
-  const calls: Command[] = [];
   const manager = new Manager(config, undefined, (command) => {
     calls.push(command);
     const [program, verb, sub] = command.argv;
@@ -130,7 +129,8 @@ test("edited reviews build a staged copy, verify the edits and write them on app
           code: 0,
           stdout: JSON.stringify({
             packages: [{ file: `${source}/modules/apps.nix`, items }],
-            options: [],
+            // An option the edits set; extra entries are ignored when none is asked for.
+            options: [{ exists: true, value: source !== snapshot, files: source === snapshot ? [] : [`${source}/modules/apps.nix`] }],
             resolved: ["/nix/store/btop"],
             used: [],
           }),
@@ -142,6 +142,13 @@ test("edited reviews build a staged copy, verify the edits and write them on app
       return { code: 0, stdout: "", stderr: "" };
     });
   });
+  return { manager, package_ };
+};
+
+test("edited reviews build a staged copy, verify the edits and write them on apply", async () => {
+  const config = setup();
+  const calls: Command[] = [];
+  const { manager, package_ } = editManager(config, calls);
   writeDraft(config, [btop]);
   manager.start(request({ action: "review-build", reviewId: "eeeeeeee", scope: "home", edits: true }));
   const built = await manager.wait();
@@ -160,6 +167,57 @@ test("edited reviews build a staged copy, verify the edits and write them on app
   expect((await manager.wait())?.status).toBe("succeeded");
   expect(readFileSync(join(config.flake, "modules/apps.nix"), "utf8")).toContain("    btop\n");
   expect(readDraft(config)).toEqual([]);
+});
+
+test("installing an app is prepared and applied in one step", async () => {
+  const config = setup();
+  const { manager } = editManager(config);
+  writeDraft(config, [btop]);
+  manager.start(request({ action: "review-build", scope: "home", edits: true, then: "apply" }));
+  const built = await manager.wait();
+  expect(built?.status).toBe("succeeded");
+  expect(built?.held).toBeUndefined();
+  // Applying follows on its own, for the review just prepared.
+  expect(manager.active?.request).toMatchObject({ action: "review-apply", reviewId: built?.request.reviewId, activation: "switch" });
+  expect((await manager.wait())?.status).toBe("succeeded");
+  expect(readFileSync(join(config.flake, "modules/apps.nix"), "utf8")).toContain("    btop\n");
+  expect(readDraft(config)).toEqual([]);
+  expect(await listReviews(config)).toEqual([]);
+});
+
+test("edits that change settings wait for review instead of being applied in one step", async () => {
+  const config = setup();
+  const { manager } = editManager(config);
+  writeDraft(config, [btop, { kind: "set-option", scope: "home", file: "modules/apps.nix", option: "programs.git.enable", value: true }]);
+  manager.start(request({ action: "review-build", scope: "home", edits: true, then: "apply" }));
+  const built = await manager.wait();
+  expect(built?.status).toBe("succeeded");
+  expect(built?.held).toBe("It changes settings, which can restart programs you are using.");
+  expect(manager.active).toBeUndefined();
+  expect(readFileSync(join(config.flake, "modules/apps.nix"), "utf8")).not.toContain("btop");
+  expect((await listReviews(config)).map((review) => review.id)).toEqual([built!.request.reviewId!]);
+});
+
+test("one-step edits can be held for review while they are prepared", async () => {
+  const config = setup();
+  const { manager } = editManager(config);
+  writeDraft(config, [btop]);
+  const operation = manager.start(request({ action: "review-build", scope: "home", edits: true, then: "apply" }));
+  expect(manager.hold("not-this-one")).toBe(false);
+  expect(manager.hold(operation.id)).toBe(true);
+  expect((await manager.wait())?.held).toBe("You chose to review it first.");
+  expect(manager.active).toBeUndefined();
+});
+
+test("only edits of the home configuration are applied in one step", () => {
+  const config = setup();
+  for (const r of [
+    { action: "review-build" as const, scope: "all" as const, edits: true },
+    { action: "review-build" as const, scope: "home" as const },
+    { action: "review-build" as const, scope: "home" as const, edits: true, update: true },
+    { action: "build" as const, scope: "home" as const },
+  ])
+    expect(() => plan(config, request({ ...r, reviewId: "abababab", then: "apply" }))).toThrow("one step");
 });
 
 test("a setting that does not take effect is reported before the package it was meant to allow", async () => {

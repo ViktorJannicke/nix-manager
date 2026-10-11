@@ -40,6 +40,7 @@ export const managerApi = {
   plan: (request: Request) => api<Plan>("plan", request),
   run: (request: Request) => api<Operation>("run", request),
   cancel: (id: string) => api<{ ok: true }>("cancel", { id }),
+  hold: (id: string) => api<{ ok: true }>("hold", { id }),
   log: (id: string) => api<LogResult>(`log/${id}`),
   removeReview: (id: string) => api<{ ok: true }>("review-remove", { id }),
 };

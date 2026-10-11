@@ -280,6 +280,12 @@ export function startServer(
               if (url.pathname === "/api/plan") return json(manager.plan(r));
               return json(manager.start(r), 202);
             }
+            if (url.pathname === "/api/hold") {
+              const { id } = await body(req);
+              if (typeof id !== "string" || !manager.hold(id))
+                return json({ error: "Those changes are no longer being prepared." }, 409);
+              return json({ ok: true });
+            }
             if (url.pathname === "/api/cancel") {
               const { id } = await body(req);
               if (id !== manager.active?.id)

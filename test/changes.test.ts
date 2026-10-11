@@ -1,7 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { acceptsUnfree, changesScope, dropChange, featureModule, freePath, mergeChanges, newFileProblem, rankImporters } from "../src/changes";
+import { acceptsUnfree, changesScope, dropChange, featureModule, freePath, mergeChanges, newFileProblem, oneStepProblem, oneStepReviewProblem, rankImporters } from "../src/changes";
+import type { BuildReview } from "../src/contracts";
 import { readDraft, writeDraft, type Change } from "../src/draft";
 import { parseSoftware, runSoftware, software } from "../src/software-cli";
 import { fixture } from "./helpers";
@@ -111,4 +112,33 @@ test("non-free packages are accepted by allowUnfree, by name, or by a predicate"
   expect(acceptsUnfree({ ...policy, predicate: true }, "discord")).toBe(true);
   // Without a known policy nothing is claimed.
   expect(acceptsUnfree(undefined, "discord")).toBe(true);
+});
+
+test("only installing and removing your own apps is applied in one step", () => {
+  const remove: Change = { ...add, kind: "remove-package" };
+  const unfree: Change = { kind: "set-option", scope: "home", file: "a.nix", option: "nixpkgs.config.allowUnfree", value: true };
+  const module: Change = { kind: "create-module", scope: "home", file: "b.nix", importer: "a.nix" };
+  expect(oneStepProblem([unfree, module, add, remove])).toBeUndefined();
+  expect(oneStepProblem([])).toBeDefined();
+  expect(oneStepProblem([{ ...add, scope: "system" }])).toContain("computer itself");
+  expect(oneStepProblem([add, { ...unfree, value: false }])).toContain("settings");
+  expect(oneStepProblem([{ kind: "set-option", scope: "home", file: "a.nix", option: "services.syncthing.enable", value: true }])).toContain("settings");
+
+  // What the review found counts too: an edit may turn out to change an option by evaluation.
+  const review: BuildReview = {
+    id: "abababab",
+    host: "test",
+    scope: "home",
+    createdAt: "",
+    fingerprint: "",
+    source: "checkout",
+    edits: { changes: [add], hash: "", files: [], effects: [{ scope: "home", added: [], removed: [], options: [] }] },
+    home: { path: "/nix/store/home", changes: [], compared: true },
+  };
+  expect(oneStepReviewProblem(review)).toBeUndefined();
+  expect(oneStepReviewProblem({ ...review, system: review.home })).toContain("computer itself");
+  expect(oneStepReviewProblem({ ...review, edits: undefined })).toBeDefined();
+  expect(
+    oneStepReviewProblem({ ...review, edits: { ...review.edits!, effects: [{ scope: "home", added: [], removed: [], options: [{ option: "xdg.enable" }] }] } }),
+  ).toContain("settings");
 });

@@ -39,6 +39,17 @@ export interface Confirmation {
   token: number;
 }
 
+/** Edits being prepared and applied in one step, shown in the progress dialog. */
+export interface OneStep {
+  /** What happens, such as "Installing Firefox". */
+  title: string;
+  /** What is said when it is done, such as "Firefox is installed". */
+  done: string;
+  /** The operation preparing the edits; the one applying them follows with the same review. */
+  prepare: string;
+  reviewId: string;
+}
+
 interface LogView {
   id: string;
   text: string;
@@ -76,12 +87,16 @@ class AppState {
   /** Live progress for the running step, keyed by operation ID. */
   progress = $state.raw<Record<string, { stepId: string; progress: BuildProgress }>>({});
   refreshing = $state(false);
+  /** The one-step change the progress dialog shows. */
+  oneStep = $state<OneStep>();
 
   private nextId = 1;
   private queued: Extract<ManagerEvent, { type: "output" }>[] = [];
   /** Operations started from this window; their completion gets a follow-up. */
   private watched = new Set<string>();
   private settled = new Set<string>();
+  /** Reviews prepared here in one step, whose application is followed too. */
+  private followed = new Set<string>();
 
   // Derived views of the snapshot used across pages.
   config = $derived(this.snapshot?.config);
@@ -196,6 +211,9 @@ class AppState {
       return;
     }
     if (event.type === "operation") {
+      // Applying edits prepared in one step starts on the server; it is followed like its preparation.
+      const r = event.operation.request;
+      if (r.action === "review-apply" && this.followed.has(r.reviewId!)) this.watched.add(event.operation.id);
       this.patch(event.operation);
       this.settle(event.operation);
       return;
@@ -324,6 +342,23 @@ class AppState {
     return this.run(this.request("review-build", { scope, ...overrides }));
   }
 
+  /** Prepares the pending edits and applies them right away if they are safe to, showing progress. */
+  async installNow(title: string, done: string) {
+    const operation = await this.prepare("home", { edits: true, then: "apply" });
+    if (!operation) return;
+    this.followed.add(operation.request.reviewId!);
+    this.oneStep = { title, done, prepare: operation.id, reviewId: operation.request.reviewId! };
+  }
+
+  /** Keeps the one-step change from being applied; it waits on the Changes page. */
+  async hold(operationId: string) {
+    try {
+      await managerApi.hold(operationId);
+    } catch (error) {
+      this.fail(error, "Could not stop it");
+    }
+  }
+
   async cancel() {
     if (!this.active) return;
     try {
@@ -361,11 +396,15 @@ class AppState {
     this.settled.add(operation.id);
     const r = operation.request;
     const label = actionLabels[r.action];
+    // The progress dialog tells what happened to a one-step change while it is open.
+    const shown = this.oneStep && (this.oneStep.prepare === operation.id || this.oneStep.reviewId === r.reviewId);
     if (operation.status === "cancelled") {
+      if (shown) return;
       this.toast({ tone: "info", title: `${label} cancelled`, body: operation.error });
       return;
     }
     if (operation.status !== "succeeded") {
+      if (shown) return;
       this.toast({
         tone: "error",
         title: operation.explanation ? `${label} failed: ${operation.explanation.title}` : `${label} failed`,
@@ -382,11 +421,14 @@ class AppState {
       });
       return;
     }
+    if (r.action === "review-build" && r.then === "apply" && !operation.held) return;
     if (r.action === "review-build") {
       this.selectedReview = r.reviewId;
+      if (shown) return;
       this.navigate("changes");
       this.toast({ tone: "success", title: "Changes are ready to review", body: "Nothing has been activated yet." });
     } else if (r.action === "review-apply") {
+      if (shown) return;
       this.toast({
         tone: "success",
         title: r.activation === "boot" ? "Will apply on next boot" : "Changes applied",

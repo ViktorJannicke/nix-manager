@@ -1,5 +1,5 @@
 import type { Change } from "../../src/draft";
-import { acceptsUnfree, changesScope, dropChange, featureModule, freePath, mergeChanges, newFileProblem, rankImporters, rankModules } from "../../src/changes";
+import { acceptsUnfree, changesScope, oneStepProblem, dropChange, featureModule, freePath, mergeChanges, newFileProblem, rankImporters, rankModules } from "../../src/changes";
 import { experiences, type Experience } from "../../src/curated";
 import type {
   CatalogEntry,
@@ -255,12 +255,15 @@ class SoftwareState {
 
   // --- Draft ----------------------------------------------------------------
 
+  /** Replaces the draft; false when it could not be saved. */
   async save(changes: Change[]) {
     this.saving = true;
     try {
       await api("draft", { changes });
+      return true;
     } catch (error) {
       app.fail(error, "Could not save the edit");
+      return false;
     } finally {
       this.saving = false;
     }
@@ -290,6 +293,20 @@ class SoftwareState {
 
   prepare() {
     return app.prepare(this.scope, { edits: true });
+  }
+
+  /**
+   * Whether `changes` can be installed in one step from here: they qualify
+   * (see `oneStepProblem`), nothing else is pending to be swept along, and the
+   * dashboard can apply to this computer now.
+   */
+  canInstallNow(changes: Change[]) {
+    return !this.changes.length && !oneStepProblem(changes) && !app.foreignHost && !app.busy && app.connected;
+  }
+
+  /** Stages `changes`, then prepares and applies them in one step. */
+  async installNow(changes: Change[], title: string, done: string) {
+    if (await this.stage(changes)) await app.installNow(title, done);
   }
 }
 
