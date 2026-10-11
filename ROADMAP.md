@@ -107,8 +107,18 @@ The tray already checks for updates read-only and sends notifications.
   it without running Nix while the computer shuts down.
   Follow-ups: the home part is applied when the tray or dashboard next starts,
   not by a boot service.
-- [ ] **Free up space** in plain terms: how much removing old restore points
+- [x] **Free up space** in plain terms: how much removing old restore points
   frees and how many are kept; optional automatic cleanup.
+  The clean-up section measures, before anything is removed, the store paths
+  only the removed generations use (`nix path-info`), so the number is what
+  goes at least; other unused paths are collected on top. Automatic cleanup
+  is off by default; once a week, on mains power and not busy, it keeps the
+  newest five home generations and collects garbage, then notifies how much
+  was freed.
+  Decided: automatic cleanup never touches system generations, because that
+  needs the password and boot entries.
+  Follow-ups: the number of kept generations for automatic cleanup is fixed;
+  the Generations page still says "generation" (Phase 5).
 - [ ] **History without Git.** Commit after each apply with a readable message
   ("Added Steam, turned on Bluetooth") and show that history; optional backup
   of the configuration to a Git remote.

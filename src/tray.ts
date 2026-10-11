@@ -2,9 +2,9 @@ import dbus from "dbus-next";
 import { ManagerError, actionLabels, request } from "./domain";
 import type { Manager } from "./manager";
 import type { BuildReview } from "./contracts";
-import { lastPrepared, prepareInBackground } from "./background";
+import { cleanUpInBackground, freeSpace, keptAutomatically, lastCleanup, lastPrepared, prepareInBackground } from "./background";
 import { getReview } from "./reviews";
-import { reviewSummary } from "./summary";
+import { bytes, reviewSummary } from "./summary";
 
 const { Interface } = dbus.interface;
 const { Variant } = dbus;
@@ -75,7 +75,10 @@ export async function startTray(
       await manager.wait();
       // When it is turned on, found updates are prepared now; "Updates are ready" follows.
       const prepared = prepareInBackground(manager);
-      if (typeof prepared === "string") console.log(`Updates are not prepared: ${prepared}`);
+      if (typeof prepared !== "string") return;
+      console.log(`Updates are not prepared: ${prepared}`);
+      const cleaned = cleanUpInBackground(manager);
+      if (typeof cleaned === "string") console.log(`Not cleaning up: ${cleaned}`);
     } catch (e) {
       if (!(e instanceof ManagerError && /running/.test(e.message))) throw e;
     }
@@ -380,7 +383,17 @@ export async function startTray(
         );
       else if (op.request.action === "review-build" && op.status === "succeeded" && op.request.reviewId === lastPrepared(manager.config)?.reviewId)
         invoke(() => ready(op.request.reviewId!));
-      else if (op.request.action === "review-build" && op.status === "succeeded")
+      else if (op.request.action === "gc" && op.status === "succeeded" && op.id === lastCleanup(manager.config)?.operationId) {
+        const before = lastCleanup(manager.config)?.free,
+          after = freeSpace(),
+          freed = before !== undefined && after !== undefined ? after - before : 0;
+        invoke(() =>
+          notify(
+            "Space freed",
+            `${freed > 0 ? `${bytes(freed)} were freed.` : "Older restore points were removed."} The newest ${keptAutomatically} restore points of your apps are kept.`,
+          ),
+        );
+      } else if (op.request.action === "review-build" && op.status === "succeeded")
         invoke(() =>
           notify(
             "Changes are ready to review",

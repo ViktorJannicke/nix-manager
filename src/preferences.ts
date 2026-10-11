@@ -14,6 +14,8 @@ export const Preferences = Schema.Struct({
   detail: Schema.optional(Schema.Literal("simple", "detailed")),
   /** Prepare updates the tray finds while the computer is plugged in and not busy. */
   prepareUpdates: Schema.optional(Schema.Boolean),
+  /** Remove older restore points of the apps once a week while plugged in and not busy. */
+  cleanUp: Schema.optional(Schema.Boolean),
 });
 export type Preferences = typeof Preferences.Type;
 

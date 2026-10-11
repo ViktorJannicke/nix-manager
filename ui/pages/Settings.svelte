@@ -60,9 +60,26 @@
         </span>
       </span>
       <Switch
+        aria-label="Prepare updates in the background"
         checked={app.snapshot?.preferences.prepareUpdates ?? false}
         disabled={!app.connected}
         onCheckedChange={(prepareUpdates) => app.savePreferences({ prepareUpdates })}
+      />
+    </label>
+
+    <label class="flex items-center justify-between gap-4 p-4">
+      <span>
+        <span class="block font-medium">Clean up automatically</span>
+        <span class="block text-xs text-muted-foreground">
+          Once a week, while the computer is plugged in and not busy, older restore points of your apps are removed
+          and files nothing uses are deleted. The newest five are kept. System restore points are only removed when you choose.
+        </span>
+      </span>
+      <Switch
+        aria-label="Clean up automatically"
+        checked={app.snapshot?.preferences.cleanUp ?? false}
+        disabled={!app.connected}
+        onCheckedChange={(cleanUp) => app.savePreferences({ cleanUp })}
       />
     </label>
 

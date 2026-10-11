@@ -5,7 +5,10 @@ import { dirname, join } from "node:path";
 import { Effect } from "effect";
 import { request, type Command } from "../src/domain";
 import { Manager } from "../src/manager";
-import { lastPrepared, prepareInBackground } from "../src/background";
+import { cleanUpInBackground, keptAutomatically, lastCleanup, lastPrepared, prepareInBackground } from "../src/background";
+import type { Generation, SystemState } from "../src/contracts";
+import { estimateCleanup } from "../src/space";
+import { removedGenerations } from "../src/summary";
 import { onMains } from "../src/hardware";
 import { writePreferences } from "../src/preferences";
 import { getReview, listReviews } from "../src/reviews";
@@ -146,4 +149,73 @@ test("only a system battery without mains power counts as battery", () => {
   expect(onMains(root)).toBe(false);
   write("class/power_supply/AC/online", "1");
   expect(onMains(root)).toBe(true);
+});
+
+test("cleaning up runs once a week, only for the apps and only when allowed", async () => {
+  const config = setup();
+  const { manager, calls } = fakeManager(config);
+  expect(cleanUpInBackground(manager, always)).toBe("Cleaning up automatically is off.");
+  writePreferences(config, { cleanUp: true });
+  expect(cleanUpInBackground(manager, { mains: () => false, idle: () => true })).toBe("The computer runs on battery.");
+  expect(cleanUpInBackground(manager, { mains: () => true, idle: () => false })).toBe("The computer is busy.");
+  const now = Date.parse("2026-10-11T12:00:00Z");
+  const operation = cleanUpInBackground(manager, always, now);
+  if (typeof operation === "string") throw new Error(operation);
+  expect(operation.request).toMatchObject({ action: "gc", scope: "home", retention: keptAutomatically });
+  expect(cleanUpInBackground(manager, always, now)).toBe("The last cleanup was less than a week ago.");
+  expect((await manager.wait())?.status).toBe("succeeded");
+  expect(lastCleanup(config)?.operationId).toBe(operation.id);
+  // No privileged step: system restore points are only removed when asked.
+  expect(calls.map((command) => command.argv[0])).toEqual(["nix-env", "nix-store"]);
+  expect(cleanUpInBackground(manager, always, now + 6 * 24 * 3600_000)).toBe("The last cleanup was less than a week ago.");
+  const next = cleanUpInBackground(manager, always, now + 7 * 24 * 3600_000);
+  expect(typeof next).not.toBe("string");
+  await manager.wait();
+});
+
+const generation = (number: number, output: string, extra: Partial<Generation> = {}): Generation => ({
+  number,
+  output,
+  createdAt: "2026-10-01T00:00:00Z",
+  current: false,
+  ...extra,
+});
+
+test("removed generations keep the newest and the active one", () => {
+  const all = [generation(1, "/a", { current: true }), generation(2, "/b"), generation(3, "/c"), generation(4, "/d")];
+  expect(removedGenerations(all, 2).map((g) => g.number)).toEqual([2]);
+  expect(removedGenerations(all, 4)).toEqual([]);
+});
+
+test("the cleanup estimate counts only what removed generations use alone", async () => {
+  const system = {
+    generations: {
+      home: [generation(3, "/h3", { current: true }), generation(2, "/h2"), generation(1, "/h1")],
+      system: [generation(2, "/s2", { current: true }), generation(1, "/s1", { booted: true })],
+    },
+    current: { home: "/h3", system: "/s2", booted: "/s1" },
+  } as unknown as SystemState;
+  const commands: Command[] = [];
+  const closures: Record<string, string> = {
+    "/h1": "/h1 100\n/shared 1000\n/only1 10\n",
+    "/h2": "/h2 200\n/shared 1000\n",
+  };
+  const run = (command: Command) =>
+    Effect.sync(() => {
+      commands.push(command);
+      const paths = command.argv.slice(command.argv.includes("--size") ? 4 : 3);
+      const stdout = command.argv.includes("--size")
+        ? paths.map((path) => closures[path]).join("")
+        : "/h3\n/s2\n/s1\n/shared\n";
+      return { code: 0, stdout, stderr: "" };
+    });
+  // With one kept, home generations 1 and 2 go; the shared path stays for generation 3.
+  expect(await Effect.runPromise(estimateCleanup(system, "home", 1, run))).toEqual({ generations: 2, bytes: 310 });
+  // The booted system is removed as a restore point but frees nothing before the restart.
+  commands.length = 0;
+  expect(await Effect.runPromise(estimateCleanup(system, "all", 1, run))).toEqual({ generations: 3, bytes: 310 });
+  expect(commands.find((c) => c.argv.includes("--size"))?.argv).not.toContain("/s1");
+  commands.length = 0;
+  expect(await Effect.runPromise(estimateCleanup(system, "home", 5, run))).toEqual({ generations: 0, bytes: 0 });
+  expect(commands).toEqual([]);
 });

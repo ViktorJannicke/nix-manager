@@ -4,7 +4,8 @@
   import HistoryIcon from "@lucide/svelte/icons/history";
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
-  import { dateTime, plural, relative } from "$lib/format";
+  import { managerApi } from "$lib/api";
+  import { bytes, dateTime, plural, relative, removedGenerations } from "$lib/format";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
   import Segmented from "$lib/components/app/Segmented.svelte";
 
@@ -14,21 +15,34 @@
 
   const list = $derived(app.system?.generations[profile] ?? []);
   const sorted = $derived([...list].sort((a, b) => b.number - a.number));
-  /** Generations `nix-env --delete-generations +N` removes; the current one is always kept. */
-  const removable = (key: "home" | "system") => {
-    const all = app.system?.generations[key] ?? [];
-    const kept = new Set(
-      [...all].sort((a, b) => b.number - a.number).slice(0, retention).map((g) => g.number),
-    );
-    return all.filter((g) => !g.current && !kept.has(g.number)).length;
-  };
+  const removable = (key: "home" | "system") => removedGenerations(app.system?.generations[key] ?? [], retention).length;
   const removeHome = $derived(removable("home"));
   const removeSystem = $derived(cleanupScope === "all" ? removable("system") : 0);
+
+  // The server measures what the cleanup frees; it answers again when the choice or the generations change.
+  const estimateKey = $derived(
+    JSON.stringify([cleanupScope, retention, app.system?.generations.home.map((g) => g.output), app.system?.generations.system.map((g) => g.output)]),
+  );
+  let estimate = $state<{ key: string; bytes: number }>();
+  const freed = $derived(estimate?.key === estimateKey ? estimate.bytes : undefined);
+  $effect(() => {
+    const key = estimateKey;
+    const [scope, keep] = [cleanupScope, retention];
+    if (!app.connected || !app.system || !(removeHome + removeSystem)) return;
+    const timer = setTimeout(() => {
+      managerApi
+        .cleanupEstimate(scope, keep)
+        .then((result) => (estimate = { key, bytes: result.bytes }))
+        .catch(() => {});
+    }, 250);
+    return () => clearTimeout(timer);
+  });
 
   function cleanup() {
     const points = [`Keeps the newest ${plural(retention, "generation")} of each selected profile and the active one.`];
     if (removeHome) points.push(`Removes ${plural(removeHome, "home generation")}.`);
     if (cleanupScope === "all") points.push(`Removes ${plural(removeSystem, "system generation")} and their boot entries; you'll be asked for your password.`);
+    if (freed) points.push(`Frees about ${bytes(freed)}, and more if other unused files are found.`);
     points.push("Deletes unreferenced store paths. Removed generations can't be restored.");
     app.confirm({
       title: "Clean up old generations?",
@@ -113,9 +127,14 @@
       <Button variant="outline" disabled={app.busy || !app.connected} onclick={cleanup}>Clean up…</Button>
     </div>
     <p class="mt-3 text-xs text-muted-foreground">
-      {removeHome + removeSystem
-        ? `${plural(removeHome + removeSystem, "generation")} will be removed.`
-        : "No generations will be removed; unused store paths are still collected."}
+      {#if !(removeHome + removeSystem)}
+        No generations will be removed; unused store paths are still collected.
+      {:else if freed === undefined}
+        {plural(removeHome + removeSystem, "generation")} will be removed. Measuring the space this frees…
+      {:else}
+        {plural(removeHome + removeSystem, "generation")} will be removed, freeing about <span class="font-medium text-foreground">{bytes(freed)}</span>{freed ? "" : " (other generations still use their files)"}.
+      {/if}
+      Settings can clean up home generations automatically.
     </p>
   </section>
 </div>

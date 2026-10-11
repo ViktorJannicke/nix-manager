@@ -1,4 +1,4 @@
-import type { BuildReview, EditEffect, PackageChange } from "./contracts";
+import type { BuildReview, EditEffect, Generation, PackageChange } from "./contracts";
 
 /** "1 change", "2 changes". */
 export const plural = (count: number, one: string, many = `${one}s`) =>
@@ -74,4 +74,15 @@ export function reviewSummary(review: BuildReview) {
   const kernel = review.system?.kernel;
   if (kernel?.after && kernel.before !== kernel.after) sentences.push("Restart afterwards to use the new kernel.");
   return sentences.join(" ");
+}
+
+/** Generations `nix-env --delete-generations +N` removes: all but the newest `retention` and the active one. */
+export function removedGenerations(generations: Generation[], retention: number) {
+  const kept = new Set(
+    [...generations]
+      .sort((a, b) => b.number - a.number)
+      .slice(0, retention)
+      .map((generation) => generation.number),
+  );
+  return generations.filter((generation) => !generation.current && !kept.has(generation.number));
 }

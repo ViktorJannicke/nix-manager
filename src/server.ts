@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { timingSafeEqual } from "node:crypto";
 import { Request as RequestSchema, ManagerError, resolveHost } from "./domain";
 import type { Manager } from "./manager";
@@ -11,6 +11,7 @@ import { readPreferences, writePreferences } from "./preferences";
 import type { SessionMessage, Snapshot } from "./contracts";
 import { Store } from "./store";
 import { detectHardware } from "./hardware";
+import { estimateCleanup, type CleanupEstimate } from "./space";
 
 export interface UiAsset {
   body: string;
@@ -89,6 +90,8 @@ export function startServer(
       : input;
   const token = crypto.randomUUID() + crypto.randomUUID();
   const observer = new Observer(manager.config);
+  /** The last cleanup estimate, measured again when the restore points change. */
+  let estimate: { key: string; result: Promise<CleanupEstimate> } | undefined;
   // Assigned below; the store reports catalog and draft changes as snapshots.
   let broadcastLater = () => {};
   const store = new Store(manager.config, () => broadcastLater());
@@ -241,6 +244,19 @@ export function startServer(
               removeReview(manager.config, id);
               broadcast();
               return json({ ok: true });
+            }
+            if (url.pathname === "/api/cleanup-estimate") {
+              const { scope, retention } = await body(req);
+              if ((scope !== "home" && scope !== "all") || typeof retention !== "number" || !Number.isInteger(retention) || retention < 1 || retention > 100)
+                return json({ error: "Invalid cleanup." }, 400);
+              const system = observer.current;
+              if (!system) return json({ error: "The computer has not been read yet." }, 409);
+              const key = JSON.stringify([scope, retention, system.generations, system.current]);
+              if (estimate?.key !== key) estimate = { key, result: Effect.runPromise(estimateCleanup(system, scope, retention)) };
+              const { result } = estimate;
+              // A failed measurement is tried again next time.
+              result.catch(() => estimate?.result === result && (estimate = undefined));
+              return json(await result);
             }
             if (url.pathname === "/api/preferences") {
               const preferences = writePreferences(manager.config, await body(req));

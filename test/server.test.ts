@@ -138,6 +138,9 @@ test("preferences are kept in the state directory and only known ones are accept
     expect((await save({ detail: "expert" })).status).toBe(400);
     expect((await save({ token: "x" })).status).toBe(400);
     expect(JSON.parse(readFileSync(join(config.stateDir, "preferences.json"), "utf8"))).toEqual({ detail: "detailed", theme: "dark" });
+    const estimate = (body: unknown) => fetch(`${base}/api/cleanup-estimate`, { method: "POST", headers, body: JSON.stringify(body) });
+    for (const body of [{ scope: "system", retention: 3 }, { scope: "home", retention: 0 }, { scope: "home", retention: "3" }])
+      expect((await estimate(body)).status).toBe(400);
   } finally {
     await manager.close();
     service.close();

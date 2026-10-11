@@ -7,6 +7,7 @@ import type {
 } from "../../src/contracts";
 import type { Request } from "../../src/domain";
 import type { Preferences } from "../../src/preferences";
+import type { CleanupEstimate } from "../../src/space";
 
 const fragment = location.hash.slice(1);
 const token = fragment || sessionStorage.getItem("nix-manager-token") || "";
@@ -44,6 +45,8 @@ export const managerApi = {
   hold: (id: string) => api<{ ok: true }>("hold", { id }),
   preferences: (preferences: Preferences) => api<Preferences>("preferences", preferences),
   log: (id: string) => api<LogResult>(`log/${id}`),
+  cleanupEstimate: (scope: "home" | "all", retention: number) =>
+    api<CleanupEstimate>("cleanup-estimate", { scope, retention }, 60_000),
   removeReview: (id: string) => api<{ ok: true }>("review-remove", { id }),
 };
 

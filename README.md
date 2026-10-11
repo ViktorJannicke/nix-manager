@@ -217,6 +217,12 @@ then every six hours (`--interval MINUTES` changes this). Notifications report
 new update sets, failed operations, and completed changes. Clicking a notification
 opens the dashboard. Checks never activate a configuration automatically.
 
+The Generations page measures how much a cleanup frees before it runs. With
+"Clean up automatically" switched on, the tray removes all but the newest five
+home generations and unused store paths at most once a week, on mains power
+and when the computer is not busy. System generations are only removed on
+request, since that needs a password.
+
 With "Prepare updates in the background" switched on in Settings, the tray also
 builds a review of new source updates after a check, while the computer is on
 mains power and not busy, and notifies when it is ready. The notification can

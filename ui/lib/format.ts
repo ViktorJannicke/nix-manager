@@ -1,7 +1,7 @@
 import type { Operation } from "../../src/contracts";
 import type { Scope } from "../../src/domain";
 
-export { bytes, editedPackages, plural, reviewSummary, summarize } from "../../src/summary";
+export { bytes, editedPackages, plural, removedGenerations, reviewSummary, summarize } from "../../src/summary";
 
 const relativeFormat = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 const units: [Intl.RelativeTimeFormatUnit, number][] = [
