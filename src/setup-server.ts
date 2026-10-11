@@ -8,6 +8,8 @@ import { Effect } from "effect";
 import { securityHeaders, type UiAssets } from "./server";
 import { createCheckout, readSetup, setupSteps, targetProblem, type SetupInfo, type SetupStep } from "./setup";
 import { runnerLayer } from "./process";
+import { resolveLocale } from "./preferences";
+import type { Locale } from "./i18n";
 
 export interface SetupState {
   info?: SetupInfo;
@@ -20,11 +22,13 @@ export interface SetupState {
   next?: string;
   /** Why the dashboard could not start; nothing else is offered then. */
   problem?: { message: string; flake: string };
+  /** The desktop's language; there are no preferences before setup. */
+  locale: Locale;
 }
 
 export function startSetupServer(assets: UiAssets, onCreated: (path: string) => void, problem?: SetupState["problem"]) {
   const token = crypto.randomUUID() + crypto.randomUUID();
-  const state: SetupState = { steps: setupSteps.map((step) => ({ ...step, status: "waiting" })), running: false, problem };
+  const state: SetupState = { steps: setupSteps.map((step) => ({ ...step, status: "waiting" })), running: false, problem, locale: resolveLocale({}) };
   let lastSeen = Date.now();
   const read = () =>
     problem ? Promise.resolve() :

@@ -6,16 +6,17 @@
   import CircleDashedIcon from "@lucide/svelte/icons/circle-dashed";
   import type { OperationStatus, StepStatus } from "../../../../src/contracts";
   import { cn } from "$lib/utils";
+  import { t } from "$lib/i18n";
 
   let { status, class: className }: { status: OperationStatus | StepStatus; class?: string } = $props();
   const labels: Record<string, string> = {
-    running: "Running",
-    succeeded: "Done",
-    failed: "Failed",
-    cancelled: "Cancelled",
-    interrupted: "Interrupted",
-    pending: "Waiting",
-    skipped: "Skipped",
+    running: t("Running"),
+    succeeded: t("Done"),
+    failed: t("Failed"),
+    cancelled: t("Cancelled"),
+    interrupted: t("Interrupted"),
+    pending: t("Waiting"),
+    skipped: t("Skipped"),
   };
   const tones: Record<string, string> = {
     running: "bg-primary/10 text-primary",

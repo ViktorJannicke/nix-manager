@@ -6,6 +6,7 @@
   import { Button } from "$lib/components/ui/button";
   import Segmented from "./Segmented.svelte";
   import { app } from "$lib/app.svelte";
+  import { t } from "$lib/i18n";
   import { NEW_FILE, origin, software } from "$lib/software.svelte";
   import NewModuleFields from "./NewModuleFields.svelte";
   import type { Target } from "../../../../src/software";
@@ -58,8 +59,10 @@
     await software.stage(adding);
     app.toast({
       tone: "success",
-      title: `${entry.n ?? entry.a} will be installed`,
-      body: `${allow.length ? "Non-free software will be allowed too. " : ""}Prepare your pending edits to build it.`,
+      title: t("{name} will be installed", { name: entry.n ?? entry.a }),
+      body: allow.length
+        ? t("Non-free software will be allowed too. Prepare your pending edits to build it.")
+        : t("Prepare your pending edits to build it."),
     });
     entry = undefined;
   }
@@ -70,18 +73,18 @@
   function installNow() {
     if (!entry || !ready || (refused && !allowing)) return;
     if (!creating) software.remember(scope, file);
-    void software.installNow(adding, `Installing ${name}`, `${name} is installed`);
+    void software.installNow(adding, t("Installing {name}", { name }), t("{name} is installed", { name }));
     entry = undefined;
   }
   function removeNow() {
     if (!entry || !removing.length) return;
-    void software.installNow(removing, `Removing ${name}`, `${name} is removed`);
+    void software.installNow(removing, t("Removing {name}", { name }), t("{name} is removed", { name }));
     entry = undefined;
   }
   async function remove() {
     if (!entry || !removing.length) return;
     await software.stage(removing);
-    app.toast({ tone: "info", title: `${entry.n ?? entry.a} will be removed`, body: "Prepare your pending edits to build without it." });
+    app.toast({ tone: "info", title: t("{name} will be removed", { name: entry.n ?? entry.a }), body: t("Prepare your pending edits to build without it.") });
     entry = undefined;
   }
 </script>
@@ -94,55 +97,57 @@
           {#if entry.app}<AppIcon app={entry.app} name={entry.app.name} class="size-12" />{/if}
           <div class="min-w-0">
             <Dialog.Title>{entry.app?.name ?? entry.n ?? entry.a}</Dialog.Title>
-            <Dialog.Description>{entry.app?.summary ?? entry.d ?? "No description."}</Dialog.Description>
+            <Dialog.Description>{entry.app?.summary ?? entry.d ?? t("No description.")}</Dialog.Description>
           </div>
         </div>
       </Dialog.Header>
       {#if entry.app && entry.d && entry.d !== entry.app.summary}<p class="text-muted-foreground">{entry.d.replace(/\.?$/, ".")}</p>{/if}
       <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-        <dt class="text-muted-foreground">Version</dt><dd>{entry.v ?? "unknown"}</dd>
-        {#if entry.app?.categories.length}<dt class="text-muted-foreground">Category</dt><dd>{entry.app.categories.map((id) => appCategories[id]).join(", ")}</dd>{/if}
-        <dt class="text-muted-foreground">Attribute</dt><dd class="font-mono break-all">{attr}</dd>
-        {#if entry.p}<dt class="text-muted-foreground">Command</dt><dd class="font-mono">{entry.p}</dd>{/if}
-        {#if entry.l.length}<dt class="text-muted-foreground">License</dt><dd>{entry.l.join(", ")}{entry.f ? "" : " (not free)"}</dd>{/if}
+        <dt class="text-muted-foreground">{t("Version")}</dt><dd>{entry.v ?? t("unknown")}</dd>
+        {#if entry.app?.categories.length}<dt class="text-muted-foreground">{t("Category")}</dt><dd>{entry.app.categories.map((id) => t(appCategories[id])).join(", ")}</dd>{/if}
+        <dt class="text-muted-foreground">{t("Attribute")}</dt><dd class="font-mono break-all">{attr}</dd>
+        {#if entry.p}<dt class="text-muted-foreground">{t("Command")}</dt><dd class="font-mono">{entry.p}</dd>{/if}
+        {#if entry.l.length}<dt class="text-muted-foreground">{t("License")}</dt><dd>{entry.f ? entry.l.join(", ") : t("{licenses} (not free)", { licenses: entry.l.join(", ") })}</dd>{/if}
         {#if entry.h}
-          <dt class="text-muted-foreground">Website</dt>
+          <dt class="text-muted-foreground">{t("Website")}</dt>
           <dd><a class="inline-flex items-center gap-1 break-all text-primary hover:underline" href={entry.h} target="_blank" rel="noreferrer">{entry.h.replace(/^https?:\/\//, "")}<ExternalLinkIcon class="size-3 shrink-0" /></a></dd>
         {/if}
       </dl>
       {#if entry.b}
-        <p class="flex gap-2 rounded-lg bg-warning/10 px-3 py-2 text-xs"><TriangleAlertIcon class="mt-0.5 size-3.5 shrink-0 text-warning" />Marked as broken in nixpkgs; building it will probably fail.</p>
+        <p class="flex gap-2 rounded-lg bg-warning/10 px-3 py-2 text-xs"><TriangleAlertIcon class="mt-0.5 size-3.5 shrink-0 text-warning" />{t("Marked as broken in nixpkgs; building it will probably fail.")}</p>
       {/if}
 
       {#if pending}
         <p class="rounded-lg bg-accent px-3 py-2 text-xs">
-          {pending.kind === "add-package" ? "Waiting to be installed" : "Waiting to be removed"} in your pending edits ({pending.file}).
+          {pending.kind === "add-package"
+            ? t("Waiting to be installed in your pending edits ({file}).", { file: pending.file })
+            : t("Waiting to be removed in your pending edits ({file}).", { file: pending.file })}
         </p>
       {:else if installed}
         <div class="rounded-lg bg-muted px-3 py-2 text-xs">
-          <p class="font-medium">Installed{installed.scope === "system" ? " for every user" : ""}</p>
+          <p class="font-medium">{installed.scope === "system" ? t("Installed for every user") : t("Installed")}</p>
           <p class="text-muted-foreground">
-            {installed.attr ? `Listed in ${installed.file}` : `Added by ${origin(installed.file)}`}
+            {installed.attr ? t("Listed in {file}", { file: installed.file }) : t("Added by {origin}", { origin: origin(installed.file) })}
           </p>
         </div>
       {:else}
         <div class="space-y-3">
           <div class="flex items-center justify-between gap-3">
-            <span class="font-medium">Install for</span>
-            <Segmented label="Install for" bind:value={scope} options={[{ value: "home" as Target, label: "Just you" }, { value: "system" as Target, label: "Every user" }]} />
+            <span class="font-medium">{t("Install for")}</span>
+            <Segmented label={t("Install for")} bind:value={scope} options={[{ value: "home" as Target, label: t("Just you") }, { value: "system" as Target, label: t("Every user") }]} />
           </div>
           <div class="space-y-1">
             <label class="block space-y-1">
-              <span class="font-medium">Add it to</span>
+              <span class="font-medium">{t("Add it to")}</span>
               <select class="focus-ring h-9 w-full rounded-md border bg-card px-2" bind:value={file} aria-describedby={creating ? undefined : `${uid}-file-help`}>
                 {#each files as item (item.file)}
-                  <option value={item.file}>{category(item.file)}: {item.file}{item.active ? "" : " (not used by this host)"}</option>
+                  <option value={item.file}>{item.active ? `${category(item.file)}: ${item.file}` : t("{category}: {file} (not used by this host)", { category: category(item.file), file: item.file })}</option>
                 {/each}
-                <option value={NEW_FILE}>New file…</option>
+                <option value={NEW_FILE}>{t("New file…")}</option>
               </select>
             </label>
             {#if !creating}
-              <span id="{uid}-file-help" class="block text-xs text-muted-foreground">The package is added to this file's package list, next to the others.</span>
+              <span id="{uid}-file-help" class="block text-xs text-muted-foreground">{t("The package is added to this file's package list, next to the others.")}</span>
             {/if}
           </div>
           {#if creating}
@@ -152,14 +157,20 @@
             <div class="flex gap-2 rounded-lg bg-muted px-3 py-2 text-xs">
               <LockOpenIcon class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
               <div class="space-y-1">
-                <p class="font-medium">{entry.n ?? entry.a} is not free software</p>
+                <p class="font-medium">{t("{name} is not free software", { name: entry.n ?? entry.a })}</p>
                 {#if allowing}
                   <p class="text-muted-foreground">
-                    {scope === "home" ? "Your user only installs" : "This computer only installs"} software with a free license. Adding it also allows non-free software{scope === "home" ? " for you" : ""}, in {allowing.at(-1)!.file}.
+                    {scope === "home"
+                      ? t("Your user only installs software with a free license. Adding it also allows non-free software for you, in {file}.", { file: allowing.at(-1)!.file })
+                      : t("This computer only installs software with a free license. Adding it also allows non-free software, in {file}.", { file: allowing.at(-1)!.file })}
                   </p>
                 {:else}
-                  <p class="text-muted-foreground">{scope === "home" ? "Your user only installs" : "This computer only installs"} software with a free license. Allow non-free software first, then add it.</p>
-                  <Button size="sm" variant="outline" class="mt-1" onclick={allowFirst}>Allow non-free software…</Button>
+                  <p class="text-muted-foreground">
+                    {scope === "home"
+                      ? t("Your user only installs software with a free license. Allow non-free software first, then add it.")
+                      : t("This computer only installs software with a free license. Allow non-free software first, then add it.")}
+                  </p>
+                  <Button size="sm" variant="outline" class="mt-1" onclick={allowFirst}>{t("Allow non-free software…")}</Button>
                 {/if}
               </div>
             </div>
@@ -168,20 +179,20 @@
       {/if}
 
       <Dialog.Footer>
-        <Button variant="ghost" onclick={() => (entry = undefined)}>Close</Button>
+        <Button variant="ghost" onclick={() => (entry = undefined)}>{t("Close")}</Button>
         {#if !pending && installed?.attr}
           {#if software.canInstallNow(removing)}
-            <Button variant="outline" disabled={software.saving} onclick={remove}>Add to pending edits</Button>
-            <Button variant="destructive" disabled={software.saving} onclick={removeNow}>Remove now</Button>
+            <Button variant="outline" disabled={software.saving} onclick={remove}>{t("Add to pending edits")}</Button>
+            <Button variant="destructive" disabled={software.saving} onclick={removeNow}>{t("Remove now")}</Button>
           {:else}
-            <Button variant="destructive" disabled={software.saving} onclick={remove}>Remove</Button>
+            <Button variant="destructive" disabled={software.saving} onclick={remove}>{t("Remove")}</Button>
           {/if}
         {:else if !pending && !installed}
           {#if software.canInstallNow(adding)}
-            <Button variant="outline" disabled={!ready || (refused && !allowing) || software.saving} onclick={add}>Add to pending edits</Button>
-            <Button disabled={!ready || (refused && !allowing) || software.saving} onclick={installNow}>Install now</Button>
+            <Button variant="outline" disabled={!ready || (refused && !allowing) || software.saving} onclick={add}>{t("Add to pending edits")}</Button>
+            <Button disabled={!ready || (refused && !allowing) || software.saving} onclick={installNow}>{t("Install now")}</Button>
           {:else}
-            <Button disabled={!ready || (refused && !allowing) || software.saving} onclick={add}>Add to pending edits</Button>
+            <Button disabled={!ready || (refused && !allowing) || software.saving} onclick={add}>{t("Add to pending edits")}</Button>
           {/if}
         {/if}
       </Dialog.Footer>

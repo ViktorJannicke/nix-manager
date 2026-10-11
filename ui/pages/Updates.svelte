@@ -4,8 +4,9 @@
   import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
   import { Button } from "$lib/components/ui/button";
+  import { t, tn } from "$lib/i18n";
   import { app } from "$lib/app.svelte";
-  import { day, daysBetween, plural, relative, shortRev } from "$lib/format";
+  import { day, daysBetween, relative, shortRev } from "$lib/format";
   import { actionLabels, type Action, type Scope } from "../../src/domain";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
   import Segmented from "$lib/components/app/Segmented.svelte";
@@ -32,13 +33,13 @@
 
   function updatePin(name: string, latest: string) {
     app.confirm({
-      title: `Update ${pinName(name)} to ${latest}?`,
-      description: "Downloads the release, then writes its version into your configuration.",
+      title: t("Update {name} to {version}?", { name: pinName(name), version: latest }),
+      description: t("Downloads the release, then writes its version into your configuration."),
       request: app.request(pinAction(name), { scope: "home" }),
-      confirmLabel: "Update pin",
+      confirmLabel: t("Update pin"),
       points: [
-        "Your configuration is changed; Git shows exactly what changed.",
-        "Nothing changes on the computer yet. Prepare your user's changes to build and apply the new version.",
+        t("Your configuration is changed; Git shows exactly what changed."),
+        t("Nothing changes on the computer yet. Prepare your user's changes to build and apply the new version."),
       ],
     });
   }
@@ -47,40 +48,40 @@
 <div class="space-y-6">
   <header class="flex flex-wrap items-end justify-between gap-4">
     <div>
-      <h1 class="title">Updates</h1>
+      <h1 class="title">{t("Updates")}</h1>
       <p class="mt-1 text-muted-foreground">
-        {#if app.updates}Last checked {relative(app.updates.checkedAt, app.now)}{:else}Not checked yet{/if}
+        {#if app.updates}{t("Last checked {time}", { time: relative(app.updates.checkedAt, app.now) })}{:else}{t("Not checked yet")}{/if}
       </p>
     </div>
     <Button variant="outline" disabled={app.busy || !app.connected} onclick={check}>
       <RefreshCwIcon class={checking ? "animate-spin" : ""} />
-      {checking ? "Checking…" : "Check now"}
+      {checking ? t("Checking…") : t("Check now")}
     </Button>
   </header>
 
   {#if app.updates?.errors.length}
     <div class="space-y-1 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3">
-      <p class="flex items-center gap-2 font-medium text-destructive"><CircleAlertIcon class="size-4" /> Some sources could not be checked</p>
-      {#each app.updates.errors as error}<p class="text-xs break-words text-muted-foreground">{error}</p>{/each}
+      <p class="flex items-center gap-2 font-medium text-destructive"><CircleAlertIcon class="size-4" /> {t("Some sources could not be checked")}</p>
+      {#each app.updates.errors as error}<p class="text-xs break-words text-muted-foreground">{t(error)}</p>{/each}
     </div>
   {/if}
 
   {#if !app.updates}
     <section class="panel">
-      <EmptyState icon={RefreshCwIcon} title="No update check yet">
-        Looks for newer versions of your software sources and pinned apps without changing anything.
-        {#snippet actions()}<Button disabled={app.busy} onclick={check}>Check for updates</Button>{/snippet}
+      <EmptyState icon={RefreshCwIcon} title={t("No update check yet")}>
+        {t("Looks for newer versions of your software sources and pinned apps without changing anything.")}
+        {#snippet actions()}<Button disabled={app.busy} onclick={check}>{t("Check for updates")}</Button>{/snippet}
       </EmptyState>
     </section>
   {:else if !app.inputUpdates.length && !app.packageUpdates.length}
     <section class="panel">
       {#if app.updates.errors.length}
-        <EmptyState icon={CircleCheckIcon} title="No updates found">
-          Everything that could be checked is current. Fix the sources above and check again.
+        <EmptyState icon={CircleCheckIcon} title={t("No updates found")}>
+          {t("Everything that could be checked is current. Fix the sources above and check again.")}
         </EmptyState>
       {:else}
-        <EmptyState icon={CircleCheckIcon} title="Everything is up to date">
-          All software sources and pinned apps are at their latest versions.
+        <EmptyState icon={CircleCheckIcon} title={t("Everything is up to date")}>
+          {t("All software sources and pinned apps are at their latest versions.")}
         </EmptyState>
       {/if}
     </section>
@@ -90,16 +91,16 @@
     <section class="panel overflow-hidden">
       <div class="flex flex-wrap items-center gap-3 border-b px-4 py-3">
         <div class="flex-1">
-          <h2 class="heading">Software sources<TechName name="flake inputs" /></h2>
-          <p class="text-xs text-muted-foreground">Where your software comes from. Updates are built and shown for review before anything changes.</p>
+          <h2 class="heading">{t("Software sources")}<TechName name="flake inputs" /></h2>
+          <p class="text-xs text-muted-foreground">{t("Where your software comes from. Updates are built and shown for review before anything changes.")}</p>
         </div>
         <Segmented
-          label="What to prepare"
+          label={t("What to prepare")}
           bind:value={scope}
-          options={[{ value: "home", label: "Your user" }, { value: "system", label: "System" }, { value: "all", label: "Both" }]}
+          options={[{ value: "home", label: t("Your user") }, { value: "system", label: t("System") }, { value: "all", label: t("Both") }]}
         />
         <Button disabled={!selected.length || app.busy || !app.connected} onclick={prepare}>
-          Prepare {selected.length ? plural(selected.length, "update") : "updates"}
+          {selected.length ? tn("Prepare {count} update", "Prepare {count} updates", selected.length) : t("Prepare updates")}
         </Button>
       </div>
       <table class="w-full text-left">
@@ -108,24 +109,24 @@
             <th class="w-10 py-2 pl-4">
               <input
                 type="checkbox"
-                aria-label="Select all sources"
+                aria-label={t("Select all sources")}
                 class="accent-primary"
                 checked={all}
                 indeterminate={selected.length > 0 && !all}
                 onchange={() => (selected = all ? [] : [...names])}
               />
             </th>
-            <th class="py-2 font-medium">Source</th>
-            <th class="py-2 font-medium">Current</th>
-            <th class="py-2 font-medium">Latest</th>
-            <th class="py-2 pr-4 text-right font-medium">Behind</th>
+            <th class="py-2 font-medium">{t("Source")}</th>
+            <th class="py-2 font-medium">{t("Current")}</th>
+            <th class="py-2 font-medium">{t("Latest")}</th>
+            <th class="py-2 pr-4 text-right font-medium">{t("Behind")}</th>
           </tr>
         </thead>
         <tbody class="divide-y">
           {#each app.inputUpdates as item (item.name)}
             {@const behind = daysBetween(item.currentDate, item.latestDate)}
             <tr class="hover:bg-muted/30">
-              <td class="py-2.5 pl-4"><input type="checkbox" class="accent-primary" aria-label="Select {item.name}" bind:group={selected} value={item.name} /></td>
+              <td class="py-2.5 pl-4"><input type="checkbox" class="accent-primary" aria-label={t("Select {name}", { name: item.name })} bind:group={selected} value={item.name} /></td>
               <td class="py-2.5">
                 <p class="font-medium">{item.name}</p>
                 {#if item.source}<p class="text-xs text-muted-foreground">{item.source}</p>{/if}
@@ -137,13 +138,13 @@
               <td class="py-2.5">
                 <p>{day(item.latestDate)}</p>
                 {#if item.url}
-                  <a class="inline-flex items-center gap-1 font-mono text-xs text-primary hover:underline" href={item.url} target="_blank" rel="noreferrer" aria-label="{item.name} at {shortRev(item.latest)}, opens in a new window">
+                  <a class="inline-flex items-center gap-1 font-mono text-xs text-primary hover:underline" href={item.url} target="_blank" rel="noreferrer" aria-label={t("{name} at {rev}, opens in a new window", { name: item.name, rev: shortRev(item.latest) })}>
                     {shortRev(item.latest)}<ExternalLinkIcon class="size-3" />
                   </a>
                 {:else}<p class="font-mono text-xs text-muted-foreground">{shortRev(item.latest)}</p>{/if}
               </td>
               <td class="py-2.5 pr-4 text-right tabular-nums {behind && behind > 30 ? 'text-warning' : 'text-muted-foreground'}">
-                {behind === undefined ? "—" : behind <= 0 ? "< 1 day" : plural(behind, "day")}
+                {behind === undefined ? "—" : behind <= 0 ? t("< 1 day") : tn("{count} day", "{count} days", behind)}
               </td>
             </tr>
           {/each}
@@ -155,8 +156,8 @@
   {#if app.packageUpdates.length}
     <section class="panel overflow-hidden">
       <div class="border-b px-4 py-3">
-        <h2 class="heading">Pinned packages</h2>
-        <p class="text-xs text-muted-foreground">Packages built from upstream releases pinned in your configuration.</p>
+        <h2 class="heading">{t("Pinned packages")}</h2>
+        <p class="text-xs text-muted-foreground">{t("Packages built from upstream releases pinned in your configuration.")}</p>
       </div>
       <ul class="divide-y">
         {#each app.packageUpdates as item (item.name)}
@@ -169,9 +170,9 @@
               </p>
             </div>
             {#if item.url}
-              <Button variant="ghost" size="sm" href={item.url} target="_blank" rel="noreferrer">Release notes <ExternalLinkIcon /></Button>
+              <Button variant="ghost" size="sm" href={item.url} target="_blank" rel="noreferrer">{t("Release notes")} <ExternalLinkIcon /></Button>
             {/if}
-            <Button variant="outline" size="sm" disabled={app.busy} onclick={() => updatePin(item.name, item.latest)}>Update</Button>
+            <Button variant="outline" size="sm" disabled={app.busy} onclick={() => updatePin(item.name, item.latest)}>{t("Update")}</Button>
           </li>
         {/each}
       </ul>

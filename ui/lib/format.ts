@@ -1,10 +1,10 @@
 import type { Operation } from "../../src/contracts";
 import type { Scope } from "../../src/domain";
+import { getLocale, t } from "../../src/i18n";
 
 export { bytes, editedPackages, plural, removedGenerations, reviewSummary, summarize, timeLeft, usualSeconds } from "../../src/summary";
 import { timeLeft, usualSeconds } from "../../src/summary";
 
-const relativeFormat = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 const units: [Intl.RelativeTimeFormatUnit, number][] = [
   ["year", 365 * 24 * 3600],
   ["month", 30 * 24 * 3600],
@@ -16,17 +16,18 @@ const units: [Intl.RelativeTimeFormatUnit, number][] = [
 
 /** "3 hours ago", "yesterday", "just now". */
 export function relative(value: string | undefined, now = Date.now()) {
-  if (!value) return "never";
+  if (!value) return t("never");
   const seconds = (Date.parse(value) - now) / 1000;
-  if (Math.abs(seconds) < 45) return "just now";
+  if (Math.abs(seconds) < 45) return t("just now");
+  const relativeFormat = new Intl.RelativeTimeFormat(getLocale(), { numeric: "auto" });
   for (const [unit, size] of units)
     if (Math.abs(seconds) >= size || unit === "minute")
       return relativeFormat.format(Math.round(seconds / size), unit);
-  return "just now";
+  return t("just now");
 }
 
 export const dateTime = (value: string) =>
-  new Date(value).toLocaleString(undefined, {
+  new Date(value).toLocaleString(getLocale(), {
     month: "short",
     day: "numeric",
     year: new Date(value).getFullYear() === new Date().getFullYear() ? undefined : "numeric",
@@ -36,12 +37,12 @@ export const dateTime = (value: string) =>
 
 export const day = (value: string | undefined) =>
   value
-    ? new Date(value).toLocaleDateString(undefined, {
+    ? new Date(value).toLocaleDateString(getLocale(), {
         month: "short",
         day: "numeric",
         year: "numeric",
       })
-    : "unknown";
+    : t("unknown");
 
 /** Days between two dates, rounded; undefined if either is unknown. */
 export function daysBetween(from?: string, to?: string) {
@@ -55,20 +56,24 @@ export function duration(operation: Operation, now = Date.now()) {
 }
 
 export function formatSeconds(seconds: number) {
-  if (seconds < 10) return `${seconds.toFixed(1)}s`;
-  if (seconds < 60) return `${Math.round(seconds)}s`;
+  if (seconds < 10) return t("{seconds}s", { seconds: Number(seconds.toFixed(1)) });
+  if (seconds < 60) return t("{seconds}s", { seconds: Math.round(seconds) });
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ${Math.floor(seconds % 60)}s`;
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+  if (minutes < 60) return t("{minutes}m {seconds}s", { minutes, seconds: Math.floor(seconds % 60) });
+  return t("{hours}h {minutes}m", { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
 }
 
 export const scopeLabel = (scope: Scope) =>
-  scope === "all" ? "Your user and system" : scope === "home" ? "Your user" : "System";
+  scope === "all" ? t("Your user and system") : scope === "home" ? t("Your user") : t("System");
+
+/** The scope inside a sentence: "your user", "system". */
+export const scopeText = (scope: Scope) =>
+  scope === "all" ? t("your user and system") : scope === "home" ? t("your user") : t("system");
 
 export const shortRev = (rev?: string) => (rev ? rev.slice(0, 7) : "—");
 
 export const versions = (list: string[]) =>
-  list.length ? list.map((v) => v || "unversioned").join(", ") : "—";
+  list.length ? list.map((v) => v || t("unversioned")).join(", ") : "—";
 
 export const storeBaseName = (path: string) =>
   path.replace(/^\/nix\/store\/[a-z0-9]{32}-/, "");

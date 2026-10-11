@@ -1,6 +1,7 @@
 <script lang="ts">
   import SearchIcon from "@lucide/svelte/icons/search";
   import type { PackageChange } from "../../../../src/contracts";
+  import { t } from "$lib/i18n";
   import { bytes, summarize, versions } from "$lib/format";
   import Segmented from "./Segmented.svelte";
 
@@ -24,25 +25,25 @@
     changed: "text-primary",
     rebuilt: "text-muted-foreground",
   };
-  const kindLabel = { added: "New", removed: "Removed", changed: "Updated", rebuilt: "Rebuilt" };
+  const kindLabel = { added: t("New"), removed: t("Removed"), changed: t("Updated"), rebuilt: t("Rebuilt") };
 </script>
 
 <div class="space-y-3">
   <div class="flex flex-wrap items-center gap-2">
     <Segmented
-      label="Change type"
+      label={t("Change type")}
       bind:value={kind}
       options={[
-        { value: "all", label: "All", count: changes.length - counts.rebuilt },
-        { value: "changed", label: "Updated", count: counts.changed },
-        { value: "added", label: "New", count: counts.added },
-        { value: "removed", label: "Removed", count: counts.removed },
-        { value: "rebuilt", label: "Rebuilt", count: counts.rebuilt },
+        { value: "all", label: t("All"), count: changes.length - counts.rebuilt },
+        { value: "changed", label: t("Updated"), count: counts.changed },
+        { value: "added", label: t("New"), count: counts.added },
+        { value: "removed", label: t("Removed"), count: counts.removed },
+        { value: "rebuilt", label: t("Rebuilt"), count: counts.rebuilt },
       ]}
     />
     <label class="ml-auto flex h-8 w-56 items-center gap-2 rounded-md border border-field bg-card px-2 text-muted-foreground focus-within:ring-2 focus-within:ring-ring/40">
       <SearchIcon class="size-3.5" />
-      <input bind:value={query} aria-label="Search packages" placeholder="Search packages" class="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground" />
+      <input bind:value={query} aria-label={t("Search packages")} placeholder={t("Search packages")} class="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground" />
     </label>
   </div>
   {#if visible.length}
@@ -50,10 +51,10 @@
       <table class="w-full text-left text-xs">
         <thead class="bg-muted/50 text-muted-foreground">
           <tr>
-            <th class="px-3 py-2 font-medium">Package</th>
-            <th class="w-20 px-3 py-2 font-medium">Change</th>
-            <th class="px-3 py-2 font-medium">Version</th>
-            <th class="w-24 px-3 py-2 text-right font-medium">Size</th>
+            <th class="px-3 py-2 font-medium">{t("Package")}</th>
+            <th class="w-20 px-3 py-2 font-medium">{t("Change")}</th>
+            <th class="px-3 py-2 font-medium">{t("Version")}</th>
+            <th class="w-24 px-3 py-2 text-right font-medium">{t("Size")}</th>
           </tr>
         </thead>
         <tbody class="divide-y">
@@ -64,7 +65,7 @@
               <td class="px-3 py-1.5 font-mono text-[0.7rem]">
                 {#if change.kind === "added"}{versions(change.after)}
                 {:else if change.kind === "removed"}<span class="text-muted-foreground line-through">{versions(change.before)}</span>
-                {:else if change.kind === "rebuilt"}<span class="text-muted-foreground">same version</span>
+                {:else if change.kind === "rebuilt"}<span class="text-muted-foreground">{t("same version")}</span>
                 {:else}<span class="text-muted-foreground">{versions(change.before)}</span> → {versions(change.after)}{/if}
               </td>
               <td class="px-3 py-1.5 text-right tabular-nums {change.sizeDelta > 0 ? 'text-warning' : change.sizeDelta < 0 ? 'text-success' : 'text-muted-foreground'}">
@@ -77,12 +78,12 @@
     </div>
     {#if visible.length > limit}
       <button class="focus-ring rounded text-xs font-medium text-primary hover:underline" onclick={() => (limit += 300)}>
-        Show {Math.min(300, visible.length - limit)} more of {visible.length - limit} remaining
+        {t("Show {count} more of {remaining} remaining", { count: Math.min(300, visible.length - limit), remaining: visible.length - limit })}
       </button>
     {/if}
   {:else}
     <p class="rounded-lg border border-dashed px-3 py-6 text-center text-muted-foreground">
-      {changes.length ? "No packages match." : "No package changes."}
+      {changes.length ? t("No packages match.") : t("No package changes.")}
     </p>
   {/if}
 </div>

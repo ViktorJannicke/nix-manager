@@ -1,0 +1,164 @@
+// German for the changes part of the interface.
+export const changes: Record<string, string> = {
+  // Changes page: confirmation points
+  "Writes your edits to {path} in your configuration.": "Schreibt Ihre Änderungen in {path} in Ihrer Konfiguration.",
+  "Writes your edits to {count} files in your configuration.": "Schreibt Ihre Änderungen in {count} Dateien in Ihrer Konfiguration.",
+  "Creates {files} and adds it to Git, so Nix can read it.": "Erstellt {files} und fügt die Datei zu Git hinzu, damit Nix sie lesen kann.",
+  "Creates {files} and adds them to Git, so Nix can read them.": "Erstellt {files} und fügt die Dateien zu Git hinzu, damit Nix sie lesen kann.",
+  "Saves the reviewed source versions (flake.lock) in your configuration.": "Speichert die geprüften Quellversionen (flake.lock) in Ihrer Konfiguration.",
+  "Puts back {files} as it was before that change.": "Stellt {files} so wieder her, wie die Datei vor dieser Änderung war.",
+  "Puts back {files} as they were before that change.": "Stellt {files} so wieder her, wie die Dateien vor dieser Änderung waren.",
+  "Deletes {files}, which that change created.": "Löscht {files} (von dieser Änderung erstellt).",
+  "Switches your user's apps and settings to the reviewed version.": "Stellt die Apps und Einstellungen Ihres Benutzers auf die geprüfte Version um.",
+  "Your apps are updated after the restart, once the computer runs the new system.":
+    "Ihre Apps werden nach dem Neustart aktualisiert, sobald der Computer das neue System ausführt.",
+  "Makes the reviewed system the default boot entry. The running system is unchanged until you restart.":
+    "Macht das geprüfte System zum Standard-Starteintrag. Das laufende System bleibt bis zum Neustart unverändert.",
+  "Switches the running system to the reviewed version. You'll be asked for your password.":
+    "Stellt das laufende System auf die geprüfte Version um. Sie werden nach Ihrem Passwort gefragt.",
+  "The kernel changes; restart afterwards to use it.": "Der Kernel ändert sich; starten Sie danach neu, um ihn zu verwenden.",
+  "The current version stays as a restore point you can go back to.":
+    "Die aktuelle Version bleibt als Wiederherstellungspunkt erhalten, zu dem Sie zurückkehren können.",
+  "Apply on next boot?": "Beim nächsten Start anwenden?",
+  "Apply these changes now?": "Diese Änderungen jetzt anwenden?",
+  "Prepared {time} for {host}.": "Vorbereitet {time} für {host}.",
+  "Apply on next boot": "Beim nächsten Start anwenden",
+  "Apply now": "Jetzt anwenden",
+
+  // Changes page
+  "Prepared builds waiting for your decision. Nothing here is active yet.": "Vorbereitete Builds, die auf Ihre Entscheidung warten. Noch ist nichts davon aktiv.",
+  "Prepared changes": "Vorbereitete Änderungen",
+  "{host}, {scope}, prepared {time}": "{host}, {scope}, vorbereitet {time}",
+  "Preparing changes…": "Änderungen werden vorbereitet…",
+  "No prepared changes": "Keine vorbereiteten Änderungen",
+  "The build is running; its changes will appear here when it finishes.": "Der Build läuft; seine Änderungen erscheinen hier, sobald er fertig ist.",
+  "Prepare changes to build your configuration and compare it with what's running.":
+    "Bereiten Sie Änderungen vor, um Ihre Konfiguration zu bauen und mit dem laufenden Stand zu vergleichen.",
+  "Show progress": "Fortschritt anzeigen",
+  "Prepare your user": "Ihren Benutzer vorbereiten",
+  "Prepare your user and system": "Ihren Benutzer und das System vorbereiten",
+  "Prepared {time} for {host}, not active yet": "Vorbereitet {time} für {host}, noch nicht aktiv",
+  Discard: "Verwerfen",
+  "The source versions changed since these updates were prepared. Discard and prepare them again.":
+    "Die Quellversionen haben sich geändert, seit diese Aktualisierungen vorbereitet wurden. Verwerfen Sie sie und bereiten Sie sie erneut vor.",
+  "Your configuration changed since this was prepared. Applying uses exactly what was built here; prepare again to include newer edits.":
+    "Ihre Konfiguration hat sich geändert, seit dies vorbereitet wurde. Beim Anwenden wird genau das verwendet, was hier gebaut wurde; bereiten Sie erneut vor, um neuere Änderungen einzubeziehen.",
+  "Your pending edits changed since this was prepared. Applying writes the edits shown below; prepare again to include the others.":
+    "Ihre vorgemerkten Änderungen haben sich geändert, seit dies vorbereitet wurde. Beim Anwenden werden die unten gezeigten Änderungen geschrieben; bereiten Sie erneut vor, um die übrigen einzubeziehen.",
+  "Built for {host}, but this computer is {current}.": "Für {host} gebaut, dieser Computer ist aber {current}.",
+  "New kernel {version}; a restart is needed to use it.": "Neuer Kernel {version}; zur Verwendung ist ein Neustart nötig.",
+  "The system update is used after the next restart. Your apps are updated then too, or apply now to update them right away.":
+    "Die Systemaktualisierung wird nach dem nächsten Neustart verwendet. Ihre Apps werden dann ebenfalls aktualisiert, oder wenden Sie jetzt an, um sie sofort zu aktualisieren.",
+  "Goes back to how it was before {date}, undoing:": "Kehrt zum Stand vor dem {date} zurück und macht rückgängig:",
+  "Applying also restores {files}.": "Beim Anwenden wird außerdem {files} wiederhergestellt.",
+  "Your user's apps": "Apps Ihres Benutzers",
+  "System apps": "Apps des Systems",
+  "{count} change": "{count} Änderung",
+  "{count} changes": "{count} Änderungen",
+  New: "Neu",
+  "{changed} updated, {added} new, {removed} removed": "{changed} aktualisiert, {added} neu, {removed} entfernt",
+  "Nothing active to compare with": "Nichts Aktives zum Vergleichen",
+  "Your user's disk use": "Speicherplatzbedarf Ihres Benutzers",
+  "System disk use": "Speicherplatzbedarf des Systems",
+  "{size} compared to now": "{size} im Vergleich zu jetzt",
+  "from {version}": "von {version}",
+  "Your edits": "Ihre Änderungen",
+  "Checked by evaluating {host}'s configuration with and without them. They are written to your configuration when you apply.":
+    "Geprüft, indem die Konfiguration von {host} mit und ohne diese Änderungen ausgewertet wurde. Sie werden beim Anwenden in Ihre Konfiguration geschrieben.",
+  Adds: "Fügt hinzu:",
+  Removes: "Entfernt:",
+  "Updates {name}": "Aktualisiert: {name}",
+  "{count} edit in this review": "{count} Änderung in dieser Prüfung",
+  "{count} edits in this review": "{count} Änderungen in dieser Prüfung",
+  "Hide the details": "Details ausblenden",
+  "Show all details": "Alle Details anzeigen",
+  "Software sources": "Softwarequellen",
+  "{name} at {rev}, opens in a new window": "{name}, Commit {rev}, öffnet sich in einem neuen Fenster",
+  "Everything that differs from what's running": "Alles, was vom laufenden Stand abweicht",
+  Packages: "Pakete",
+  "There's no active home configuration to compare with, so everything in this build is new.":
+    "Es gibt keine aktive Benutzerkonfiguration zum Vergleichen, daher ist alles in diesem Build neu.",
+  "There's no active system configuration to compare with, so everything in this build is new.":
+    "Es gibt keine aktive Systemkonfiguration zum Vergleichen, daher ist alles in diesem Build neu.",
+
+  // Updates page
+  "Update {name} to {version}?": "{name} auf {version} aktualisieren?",
+  "Downloads the release, then writes its version into your configuration.":
+    "Lädt die Version herunter und schreibt sie dann in Ihre Konfiguration.",
+  "Update pin": "Festgelegte Version aktualisieren",
+  "Your configuration is changed; Git shows exactly what changed.": "Ihre Konfiguration wird geändert; Git zeigt genau, was sich geändert hat.",
+  "Nothing changes on the computer yet. Prepare your user's changes to build and apply the new version.":
+    "Auf dem Computer ändert sich noch nichts. Bereiten Sie die Änderungen Ihres Benutzers vor, um die neue Version zu bauen und anzuwenden.",
+  "Last checked {time}": "Zuletzt geprüft {time}",
+  "Not checked yet": "Noch nicht geprüft",
+  "Checking…": "Wird geprüft…",
+  "Check now": "Jetzt prüfen",
+  "Some sources could not be checked": "Einige Quellen konnten nicht geprüft werden",
+  "No update check yet": "Noch keine Prüfung auf Aktualisierungen",
+  "Looks for newer versions of your software sources and pinned apps without changing anything.":
+    "Sucht nach neueren Versionen Ihrer Softwarequellen und festgelegten Apps, ohne etwas zu ändern.",
+  "Check for updates": "Nach Aktualisierungen suchen",
+  "No updates found": "Keine Aktualisierungen gefunden",
+  "Everything that could be checked is current. Fix the sources above and check again.":
+    "Alles, was geprüft werden konnte, ist aktuell. Beheben Sie die Probleme mit den Quellen oben und prüfen Sie erneut.",
+  "Everything is up to date": "Alles ist aktuell",
+  "All software sources and pinned apps are at their latest versions.": "Alle Softwarequellen und festgelegten Apps haben ihre neuesten Versionen.",
+  "Where your software comes from. Updates are built and shown for review before anything changes.":
+    "Woher Ihre Software kommt. Aktualisierungen werden gebaut und zur Prüfung angezeigt, bevor sich etwas ändert.",
+  "What to prepare": "Was vorbereitet wird",
+  Both: "Beides",
+  "Prepare {count} update": "{count} Aktualisierung vorbereiten",
+  "Prepare {count} updates": "{count} Aktualisierungen vorbereiten",
+  "Prepare updates": "Aktualisierungen vorbereiten",
+  "Select all sources": "Alle Quellen auswählen",
+  Source: "Quelle",
+  Current: "Aktuell",
+  Latest: "Neueste",
+  Behind: "Rückstand",
+  "Select {name}": "{name} auswählen",
+  "< 1 day": "< 1 Tag",
+  "{count} day": "{count} Tag",
+  "{count} days": "{count} Tage",
+  "Pinned packages": "Festgelegte Pakete",
+  "Packages built from upstream releases pinned in your configuration.":
+    "Pakete, die aus den in Ihrer Konfiguration festgelegten Upstream-Versionen gebaut werden.",
+  "Release notes": "Versionshinweise",
+  Update: "Aktualisieren",
+
+  // Package list
+  Removed: "Entfernt",
+  Updated: "Aktualisiert",
+  Rebuilt: "Neu gebaut",
+  "Change type": "Art der Änderung",
+  All: "Alle",
+  "Search packages": "Pakete suchen",
+  Package: "Paket",
+  Change: "Änderung",
+  Version: "Version",
+  Size: "Größe",
+  "same version": "gleiche Version",
+  "Show {count} more of {remaining} remaining": "{count} weitere von {remaining} verbleibenden anzeigen",
+  "No packages match.": "Keine passenden Pakete.",
+  "No package changes.": "Keine Paketänderungen.",
+
+  // Confirmation dialog
+  "Commands that will run": "Befehle, die ausgeführt werden",
+  Commands: "Befehle",
+  "Loading…": "Wird geladen…",
+  Cancel: "Abbrechen",
+  "Starting…": "Wird gestartet…",
+
+  // File diff
+  "new file": "neue Datei",
+  "File changes": "Dateiänderungen",
+  added: "hinzugefügt",
+  removed: "entfernt",
+
+  // Review title
+  "Undo the change from {date} {scope}": "Änderung vom {date} rückgängig machen {scope}",
+  "Go back to restore point {generation} {scope}": "Zum Wiederherstellungspunkt {generation} zurückkehren {scope}",
+  "Update {count} software sources {scope}": "{count} Softwarequellen aktualisieren {scope}",
+  "Update {names} {scope}": "{names} aktualisieren {scope}",
+  "Update all software sources {scope}": "Alle Softwarequellen aktualisieren {scope}",
+  "Apply your configuration {scope}": "Ihre Konfiguration anwenden {scope}",
+};

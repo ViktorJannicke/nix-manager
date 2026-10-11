@@ -7,6 +7,7 @@
   import ArrowDownIcon from "@lucide/svelte/icons/arrow-down";
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
+  import { t, tn } from "$lib/i18n";
 
   let { id }: { id: string } = $props();
   let query = $state("");
@@ -44,9 +45,9 @@
   async function copy() {
     try {
       await navigator.clipboard.writeText(app.log.text);
-      app.toast({ tone: "info", title: "Log copied" });
+      app.toast({ tone: "info", title: t("Log copied") });
     } catch (error) {
-      app.fail(error, "Could not copy the log");
+      app.fail(error, t("Could not copy the log"));
     }
   }
   function download() {
@@ -62,16 +63,16 @@
   <div class="flex flex-wrap items-center gap-2 border-b px-2 py-1.5">
     <label class="flex h-7 min-w-40 flex-1 items-center gap-2 rounded-md border border-field bg-muted px-2 text-muted-foreground focus-within:ring-2 focus-within:ring-ring/40">
       <SearchIcon class="size-3.5" />
-      <input bind:value={query} aria-label="Filter log" placeholder="Filter log" class="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground" />
+      <input bind:value={query} aria-label={t("Filter log")} placeholder={t("Filter log")} class="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground" />
     </label>
     <label class="flex items-center gap-1.5 text-xs text-muted-foreground">
-      <input type="checkbox" bind:checked={errorsOnly} class="accent-primary" /> Errors only
+      <input type="checkbox" bind:checked={errorsOnly} class="accent-primary" /> {t("Errors only")}
     </label>
-    <span class="text-xs text-muted-foreground tabular-nums" role="status">{#if filtered}{filtered.length} matches{/if}</span>
+    <span class="text-xs text-muted-foreground tabular-nums" role="status">{#if filtered}{tn("{count} match", "{count} matches", filtered.length)}{/if}</span>
     <div class="ml-auto flex gap-0.5">
-      <Button variant="ghost" size="icon-sm" title="Wrap lines" aria-label="Wrap lines" aria-pressed={wrap} onclick={() => (wrap = !wrap)} class={wrap ? "bg-muted" : ""}><WrapTextIcon /></Button>
-      <Button variant="ghost" size="icon-sm" title="Copy log" aria-label="Copy log" onclick={copy} disabled={!app.log.text}><CopyIcon /></Button>
-      <Button variant="ghost" size="icon-sm" title="Download log" aria-label="Download log" onclick={download} disabled={!app.log.text}><DownloadIcon /></Button>
+      <Button variant="ghost" size="icon-sm" title={t("Wrap lines")} aria-label={t("Wrap lines")} aria-pressed={wrap} onclick={() => (wrap = !wrap)} class={wrap ? "bg-muted" : ""}><WrapTextIcon /></Button>
+      <Button variant="ghost" size="icon-sm" title={t("Copy log")} aria-label={t("Copy log")} onclick={copy} disabled={!app.log.text}><CopyIcon /></Button>
+      <Button variant="ghost" size="icon-sm" title={t("Download log")} aria-label={t("Download log")} onclick={download} disabled={!app.log.text}><DownloadIcon /></Button>
     </div>
   </div>
   <div class="relative min-h-0 flex-1">
@@ -81,23 +82,23 @@
       onscroll={onScroll}
       tabindex="0"
       role="region"
-      aria-label="Operation output"
+      aria-label={t("Operation output")}
       class="focus-ring scroll-thin absolute inset-0 overflow-auto bg-muted/30 py-2 font-mono text-[0.72rem] leading-5"
     >
       {#if app.log.truncated}
-        <p class="px-3 pb-1 text-muted-foreground italic">Earlier output is omitted here; download the log for the full text.</p>
+        <p class="px-3 pb-1 text-muted-foreground italic">{t("Earlier output is omitted here; download the log for the full text.")}</p>
       {/if}
       {#if app.log.loading && !lines.length}
-        <p class="px-3 text-muted-foreground">Loading…</p>
+        <p class="px-3 text-muted-foreground">{t("Loading…")}</p>
       {:else if !app.log.text}
-        <p class="px-3 text-muted-foreground">No output yet.</p>
+        <p class="px-3 text-muted-foreground">{t("No output yet.")}</p>
       {:else}
         <pre class="px-3 {wrap ? 'break-all whitespace-pre-wrap' : 'whitespace-pre'}">{#if filtered}{#each filtered as item (item.index)}<span class="block {errorPattern.test(item.line) ? 'text-destructive' : ''}"><span class="mr-3 inline-block w-10 text-right text-muted-foreground/60 select-none">{item.index + 1}</span>{item.line}</span>{/each}{:else}{app.log.text}{/if}</pre>
       {/if}
     </div>
     {#if !follow && !filtered}
       <Button size="sm" variant="secondary" class="absolute right-4 bottom-3 shadow-md" onclick={() => { follow = true; viewport?.scrollTo({ top: viewport.scrollHeight }); }}>
-        <ArrowDownIcon /> Follow output
+        <ArrowDownIcon /> {t("Follow output")}
       </Button>
     {/if}
   </div>

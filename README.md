@@ -292,6 +292,53 @@ reload grace period. An active operation finishes before the backend exits.
 Hidden or minimized dashboards remain connected without relying on UI polling.
 Tray mode and `--no-open` stay resident until quit or interrupted.
 
+### Translations
+
+The dashboard, the setup assistant and the tray speak English or German. They
+follow the desktop's language (`LC_ALL`, `LC_MESSAGES`, then `LANG`) unless
+Settings → Language chooses one. The command line stays in English, so its
+output can be searched for and pasted into reports. Output from Nix itself is
+shown as Nix wrote it.
+
+Interface text is written in English and passed through `t()` from
+`src/i18n.ts`: `t("Remove {name}", { name })`, and `tn(one, other, count)` for
+counts. Text with markup in it uses `<T text={"Run {command} first."}>` with a
+snippet for the markup. German lives in `src/locales/de/`, one file per part of
+the interface. `test/i18n.test.ts` fails when a text has no German, a
+placeholder is lost, a text is translated two ways, or a translation is no
+longer used.
+
+German uses the formal "Sie", „these quotes“ and the same word for the same
+thing everywhere:
+
+| English | German |
+| --- | --- |
+| pending edit, Pending | vorgemerkte Änderung, Vorgemerkt |
+| prepare, prepared | vorbereiten, vorbereitet |
+| apply, apply now, apply on next boot | anwenden, jetzt anwenden, beim nächsten Start anwenden |
+| review | prüfen, Prüfung |
+| discard | verwerfen |
+| restore point | Wiederherstellungspunkt |
+| go back (to a restore point) | zurückkehren |
+| changes (the page) | Änderungen |
+| update | Aktualisierung |
+| Discover, Installed | Entdecken, Installiert |
+| feature, app, package | Funktion, App, Paket |
+| starting point | Startpunkt |
+| your user, every user, just you | Ihr Benutzer, alle Benutzer, nur Sie |
+| system | System |
+| configuration, configuration folder | Konfiguration, Konfigurationsordner |
+| home configuration | Benutzerkonfiguration |
+| build (verb, noun) | bauen, Build |
+| host, target host | Rechner, Zielrechner |
+| tray | Kontrollleiste |
+| operation, step, output | Vorgang, Schritt, Ausgabe |
+| free, non-free software | freie, unfreie Software |
+| clean up | aufräumen |
+| disk space | Speicherplatz |
+
+Names stay as they are: Nix, NixOS, nixpkgs, Flathub, Git, flake inputs.
+
 ## Execution and state
 
 All selected configurations build once, before either activation, and the CLI's

@@ -5,6 +5,7 @@ import type {
   SessionMessage,
   Snapshot,
 } from "../../src/contracts";
+import { t } from "./i18n";
 import type { Request } from "../../src/domain";
 import type { Preferences } from "../../src/preferences";
 import type { CleanupEstimate } from "../../src/space";
@@ -33,7 +34,7 @@ export async function api<T>(
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok)
-    throw new Error(result.error || `Request failed (${response.status})`);
+    throw new Error(result.error ? t(result.error) : t("Request failed ({status})", { status: response.status }));
   return result as T;
 }
 

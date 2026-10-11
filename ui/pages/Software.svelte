@@ -7,7 +7,8 @@
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
   import { origin, software } from "$lib/software.svelte";
-  import { plural, relative } from "$lib/format";
+  import { relative } from "$lib/format";
+  import { t, tn } from "$lib/i18n";
   import { experiences, type Experience } from "../../src/curated";
   import type { CatalogEntry, InstalledPackage, Target } from "../../src/software";
   import Segmented from "$lib/components/app/Segmented.svelte";
@@ -116,7 +117,14 @@
   $effect(() => {
     if (!experience) start = false;
   });
-  const categories = ["Games", "Development", "Internet", "Media", "Productivity", "System"] as const;
+  const categories = [
+    ["Games", t("Games")],
+    ["Development", t("Development")],
+    ["Internet", t("Internet")],
+    ["Media", t("Media")],
+    ["Productivity", t("Productivity")],
+    ["System", t("System")],
+  ] as const;
   const visible = $derived(inventory ? experiences.filter((item) => software.available(item)) : []);
   const pendingFor = (item: Experience) =>
     software.changes.some(
@@ -157,13 +165,13 @@
         <span class="font-mono text-[0.72rem] text-muted-foreground">{result.v ?? ""}</span>
         {#if result.a !== (result.app?.name ?? result.n)}<span class="font-mono text-[0.72rem] text-muted-foreground">{result.a}</span>{/if}
       </p>
-      <p class="line-clamp-2 text-muted-foreground">{result.app?.summary ?? result.d ?? "No description."}</p>
+      <p class="line-clamp-2 text-muted-foreground">{result.app?.summary ?? result.d ?? t("No description.")}</p>
     </div>
     <span class="shrink-0 pt-0.5 text-xs font-medium">
-      {#if pending}<span class="text-prepared-foreground">{pending.kind === "add-package" ? "Will be installed" : "Will be removed"}</span>
-      {:else if owned}<span class="text-primary">Installed</span>
-      {:else if result.b}<span class="text-warning">Broken</span>
-      {:else if !result.f}<span class="text-muted-foreground">Not free</span>{/if}
+      {#if pending}<span class="text-prepared-foreground">{pending.kind === "add-package" ? t("Will be installed") : t("Will be removed")}</span>
+      {:else if owned}<span class="text-primary">{t("Installed")}</span>
+      {:else if result.b}<span class="text-warning">{t("Broken")}</span>
+      {:else if !result.f}<span class="text-muted-foreground">{t("Not free")}</span>{/if}
     </span>
   </button>
 {/snippet}
@@ -171,15 +179,15 @@
 <div class="space-y-6" bind:this={content}>
   <header class="flex flex-wrap items-end justify-between gap-4">
     <div class="min-w-0">
-      <h1 class="title">Software</h1>
-      <p class="mt-1 text-muted-foreground">Install packages and turn on features for {app.host}. Your edits wait here until you prepare them.</p>
+      <h1 class="title">{t("Software")}</h1>
+      <p class="mt-1 text-muted-foreground">{t("Install packages and turn on features for {host}. Your edits wait here until you prepare them.", { host: app.host })}</p>
     </div>
     <Segmented
-      label="View"
+      label={t("View")}
       bind:value={view}
       options={[
-        { value: "discover", label: "Discover" },
-        { value: "installed", label: "Installed", count: inventory ? inventory.home.packages.filter((p) => !p.external).length + inventory.system.packages.filter((p) => !p.external).length : undefined },
+        { value: "discover", label: t("Discover") },
+        { value: "installed", label: t("Installed"), count: inventory ? inventory.home.packages.filter((p) => !p.external).length + inventory.system.packages.filter((p) => !p.external).length : undefined },
       ]}
     />
   </header>
@@ -189,8 +197,8 @@
   {#if software.error}
     <p class="flex gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-destructive">
       <TriangleAlertIcon class="mt-0.5 size-4 shrink-0" />
-      <span class="flex-1">Could not read {app.host}'s configuration. {software.error}</span>
-      <Button variant="ghost" size="sm" onclick={() => software.load(true)}>Try again</Button>
+      <span class="flex-1">{t("Could not read {host}'s configuration.", { host: app.host })} {software.error}</span>
+      <Button variant="ghost" size="sm" onclick={() => software.load(true)}>{t("Try again")}</Button>
     </p>
   {/if}
 
@@ -201,28 +209,28 @@
         bind:this={searchInput}
         bind:value={query}
         onkeydown={searchKey}
-        aria-label="Search apps and packages"
+        aria-label={t("Search apps and packages")}
         aria-keyshortcuts="/"
-        placeholder="Search apps and over a hundred thousand packages"
+        placeholder={t("Search apps and over a hundred thousand packages")}
         class="peer w-full bg-transparent text-base outline-none placeholder:text-muted-foreground"
       />
-      {#if !query}<kbd class="rounded border bg-muted px-1.5 font-mono text-xs text-muted-foreground peer-focus:hidden" title="Press / to search">/</kbd>{/if}
-      {#if software.catalog?.state === "building"}<LoaderIcon class="size-4 animate-spin text-muted-foreground" aria-hidden="true" /><span class="sr-only">Building the package index</span>{/if}
+      {#if !query}<kbd class="rounded border bg-muted px-1.5 font-mono text-xs text-muted-foreground peer-focus:hidden" title={t("Press / to search")}>/</kbd>{/if}
+      {#if software.catalog?.state === "building"}<LoaderIcon class="size-4 animate-spin text-muted-foreground" aria-hidden="true" /><span class="sr-only">{t("Building the package index")}</span>{/if}
     </label>
 
-    <p class="sr-only" role="status">{query.trim() && software.searched === query ? (software.results.length ? plural(software.results.length, "result") : "No packages match") : ""}</p>
+    <p class="sr-only" role="status">{query.trim() && software.searched === query ? (software.results.length ? tn("{count} result", "{count} results", software.results.length) : t("No packages match")) : ""}</p>
 
     {#if query.trim()}
       <div class="-mt-3 flex flex-wrap gap-4 px-1 text-xs">
-        <label class="flex items-center gap-1.5"><input type="checkbox" class="focus-ring accent-primary" checked={software.free} onchange={(event) => software.setFilter("free", event.currentTarget.checked)} /> Free software only</label>
-        <label class="flex items-center gap-1.5"><input type="checkbox" class="focus-ring accent-primary" checked={software.working} onchange={(event) => software.setFilter("working", event.currentTarget.checked)} /> Hide packages marked as broken</label>
+        <label class="flex items-center gap-1.5"><input type="checkbox" class="focus-ring accent-primary" checked={software.free} onchange={(event) => software.setFilter("free", event.currentTarget.checked)} /> {t("Free software only")}</label>
+        <label class="flex items-center gap-1.5"><input type="checkbox" class="focus-ring accent-primary" checked={software.working} onchange={(event) => software.setFilter("working", event.currentTarget.checked)} /> {t("Hide packages marked as broken")}</label>
       </div>
       {#if software.catalog?.state === "ready"}
         {#if software.results.length}
           <div class="space-y-5" use:arrows={{ before: () => searchInput }}>
             {#if appResults.length}
               <section class="space-y-2" aria-labelledby="results-apps">
-                <h2 id="results-apps" class="heading">Apps</h2>
+                <h2 id="results-apps" class="heading">{t("Apps")}</h2>
                 <ul class="panel divide-y overflow-hidden">
                   {#each appResults as result (result.a)}<li>{@render resultRow(result)}</li>{/each}
                 </ul>
@@ -230,8 +238,8 @@
             {/if}
             {#if otherResults.length}
               <section class="space-y-2" aria-labelledby="results-other">
-                <h2 id="results-other" class="heading">{appResults.length ? "Other software" : "Packages"}</h2>
-                <p class="-mt-1 text-xs text-muted-foreground">Command-line tools, libraries and parts other software uses.</p>
+                <h2 id="results-other" class="heading">{appResults.length ? t("Other software") : t("Packages")}</h2>
+                <p class="-mt-1 text-xs text-muted-foreground">{t("Command-line tools, libraries and parts other software uses.")}</p>
                 <ul class="panel divide-y overflow-hidden">
                   {#each otherResults as result (result.a)}<li>{@render resultRow(result)}</li>{/each}
                 </ul>
@@ -239,36 +247,36 @@
             {/if}
           </div>
         {:else if software.searched === query}
-          <section class="panel"><EmptyState icon={SearchIcon} title="No packages match “{query}”">Try the program's name, or a word from what it does.</EmptyState></section>
+          <section class="panel"><EmptyState icon={SearchIcon} title={t("No packages match “{query}”", { query })}>{t("Try the program's name, or a word from what it does.")}</EmptyState></section>
         {/if}
         <p class="text-xs text-muted-foreground">
-          Index of {software.catalog.count?.toLocaleString()} packages from your locked nixpkgs and overlays, built {relative(software.catalog.builtAt, app.now)}.
-          <button class="focus-ring rounded text-primary hover:underline" onclick={() => software.buildCatalog(true)}>Rebuild</button>
+          {t("Index of {count} packages from your locked nixpkgs and overlays, built {when}.", { count: software.catalog.count ?? 0, when: relative(software.catalog.builtAt, app.now) })}
+          <button class="focus-ring rounded text-primary hover:underline" onclick={() => software.buildCatalog(true)}>{t("Rebuild")}</button>
         </p>
       {:else if software.catalog?.state === "failed"}
         <section class="panel">
-          <EmptyState icon={TriangleAlertIcon} title="The package index could not be built">
+          <EmptyState icon={TriangleAlertIcon} title={t("The package index could not be built")}>
             {software.catalog.error}
-            {#snippet actions()}<Button variant="outline" onclick={() => software.buildCatalog(true)}><RefreshIcon /> Try again</Button>{/snippet}
+            {#snippet actions()}<Button variant="outline" onclick={() => software.buildCatalog(true)}><RefreshIcon /> {t("Try again")}</Button>{/snippet}
           </EmptyState>
         </section>
       {:else}
         <section class="panel">
-          <EmptyState icon={LoaderIcon} title="Building the package index">
-            Nix Manager reads every package in your locked nixpkgs once, which takes about half a minute. It is built again after nixpkgs updates.
+          <EmptyState icon={LoaderIcon} title={t("Building the package index")}>
+            {t("Nix Manager reads every package in your locked nixpkgs once, which takes about half a minute. It is built again after nixpkgs updates.")}
           </EmptyState>
         </section>
       {/if}
     {:else if !inventory}
       <section class="panel">
-        <EmptyState icon={LoaderIcon} title="Reading {app.host}'s configuration">
-          Evaluating what the home and system configurations contain. This takes a few seconds.
+        <EmptyState icon={LoaderIcon} title={t("Reading {host}'s configuration", { host: app.host })}>
+          {t("Evaluating what the home and system configurations contain. This takes a few seconds.")}
         </EmptyState>
       </section>
     {:else}
       <div class="space-y-6" use:arrows={{ before: () => searchInput }}>
       <section class="space-y-3" aria-labelledby="bundles-heading">
-        <h2 id="bundles-heading" class="heading">Starting points</h2>
+        <h2 id="bundles-heading" class="heading">{t("Starting points")}</h2>
         <ul class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           {#each bundles as item (item.id)}
             <li>
@@ -278,8 +286,8 @@
                 onclick={() => (bundle = item)}
               >
                 <span class="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary"><ExperienceIcon name={item.icon} class="size-4.5" /></span>
-                <span class="font-semibold">{item.title}</span>
-                <span class="text-muted-foreground">{item.summary}</span>
+                <span class="font-semibold">{t(item.title)}</span>
+                <span class="text-muted-foreground">{t(item.summary)}</span>
               </button>
             </li>
           {/each}
@@ -288,12 +296,12 @@
       {#if appsOn}
         <section class="space-y-3" aria-labelledby="apps-heading">
           <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-            <h2 id="apps-heading" class="heading">Apps</h2>
-            {#if software.apps.length}<p class="text-xs text-muted-foreground">{software.apps.length.toLocaleString()} apps with details from Flathub</p>{/if}
+            <h2 id="apps-heading" class="heading">{t("Apps")}</h2>
+            {#if software.apps.length}<p class="text-xs text-muted-foreground">{t("{count} apps with details from Flathub", { count: software.apps.length })}</p>{/if}
           </div>
           {#if software.apps.length}
-            <div class="flex flex-wrap gap-1.5" role="group" aria-label="App categories">
-              {#each [{ id: "featured" as const, label: "Popular" }, ...shelves.map((item) => ({ id: item.id, label: appCategories[item.id] }))] as item (item.id)}
+            <div class="flex flex-wrap gap-1.5" role="group" aria-label={t("App categories")}>
+              {#each [{ id: "featured" as const, label: t("Popular") }, ...shelves.map((item) => ({ id: item.id, label: t(appCategories[item.id]) }))] as item (item.id)}
                 <button
                   class="focus-ring rounded-full border px-3 py-1 text-xs font-medium transition-colors
                     {shelf === item.id ? 'border-primary bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'}"
@@ -317,8 +325,8 @@
                     <span class="min-w-0 flex-1">
                       <span class="flex items-baseline gap-2">
                         <span class="truncate font-semibold">{item.app!.name}</span>
-                        {#if pending}<span class="shrink-0 text-xs font-medium text-prepared-foreground">Pending</span>
-                        {:else if owned}<span class="shrink-0 text-xs font-medium text-primary">Installed</span>{/if}
+                        {#if pending}<span class="shrink-0 text-xs font-medium text-prepared-foreground">{t("Pending")}</span>
+                        {:else if owned}<span class="shrink-0 text-xs font-medium text-primary">{t("Installed")}</span>{/if}
                       </span>
                       <span class="line-clamp-2 text-muted-foreground">{item.app!.summary ?? item.d ?? ""}</span>
                     </span>
@@ -328,31 +336,31 @@
             </ul>
             {#if shown.length > 18}
               <Button variant="outline" size="sm" onclick={() => (showAll = !showAll)}>
-                {showAll ? "Show fewer" : `Show all ${shown.length} apps`}
+                {showAll ? t("Show fewer") : t("Show all {count} apps", { count: shown.length })}
               </Button>
             {/if}
           {:else if software.appStatus?.state === "failed"}
             <p class="flex gap-2 rounded-lg bg-warning/10 px-3 py-2 text-xs">
               <TriangleAlertIcon class="size-4 shrink-0 text-warning" />
-              <span class="flex-1">{software.appStatus.error} Searching still finds every package.</span>
-              <button class="focus-ring rounded text-primary hover:underline" onclick={() => software.loadApps(true)}>Try again</button>
+              <span class="flex-1">{software.appStatus.error} {t("Searching still finds every package.")}</span>
+              <button class="focus-ring rounded text-primary hover:underline" onclick={() => software.loadApps(true)}>{t("Try again")}</button>
             </p>
           {:else if software.catalog?.state === "failed"}
-            <p class="text-muted-foreground">The app list needs the package index, which could not be built. {software.catalog.error}</p>
+            <p class="text-muted-foreground">{t("The app list needs the package index, which could not be built.")} {software.catalog.error}</p>
           {:else}
             <p class="flex items-center gap-2 text-muted-foreground">
               <LoaderIcon class="size-4 animate-spin" />
-              {software.catalog?.state === "ready" ? "Downloading app details from Flathub…" : "Reading every package in your nixpkgs once. This takes about half a minute."}
+              {software.catalog?.state === "ready" ? t("Downloading app details from Flathub…") : t("Reading every package in your nixpkgs once. This takes about half a minute.")}
             </p>
           {/if}
         </section>
-        <h2 class="heading">Features</h2>
+        <h2 class="heading">{t("Features")}</h2>
       {/if}
-      {#each categories as name (name)}
+      {#each categories as [name, title] (name)}
         {@const items = visible.filter((item) => item.category === name)}
         {#if items.length}
           <section class="space-y-2" aria-labelledby="category-{name}">
-            <svelte:element this={appsOn ? "h3" : "h2"} id="category-{name}" class={appsOn ? "label" : "heading"}>{name}</svelte:element>
+            <svelte:element this={appsOn ? "h3" : "h2"} id="category-{name}" class={appsOn ? "label" : "heading"}>{title}</svelte:element>
             <ul class="grid gap-2 sm:grid-cols-2">
               {#each items as item (item.id)}
                 {@const on = software.enabled(item)}
@@ -369,12 +377,12 @@
                     </span>
                     <span class="min-w-0 flex-1">
                       <span class="flex items-baseline gap-2">
-                        <span class="font-semibold">{item.title}</span>
-                        {#if pending}<span class="text-xs font-medium text-prepared-foreground">Pending</span>
-                        {:else if on}<span class="text-xs font-medium text-primary">On</span>{/if}
+                        <span class="font-semibold">{t(item.title)}</span>
+                        {#if pending}<span class="text-xs font-medium text-prepared-foreground">{t("Pending")}</span>
+                        {:else if on}<span class="text-xs font-medium text-primary">{t("On")}</span>{/if}
                       </span>
-                      <span class="block text-muted-foreground">{item.summary}</span>
-                      <span class="mt-0.5 block text-[0.72rem] text-muted-foreground">{item.scope === "system" ? "System" : "Your user"}</span>
+                      <span class="block text-muted-foreground">{t(item.summary)}</span>
+                      <span class="mt-0.5 block text-[0.72rem] text-muted-foreground">{item.scope === "system" ? t("System") : t("Your user")}</span>
                     </span>
                   </button>
                 </li>
@@ -389,11 +397,11 @@
     <section class="panel p-4">
       <div class="mb-3 flex flex-wrap items-center gap-2">
         <Segmented
-          label="Configuration"
+          label={t("Configuration")}
           bind:value={scope}
           options={[
-            { value: "home" as Target, label: "Your user", count: inventory?.home.packages.filter((p) => !p.external).length },
-            { value: "system" as Target, label: "System", count: inventory?.system.packages.filter((p) => !p.external).length },
+            { value: "home" as Target, label: t("Your user"), count: inventory?.home.packages.filter((p) => !p.external).length },
+            { value: "system" as Target, label: t("System"), count: inventory?.system.packages.filter((p) => !p.external).length },
           ]}
         />
         {#if changing.length}
@@ -401,25 +409,25 @@
             class="focus-ring rounded-md px-2 py-1 text-xs font-medium {changingOnly ? 'bg-accent text-accent-foreground' : 'text-primary hover:underline'}"
             aria-pressed={changingOnly}
             onclick={() => (changingOnly = !changingOnly)}
-            title="Compared with the version in use now. Apply your configuration to get them."
-          >{plural(changing.length, "package")} {changing.length === 1 ? "changes" : "change"} on the next apply</button>
+            title={t("Compared with the version in use now. Apply your configuration to get them.")}
+          >{tn("{count} package changes on the next apply", "{count} packages change on the next apply", changing.length)}</button>
         {/if}
         <label class="ml-auto flex h-8 w-56 items-center gap-2 rounded-md border border-field bg-card px-2 text-muted-foreground focus-within:ring-2 focus-within:ring-ring/40">
           <SearchIcon class="size-3.5" />
-          <input bind:this={filterInput} bind:value={filter} aria-label="Filter installed packages" aria-keyshortcuts="/" placeholder="Filter (/)" class="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground" />
+          <input bind:this={filterInput} bind:value={filter} aria-label={t("Filter installed packages")} aria-keyshortcuts="/" placeholder={t("Filter (/)")} class="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground" />
         </label>
       </div>
       {#if !inventory}
-        <EmptyState icon={software.loading ? LoaderIcon : PackageIcon} title={software.loading ? `Reading ${app.host}'s configuration` : "Not read yet"} />
+        <EmptyState icon={software.loading ? LoaderIcon : PackageIcon} title={software.loading ? t("Reading {host}'s configuration", { host: app.host }) : t("Not read yet")} />
       {:else if installed.length}
         <div class="overflow-hidden rounded-lg border">
           <table class="w-full text-left text-xs">
             <thead class="bg-muted/50 text-muted-foreground">
               <tr>
-                <th class="px-3 py-2 font-medium">Package</th>
-                <th class="px-3 py-2 font-medium">Version</th>
-                <th class="px-3 py-2 font-medium">Installed by</th>
-                <th class="w-24 px-3 py-2"><span class="sr-only">Actions</span></th>
+                <th class="px-3 py-2 font-medium">{t("Package")}</th>
+                <th class="px-3 py-2 font-medium">{t("Version")}</th>
+                <th class="px-3 py-2 font-medium">{t("Installed by")}</th>
+                <th class="w-24 px-3 py-2"><span class="sr-only">{t("Actions")}</span></th>
               </tr>
             </thead>
             <tbody class="divide-y">
@@ -432,12 +440,12 @@
                   </td>
                   <td class="px-3 py-1.5 font-mono text-[0.7rem]">
                     {#if item.previous}
-                      <span title="The version in use has {item.previous}; your configuration builds {item.version}.">
+                      <span title={t("The version in use has {previous}; your configuration builds {version}.", { previous: item.previous, version: item.version ?? "?" })}>
                         <span class="text-muted-foreground">{item.previous} →</span> <span class="font-semibold text-primary">{item.version ?? "?"}</span>
                       </span>
                     {:else}
                       {item.version ?? ""}
-                      {#if item.previous === null}<span class="ml-1 font-sans text-[0.68rem] font-medium text-primary" title="Not in the version in use now.">new</span>{/if}
+                      {#if item.previous === null}<span class="ml-1 font-sans text-[0.68rem] font-medium text-primary" title={t("Not in the version in use now.")}>{t("new")}</span>{/if}
                     {/if}
                   </td>
                   <td class="px-3 py-1.5" title={item.file}>
@@ -445,9 +453,9 @@
                     {:else}{category(item.file)}<span class="block font-mono text-[0.68rem] text-muted-foreground">{item.file}</span>{/if}
                   </td>
                   <td class="px-3 py-1.5 text-right">
-                    {#if removing}<span class="font-medium text-prepared-foreground">Will be removed</span>
-                    {:else if item.attr}<Button variant="ghost" size="xs" disabled={software.saving} onclick={() => removeInstalled(item)}>Remove</Button>
-                    {:else if !item.external}<span class="text-muted-foreground" title="This item is computed; edit it in the file.">Computed</span>{/if}
+                    {#if removing}<span class="font-medium text-prepared-foreground">{t("Will be removed")}</span>
+                    {:else if item.attr}<Button variant="ghost" size="xs" disabled={software.saving} onclick={() => removeInstalled(item)}>{t("Remove")}</Button>
+                    {:else if !item.external}<span class="text-muted-foreground" title={t("This item is computed; edit it in the file.")}>{t("Computed")}</span>{/if}
                   </td>
                 </tr>
               {/each}
@@ -455,11 +463,13 @@
           </table>
         </div>
       {:else}
-        <p class="rounded-lg border border-dashed px-3 py-6 text-center text-muted-foreground">{filter || changingOnly ? "No installed packages match." : "Nothing installed here yet."}</p>
+        <p class="rounded-lg border border-dashed px-3 py-6 text-center text-muted-foreground">{filter || changingOnly ? t("No installed packages match.") : t("Nothing installed here yet.")}</p>
       {/if}
       {#if moduleCount}
         <button class="focus-ring mt-3 rounded text-xs font-medium text-primary hover:underline" onclick={() => (showModules = !showModules)}>
-          {showModules ? "Hide" : "Show"} {plural(moduleCount, "package")} added by settings and modules
+          {showModules
+            ? tn("Hide {count} package added by settings and modules", "Hide {count} packages added by settings and modules", moduleCount)
+            : tn("Show {count} package added by settings and modules", "Show {count} packages added by settings and modules", moduleCount)}
         </button>
       {/if}
     </section>

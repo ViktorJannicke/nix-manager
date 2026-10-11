@@ -3,6 +3,7 @@
   import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
+  import { t } from "$lib/i18n";
   import type { Operation } from "../../src/contracts";
   import { actionLabels } from "../../src/domain";
   import { dateTime, duration, relative, scopeLabel } from "$lib/format";
@@ -38,11 +39,11 @@
 <div class="flex h-full min-h-0 gap-5">
   <aside class="flex w-72 shrink-0 flex-col">
     <div class="mb-3 flex items-center justify-between gap-2">
-      <h1 class="title">Activity</h1>
+      <h1 class="title">{t("Activity")}</h1>
       <Segmented
-        label="Filter"
+        label={t("Filter")}
         bind:value={filter}
-        options={[{ value: "all", label: "All" }, { value: "problems", label: "Problems", count: operations.filter(problems).length }]}
+        options={[{ value: "all", label: t("All") }, { value: "problems", label: t("Problems"), count: operations.filter(problems).length }]}
       />
     </div>
     <ul class="scroll-thin -mx-1 min-h-0 flex-1 space-y-0.5 overflow-auto px-1">
@@ -53,16 +54,16 @@
             onclick={() => app.selectOperation(operation.id)}
           >
             <div class="flex items-center gap-2">
-              <span class="min-w-0 flex-1 truncate font-medium">{actionLabels[operation.request.action]}</span>
+              <span class="min-w-0 flex-1 truncate font-medium">{t(actionLabels[operation.request.action])}</span>
               <StatusBadge status={operation.status} />
             </div>
             <p class="mt-0.5 text-xs text-muted-foreground">
-              {scopeLabel(operation.request.scope)}, {relative(operation.startedAt, app.now)}
+              {t("{scope}, {when}", { scope: scopeLabel(operation.request.scope), when: relative(operation.startedAt, app.now) })}
             </p>
           </button>
         </li>
       {:else}
-        <li class="px-3 py-6 text-center text-muted-foreground">Nothing to show.</li>
+        <li class="px-3 py-6 text-center text-muted-foreground">{t("Nothing to show.")}</li>
       {/each}
     </ul>
   </aside>
@@ -73,34 +74,39 @@
         <div class="flex flex-wrap items-start gap-3">
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
-              <h2 class="text-lg font-semibold">{actionLabels[selected.request.action]}</h2>
+              <h2 class="text-lg font-semibold">{t(actionLabels[selected.request.action])}</h2>
               <StatusBadge status={selected.status} />
             </div>
             <p class="text-xs text-muted-foreground">
-              {scopeLabel(selected.request.scope)} on {selected.request.host}, started {dateTime(selected.startedAt)}, took {duration(selected, app.now)}
-              {#if selected.request.update}<br />Updates all flake inputs{/if}
-              {#if selected.request.inputs?.length}<br />Updates {selected.request.inputs.join(", ")}{/if}
-              {#if selected.request.activation === "boot"}<br />Applies on next boot{/if}
+              {t("{scope} on {host}, started {started}, took {duration}", {
+                scope: scopeLabel(selected.request.scope),
+                host: selected.request.host,
+                started: dateTime(selected.startedAt),
+                duration: duration(selected, app.now),
+              })}
+              {#if selected.request.update}<br />{t("Updates all flake inputs")}{/if}
+              {#if selected.request.inputs?.length}<br />{t("Updates {inputs}", { inputs: selected.request.inputs.join(", ") })}{/if}
+              {#if selected.request.activation === "boot"}<br />{t("Applies on next boot")}{/if}
             </p>
           </div>
           {#if selected.status === "running"}
             <Button variant="outline" size="sm" disabled={selected.finishingPrivilegedStep} onclick={() => app.cancel()}>
-              {selected.finishingPrivilegedStep ? "Finishing…" : "Cancel"}
+              {selected.finishingPrivilegedStep ? t("Finishing…") : t("Cancel")}
             </Button>
           {:else if retryable(selected)}
-            <Button variant="outline" size="sm" disabled={app.busy} onclick={() => retry(selected)}><RotateCcwIcon /> Try again</Button>
+            <Button variant="outline" size="sm" disabled={app.busy} onclick={() => retry(selected)}><RotateCcwIcon /> {t("Try again")}</Button>
           {/if}
         </div>
         {#if selected.explanation}
           <div class="mt-3 rounded-lg bg-destructive/10 px-3 py-2">
-            <p class="font-medium text-destructive">{selected.explanation.title}</p>
-            <p class="mt-0.5 text-xs">{selected.explanation.body}</p>
+            <p class="font-medium text-destructive">{t(selected.explanation.title)}</p>
+            <p class="mt-0.5 text-xs">{t(selected.explanation.body)}</p>
             {#if selected.explanation.fix}
-              <Button size="sm" class="mt-2" disabled={app.busy} onclick={() => app.applyFix(selected.explanation!.fix!, selected.request.scope)}>Allow non-free software</Button>
+              <Button size="sm" class="mt-2" disabled={app.busy} onclick={() => app.applyFix(selected.explanation!.fix!, selected.request.scope)}>{t("Allow non-free software")}</Button>
             {/if}
             {#if selected.error}
               <details class="mt-1.5 text-xs text-muted-foreground">
-                <summary class="cursor-pointer select-none">What Nix reported</summary>
+                <summary class="cursor-pointer select-none">{t("What Nix reported")}</summary>
                 <p class="mt-1 font-mono text-[0.7rem] break-words whitespace-pre-wrap">{selected.error}</p>
               </details>
             {/if}
@@ -110,10 +116,10 @@
         {/if}
       </div>
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-      <div tabindex="0" role="region" aria-label="Steps" class="focus-ring panel scroll-thin max-h-60 shrink-0 overflow-auto p-2"><StepList operation={selected} /></div>
+      <div tabindex="0" role="region" aria-label={t("Steps")} class="focus-ring panel scroll-thin max-h-60 shrink-0 overflow-auto p-2"><StepList operation={selected} /></div>
       <LogViewer id={selected.id} />
     {:else}
-      <div class="panel"><EmptyState icon={ListIcon} title="No activity yet">Operations you start appear here with their steps and output.</EmptyState></div>
+      <div class="panel"><EmptyState icon={ListIcon} title={t("No activity yet")}>{t("Operations you start appear here with their steps and output.")}</EmptyState></div>
     {/if}
   </section>
 </div>

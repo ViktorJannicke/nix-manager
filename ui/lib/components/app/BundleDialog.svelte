@@ -5,7 +5,7 @@
   import { app } from "$lib/app.svelte";
   import { api } from "$lib/api";
   import { software } from "$lib/software.svelte";
-  import { plural } from "$lib/format";
+  import { list, t, tn } from "$lib/i18n";
   import { experiences } from "../../../../src/curated";
   import type { AppEntry } from "../../../../src/apps";
   import type { Bundle } from "../../../../src/bundles";
@@ -39,7 +39,7 @@
     const id = bundle.id;
     api<Record<string, AppEntry>>("software/lookup", { attrs: bundle.apps })
       .then((found) => bundle?.id === id && (entries = found))
-      .catch((error) => app.fail(error, "Could not read the apps"));
+      .catch((error) => app.fail(error, t("Could not read the apps")));
   });
 
   const plan = $derived(
@@ -57,12 +57,14 @@
 
   async function add() {
     if (!bundle || !plan.changes.length) return;
-    const title = bundle.title;
+    const title = t(bundle.title);
     await software.stage(plan.changes);
     app.toast({
       tone: "success",
-      title: `${title}: ${plural(count, "item")} pending`,
-      body: `${unfree.length ? "Non-free software will be allowed too. " : ""}Prepare your pending edits to build them.`,
+      title: tn("{title}: {count} item pending", "{title}: {count} items pending", count, { title }),
+      body: unfree.length
+        ? t("Non-free software will be allowed too. Prepare your pending edits to build them.")
+        : t("Prepare your pending edits to build them."),
     });
     bundle = undefined;
   }
@@ -79,7 +81,7 @@
       {#if done}
         <span class="text-xs font-medium text-primary">{done}</span>
       {:else}
-        <input type="checkbox" class="focus-ring size-4 accent-primary" checked={!left[id]} onchange={(event) => (left[id] = !event.currentTarget.checked)} aria-label="Include {name}" />
+        <input type="checkbox" class="focus-ring size-4 accent-primary" checked={!left[id]} onchange={(event) => (left[id] = !event.currentTarget.checked)} aria-label={t("Include {name}", { name })} />
       {/if}
     </label>
   </li>
@@ -89,32 +91,32 @@
   <Dialog.Content class="scroll-thin max-h-[90vh] overflow-x-hidden overflow-y-auto sm:max-w-lg">
     {#if bundle}
       <Dialog.Header>
-        <Dialog.Title>{bundle.title}</Dialog.Title>
-        <Dialog.Description>{bundle.summary} Untick what you do not want; everything else becomes one pending edit.</Dialog.Description>
+        <Dialog.Title>{t(bundle.title)}</Dialog.Title>
+        <Dialog.Description>{t(bundle.summary)} {t("Untick what you do not want; everything else becomes one pending edit.")}</Dialog.Description>
       </Dialog.Header>
 
       {#if !ready}
         <p class="flex items-center gap-2 text-muted-foreground" role="status">
           <LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
-          {software.catalog?.state === "failed" ? `The package index could not be built. ${software.catalog.error}` : "Reading the package index…"}
+          {software.catalog?.state === "failed" ? t("The package index could not be built. {error}", { error: software.catalog.error ?? "" }) : t("Reading the package index…")}
         </p>
       {:else}
         {#if features.length}
           <section class="min-w-0 space-y-1.5" aria-labelledby="bundle-features">
-            <h3 id="bundle-features" class="label">Features</h3>
+            <h3 id="bundle-features" class="label">{t("Features")}</h3>
             <ul class="panel divide-y overflow-hidden">
               {#each features as item (item.id)}
                 {#snippet icon()}
                   <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground"><ExperienceIcon name={item.icon} class="size-4" /></span>
                 {/snippet}
-                {@render row(item.id, item.title, item.summary, software.enabled(item) ? "On" : undefined, icon)}
+                {@render row(item.id, t(item.title), t(item.summary), software.enabled(item) ? t("On") : undefined, icon)}
               {/each}
             </ul>
           </section>
         {/if}
         {#if apps.length}
           <section class="min-w-0 space-y-1.5" aria-labelledby="bundle-apps">
-            <h3 id="bundle-apps" class="label">Apps, installed for you</h3>
+            <h3 id="bundle-apps" class="label">{t("Apps, installed for you")}</h3>
             <ul class="panel divide-y overflow-hidden">
               {#each apps as entry (entry.a)}
                 {@const name = entry.app?.name ?? entry.n ?? entry.a}
@@ -123,7 +125,7 @@
                   entry.a,
                   name,
                   entry.app?.summary ?? entry.d ?? "",
-                  software.installed(entry) ? "Installed" : software.pendingPackage(`pkgs.${entry.a}`) ? "Pending" : undefined,
+                  software.installed(entry) ? t("Installed") : software.pendingPackage(`pkgs.${entry.a}`) ? t("Pending") : undefined,
                   icon,
                 )}
               {/each}
@@ -131,19 +133,31 @@
           </section>
         {/if}
         {#if unfree.length}
-          <p class="text-xs text-muted-foreground">{unfree.join(", ")} {unfree.length === 1 ? "is" : "are"} not free software; allowing non-free software is part of the edit.</p>
+          <p class="text-xs text-muted-foreground">
+            {tn(
+              "{names} is not free software; allowing non-free software is part of the edit.",
+              "{names} are not free software; allowing non-free software is part of the edit.",
+              unfree.length,
+              { names: list(unfree) },
+            )}
+          </p>
         {/if}
         {#if plan.skipped.length}
           <p class="rounded-lg bg-warning/10 px-3 py-2 text-xs">
-            {plan.skipped.join(", ")} need{plan.skipped.length === 1 ? "s" : ""} a file chosen by hand. Add {plan.skipped.length === 1 ? "it" : "them"} from Discover on {plan.skipped.length === 1 ? "its" : "their"} own.
+            {tn(
+              "{names} needs a file chosen by hand. Add it from Discover on its own.",
+              "{names} need a file chosen by hand. Add them from Discover on their own.",
+              plan.skipped.length,
+              { names: list(plan.skipped) },
+            )}
           </p>
         {/if}
       {/if}
 
       <Dialog.Footer>
-        <Button variant="ghost" onclick={() => (bundle = undefined)}>Close</Button>
+        <Button variant="ghost" onclick={() => (bundle = undefined)}>{t("Close")}</Button>
         <Button disabled={!ready || !plan.changes.length || software.saving} onclick={add}>
-          {count > 0 ? `Add ${plural(count, "item")} to pending edits` : "Everything is there"}
+          {count > 0 ? tn("Add {count} item to pending edits", "Add {count} items to pending edits", count) : t("Everything is there")}
         </Button>
       </Dialog.Footer>
     {/if}

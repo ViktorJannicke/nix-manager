@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Schema } from "effect";
 import type { Config } from "./domain";
+import { localeFrom, type Locale } from "./i18n";
 import { atomicJson } from "./manager";
 
 /**
@@ -10,6 +11,8 @@ import { atomicJson } from "./manager";
  */
 export const Preferences = Schema.Struct({
   theme: Schema.optional(Schema.Literal("system", "light", "dark")),
+  /** The interface language; "system" follows the desktop's language. */
+  language: Schema.optional(Schema.Literal("system", "en", "de")),
   /** Simple shows one button and a plain summary; detailed shows every prepare, review and apply step. */
   detail: Schema.optional(Schema.Literal("simple", "detailed")),
   /** Prepare updates the tray finds while the computer is plugged in and not busy. */
@@ -45,6 +48,12 @@ function stored(config: Config): Preferences {
     return {};
   }
 }
+
+/** The language the dashboard and tray speak: the chosen one, or the desktop's. */
+export const resolveLocale = (preferences: Preferences, env: Record<string, string | undefined> = process.env): Locale =>
+  preferences.language && preferences.language !== "system"
+    ? preferences.language
+    : localeFrom([env.LC_ALL, env.LC_MESSAGES, env.LANG]);
 
 export function readPreferences(config: Config): Preferences {
   const current = stored(config);

@@ -4,6 +4,7 @@ import type { UpdateReport } from "./updates";
 import type { Explanation } from "./explain";
 import type { Hardware } from "./hardware";
 import type { Preferences } from "./preferences";
+import type { Locale } from "./i18n";
 
 export type OperationStatus =
   | "running"
@@ -224,6 +225,8 @@ export interface Snapshot {
   catalog: CatalogStatus;
   apps: AppsStatus;
   preferences: Preferences;
+  /** The language the interface speaks, resolved from the preference and the desktop. */
+  locale: Locale;
 }
 
 /** Flathub's app catalogue: "off" when the preference turned it off. */

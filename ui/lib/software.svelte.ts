@@ -12,6 +12,7 @@ import type { Scope } from "../../src/domain";
 import type { AppEntry } from "../../src/apps";
 import { api } from "./api";
 import { app } from "./app.svelte";
+import { t } from "./i18n";
 
 export type Inventory = Record<Target, ScopeInventory>;
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -84,7 +85,7 @@ class SoftwareState {
         this.searched = query;
       }
     } catch (error) {
-      app.fail(error, "Search failed");
+      app.fail(error, t("Search failed"));
     }
   }
 
@@ -98,7 +99,7 @@ class SoftwareState {
       if (this.appsKey === key) this.apps = apps;
     } catch (error) {
       this.appsKey = "";
-      app.fail(error, "Could not read the app list");
+      app.fail(error, t("Could not read the app list"));
     }
   }
 
@@ -111,7 +112,7 @@ class SoftwareState {
     try {
       await api("software/catalog", { rebuild });
     } catch (error) {
-      app.fail(error, "Could not build the package index");
+      app.fail(error, t("Could not build the package index"));
     }
   }
 
@@ -123,7 +124,7 @@ class SoftwareState {
       const docs = await api<OptionDoc[]>("software/describe", { host: app.host, scope, options: missing }, 120_000);
       this.docs = { ...this.docs, ...Object.fromEntries(docs.map((doc) => [`${scope}:${doc.n}`, doc])) };
     } catch (error) {
-      app.fail(error, "Could not read option documentation");
+      app.fail(error, t("Could not read option documentation"));
     }
   }
 
@@ -339,7 +340,7 @@ class SoftwareState {
       await api("draft", { changes });
       return true;
     } catch (error) {
-      app.fail(error, "Could not save the edit");
+      app.fail(error, t("Could not save the edit"));
       return false;
     } finally {
       this.saving = false;
@@ -380,7 +381,7 @@ class SoftwareState {
   /** The one button for the pending edits in simple mode: applies them in one step where it can, otherwise prepares them for review. */
   applyPending() {
     if (!this.pendingInOneStep) return this.prepare();
-    return app.installNow("Applying your changes", "Your changes are applied");
+    return app.installNow(t("Applying your changes"), t("Your changes are applied"));
   }
 
   /**

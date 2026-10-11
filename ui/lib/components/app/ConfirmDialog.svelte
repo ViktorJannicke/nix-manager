@@ -5,6 +5,7 @@
   import { Button } from "$lib/components/ui/button";
   import { formatCommand } from "../../../../src/domain";
   import { app } from "$lib/app.svelte";
+  import { t } from "$lib/i18n";
 
   let details = $state(false);
   const confirmation = $derived(app.confirmation);
@@ -30,11 +31,11 @@
         </ul>
       {/if}
       {#if confirmation.error}
-        <p class="rounded-lg bg-destructive/10 px-3 py-2 text-destructive" role="alert">{confirmation.error}</p>
+        <p class="rounded-lg bg-destructive/10 px-3 py-2 text-destructive" role="alert">{t(confirmation.error)}</p>
       {/if}
       {#if confirmation.plan?.notes.length}
         <ul class="space-y-1 rounded-lg bg-warning/10 px-3 py-2 text-xs">
-          {#each confirmation.plan.notes as note}<li>{note}</li>{/each}
+          {#each confirmation.plan.notes as note}<li>{t(note)}</li>{/each}
         </ul>
       {/if}
       <div>
@@ -44,30 +45,30 @@
           onclick={() => (details = !details)}
         >
           <ChevronRightIcon class="size-3.5 transition-transform {details ? 'rotate-90' : ''}" />
-          <TerminalIcon class="size-3.5" /> Commands that will run
+          <TerminalIcon class="size-3.5" /> {t("Commands that will run")}
         </button>
         {#if details}
           <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-          <ol tabindex="0" aria-label="Commands" class="focus-ring scroll-thin mt-2 max-h-56 space-y-2 overflow-auto rounded-lg bg-muted p-3 text-xs">
+          <ol tabindex="0" aria-label={t("Commands")} class="focus-ring scroll-thin mt-2 max-h-56 space-y-2 overflow-auto rounded-lg bg-muted p-3 text-xs">
             {#if confirmation.plan}
               {#each confirmation.plan.steps as command, index}
                 <li>
-                  <p class="font-medium">{index + 1}. {command.label}</p>
+                  <p class="font-medium">{index + 1}. {t(command.label)}</p>
                   <code class="block break-all text-muted-foreground">{formatCommand(command)}</code>
                 </li>
               {/each}
-            {:else if !confirmation.error}<li class="text-muted-foreground">Loading…</li>{/if}
+            {:else if !confirmation.error}<li class="text-muted-foreground">{t("Loading…")}</li>{/if}
           </ol>
         {/if}
       </div>
       <Dialog.Footer>
-        <Button variant="outline" disabled={confirmation.running} onclick={() => (app.confirmation = undefined)}>Cancel</Button>
+        <Button variant="outline" disabled={confirmation.running} onclick={() => (app.confirmation = undefined)}>{t("Cancel")}</Button>
         <Button
           variant={confirmation.destructive ? "destructive" : "default"}
           disabled={confirmation.running || Boolean(confirmation.error) || !confirmation.plan || app.busy}
           onclick={() => app.accept()}
         >
-          {confirmation.running ? "Starting…" : confirmation.confirmLabel}
+          {confirmation.running ? t("Starting…") : confirmation.confirmLabel}
         </Button>
       </Dialog.Footer>
     {/if}

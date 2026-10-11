@@ -12,7 +12,7 @@ import { actionLabels, request, type Request, type Scope } from "../../src/domai
 import type { Fix } from "../../src/explain";
 import type { Preferences } from "../../src/preferences";
 import { connectSession, managerApi } from "./api";
-import { plural } from "./format";
+import { getLocale, switchLocale, t, tn } from "./i18n";
 
 export type Page = "overview" | "software" | "computer" | "updates" | "changes" | "generations" | "activity" | "settings";
 export type Theme = "system" | "light" | "dark";
@@ -190,6 +190,11 @@ class AppState {
     void this.savePreferences({ theme });
   }
 
+  /** Saves the language; the snapshot that follows reloads the interface in it. */
+  setLanguage(language: NonNullable<Preferences["language"]>) {
+    void this.savePreferences({ language });
+  }
+
   setDetail(detail: Detail) {
     this.detail = detail;
     localStorage.setItem("nix-manager-detail", detail);
@@ -201,7 +206,7 @@ class AppState {
     try {
       await managerApi.preferences(preferences);
     } catch (error) {
-      this.fail(error, "Could not save the setting");
+      this.fail(error, t("Could not save the setting"));
     }
   }
 
@@ -224,8 +229,8 @@ class AppState {
   dismiss(id: number) {
     this.toasts = this.toasts.filter((toast) => toast.id !== id);
   }
-  fail(error: unknown, title = "Something went wrong") {
-    this.toast({ tone: "error", title, body: message(error) });
+  fail(error: unknown, title = t("Something went wrong")) {
+    this.toast({ tone: "error", title, body: t(message(error)) });
   }
 
   // --- Session state -------------------------------------------------------
@@ -234,6 +239,7 @@ class AppState {
     if (event.type === "snapshot") {
       const previous = this.snapshot;
       this.snapshot = event.snapshot;
+      if (event.snapshot.locale !== getLocale()) return switchLocale(event.snapshot.locale);
       const { theme, detail } = event.snapshot.preferences;
       if (theme && theme !== this.theme) this.applyTheme(theme);
       if (detail && detail !== this.detail) {
@@ -305,7 +311,7 @@ class AppState {
       for (const event of queued) this.append(event);
     } catch (error) {
       if (this.log.id === id) this.log = { ...this.log, loading: false };
-      this.fail(error, "Could not load the log");
+      this.fail(error, t("Could not load the log"));
     }
   }
 
@@ -346,7 +352,7 @@ class AppState {
       void this.loadLog(operation.id);
       return operation;
     } catch (error) {
-      this.fail(error, `Could not start: ${actionLabels[next.action]}`);
+      this.fail(error, t("Could not start: {action}", { action: t(actionLabels[next.action]) }));
       return undefined;
     }
   }
@@ -361,7 +367,7 @@ class AppState {
       const plan = await managerApi.plan(confirmation.request);
       if (this.confirmation?.token === token) this.confirmation.plan = plan;
     } catch (error) {
-      if (this.confirmation?.token === token) this.confirmation.error = message(error);
+      if (this.confirmation?.token === token) this.confirmation.error = t(message(error));
     }
   }
 
@@ -391,7 +397,7 @@ class AppState {
     try {
       await managerApi.hold(operationId);
     } catch (error) {
-      this.fail(error, "Could not stop it");
+      this.fail(error, t("Could not stop it"));
     }
   }
 
@@ -400,7 +406,7 @@ class AppState {
     try {
       await managerApi.cancel(this.active.id);
     } catch (error) {
-      this.fail(error, "Could not cancel");
+      this.fail(error, t("Could not cancel"));
     }
   }
 
@@ -408,9 +414,9 @@ class AppState {
     try {
       await managerApi.removeReview(review.id);
       if (this.selectedReview === review.id) this.selectedReview = undefined;
-      this.toast({ tone: "info", title: "Prepared changes discarded" });
+      this.toast({ tone: "info", title: t("Prepared changes discarded") });
     } catch (error) {
-      this.fail(error, "Could not discard the changes");
+      this.fail(error, t("Could not discard the changes"));
     }
   }
 
@@ -419,7 +425,7 @@ class AppState {
     try {
       this.snapshot = await managerApi.refresh();
     } catch (error) {
-      this.fail(error, "Could not refresh");
+      this.fail(error, t("Could not refresh"));
     } finally {
       this.refreshing = false;
     }
@@ -431,24 +437,24 @@ class AppState {
     if (this.settled.has(operation.id)) return;
     this.settled.add(operation.id);
     const r = operation.request;
-    const label = actionLabels[r.action];
+    const label = t(actionLabels[r.action]);
     // The progress dialog tells what happened to a one-step change while it is open.
     const shown = this.oneStep && (this.oneStep.prepare === operation.id || this.oneStep.reviewId === r.reviewId);
     if (operation.status === "cancelled") {
       if (shown) return;
-      this.toast({ tone: "info", title: `${label} cancelled`, body: operation.error });
+      this.toast({ tone: "info", title: t("{label} cancelled", { label }), body: operation.error && t(operation.error) });
       return;
     }
     if (operation.status !== "succeeded") {
       if (shown) return;
       this.toast({
         tone: "error",
-        title: operation.explanation ? `${label} failed: ${operation.explanation.title}` : `${label} failed`,
-        body: operation.explanation?.body ?? operation.error,
+        title: operation.explanation ? t("{label} failed: {reason}", { label, reason: t(operation.explanation.title) }) : t("{label} failed", { label }),
+        body: operation.explanation ? t(operation.explanation.body) : operation.error && t(operation.error),
         action: operation.explanation?.fix
-          ? { label: "Allow non-free software", run: () => this.applyFix(operation.explanation!.fix!, r.scope) }
+          ? { label: t("Allow non-free software"), run: () => this.applyFix(operation.explanation!.fix!, r.scope) }
           : {
-              label: "View log",
+              label: t("View log"),
               run: () => {
                 this.selectOperation(operation.id);
                 this.navigate("activity");
@@ -462,30 +468,30 @@ class AppState {
       this.selectedReview = r.reviewId;
       if (shown) return;
       this.navigate("changes");
-      this.toast({ tone: "success", title: "Changes are ready to review", body: "Nothing on the computer has changed yet." });
+      this.toast({ tone: "success", title: t("Changes are ready to review"), body: t("Nothing on the computer has changed yet.") });
     } else if (r.action === "review-apply") {
       if (shown) return;
       this.toast({
         tone: "success",
-        title: r.activation === "boot" ? "Will apply on next boot" : "Changes applied",
-        body: r.activation === "boot" ? "The new system becomes active after a restart." : undefined,
-        action: operation.undo && r.activation !== "boot" ? { label: "Undo", run: () => void this.undo(operation) } : undefined,
+        title: r.activation === "boot" ? t("Will apply on next boot") : t("Changes applied"),
+        body: r.activation === "boot" ? t("The new system becomes active after a restart.") : undefined,
+        action: operation.undo && r.activation !== "boot" ? { label: t("Undo"), run: () => void this.undo(operation) } : undefined,
       });
       this.navigate("overview");
     } else if (r.action === "check") {
       const count = this.snapshot?.updates?.items.length ?? 0;
       this.toast({
         tone: "success",
-        title: count ? `${plural(count, "update")} available` : "Everything is up to date",
+        title: count ? tn("{count} update available", "{count} updates available", count) : t("Everything is up to date"),
       });
     } else if (r.action.endsWith("-update")) {
       this.toast({
         tone: "success",
-        title: `${label}: pin saved`,
-        body: "Prepare your user's changes to build and apply the new version.",
-        action: { label: "Prepare", run: () => void this.prepare("home") },
+        title: t("{label}: pin saved", { label }),
+        body: t("Prepare your user's changes to build and apply the new version."),
+        action: { label: t("Prepare"), run: () => void this.prepare("home") },
       });
-    } else this.toast({ tone: "success", title: `${label} finished` });
+    } else this.toast({ tone: "success", title: t("{label} finished", { label }) });
   }
 }
 

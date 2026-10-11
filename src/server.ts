@@ -7,7 +7,8 @@ import { extname, join, relative } from "node:path";
 import { tmpdir, userInfo } from "node:os";
 import { Observer } from "./observe";
 import { listReviews, removeReview } from "./reviews";
-import { readPreferences, writePreferences } from "./preferences";
+import { readPreferences, resolveLocale, writePreferences } from "./preferences";
+import { getLocale, setLocale } from "./i18n";
 import type { SessionMessage, Snapshot } from "./contracts";
 import { Store } from "./store";
 import { detectHardware } from "./hardware";
@@ -89,6 +90,7 @@ export function startServer(
   input: UiAssets | string,
   port = 0,
 ) {
+  setLocale(resolveLocale(readPreferences(manager.config)));
   const assets: UiAssets =
     typeof input === "string"
       ? {
@@ -136,6 +138,7 @@ export function startServer(
     catalog: store.catalogStatus(lockHash()),
     apps: store.appsStatus(appDetails()),
     preferences: readPreferences(manager.config),
+    locale: getLocale(),
   });
   const send = (message: SessionMessage) => {
     const text = JSON.stringify(message);
@@ -273,6 +276,7 @@ export function startServer(
             }
             if (url.pathname === "/api/preferences") {
               const preferences = writePreferences(manager.config, await body(req));
+              setLocale(resolveLocale(preferences));
               broadcast();
               return json(preferences);
             }

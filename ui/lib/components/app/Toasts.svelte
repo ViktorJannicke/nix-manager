@@ -6,6 +6,7 @@
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
   import InfoIcon from "@lucide/svelte/icons/info";
   import { app } from "$lib/app.svelte";
+  import { t } from "$lib/i18n";
 </script>
 
 <!-- One live region; roles on the items as well would make some screen readers announce each toast twice. -->
@@ -13,7 +14,7 @@
   class="pointer-events-none fixed right-4 bottom-4 z-50 flex w-88 flex-col gap-2"
   aria-live="polite"
   role="region"
-  aria-label="Notifications"
+  aria-label={t("Notifications")}
   onmouseenter={() => (app.toastsHeld = true)}
   onmouseleave={() => (app.toastsHeld = false)}
   onfocusin={() => (app.toastsHeld = true)}
@@ -28,7 +29,7 @@
       {:else if toast.tone === "error"}<CircleAlertIcon class="mt-0.5 size-4 shrink-0 text-destructive" />
       {:else}<InfoIcon class="mt-0.5 size-4 shrink-0 text-primary" />{/if}
       <div class="min-w-0 flex-1">
-        <p class="font-medium">{#if toast.tone === "error"}<span class="sr-only">Error: </span>{/if}{toast.title}</p>
+        <p class="font-medium">{#if toast.tone === "error"}<span class="sr-only">{t("Error:")} </span>{/if}{toast.title}</p>
         {#if toast.body}<p class="mt-0.5 line-clamp-4 text-xs break-words text-muted-foreground">{toast.body}</p>{/if}
         {#if toast.action}
           <button
@@ -37,7 +38,7 @@
           >{toast.action.label}</button>
         {/if}
       </div>
-      <button class="focus-ring size-5 rounded text-muted-foreground hover:text-foreground" aria-label="Dismiss" onclick={() => app.dismiss(toast.id)}>
+      <button class="focus-ring size-5 rounded text-muted-foreground hover:text-foreground" aria-label={t("Dismiss")} onclick={() => app.dismiss(toast.id)}>
         <XIcon class="size-4" />
       </button>
     </div>

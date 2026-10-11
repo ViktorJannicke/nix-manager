@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Switch } from "$lib/components/ui/switch";
+  import { t } from "$lib/i18n";
   import { field, localeName, parsePorts, timeZones } from "$lib/fields";
   import { showValue } from "$lib/software.svelte";
   import { formatLocale, formatSettings, keyboardLayouts, locales, type ComputerInput } from "../../../../src/computer";
@@ -46,10 +47,10 @@
 </script>
 
 {#if !doc}
-  <span class="text-xs text-muted-foreground">Reading…</span>
+  <span class="text-xs text-muted-foreground">{t("Reading…")}</span>
 {:else if input === "timezone" && zones.length > 1}
   <select class="{control} w-56" aria-label={label} value={String(value ?? "")} onchange={(event) => onchange(event.currentTarget.value || null)}>
-    {#if value == null}<option value="">Not set</option>{/if}
+    {#if value == null}<option value="">{t("Not set")}</option>{/if}
     {#each zones as zone (zone)}<option value={zone}>{zone.replaceAll("_", " ")}</option>{/each}
   </select>
 {:else if input === "locale"}
@@ -59,8 +60,8 @@
 {:else if input === "formats"}
   <select class="{control} w-56" aria-label={label} value={formats === undefined ? "\0custom" : (formats ?? "")}
     onchange={(event) => { const locale = event.currentTarget.value; if (locale !== "\0custom") onchange(locale ? formatSettings(locale) : {}); }}>
-    <option value="">Same as the language</option>
-    {#if formats === undefined}<option value={"\0custom"}>Mixed, set in the file</option>{/if}
+    <option value="">{t("Same as the language")}</option>
+    {#if formats === undefined}<option value={"\0custom"}>{t("Mixed, set in the file")}</option>{/if}
     {#each localeChoices as choice (choice.locale)}<option value={choice.locale}>{choice.name}, {choice.locale}</option>{/each}
   </select>
 {:else if input === "keyboard"}
@@ -69,12 +70,12 @@
   </select>
 {:else if input === "user"}
   <select class="{control} w-56" aria-label={label} value={String(value ?? "")} onchange={(event) => onchange(event.currentTarget.value || null)}>
-    {#if !value}<option value="">Choose a user</option>{/if}
+    {#if !value}<option value="">{t("Choose a user")}</option>{/if}
     {#each keep(users, value) as user (user)}<option value={user}>{user}</option>{/each}
   </select>
 {:else if input === "ports"}
-  <input class="{control} w-56" aria-label={label} placeholder="None, for example 22, 8080" value={Array.isArray(value) ? value.join(", ") : ""}
-    onchange={(event) => { const ports = parsePorts(event.currentTarget.value); if (ports) onchange(ports); else { event.currentTarget.setCustomValidity("Enter port numbers from 1 to 65535."); event.currentTarget.reportValidity(); } }}
+  <input class="{control} w-56" aria-label={label} placeholder={t("None, for example 22, 8080")} value={Array.isArray(value) ? value.join(", ") : ""}
+    onchange={(event) => { const ports = parsePorts(event.currentTarget.value); if (ports) onchange(ports); else { event.currentTarget.setCustomValidity(t("Enter port numbers from 1 to 65535.")); event.currentTarget.reportValidity(); } }}
     oninput={(event) => event.currentTarget.setCustomValidity("")} />
 {:else if kind.kind === "boolean"}
   <Switch checked={Boolean(value)} onCheckedChange={(checked) => onchange(checked)} aria-label={label} />
@@ -86,10 +87,10 @@
   <input type="number" class="{control} w-28" aria-label={label} min={kind.min} max={kind.max} value={value ?? ""}
     onchange={(event) => { const number = event.currentTarget.valueAsNumber; if (Number.isInteger(number)) onchange(number); }} />
 {:else if kind.kind === "text"}
-  <input class="{control} w-56" aria-label={label} value={String(value ?? "")} placeholder={kind.nullable ? "Not set" : ""}
+  <input class="{control} w-56" aria-label={label} value={String(value ?? "")} placeholder={kind.nullable ? t("Not set") : ""}
     onchange={(event) => { const text = event.currentTarget.value; onchange(kind.nullable && !text ? null : text); }} />
 {:else if kind.kind === "lines"}
-  <textarea class="focus-ring h-20 w-56 rounded-md border bg-card px-2 py-1 font-mono text-xs" aria-label={label} placeholder="One per line"
+  <textarea class="focus-ring h-20 w-56 rounded-md border bg-card px-2 py-1 font-mono text-xs" aria-label={label} placeholder={t("One per line")}
     value={((value as string[] | undefined) ?? []).join("\n")}
     onchange={(event) => onchange(event.currentTarget.value.split("\n").map((line) => line.trim()).filter(Boolean))}></textarea>
 {:else}

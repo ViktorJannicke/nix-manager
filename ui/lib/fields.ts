@@ -1,3 +1,5 @@
+import { getLocale } from "./i18n";
+
 export type Field =
   | { kind: "boolean" }
   | { kind: "text"; nullable: boolean }
@@ -43,7 +45,7 @@ export function parsePorts(text: string): number[] | undefined {
 export function localeName(locale: string) {
   const tag = locale.replace(/\..*$/, "").replace("_", "-");
   try {
-    const name = new Intl.DisplayNames(["en"], { type: "language" }).of(tag);
+    const name = new Intl.DisplayNames([getLocale()], { type: "language" }).of(tag);
     if (name && name !== tag) return name;
   } catch {
     // An unknown tag shows as written.
