@@ -72,7 +72,7 @@
       <div class="min-w-0 flex-1">
         <h2 id="pending-overview" class="font-semibold">{tn("{count} pending edit to your configuration", "{count} pending edits to your configuration", draft.changes.length)}</h2>
         <ul class="mt-1 text-muted-foreground">
-          {#each draft.changes.slice(0, 3) as change, index (index)}<li class="truncate">{describeChange(change).title}</li>{/each}
+          {#each draft.changes.slice(0, 3) as change, index (index)}<li class="truncate">{t(describeChange(change).title)}</li>{/each}
           {#if draft.changes.length > 3}<li>{t("and {count} more", { count: draft.changes.length - 3 })}</li>{/if}
         </ul>
         {#if draft.problems.length}
@@ -92,7 +92,7 @@
       <div class="min-w-0 flex-1">
         <h2 id="last-change" class="font-semibold">{t("Last change, {when}", { when: relative(last.finishedAt ?? last.startedAt, app.now) })}</h2>
         <ul class="mt-1 text-muted-foreground">
-          {#each last.undo.changes.slice(0, 3) as change, index (index)}<li class="truncate">{change}</li>{/each}
+          {#each last.undo.changes.slice(0, 3) as change, index (index)}<li class="truncate">{t(change)}</li>{/each}
           {#if last.undo.changes.length > 3}<li>{t("and {count} more", { count: last.undo.changes.length - 3 })}</li>{/if}
         </ul>
         <p class="mt-1 text-xs text-muted-foreground">

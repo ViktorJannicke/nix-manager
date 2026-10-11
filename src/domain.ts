@@ -1,6 +1,7 @@
 import { Data, Schema } from "effect";
 import type { BuildReview, UndoPoint } from "./contracts";
 import type { Explanation } from "./explain";
+import { msg } from "./i18n";
 import { attr } from "./nix";
 
 export class ManagerError extends Data.TaggedError("ManagerError")<{
@@ -240,20 +241,20 @@ export function plan(config: Config, r: Request, review?: BuildReview, undo?: Un
       { progress: true },
     );
   const activateHome = (output: string) => {
-    add("Select Home Manager generation", [
+    add(msg("Select Home Manager generation"), [
       "nix-env",
       "--profile",
       config.homeProfile,
       "--set",
       output,
     ]);
-    add("Activate Home Manager", [`${output}/activate`, "--driver-version", "1"], {
+    add(msg("Activate Home Manager"), [`${output}/activate`, "--driver-version", "1"], {
       env: { HOME_MANAGER_BACKUP_EXT: "hm-backup" },
     });
   };
   const activateSystem = (output: string, mode: "switch" | "boot") =>
     privileged(
-      mode === "boot" ? "Activate system on next boot" : "Activate system",
+      mode === "boot" ? msg("Activate system on next boot") : msg("Activate system"),
       "activate-output",
       mode,
       output,
@@ -261,7 +262,7 @@ export function plan(config: Config, r: Request, review?: BuildReview, undo?: Un
   const cleanup = () => {
     const retention = r.retention ?? 3;
     if (home && config.homeProfileExists)
-      add(`Keep ${retention} home generations`, [
+      add(msg("Keep {count} home generations", { count: retention }), [
         "nix-env",
         "--profile",
         config.homeProfile,
@@ -269,18 +270,16 @@ export function plan(config: Config, r: Request, review?: BuildReview, undo?: Un
         `+${retention}`,
       ]);
     else if (home)
-      notes.push(
-        `No Home Manager profile at ${config.homeProfile}; generation deletion is skipped.`,
-      );
+      notes.push(msg("No Home Manager profile at {path}; generation deletion is skipped.", { path: config.homeProfile }));
     if (system)
       privileged(
-        `Keep ${retention} system generations and collect garbage`,
+        msg("Keep {count} system generations and collect garbage", { count: retention }),
         "gc",
         String(retention),
       );
-    else add("Collect unreferenced store paths", ["nix-store", "--gc"]);
+    else add(msg("Collect unreferenced store paths"), ["nix-store", "--gc"]);
     notes.push(
-      "Garbage collection deletes unreferenced store paths and older generations; these cannot be rolled back afterward.",
+      msg("Garbage collection deletes unreferenced store paths and older generations; these cannot be rolled back afterward."),
     );
   };
 
@@ -289,36 +288,47 @@ export function plan(config: Config, r: Request, review?: BuildReview, undo?: Un
     if (r.generation !== undefined) {
       const profile = home ? config.homeProfile : systemProfile;
       build(
-        `Retain ${home ? "home" : "system"} generation ${r.generation}`,
+        home
+          ? msg("Retain home generation {generation}", { generation: r.generation })
+          : msg("Retain system generation {generation}", { generation: r.generation }),
         `${profile}-${r.generation}-link`,
         `${root}/${r.scope}`,
       );
     } else if (r.undo !== undefined) {
-      if (!undo) throw new ManagerError({ message: "The change to undo is unavailable." });
+      if (!undo) throw new ManagerError({ message: msg("The change to undo is unavailable.") });
       for (const scope of ["home", "system"] as const) {
         if (scope === "home" ? !home : !system) continue;
         const number = undo.generations[scope];
         if (number === undefined)
-          throw new ManagerError({ message: `The change did not record the ${scope} generation it replaced.` });
+          throw new ManagerError({
+            message:
+              scope === "home"
+                ? msg("The change did not record the home generation it replaced.")
+                : msg("The change did not record the system generation it replaced."),
+          });
         build(
-          `Retain ${scope} generation ${number}`,
+          scope === "home"
+            ? msg("Retain home generation {generation}", { generation: number })
+            : msg("Retain system generation {generation}", { generation: number }),
           `${scope === "home" ? config.homeProfile : systemProfile}-${number}-link`,
           `${root}/${scope}`,
         );
       }
       if (undo.files.length)
-        notes.push("Applying the undo also restores the configuration files the change wrote.");
+        notes.push(msg("Applying the undo also restores the configuration files the change wrote."));
     } else {
       if (r.edits) {
-        add("Stage the edited files", [], { internal: "stage-sources" });
-        add("Check the edits", [], { internal: "verify-edits" });
+        add(msg("Stage the edited files"), [], { internal: "stage-sources" });
+        add(msg("Check the edits"), [], { internal: "verify-edits" });
       }
       const lock = r.update || r.inputs?.length ? `${root}/flake.lock` : undefined;
       if (lock)
         add(
           r.inputs?.length
-            ? `Resolve ${r.inputs.length === 1 ? r.inputs[0] : `${r.inputs.length} inputs`}`
-            : "Resolve all flake inputs",
+            ? r.inputs.length === 1
+              ? msg("Resolve {input}", { input: r.inputs[0] })
+              : msg("Resolve {count} inputs", { count: r.inputs.length })
+            : msg("Resolve all flake inputs"),
           [
             "nix",
             "flake",
@@ -336,35 +346,39 @@ export function plan(config: Config, r: Request, review?: BuildReview, undo?: Un
       const lockFlags = lock
         ? ["--reference-lock-file", lock, "--no-write-lock-file"]
         : ["--no-write-lock-file"];
-      if (home) build("Build home configuration", homeAttr, `${root}/home`, lockFlags);
+      if (home) build(msg("Build home configuration"), homeAttr, `${root}/home`, lockFlags);
       if (system)
-        build("Build system configuration", systemAttr, `${root}/system`, lockFlags);
+        build(msg("Build system configuration"), systemAttr, `${root}/system`, lockFlags);
       if (lock)
         notes.push(
-          "Inputs are resolved into a separate lock file. The checkout's flake.lock changes only when you apply this review.",
+          msg("Inputs are resolved into a separate lock file. The checkout's flake.lock changes only when you apply this review."),
         );
       if (r.edits)
-        notes.push("Edits are built from a copy of the checkout. Your files change only when you apply this review.");
+        notes.push(msg("Edits are built from a copy of the checkout. Your files change only when you apply this review."));
     }
-    add("Compare with the active configuration", [], { internal: "compare" });
-    notes.push("Nothing is activated. The build is kept until you apply or discard it.");
+    add(msg("Compare with the active configuration"), [], { internal: "compare" });
+    notes.push(msg("Nothing is activated. The build is kept until you apply or discard it."));
     return { steps, notes };
   }
   if (r.action === "review-apply") {
     if (!review || review.id !== r.reviewId)
-      throw new ManagerError({ message: "The selected review is unavailable." });
+      throw new ManagerError({ message: msg("The selected review is unavailable.") });
     const mode = r.activation ?? "switch";
     if (review.edits)
       add(
-        `Write ${review.edits.files.length === 1 ? review.edits.files[0].path : `${review.edits.files.length} edited files`}`,
+        review.edits.files.length === 1
+          ? msg("Write {file}", { file: review.edits.files[0].path })
+          : msg("Write {count} edited files", { count: review.edits.files.length }),
         [],
         { internal: "write-sources" },
       );
     if (review.inputs)
-      add("Write the reviewed flake.lock", [], { internal: "write-lock" });
+      add(msg("Write the reviewed flake.lock"), [], { internal: "write-lock" });
     if (review.undo?.point.files.length) {
       const files = review.undo.point.files;
-      add(`Restore ${files.length === 1 ? files[0].path : `${files.length} files`}`, [], { internal: "restore-sources" });
+      add(files.length === 1 ? msg("Restore {file}", { file: files[0].path }) : msg("Restore {count} files", { count: files.length }), [], {
+        internal: "restore-sources",
+      });
     }
     if (home && review.home && mode === "switch") activateHome(review.home.path);
     if (system && review.system) activateSystem(review.system.path, mode);
@@ -372,16 +386,16 @@ export function plan(config: Config, r: Request, review?: BuildReview, undo?: Un
       throw new ManagerError({
         message:
           mode === "boot"
-            ? "Only a system configuration can be applied on next boot."
-            : "This review does not contain the selected configuration.",
+            ? msg("Only a system configuration can be applied on next boot.")
+            : msg("This review does not contain the selected configuration."),
       });
     if (steps.some((s) => s.label.startsWith("Activate Home")) && steps.some((s) => s.label.startsWith("Activate system")))
-      notes.push("Home activates before system. If system activation fails, home remains active.");
-    notes.push("The exact reviewed outputs are activated; the checkout is not evaluated again.");
+      notes.push(msg("Home activates before system. If system activation fails, home remains active."));
+    notes.push(msg("The exact reviewed outputs are activated; the checkout is not evaluated again."));
     return { steps, notes };
   }
   if (r.update)
-    add("Update flake inputs", [
+    add(msg("Update flake inputs"), [
       "nix",
       "flake",
       "update",
@@ -390,40 +404,40 @@ export function plan(config: Config, r: Request, review?: BuildReview, undo?: Un
     ]);
   if (r.action === "check") {
     notes.push(
-      "Resolve inputs in a temporary copy and compare stable package releases. The checkout is unchanged.",
+      msg("Resolve inputs in a temporary copy and compare stable package releases. The checkout is unchanged."),
     );
   } else if (isPackage(r.action)) {
     notes.push(
-      "Compare stable release and inherited recipes, discover hashes, then build before atomically replacing the pin.",
+      msg("Compare stable release and inherited recipes, discover hashes, then build before atomically replacing the pin."),
     );
   } else {
     if (r.action === "build") {
-      if (home) build("Build home configuration", homeAttr, undefined);
-      if (system) build("Build system configuration", systemAttr, undefined);
+      if (home) build(msg("Build home configuration"), homeAttr, undefined);
+      if (system) build(msg("Build system configuration"), systemAttr, undefined);
     }
     if (r.action === "switch" || r.action === "boot") {
       const root = buildRoot(config);
-      if (home) build("Build home configuration", homeAttr, `${root}/home`);
-      if (system) build("Build system configuration", systemAttr, `${root}/system`);
+      if (home) build(msg("Build home configuration"), homeAttr, `${root}/home`);
+      if (system) build(msg("Build system configuration"), systemAttr, `${root}/system`);
       if (home) activateHome(`${root}/home`);
       if (system) activateSystem(`${root}/system`, r.action);
       if (home && system)
         notes.push(
-          "Home activates before system. If system activation fails, home may already be active.",
+          msg("Home activates before system. If system activation fails, home may already be active."),
         );
       if (system)
         notes.push(
-          "Once the privileged step starts, cancellation waits for it to finish before stopping subsequent steps.",
+          msg("Once the privileged step starts, cancellation waits for it to finish before stopping subsequent steps."),
         );
     } else if (r.action === "rollback") {
       if (home)
-        add("Roll back home configuration", [
+        add(msg("Roll back home configuration"), [
           "home-manager",
           "switch",
           "--rollback",
           ...r.extra,
         ]);
-      if (system) privileged("Roll back system configuration", "rollback");
+      if (system) privileged(msg("Roll back system configuration"), "rollback");
     }
     if (r.cleanup || r.action === "gc") cleanup();
   }
@@ -437,19 +451,19 @@ export function goBackSteps(config: Config, generations: { home?: number; system
   const steps: Command[] = [];
   if (generations.system !== undefined)
     steps.push({
-      label: `Go back to system generation ${generations.system}`,
+      label: msg("Go back to system generation {generation}", { generation: generations.system }),
       argv: [...config.privileged, "activate-generation", String(generations.system)],
       cwd: config.flake,
     });
   if (generations.home !== undefined)
     steps.push(
       {
-        label: `Go back to home generation ${generations.home}`,
+        label: msg("Go back to home generation {generation}", { generation: generations.home }),
         argv: ["nix-env", "--profile", config.homeProfile, "--switch-generation", String(generations.home)],
         cwd: config.flake,
       },
       {
-        label: "Activate the earlier home generation",
+        label: msg("Activate the earlier home generation"),
         argv: [`${config.homeProfile}-${generations.home}-link/activate`, "--driver-version", "1"],
         cwd: config.flake,
         env: { HOME_MANAGER_BACKUP_EXT: "hm-backup" },

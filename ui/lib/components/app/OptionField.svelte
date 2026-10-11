@@ -66,7 +66,7 @@
   </select>
 {:else if input === "keyboard"}
   <select class="{control} w-56" aria-label={label} value={String(value ?? "")} onchange={(event) => onchange(event.currentTarget.value)}>
-    {#each layouts as layout (layout.code)}<option value={layout.code}>{layout.label}</option>{/each}
+    {#each layouts as layout (layout.code)}<option value={layout.code}>{layout.code === layout.label ? layout.label : t(layout.label)}</option>{/each}
   </select>
 {:else if input === "user"}
   <select class="{control} w-56" aria-label={label} value={String(value ?? "")} onchange={(event) => onchange(event.currentTarget.value || null)}>
@@ -94,5 +94,5 @@
     value={((value as string[] | undefined) ?? []).join("\n")}
     onchange={(event) => onchange(event.currentTarget.value.split("\n").map((line) => line.trim()).filter(Boolean))}></textarea>
 {:else}
-  <span class="max-w-56 truncate text-xs text-muted-foreground" title={doc.t ?? ""}>{showValue(value)}</span>
+  <span class="max-w-56 truncate text-xs text-muted-foreground" title={doc.t ?? ""}>{t(showValue(value))}</span>
 {/if}

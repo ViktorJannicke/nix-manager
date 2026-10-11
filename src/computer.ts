@@ -6,6 +6,7 @@
 
 import type { CuratedSetting } from "./curated";
 import type { Hardware } from "./hardware";
+import { t } from "./i18n";
 
 /** Form controls the option type alone would not give. */
 export type ComputerInput = "timezone" | "locale" | "formats" | "keyboard" | "ports" | "user";
@@ -149,11 +150,11 @@ export const NEW_USER_GROUPS = ["networkmanager"];
 
 /** A user name `useradd` accepts and a Nix attribute can be without quotes. */
 export const userNameProblem = (name: string, taken: readonly string[]) => {
-  if (!name) return "Enter a user name.";
-  if (!/^[a-z_][a-z0-9_-]*$/.test(name)) return "Use lowercase letters, digits, dashes and underscores, starting with a letter.";
-  if (name.length > 32) return "Use at most 32 characters.";
-  if (taken.includes(name)) return `${name} already exists.`;
-  if (["root", "nobody", "admin"].includes(name)) return `${name} is reserved.`;
+  if (!name) return t("Enter a user name.");
+  if (!/^[a-z_][a-z0-9_-]*$/.test(name)) return t("Use lowercase letters, digits, dashes and underscores, starting with a letter.");
+  if (name.length > 32) return t("Use at most 32 characters.");
+  if (taken.includes(name)) return t("{name} already exists.", { name });
+  if (["root", "nobody", "admin"].includes(name)) return t("{name} is reserved.", { name });
   return undefined;
 };
 

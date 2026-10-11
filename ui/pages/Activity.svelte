@@ -112,7 +112,7 @@
             {/if}
           </div>
         {:else if selected.error}
-          <p class="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs break-words text-destructive">{selected.error}</p>
+          <p class="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs break-words text-destructive">{t(selected.error)}</p>
         {/if}
       </div>
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->

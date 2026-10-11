@@ -1,9 +1,6 @@
 import type { BuildReview, EditEffect, Generation, Operation, PackageChange } from "./contracts";
 import type { Request } from "./domain";
-
-/** "1 change", "2 changes". */
-export const plural = (count: number, one: string, many = `${one}s`) =>
-  `${count} ${count === 1 ? one : many}`;
+import { getLocale, list, t, tn } from "./i18n";
 
 /** Sizes in binary units, optionally with a sign. */
 export function bytes(value: number | undefined, signed = false) {
@@ -16,7 +13,8 @@ export function bytes(value: number | undefined, signed = false) {
     size /= 1024;
     index++;
   }
-  return `${sign}${size.toFixed(size >= 100 || index === 0 ? 0 : 1)} ${scale[index]}`;
+  const digits = size >= 100 || index === 0 ? 0 : 1;
+  return `${sign}${size.toLocaleString(getLocale(), { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: false })} ${scale[index]}`;
 }
 
 export function summarize(changes: PackageChange[]) {
@@ -39,12 +37,10 @@ export function editedPackages(effect: EditEffect) {
   };
 }
 
-/** "a", "a and b", "a, b and c". */
-const and = (items: string[]) => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`);
 /** Up to three names, then how many more. */
-const names = (list: string[]) => {
-  const unique = [...new Set(list)];
-  return unique.length <= 3 ? and(unique) : and([...unique.slice(0, 2), `${unique.length - 2} more`]);
+const names = (items: string[]) => {
+  const unique = [...new Set(items)];
+  return unique.length <= 3 ? list(unique) : list([...unique.slice(0, 2), t("{count} more", { count: unique.length - 2 })]);
 };
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
@@ -57,24 +53,31 @@ export function reviewSummary(review: BuildReview) {
     const added = packages.flatMap((effect) => effect.added.map((item) => item.name));
     const removed = packages.flatMap((effect) => effect.removed.map((item) => item.name));
     const settings = review.edits.effects.reduce((count, effect) => count + effect.options.length, 0);
-    if (added.length) parts.push(`installs ${names(added)}`);
-    if (removed.length) parts.push(`removes ${names(removed)}`);
-    if (settings) parts.push(`changes ${plural(settings, "setting")}`);
+    if (added.length) parts.push(t("installs {names}", { names: names(added) }));
+    if (removed.length) parts.push(t("removes {names}", { names: names(removed) }));
+    if (settings) parts.push(tn("changes {count} setting", "changes {count} settings", settings));
   } else if (outputs.every((output) => output.compared)) {
     const counts = summarize(outputs.flatMap((output) => output.changes));
     // Only the first count names what is counted: "updates 12 packages, adds 2 and removes 1".
-    const clauses = ([["updates", counts.changed], ["adds", counts.added], ["removes", counts.removed]] as const).filter(([, count]) => count);
-    parts.push(...clauses.map(([verb, count], index) => `${verb} ${index ? count : plural(count, "package")}`));
-  } else parts.push("builds everything new, as nothing is active to compare with");
-  const sentences = [parts.length ? `${capitalize(and(parts))}.` : "Nothing you use changes."];
-  if (review.inputs?.changes.length) sentences.unshift(`Updates ${plural(review.inputs.changes.length, "software source")}.`);
+    if (counts.changed) parts.push(tn("updates {count} package", "updates {count} packages", counts.changed));
+    if (counts.added)
+      parts.push(parts.length ? t("adds {count}", { count: counts.added }) : tn("adds {count} package", "adds {count} packages", counts.added));
+    if (counts.removed)
+      parts.push(parts.length ? t("removes {count}", { count: counts.removed }) : tn("removes {count} package", "removes {count} packages", counts.removed));
+  } else parts.push(t("builds everything new, as nothing is active to compare with"));
+  const sentences = [parts.length ? `${capitalize(list(parts))}.` : t("Nothing you use changes.")];
+  if (review.inputs?.changes.length)
+    sentences.unshift(tn("Updates {count} software source.", "Updates {count} software sources.", review.inputs.changes.length));
   const sizes = outputs.filter((output) => output.closureSize !== undefined && output.currentClosureSize !== undefined);
   const delta = sizes.reduce((total, output) => total + output.closureSize! - output.currentClosureSize!, 0);
   if (sizes.length && Math.abs(delta) >= 1024 * 1024)
-    sentences.push(delta > 0 ? `It needs about ${bytes(delta)} more disk space.` : `It frees about ${bytes(-delta)} of disk space.`);
-  if (review.downloaded && review.downloaded >= 1024 * 1024) sentences.push(`${bytes(review.downloaded)} were downloaded to prepare it.`);
+    sentences.push(
+      delta > 0 ? t("It needs about {size} more disk space.", { size: bytes(delta) }) : t("It frees about {size} of disk space.", { size: bytes(-delta) }),
+    );
+  if (review.downloaded && review.downloaded >= 1024 * 1024)
+    sentences.push(t("{size} were downloaded to prepare it.", { size: bytes(review.downloaded) }));
   const kernel = review.system?.kernel;
-  if (kernel?.after && kernel.before !== kernel.after) sentences.push("Restart afterwards to use the new kernel.");
+  if (kernel?.after && kernel.before !== kernel.after) sentences.push(t("Restart afterwards to use the new kernel."));
   return sentences.join(" ");
 }
 
@@ -107,14 +110,14 @@ export function usualSeconds(operations: readonly Operation[], request: Request)
 
 const roughly = (seconds: number) => {
   const minutes = Math.round(seconds / 60);
-  if (minutes < 1) return "less than a minute";
-  if (minutes < 60) return `about ${plural(minutes, "minute")}`;
-  return `about ${plural(Math.round(minutes / 6) / 10, "hour")}`;
+  if (minutes < 1) return t("less than a minute");
+  if (minutes < 60) return tn("about {count} minute", "about {count} minutes", minutes);
+  return tn("about {count} hour", "about {count} hours", Math.round(minutes / 6) / 10);
 };
 
 /** A plain estimate of the time left, or undefined without earlier runs. */
 export function timeLeft(usual: number | undefined, elapsed: number) {
   if (usual === undefined) return undefined;
-  if (elapsed > usual * 1.2 + 30) return "Taking longer than usual";
-  return `${roughly(Math.max(0, usual - elapsed))} left`.replace(/^./, (c) => c.toUpperCase());
+  if (elapsed > usual * 1.2 + 30) return t("Taking longer than usual");
+  return capitalize(t("{time} left", { time: roughly(Math.max(0, usual - elapsed)) }));
 }

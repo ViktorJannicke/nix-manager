@@ -194,7 +194,7 @@
         <div class="mt-4 rounded-lg bg-card px-3 py-2">
           <p class="font-medium">{t("Goes back to how it was before {date}, undoing:", { date: dateTime(review.undo.appliedAt) })}</p>
           <ul class="mt-1 list-disc pl-5 text-muted-foreground">
-            {#each review.undo.point.changes as change, index (index)}<li>{change}</li>{/each}
+            {#each review.undo.point.changes as change, index (index)}<li>{t(change)}</li>{/each}
           </ul>
           {#if review.undo.point.files.length}
             <p class="mt-1 text-xs text-muted-foreground">
@@ -261,7 +261,7 @@
                   {#each effect.options as option (option.option)}
                     <li class="break-words">
                       <span class="font-mono text-[0.75rem]">{option.option}</span>:
-                      <span class="text-muted-foreground">{showValue(option.before)}</span> → {showValue(option.after)}
+                      <span class="text-muted-foreground">{t(showValue(option.before))}</span> → {t(showValue(option.after))}
                     </li>
                   {/each}
                 </ul>
@@ -270,7 +270,7 @@
             <details class="text-xs">
               <summary class="focus-ring cursor-pointer rounded text-muted-foreground hover:text-foreground">{tn("{count} edit in this review", "{count} edits in this review", review.edits.changes.length)}</summary>
               <ul class="mt-1 space-y-0.5">
-                {#each review.edits.changes as change, index (index)}<li>{describeChange(change).title}</li>{/each}
+                {#each review.edits.changes as change, index (index)}<li>{t(describeChange(change).title)}</li>{/each}
               </ul>
             </details>
           </div>

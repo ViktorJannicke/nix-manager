@@ -2,7 +2,7 @@ import type { Operation } from "../../src/contracts";
 import type { Scope } from "../../src/domain";
 import { getLocale, t } from "../../src/i18n";
 
-export { bytes, editedPackages, plural, removedGenerations, reviewSummary, summarize, timeLeft, usualSeconds } from "../../src/summary";
+export { bytes, editedPackages, removedGenerations, reviewSummary, summarize, timeLeft, usualSeconds } from "../../src/summary";
 import { timeLeft, usualSeconds } from "../../src/summary";
 
 const units: [Intl.RelativeTimeFormatUnit, number][] = [

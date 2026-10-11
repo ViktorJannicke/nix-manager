@@ -303,7 +303,12 @@ shown as Nix wrote it.
 Interface text is written in English and passed through `t()` from
 `src/i18n.ts`: `t("Remove {name}", { name })`, and `tn(one, other, count)` for
 counts. Text with markup in it uses `<T text={"Run {command} first."}>` with a
-snippet for the markup. German lives in `src/locales/de/`, one file per part of
+snippet for the markup. Text the server stores or sends, like step labels and
+failure explanations, is marked with `msg()` instead: it stays English, and
+`t()` translates it where it is shown. When it has values filled in, its key
+belongs in `labels.ts` or `messages.ts`, whose keys stored text is matched
+against. Keys are plain string literals, so the test can find them; curated
+data shown through `t(item.title)` is listed in the test. German lives in `src/locales/de/`, one file per part of
 the interface. `test/i18n.test.ts` fails when a text has no German, a
 placeholder is lost, a text is translated two ways, or a translation is no
 longer used.

@@ -3,6 +3,7 @@ import { ManagerError, actionLabels, request } from "./domain";
 import type { Manager } from "./manager";
 import type { BuildReview } from "./contracts";
 import { cleanUpInBackground, freeSpace, keptAutomatically, lastCleanup, lastPrepared, prepareInBackground } from "./background";
+import { list, msg, t, tn } from "./i18n";
 import { getReview } from "./reviews";
 import { bytes, reviewSummary } from "./summary";
 
@@ -62,7 +63,7 @@ export async function startTray(
       .then(fn)
       .catch((e) => {
         console.error(e);
-        void notify("Nix Manager needs attention", String(e.message || e));
+        void notify(t("Nix Manager needs attention"), t(String(e.message || e)));
       });
   };
   let lastNotification = "",
@@ -89,7 +90,7 @@ export async function startTray(
         "system-software-update",
         title,
         body.replace(/[<>]/g, ""),
-        ["default", "Open Nix Manager", ...actions.flatMap((action) => [action.key, action.label])],
+        ["default", t("Open Nix Manager"), ...actions.flatMap((action) => [action.key, action.label])],
         { "desktop-entry": new Variant("s", "nix-manager") },
         -1,
       );
@@ -126,17 +127,17 @@ export async function startTray(
     } catch {
       return;
     }
-    return notify("Updates are ready", `${reviewSummary(review)} Nothing changes until you apply them.`, [
-      { key: "apply-now", label: "Apply now", run: () => apply(review, "switch") },
-      ...(review.system ? [{ key: "apply-boot", label: "Apply on next boot", run: () => apply(review, "boot") }] : []),
+    return notify(t("Updates are ready"), t("{summary} Nothing changes until you apply them.", { summary: reviewSummary(review) }), [
+      { key: "apply-now", label: t("Apply now"), run: () => apply(review, "switch") },
+      ...(review.system ? [{ key: "apply-boot", label: t("Apply on next boot"), run: () => apply(review, "boot") }] : []),
     ]);
   };
   const actions = [
-    { id: 1, label: "Open Nix Manager", run: open },
-    { id: 2, label: "Check for updates", run: check },
+    { id: 1, label: msg("Open Nix Manager"), run: open },
+    { id: 2, label: msg("Check for updates"), run: check },
     {
       id: 3,
-      label: "Prepare all updates for review…",
+      label: msg("Prepare all updates for review…"),
       run: async () => {
         // Nothing is activated from the tray; the dashboard shows the
         // resulting package changes for confirmation.
@@ -152,7 +153,7 @@ export async function startTray(
     },
     {
       id: 4,
-      label: "Quit Nix Manager",
+      label: msg("Quit Nix Manager"),
       run: async () => {
         quit();
       },
@@ -173,7 +174,8 @@ export async function startTray(
         id === 0
           ? { "children-display": new Variant("s", "submenu") }
           : {
-              label: new Variant("s", action?.label || ""),
+              // Translated when shown, so the menu follows a change of language.
+              label: new Variant("s", action ? t(action.label) : ""),
               visible: new Variant("b", !!action),
               enabled: new Variant(
                 "b",
@@ -388,12 +390,12 @@ export async function startTray(
       [],
       "Nix Manager",
       manager.active
-        ? manager.active.step
+        ? t(manager.active.step)
         : report?.errors.length
-          ? "Some update checks failed"
+          ? t("Some update checks failed")
           : count
-            ? `${count} updates available`
-            : "No updates reported",
+            ? tn("{count} update available", "{count} updates available", count)
+            : t("No updates reported"),
     ];
     item.NewStatus(item.Status);
     item.NewToolTip();
@@ -405,9 +407,8 @@ export async function startTray(
       if (op.status === "failed")
         invoke(() =>
           notify(
-            "Nix Manager needs attention",
-            op.error?.slice(0, 300) ||
-              "An operation failed. Open the dashboard for its log.",
+            t("Nix Manager needs attention"),
+            (op.error && t(op.error).slice(0, 300)) || t("An operation failed. Open the dashboard for its log."),
           ),
         );
       else if (op.request.action === "review-build" && op.status === "succeeded" && op.request.reviewId === lastPrepared(manager.config)?.reviewId)
@@ -418,22 +419,22 @@ export async function startTray(
           freed = before !== undefined && after !== undefined ? after - before : 0;
         invoke(() =>
           notify(
-            "Space freed",
-            `${freed > 0 ? `${bytes(freed)} were freed.` : "Older restore points were removed."} The newest ${keptAutomatically} restore points of your apps are kept.`,
+            t("Space freed"),
+            `${freed > 0 ? t("{size} were freed.", { size: bytes(freed) }) : t("Older restore points were removed.")} ${t("The newest {count} restore points of your apps are kept.", { count: keptAutomatically })}`,
           ),
         );
       } else if (op.request.action === "review-build" && op.status === "succeeded")
         invoke(() =>
           notify(
-            "Changes are ready to review",
-            "The build finished. Open Nix Manager to see what changes and apply it.",
+            t("Changes are ready to review"),
+            t("The build finished. Open Nix Manager to see what changes and apply it."),
           ),
         );
       else if (op.request.action !== "check" && op.status === "succeeded")
         invoke(() =>
           notify(
-            "Nix Manager finished",
-            `${actionLabels[op.request.action]} completed for ${op.request.host || manager.config.hostKey}.`,
+            t("Nix Manager finished"),
+            t("{action} completed for {host}.", { action: t(actionLabels[op.request.action]), host: op.request.host || manager.config.hostKey }),
           ),
         );
     }
@@ -443,8 +444,8 @@ export async function startTray(
         lastNotification = signature;
         invoke(() =>
           notify(
-            `${count} updates available`,
-            report.items.map((i) => i.name).join(", "),
+            tn("{count} update available", "{count} updates available", count),
+            list(report.items.map((i) => i.name)),
           ),
         );
       }

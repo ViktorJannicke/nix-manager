@@ -22,7 +22,7 @@
       <span class="text-xs font-medium">{t("New file")}</span>
       <input class="focus-ring h-8 w-full rounded-md border bg-card px-2 font-mono text-xs" bind:value={file} spellcheck="false" aria-invalid={Boolean(problem)} aria-describedby={problem ? `${uid}-problem` : undefined} />
     </label>
-    {#if problem}<span id="{uid}-problem" class="block text-xs text-destructive">{problem}</span>{/if}
+    {#if problem}<span id="{uid}-problem" class="block text-xs text-destructive">{t(problem)}</span>{/if}
   </div>
   <label class="block space-y-1">
     <span class="text-xs font-medium">{t("Imported from")}</span>

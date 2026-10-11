@@ -35,21 +35,25 @@ const fill = (text: string, values: Values) =>
   text.replace(/\{(\w+)\}/g, (match, name: string) => (name in values ? `${number(values[name])}` : match));
 
 /** Stored keys as patterns, so text filled in English elsewhere can still be translated. */
-const patterns = new Map<Locale, { pattern: RegExp; names: string[]; translation: string }[]>();
+const patterns = new Map<Locale, { pattern: RegExp; names: string[]; translation: string; literal: number }[]>();
 function filledIn(text: string) {
   if (!patterns.has(current))
     patterns.set(
       current,
-      Object.entries(stored[current]).flatMap(([key, translation]) => {
-        const names = [...key.matchAll(/\{(\w+)\}/g)].map((match) => match[1]);
-        if (!names.length) return [];
-        const source = key.split(/\{\w+\}/).map((piece) => piece.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("(.+?)");
-        return [{ pattern: new RegExp(`^${source}$`), names, translation }];
-      }),
+      Object.entries(stored[current])
+        .flatMap(([key, translation]) => {
+          const names = [...key.matchAll(/\{(\w+)\}/g)].map((match) => match[1]);
+          if (!names.length) return [];
+          const source = key.split(/\{\w+\}/).map((piece) => piece.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("([\\s\\S]+?)");
+          return [{ pattern: new RegExp(`^${source}$`), names, translation, literal: key.replace(/\{\w+\}/g, "").length }];
+        })
+        // The most specific key wins, so "{label} failed" does not take "Building {name} failed".
+        .sort((a, b) => b.literal - a.literal),
     );
   for (const { pattern, names, translation } of patterns.get(current)!) {
     const match = pattern.exec(text);
-    if (match) return fill(translation, Object.fromEntries(names.map((name, index) => [name, match[index + 1]])));
+    // A value can be stored text itself, like the step label in "{label} failed".
+    if (match) return fill(translation, Object.fromEntries(names.map((name, index) => [name, t(match[index + 1])])));
   }
   return text;
 }
@@ -60,7 +64,7 @@ function filledIn(text: string) {
  * is translated through the key it was filled from.
  */
 export function t(text: string, values?: Values) {
-  const translated = catalogs[current][text] ?? (current === "en" || values ? text : filledIn(text));
+  const translated: string = catalogs[current][text] ?? (current === "en" || values ? text : filledIn(text));
   return values ? fill(translated, values) : translated;
 }
 
@@ -83,8 +87,9 @@ export function parts(text: string): ({ text: string } | { name: string })[] {
     .map((part) => (/^\{\w+\}$/.test(part) ? { name: part.slice(1, -1) } : { text: part }));
 }
 
-/** "a, b and c" in the current language. */
-export const list = (items: readonly string[]) => new Intl.ListFormat(current, { type: "conjunction" }).format(items);
+/** "a, b and c" in the current language; English without the serial comma. */
+export const list = (items: readonly string[]) =>
+  new Intl.ListFormat(current === "en" ? "en-GB" : current, { type: "conjunction" }).format(items);
 
 /** Every translation of a language, for the catalogue tests. */
 export const catalog = (locale: Locale) => catalogs[locale];

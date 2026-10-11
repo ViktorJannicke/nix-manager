@@ -12,6 +12,7 @@ import { attr } from "./nix";
 import { hashText } from "./observe";
 import { flakeSource } from "./packages";
 import { attempt, command } from "./process";
+import { msg } from "./i18n";
 import { atomicWrite } from "./reviews";
 import { configurationAttr, evaluateState, type ConfigurationState, type Target } from "./software";
 
@@ -45,26 +46,32 @@ export interface Staged {
 export const stageSources = (config: Config, r: Request, changes: readonly Change[]) =>
   Effect.gen(function* () {
     if (!changes.length)
-      return yield* Effect.fail(new ManagerError({ message: "There are no pending edits." }));
+      return yield* Effect.fail(new ManagerError({ message: msg("There are no pending edits.") }));
     for (const change of changes)
       if ("attr" in change && splitAttr(change.attr)?.[0] !== "pkgs")
         return yield* Effect.fail(
-          new ManagerError({ message: `${change.attr} is not a package from pkgs.` }),
+          new ManagerError({ message: msg("{attr} is not a package from pkgs.", { attr: change.attr }) }),
         );
     const { files, problems } = yield* Effect.promise(() => renderDraft(config.flake, changes));
     if (problems.length)
       return yield* Effect.fail(
         new ManagerError({
-          message: `${subject(changes[problems[0].index])}: ${problems[0].message}${problems.length > 1 ? ` (and ${problems.length - 1} more problems)` : ""}`,
+          message:
+            problems.length > 1
+              ? msg("{problem} (and {count} more problems)", {
+                  problem: `${subject(changes[problems[0].index])}: ${problems[0].message}`,
+                  count: problems.length - 1,
+                })
+              : `${subject(changes[problems[0].index])}: ${problems[0].message}`,
         }),
       );
     if (!files.length)
-      return yield* Effect.fail(new ManagerError({ message: "The pending edits do not change any file." }));
+      return yield* Effect.fail(new ManagerError({ message: msg("The pending edits do not change any file.") }));
     const original = yield* flakeSource(config.flake);
     for (const file of files) {
       if (file.created) {
         if (existsSync(join(original, file.path)) || existsSync(join(config.flake, file.path)))
-          return yield* Effect.fail(new ManagerError({ message: `${file.path} already exists.` }));
+          return yield* Effect.fail(new ManagerError({ message: msg("{path} already exists.", { path: file.path }) }));
         continue;
       }
       const tracked = yield* Effect.promise(() =>
@@ -73,12 +80,12 @@ export const stageSources = (config: Config, r: Request, changes: readonly Chang
       if (tracked === undefined)
         return yield* Effect.fail(
           new ManagerError({
-            message: `${file.path} is not tracked by Git, so Nix cannot read it. Add it with git add first.`,
+            message: msg("{path} is not tracked by Git, so Nix cannot read it. Add it with git add first.", { path: file.path }),
           }),
         );
       if (hashText(tracked) !== file.baseHash)
         return yield* Effect.fail(
-          new ManagerError({ message: `${file.path} changed while the edits were being prepared.` }),
+          new ManagerError({ message: msg("{path} changed while the edits were being prepared.", { path: file.path }) }),
         );
     }
     const copy = join(reviewRoot(config, r.reviewId!), "source");
@@ -136,7 +143,7 @@ export const verifyEdits = (config: Config, r: Request, staged: Staged, changes:
     );
     if (scopes.some((scope) => scope !== r.scope && r.scope !== "all"))
       return yield* Effect.fail(
-        new ManagerError({ message: "The pending edits change a configuration this review does not build." }),
+        new ManagerError({ message: msg("The pending edits change a configuration this review does not build.") }),
       );
     const host = r.host || config.hostKey;
     const effects = yield* Effect.forEach(
@@ -171,10 +178,13 @@ export const verifyEdits = (config: Config, r: Request, staged: Staged, changes:
             if (changed.length)
               return yield* Effect.fail(
                 new ManagerError({
-                  message: `Setting nixpkgs.config in ${name} also changes ${changed.join(", ")}.`,
+                  message: msg("Setting nixpkgs.config in {name} also changes {changed}.", { name, changed: changed.join(", ") }),
                   explanation: {
-                    title: "This setting would change more than it says",
-                    body: `In ${name}, nixpkgs.config in a module makes the configuration import nixpkgs again, which also changes ${changed.join(", ")}. Set ${settings.join(", ")} where the flake imports nixpkgs instead, for example import nixpkgs { config.${settings[0]} = true; } in flake.nix.`,
+                    title: msg("This setting would change more than it says"),
+                    body: msg(
+                      "In {name}, nixpkgs.config in a module makes the configuration import nixpkgs again, which also changes {changed}. Set {settings} where the flake imports nixpkgs instead, for example import nixpkgs { config.{setting} = true; } in flake.nix.",
+                      { name, changed: changed.join(", "), settings: settings.join(", "), setting: settings[0] },
+                    ),
                   },
                 }),
               );
@@ -189,46 +199,68 @@ export const verifyEdits = (config: Config, r: Request, staged: Staged, changes:
             if (change.kind === "unset-option" && !now?.exists && before.options[change.option]?.exists) continue;
             if (!now?.exists)
               return yield* Effect.fail(
-                new ManagerError({ message: `${change.option} is not an option of ${name}.` }),
+                new ManagerError({ message: msg("{option} is not an option of {name}.", { option: change.option, name }) }),
               );
             if (change.kind === "set-option") {
               if (now.error)
                 return yield* Effect.fail(
-                  new ManagerError({ message: `${change.option} no longer evaluates after the edit.` }),
+                  new ManagerError({ message: msg("{option} no longer evaluates after the edit.", { option: change.option }) }),
                 );
               const others = now.files.filter((file) => file !== change.file);
               if (!includes(now.value, change.value))
                 return yield* Effect.fail(
                   new ManagerError({
-                    message: `${change.option} is ${show(now.value)} instead of ${show(change.value)}. Another definition takes precedence, or ${change.file} is not part of ${name}.`,
+                    message: msg("{option} is {now} instead of {wanted}. Another definition takes precedence, or {file} is not part of {name}.", {
+                      option: change.option,
+                      now: show(now.value),
+                      wanted: show(change.value),
+                      file: change.file,
+                      name,
+                    }),
                     explanation:
                       now.files.includes(change.file) && others.length
                         ? {
-                            title: `${change.option} is also set elsewhere`,
-                            body: `${sentence(joined(others.map(origin)))} ${others.length === 1 ? "sets" : "set"} ${change.option} too, and that value wins. Change it there instead of adding a new definition.`,
+                            title: msg("{option} is also set elsewhere", { option: change.option }),
+                            body:
+                              others.length === 1
+                                ? msg("{files} sets {option} too, and that value wins. Change it there instead of adding a new definition.", {
+                                    files: sentence(joined(others.map(origin))),
+                                    option: change.option,
+                                  })
+                                : msg("{files} set {option} too, and that value wins. Change it there instead of adding a new definition.", {
+                                    files: sentence(joined(others.map(origin))),
+                                    option: change.option,
+                                  }),
                           }
                         : undefined,
                   }),
                 );
               if (!now.files.includes(change.file))
                 return yield* Effect.fail(
-                  new ManagerError({ message: `${change.file} is not part of ${name}, so ${change.option} is unchanged.` }),
+                  new ManagerError({ message: msg("{file} is not part of {name}, so {option} is unchanged.", { file: change.file, name, option: change.option }) }),
                 );
               if ("effective" in now && !includes(now.effective, change.value)) {
                 const setting = change.option.slice("nixpkgs.config.".length);
                 return yield* Effect.fail(
                   new ManagerError({
-                    message: `${change.option} is set in ${change.file}, but ${name} takes its packages from a nixpkgs the flake imports itself.`,
+                    message: msg("{option} is set in {file}, but {name} takes its packages from a nixpkgs the flake imports itself.", {
+                      option: change.option,
+                      file: change.file,
+                      name,
+                    }),
                     explanation: {
-                      title: "This setting does not reach your packages",
-                      body: `${name} gets its packages from a nixpkgs that the flake imports itself, so nixpkgs.config in modules has no effect. Set ${setting} where nixpkgs is imported instead, for example import nixpkgs { config.${setting} = ${show(change.value)}; } in flake.nix.`,
+                      title: msg("This setting does not reach your packages"),
+                      body: msg(
+                        "{name} gets its packages from a nixpkgs that the flake imports itself, so nixpkgs.config in modules has no effect. Set {setting} where nixpkgs is imported instead, for example import nixpkgs { config.{setting} = {value}; } in flake.nix.",
+                        { name, setting, value: show(change.value) },
+                      ),
                     },
                   }),
                 );
               }
             } else if (now.files.includes(change.file))
               return yield* Effect.fail(
-                new ManagerError({ message: `${change.option} is still set in ${change.file}.` }),
+                new ManagerError({ message: msg("{option} is still set in {file}.", { option: change.option, file: change.file }) }),
               );
           }
           let index = 0;
@@ -249,8 +281,8 @@ export const verifyEdits = (config: Config, r: Request, staged: Staged, changes:
               return yield* Effect.fail(
                 new ManagerError({
                   message: explanation
-                    ? `${change.attr} cannot be added to ${name}: ${explanation.title}.`
-                    : `${change.attr} does not exist in ${name}'s packages.`,
+                    ? msg("{attr} cannot be added to {name}: {reason}.", { attr: change.attr, name, reason: explanation.title })
+                    : msg("{attr} does not exist in {name}'s packages.", { attr: change.attr, name }),
                   explanation,
                 }),
               );
@@ -261,8 +293,12 @@ export const verifyEdits = (config: Config, r: Request, staged: Staged, changes:
                 new ManagerError({
                   message:
                     change.kind === "add-package"
-                      ? `${change.attr} was added to ${change.file}, but ${name} does not include it. Is the file part of this configuration?`
-                      : `Removing ${change.attr} from ${change.file} does not remove it from ${name}.`,
+                      ? msg("{attr} was added to {file}, but {name} does not include it. Is the file part of this configuration?", {
+                          attr: change.attr,
+                          file: change.file,
+                          name,
+                        })
+                      : msg("Removing {attr} from {file} does not remove it from {name}.", { attr: change.attr, file: change.file, name }),
                 }),
               );
           }
@@ -302,8 +338,8 @@ export const writeSources = (config: Config, reviewId: string, edits: ReviewEdit
           if (file.created ? current !== undefined : current === undefined || hashText(current) !== file.baseHash)
             throw new ManagerError({
               message: file.created
-                ? `${file.path} was created after this review was prepared. Prepare the edits again.`
-                : `${file.path} changed after this review was prepared. Prepare the edits again.`,
+                ? msg("{path} was created after this review was prepared. Prepare the edits again.", { path: file.path })
+                : msg("{path} changed after this review was prepared. Prepare the edits again.", { path: file.path }),
             });
           return {
             path,
@@ -317,7 +353,7 @@ export const writeSources = (config: Config, reviewId: string, edits: ReviewEdit
         }
       },
       catch: (error) =>
-        error instanceof ManagerError ? error : new ManagerError({ message: `Write edited files: ${error}` }),
+        error instanceof ManagerError ? error : new ManagerError({ message: msg("Write edited files: {error}", { error: String(error) }) }),
     });
     const created = edits.files.filter((file) => file.created).map((file) => file.path);
     if (created.length && existsSync(join(config.flake, ".git")))
@@ -361,14 +397,14 @@ export const restoreSources = (config: Config, point: UndoPoint, contents: UndoC
         const now = readSources(config, point.files.map((file) => file.path));
         for (const file of point.files) {
           if (!file.created && contents[file.path] === undefined)
-            throw new ManagerError({ message: `The earlier content of ${file.path} is missing.` });
+            throw new ManagerError({ message: msg("The earlier content of {path} is missing.", { path: file.path }) });
           const current = now.get(file.path);
           if (current === undefined ? file.written !== null : hashText(current) !== file.written)
             throw new ManagerError({
-              message: `${file.path} changed after the change was applied, so it cannot be put back automatically.`,
+              message: msg("{path} changed after the change was applied, so it cannot be put back automatically.", { path: file.path }),
               explanation: {
-                title: `${file.path} was edited since`,
-                body: "Undo puts back the files exactly as they were and would lose those edits. Go back on the Generations page instead, which leaves your files as they are.",
+                title: msg("{path} was edited since", { path: file.path }),
+                body: msg("Undo puts back the files exactly as they were and would lose those edits. Go back on the Restore points page instead, which leaves your files as they are."),
               },
             });
         }
@@ -382,7 +418,7 @@ export const restoreSources = (config: Config, point: UndoPoint, contents: UndoC
         }
       },
       catch: (error) =>
-        error instanceof ManagerError ? error : new ManagerError({ message: `Restore files: ${error}` }),
+        error instanceof ManagerError ? error : new ManagerError({ message: msg("Restore files: {error}", { error: String(error) }) }),
     });
     // Git's index follows, so the flake sees exactly the files it saw before.
     const removed = point.files.filter((file) => file.created).map((file) => file.path);

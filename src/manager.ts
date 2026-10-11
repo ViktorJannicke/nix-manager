@@ -55,6 +55,7 @@ import { describeChange, oneStepReviewProblem } from "./changes";
 import { readSources, remaining, restoreSources, stageSources, undoFiles, verifyEdits, writeSources, type Staged } from "./edits";
 import type { ReviewEdits } from "./contracts";
 import { stripAnsi } from "./nix";
+import { msg } from "./i18n";
 import { recordChange } from "./history";
 import { readPreferences } from "./preferences";
 export type { Operation } from "./contracts";
@@ -66,13 +67,17 @@ const stepId = (index: number, label: string) =>
 const describeReview = (review: BuildReview): string[] => {
   const changes = [
     ...(review.edits?.changes.map((change) => describeChange(change).title) ?? []),
-    ...(review.inputs ? [review.inputs.names.length ? `Update ${review.inputs.names.join(", ")}` : "Update all inputs"] : []),
-    ...(review.undo ? [`Undo: ${review.undo.point.changes.join("; ")}`] : []),
+    ...(review.inputs ? [review.inputs.names.length ? msg("Update {names}", { names: review.inputs.names.join(", ") }) : msg("Update all inputs")] : []),
+    ...(review.undo ? [msg("Undo: {changes}", { changes: review.undo.point.changes.join("; ") })] : []),
     ...(review.source === "generation" && review.generation !== undefined && !review.undo
-      ? [`Go back to restore point ${review.generation} of ${review.scope === "home" ? "your user" : "the system"}`]
+      ? [
+          review.scope === "home"
+            ? msg("Go back to restore point {generation} of your user", { generation: review.generation })
+            : msg("Go back to restore point {generation} of the system", { generation: review.generation }),
+        ]
       : []),
   ];
-  return changes.length ? changes : ["Apply the configuration"];
+  return changes.length ? changes : [msg("Apply the configuration")];
 };
 let libc: ReturnType<typeof openLibc> | undefined;
 const openLibc = () =>
@@ -86,8 +91,7 @@ export function acquireLock(stateDir: string): () => void {
   if (libc.symbols.flock(fd, 2 | 4) !== 0) {
     closeSync(fd);
     throw new ManagerError({
-      message:
-        "Another nix-manager operation is running. Wait for it to finish.",
+      message: msg("Another nix-manager operation is running. Wait for it to finish."),
     });
   }
   // Closing releases flock, including on crashes. Never unlink the lock inode.
@@ -177,7 +181,7 @@ export class Manager {
   }
   private path(id: string, extension: string) {
     if (!/^[0-9]+-[a-f0-9-]+$/.test(id))
-      throw new ManagerError({ message: "Invalid operation ID." });
+      throw new ManagerError({ message: msg("Invalid operation ID.") });
     return join(this.config.stateDir, "operations", `${id}.${extension}`);
   }
   history(): Operation[] {
@@ -255,7 +259,7 @@ export class Manager {
   private undoPoint(id: string) {
     const operation = this.history().find((op) => op.id === id);
     if (!operation?.undo)
-      throw new ManagerError({ message: "This change cannot be undone: it recorded nothing to go back to." });
+      throw new ManagerError({ message: msg("This change cannot be undone: it recorded nothing to go back to.") });
     const path = this.path(id, "undo");
     const contents: UndoContents = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {};
     return { operation, point: operation.undo, contents };
@@ -284,7 +288,7 @@ export class Manager {
     const { request: r, review, undo } = this.resolve(input);
     const preview = plan(this.config, r, review, undo?.point);
     if (this.busy)
-      throw new ManagerError({ message: "An operation is already running." });
+      throw new ManagerError({ message: msg("An operation is already running.") });
     const release = acquireLock(this.config.stateDir);
     const operation: Operation = {
       id: `${Date.now()}-${crypto.randomUUID()}`,
@@ -298,8 +302,8 @@ export class Manager {
         ? preview.steps.map((command) => command.label)
         : [
             r.action === "check"
-              ? "Check inputs and package releases"
-              : `Update ${r.action.replace("-update", "")} package pin`,
+              ? msg("Check inputs and package releases")
+              : msg("Update the {name} package pin", { name: r.action.replace("-update", "") }),
           ]
       ).map((label, index): StepOutcome => ({ id: stepId(index, label), label, status: "pending" })),
     };
@@ -424,7 +428,7 @@ export class Manager {
     const program = Effect.gen(this, function* () {
       for (const note of preview.notes) log(note);
       if (r.action === "check") {
-        const outcome = startStep("Check inputs and package releases");
+        const outcome = startStep(msg("Check inputs and package releases"));
         if (r.dryRun) {
           log(
             "Would check inputs and package releases without changing the checkout.",
@@ -440,7 +444,7 @@ export class Manager {
               report,
             }),
           catch: (e) =>
-            new ManagerError({ message: `Save update report: ${e}` }),
+            new ManagerError({ message: msg("Save update report: {error}", { error: String(e) }) }),
         });
         for (const item of report.items)
           log(`${item.name}: ${item.current} → ${item.latest}`);
@@ -451,17 +455,14 @@ export class Manager {
         if (report.errors.length)
           return yield* Effect.fail(
             new ManagerError({
-              message:
-                "Some update checks failed. The report contains the successful results and errors.",
+              message: msg("Some update checks failed. The report contains the successful results and errors."),
             }),
           );
         finishStep(outcome, "succeeded");
         return;
       }
       if (isPackage(r.action)) {
-        const outcome = startStep(
-          `Update ${r.action.replace("-update", "")} package pin`,
-        );
+        const outcome = startStep(msg("Update the {name} package pin", { name: r.action.replace("-update", "") }));
         yield* updatePackage(this.config, r, log);
         finishStep(outcome, "succeeded");
         return;
@@ -501,7 +502,7 @@ export class Manager {
           const files = replaced.files.length > 0;
           if (!back.length && !files) return yield* Effect.fail(error);
           finishStep(failed, "failed");
-          const putBack = "Put back the configuration files";
+          const putBack = msg("Put back the configuration files");
           const labels = [...back.map((step) => step.label), ...(files ? [putBack] : [])];
           operation.steps!.push(
             ...labels.map((label, index): StepOutcome => ({ id: stepId(operation.steps!.length + index, label), label, status: "pending" })),
@@ -532,12 +533,16 @@ export class Manager {
             new ManagerError({
               message: error.message,
               explanation: {
-                title: error.explanation?.title ?? `${failed?.label ?? "Applying"} failed`,
+                title: error.explanation?.title ?? (failed ? msg("{label} failed", { label: failed.label }) : msg("Applying failed")),
                 body: Either.isRight(outcome)
                   ? first
-                    ? `${what} ${files ? "The files were put back, but there" : "There"} was no earlier restore point of your user to go back to, so the new version stays in use.`
-                    : `${what} Everything went back to how it was before${files ? ", files included" : ""}.`
-                  : `${what} Going back did not work either: ${outcome.left.message} The Restore points page can take you back.`,
+                    ? files
+                      ? msg("{what} The files were put back, but there was no earlier restore point of your user to go back to, so the new version stays in use.", { what })
+                      : msg("{what} There was no earlier restore point of your user to go back to, so the new version stays in use.", { what })
+                    : files
+                      ? msg("{what} Everything went back to how it was before, files included.", { what })
+                      : msg("{what} Everything went back to how it was before.", { what })
+                  : msg("{what} Going back did not work either: {reason} The Restore points page can take you back.", { what, reason: outcome.left.message }),
               },
             }),
           );
@@ -697,7 +702,7 @@ export class Manager {
         try {
           this.start(follow);
         } catch (error) {
-          operation.held = `It could not be applied: ${error instanceof Error ? error.message : String(error)}`;
+          operation.held = msg("It could not be applied: {reason}", { reason: error instanceof Error ? error.message : String(error) });
           persist();
           this.changed(operation);
         }
@@ -711,7 +716,7 @@ export class Manager {
   hold(id: string) {
     const operation = this.current?.operation;
     if (operation?.id !== id || operation.request.then !== "apply") return false;
-    operation.held = "You chose to review it first.";
+    operation.held = msg("You chose to review it first.");
     this.changed(operation);
     return true;
   }

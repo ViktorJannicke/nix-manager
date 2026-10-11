@@ -304,7 +304,7 @@
                 {#if fixed}<p class="text-[0.7rem] break-all text-muted-foreground">{inFlakeFile(fixed) ? t("Set directly in flake.nix. Change it there.") : t("Set in {file}, which Nix Manager cannot edit. Change it there.", { file: fixed })}</p>
                 {:else if files.length}<p class="text-[0.7rem] break-all text-muted-foreground">{t("Set in {files}", { files: files.join(", ") })}</p>{/if}
               </div>
-              {#if fixed}<span class="max-w-56 truncate text-xs">{setting.input === "keyboard" ? (keyboardLayouts.find((layout) => layout.code === shown(setting.option))?.label ?? shown(setting.option)) : showValue(shown(setting.option)).replace(/^"(.*)"$/, "$1")}</span>
+              {#if fixed}<span class="max-w-56 truncate text-xs">{setting.input === "keyboard" ? (((layout) => (layout ? t(layout.label) : shown(setting.option)))(keyboardLayouts.find((layout) => layout.code === shown(setting.option)))) : t(showValue(shown(setting.option))).replace(/^"(.*)"$/, "$1")}</span>
               {:else}<OptionField
                 label={t(setting.label)}
                 doc={software.doc(SCOPE, setting.option)}

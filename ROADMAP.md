@@ -232,7 +232,25 @@ The tray already checks for updates read-only and sends notifications.
   - **Text size and motion.** Text follows the reader's default font size.
     Reduced motion stops spinners after one turn and shows a still bar for
     progress of unknown length.
-- [ ] **Translations.** Extract interface strings; German first.
+- [x] **Translations.** Extract interface strings; German first.
+  *Decided:*
+  - **Keys.** English sentences are the keys, gettext-style, so the code reads
+    as it is shown and anything not translated yet stays readable. Counts use
+    separate singular and plural sentences.
+  - **Who speaks German.** The dashboard, the setup assistant, the tray menu
+    and its notifications. The command line stays in English, so its output
+    can be searched for and pasted into reports; output from Nix itself is
+    shown as Nix wrote it.
+  - **Which language.** The desktop's language (`LC_ALL`, `LC_MESSAGES`,
+    `LANG`) unless Settings chooses one. The server decides, so every window
+    and the tray agree; changing it reloads the dashboard and the tray menu.
+  - **Stored text.** Step labels, failure explanations and notes are stored in
+    English and translated where they are shown, so the history follows a
+    change of language and Git commit messages stay English. Stored text
+    with values in it is matched against its key.
+  - **Checks.** A test fails when a text has no German, a placeholder is lost,
+    a text is translated two ways or a translation is no longer used. It
+    covers the curated features and other data shown through `t()`.
 
 ## Open questions
 

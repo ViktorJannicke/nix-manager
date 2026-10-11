@@ -4,6 +4,7 @@
 import type { Change } from "./draft";
 import type { ModuleFile, Target, UnfreePolicy } from "./software";
 import type { BuildReview } from "./contracts";
+import { msg } from "./i18n";
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -53,28 +54,54 @@ export function dropChange(changes: readonly Change[], index: number): Change[] 
   );
 }
 
-/** A value as a short phrase: on, off, not set, or its JSON. */
+/**
+ * A value as a short phrase: on, off, not set, or its JSON. The phrases are
+ * English text to translate where they are shown, with `t(showValue(value))`.
+ */
 export function showValue(value: unknown) {
-  if (value === true) return "on";
-  if (value === false) return "off";
-  if (value === null || value === undefined) return "not set";
-  if (Array.isArray(value)) return value.length ? value.join(", ") : "empty";
+  if (value === true) return msg("on");
+  if (value === false) return msg("off");
+  if (value === null || value === undefined) return msg("not set");
+  if (Array.isArray(value)) return value.length ? value.join(", ") : msg("empty");
   return typeof value === "string" ? `"${value}"` : JSON.stringify(value);
 }
 
-/** A pending edit in words: what it does, and where. */
+/** An option edit in words; the value's phrase has its own keys so it can be translated. */
+function describeOption(option: string, value: unknown, label: string | undefined) {
+  const values = { option, label: label ?? "" };
+  if (!label) {
+    if (value === true) return msg("{option} on", values);
+    if (value === false) return msg("{option} off", values);
+    if (value === null || value === undefined) return msg("{option} not set", values);
+    if (Array.isArray(value) && !value.length) return msg("{option} empty", values);
+    return `${option} ${showValue(value)}`;
+  }
+  if (value === true) return msg("{label}: {option} on", values);
+  if (value === false) return msg("{label}: {option} off", values);
+  if (value === null || value === undefined) return msg("{label}: {option} not set", values);
+  if (Array.isArray(value) && !value.length) return msg("{label}: {option} empty", values);
+  return `${label}: ${option} ${showValue(value)}`;
+}
+
+/**
+ * A pending edit in words: what it does, and where. Both are English text to
+ * translate where they are shown, with `t(text)`.
+ */
 export function describeChange(change: Change) {
   switch (change.kind) {
     case "add-package":
-      return { title: `Install ${change.attr.replace(/^pkgs\./, "")}`, detail: change.file };
+      return { title: msg("Install {name}", { name: change.attr.replace(/^pkgs\./, "") }), detail: change.file };
     case "remove-package":
-      return { title: `Remove ${change.attr.replace(/^pkgs\./, "")}`, detail: change.file };
+      return { title: msg("Remove {name}", { name: change.attr.replace(/^pkgs\./, "") }), detail: change.file };
     case "set-option":
-      return { title: `${change.label ? `${change.label}: ` : ""}${change.option} ${showValue(change.value)}`, detail: change.file };
+      return { title: describeOption(change.option, change.value, change.label), detail: change.file };
     case "unset-option":
-      return { title: `Reset ${change.option} to its default`, detail: change.file };
+      return { title: msg("Reset {option} to its default", { option: change.option }), detail: change.file };
     case "create-module":
-      return { title: `Create ${change.file.split("/").at(-1)}`, detail: `${change.file}, imported from ${change.importer}` };
+      return {
+        title: msg("Create {name}", { name: change.file.split("/").at(-1)! }),
+        detail: msg("{file}, imported from {importer}", { file: change.file, importer: change.importer }),
+      };
   }
 }
 
@@ -162,8 +189,8 @@ export function featureModule(modules: readonly { file: string; active?: boolean
 /** Why a path cannot be a new module file, if it cannot. */
 export function newFileProblem(known: ReadonlySet<string>, file: string) {
   if (!/^([A-Za-z0-9_+-][A-Za-z0-9._+-]*\/)*[A-Za-z0-9_+-][A-Za-z0-9._+-]*\.nix$/.test(file))
-    return "Use a path inside the flake ending in .nix, with letters, digits, dots, dashes and slashes.";
-  if (known.has(file)) return "This file exists already.";
+    return msg("Use a path inside the flake ending in .nix, with letters, digits, dots, dashes and slashes.");
+  if (known.has(file)) return msg("This file exists already.");
   return undefined;
 }
 
@@ -181,8 +208,8 @@ export function origin(file: string) {
  * service, and Undo takes them back.
  */
 export function oneStepProblem(changes: readonly Change[]): string | undefined {
-  if (!changes.length) return "There is nothing to install.";
-  if (changes.some((change) => change.scope !== "home")) return "It changes the computer itself, not just your apps.";
+  if (!changes.length) return msg("There is nothing to install.");
+  if (changes.some((change) => change.scope !== "home")) return msg("It changes the computer itself, not just your apps.");
   const simple = changes.every(
     (change) =>
       change.kind === "add-package" ||
@@ -190,14 +217,14 @@ export function oneStepProblem(changes: readonly Change[]): string | undefined {
       change.kind === "create-module" ||
       (change.kind === "set-option" && change.option === "nixpkgs.config.allowUnfree" && change.value === true),
   );
-  return simple ? undefined : "It changes settings, which can restart programs you are using.";
+  return simple ? undefined : msg("It changes settings, which can restart programs you are using.");
 }
 
 /** Why a prepared review is not applied in one step, checking what it turned out to change. */
 export function oneStepReviewProblem(review: BuildReview): string | undefined {
-  if (!review.edits || review.inputs || review.undo || review.source !== "checkout") return "It is not a change of your apps.";
-  if (review.system) return "It changes the computer itself, not just your apps.";
+  if (!review.edits || review.inputs || review.undo || review.source !== "checkout") return msg("It is not a change of your apps.");
+  if (review.system) return msg("It changes the computer itself, not just your apps.");
   const changed = review.edits.effects.flatMap((effect) => effect.options.map((option) => option.option));
-  if (changed.some((option) => option !== "nixpkgs.config.allowUnfree")) return "It changes settings, which can restart programs you are using.";
+  if (changed.some((option) => option !== "nixpkgs.config.allowUnfree")) return msg("It changes settings, which can restart programs you are using.");
   return oneStepProblem(review.edits.changes);
 }

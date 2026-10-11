@@ -39,7 +39,7 @@
         <li class="flex items-start gap-2 py-1.5">
           <div class="min-w-0 flex-1">
             <p class="font-medium break-words">{t(text.title)}</p>
-            {#if !simple}<p class="font-mono text-[0.72rem] break-all text-muted-foreground">{text.detail}</p>{/if}
+            {#if !simple}<p class="font-mono text-[0.72rem] break-all text-muted-foreground">{t(text.detail)}</p>{/if}
             {#if problems.has(index)}
               <p class="mt-0.5 flex gap-1.5 text-xs text-destructive"><TriangleAlertIcon class="mt-0.5 size-3.5 shrink-0" />{problems.get(index)}</p>
             {/if}

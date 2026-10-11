@@ -8,6 +8,7 @@ import { join, resolve } from "node:path";
 import { Effect } from "effect";
 import { currentPlatform, detectHosts, rememberedCheckout } from "./config";
 import { ManagerError } from "./domain";
+import { msg } from "./i18n";
 import { attr } from "./nix";
 import { attempt, command } from "./process";
 
@@ -110,11 +111,13 @@ export const readSetup = (source = SOURCE) =>
     const channelImports = [...new Set(Object.values(nix).flatMap(channelPaths))].sort();
     const suggested = join(home, "nixos-config");
     const blocked = !release
-      ? "This does not look like NixOS: nixos-version is missing."
+      ? msg("This does not look like NixOS: nixos-version is missing.")
       : !files.includes("configuration.nix")
-        ? `There is no ${source}/configuration.nix to start from.`
+        ? msg("There is no {file} to start from.", { file: `${source}/configuration.nix` })
         : files.includes("flake.nix")
-          ? `${source} is a flake already. Copy it to a folder you own and add a homeConfigurations entry for your user, then choose that folder with --flake.`
+          ? msg("{folder} is a flake already. Copy it to a folder you own and add a homeConfigurations entry for your user, then choose that folder with --flake.", {
+              folder: source,
+            })
           : undefined;
     return {
       user,
@@ -185,11 +188,11 @@ export const homeTemplate = (info: SetupInfo) => `{
 
 /** Why a folder cannot hold the new checkout, if it cannot. */
 export const targetProblem = (target: string, home = homedir()) => {
-  if (!target.startsWith("/")) return "Use a full path, such as ~/nixos-config.";
+  if (!target.startsWith("/")) return msg("Use a full path, such as ~/nixos-config.");
   const path = resolve(target);
-  if (path !== home && !path.startsWith(`${home}/`)) return "Choose a folder inside your home folder, so you own the files.";
-  if (path === home) return "Choose a new folder inside your home folder.";
-  if (existsSync(path) && readdirSync(path).length) return "This folder is not empty.";
+  if (path !== home && !path.startsWith(`${home}/`)) return msg("Choose a folder inside your home folder, so you own the files.");
+  if (path === home) return msg("Choose a new folder inside your home folder.");
+  if (existsSync(path) && readdirSync(path).length) return msg("This folder is not empty.");
   return undefined;
 };
 
@@ -248,7 +251,7 @@ export const createCheckout = (info: SetupInfo, target: string, progress: (step:
       }
       failure = lastLine(result.stderr);
     }
-    if (!locked) return yield* Effect.fail(new ManagerError({ message: `Could not pin the inputs: ${failure}` }));
+    if (!locked) return yield* Effect.fail(new ManagerError({ message: msg("Could not pin the inputs: {reason}", { reason: failure }) }));
     yield* run("Add the lock file to Git", ["git", "add", "--", "flake.nix", "flake.lock"]);
 
     progress("check");

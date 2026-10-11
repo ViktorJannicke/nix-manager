@@ -77,4 +77,23 @@ export const general: Record<string, string> = {
   "Your user and system": "Ihr Benutzer und das System",
   "Your user": "Ihr Benutzer",
   unversioned: "ohne Version",
+  // Tray
+  "Nix Manager needs attention": "Nix Manager braucht Ihre Aufmerksamkeit",
+  "Open Nix Manager": "Nix Manager öffnen",
+  "Updates are ready": "Aktualisierungen sind bereit",
+  "{summary} Nothing changes until you apply them.": "{summary} Es ändert sich nichts, bis Sie sie anwenden.",
+  "Prepare all updates for review…": "Alle Aktualisierungen zur Prüfung vorbereiten…",
+  "Quit Nix Manager": "Nix Manager beenden",
+  "Some update checks failed": "Einige Suchen nach Aktualisierungen sind fehlgeschlagen",
+  "No updates reported": "Keine Aktualisierungen gemeldet",
+  "An operation failed. Open the dashboard for its log.": "Ein Vorgang ist fehlgeschlagen. Öffnen Sie Nix Manager, um seine Ausgabe zu sehen.",
+  "Space freed": "Speicherplatz freigegeben",
+  "{size} were freed.": "{size} wurden freigegeben.",
+  "Older restore points were removed.": "Ältere Wiederherstellungspunkte wurden entfernt.",
+  "The newest {count} restore points of your apps are kept.": "Die neuesten {count} Wiederherstellungspunkte Ihrer Apps bleiben erhalten.",
+  "Changes are ready to review": "Änderungen sind bereit zur Prüfung",
+  "The build finished. Open Nix Manager to see what changes and apply it.":
+    "Der Build ist fertig. Öffnen Sie Nix Manager, um zu sehen, was sich ändert, und es anzuwenden.",
+  "Nix Manager finished": "Nix Manager ist fertig",
+  "{action} completed for {host}.": "{action} für {host} abgeschlossen.",
 };

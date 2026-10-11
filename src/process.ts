@@ -1,5 +1,6 @@
 import { Context, Effect, Layer } from "effect";
 import { ManagerError, type Command } from "./domain";
+import { msg } from "./i18n";
 import { explain } from "./explain";
 import type { BuildProgress } from "./contracts";
 import { NixProgress } from "./nix";
@@ -40,7 +41,7 @@ export const runProcess = (
       resume(
         Effect.fail(
           new ManagerError({
-            message: `Cannot start ${command.argv[0]}: ${error}`,
+            message: msg("Cannot start {command}: {error}", { command: command.argv[0], error: String(error) }),
           }),
         ),
       );
@@ -133,7 +134,7 @@ export const runProcess = (
           resume(
             Effect.fail(
               new ManagerError({
-                message: `${command.label} failed (exit ${code}). ${stderr.slice(-1500).trim()}`,
+                message: msg("{label} failed (exit {code}). {output}", { label: command.label, code, output: stderr.slice(-1500).trim() }),
                 explanation: explain(stderr),
               }),
             ),
