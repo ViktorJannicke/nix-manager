@@ -13,6 +13,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
+import { realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { dlopen, FFIType } from "bun:ffi";
 import { Cause, Effect, Either, Exit, Layer, Option } from "effect";
@@ -47,7 +48,7 @@ import type {
   UndoContents,
   UndoPoint,
 } from "./contracts";
-import { compareReview, getReview, removeReview, writeReviewedLock, type ReviewBase } from "./reviews";
+import { compareReview, forgetBoot, getReview, keepForBoot, listReviews, removeReview, writeReviewedLock, type ReviewBase } from "./reviews";
 import { profileGeneration, readLock, repositoryState } from "./observe";
 import { readDraft, writeDraft } from "./draft";
 import { describeChange, oneStepReviewProblem } from "./changes";
@@ -664,7 +665,8 @@ export class Manager {
             if (r.action === "review-apply" && operation.status === "succeeded") {
               if (review?.edits)
                 writeDraft(this.config, remaining(readDraft(this.config), review.edits.changes));
-              removeReview(this.config, r.reviewId);
+              if (r.activation === "boot" && review?.home && review.system && r.scope !== "system") await keepForBoot(this.config, review);
+              else removeReview(this.config, r.reviewId);
             }
           }
           if (r.action === "switch" || r.action === "boot")
@@ -704,6 +706,19 @@ export class Manager {
   }
   async wait() {
     return this.current?.promise;
+  }
+  /**
+   * Applies the home part of a review whose system part was applied on next
+   * boot, once the computer has started into that system.
+   */
+  async resumeAfterBoot(booted = "/run/booted-system") {
+    const system = await realpath(booted).catch(() => undefined);
+    const review = (await listReviews(this.config)).find(
+      (item) => item.afterBoot && item.afterBoot.system === system && item.host === this.config.hostKey,
+    );
+    if (!review || this.busy) return undefined;
+    forgetBoot(this.config, review);
+    return this.start(request({ action: "review-apply", scope: "home", host: review.host, reviewId: review.id, activation: "switch" }));
   }
   cancel() {
     if (this.current) {

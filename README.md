@@ -217,6 +217,14 @@ then every six hours (`--interval MINUTES` changes this). Notifications report
 new update sets, failed operations, and completed changes. Clicking a notification
 opens the dashboard. Checks never activate a configuration automatically.
 
+With "Prepare updates in the background" switched on in Settings, the tray also
+builds a review of new source updates after a check, while the computer is on
+mains power and not busy, and notifies when it is ready. The notification can
+apply it now or on the next boot. Applying a review on the next boot keeps its
+home part; once the computer runs that system, the next tray or dashboard start
+applies the home part from the same review. Package pins are never prepared in
+the background.
+
 To start the tray with graphical sessions, set in the NixOS configuration:
 
 ```nix

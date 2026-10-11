@@ -12,6 +12,8 @@ export const Preferences = Schema.Struct({
   theme: Schema.optional(Schema.Literal("system", "light", "dark")),
   /** Simple shows one button and a plain summary; detailed shows every prepare, review and apply step. */
   detail: Schema.optional(Schema.Literal("simple", "detailed")),
+  /** Prepare updates the tray finds while the computer is plugged in and not busy. */
+  prepareUpdates: Schema.optional(Schema.Boolean),
 });
 export type Preferences = typeof Preferences.Type;
 

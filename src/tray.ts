@@ -1,11 +1,17 @@
 import dbus from "dbus-next";
 import { ManagerError, actionLabels, request } from "./domain";
 import type { Manager } from "./manager";
+import type { BuildReview } from "./contracts";
+import { lastPrepared, prepareInBackground } from "./background";
+import { getReview } from "./reviews";
+import { reviewSummary } from "./summary";
 
 const { Interface } = dbus.interface;
 const { Variant } = dbus;
 type Properties = Record<string, InstanceType<typeof Variant>>;
 type Layout = [number, Properties, InstanceType<typeof Variant>[]];
+/** A button on a desktop notification. */
+type NotificationAction = { key: string; label: string; run: () => void | Promise<void> };
 
 export async function startTray(
   manager: Manager,
@@ -34,7 +40,7 @@ export async function startTray(
     notifiedOperation = "",
     notificationId = 0,
     stopped = false;
-  const notify = async (title: string, body: string) => {
+  const notify = async (title: string, body: string, actions: NotificationAction[] = []) => {
     try {
       const proxy = await bus.getProxyObject(
         "org.freedesktop.Notifications",
@@ -42,8 +48,11 @@ export async function startTray(
       );
       const iface = proxy.getInterface("org.freedesktop.Notifications");
       iface.removeAllListeners("ActionInvoked");
-      iface.on("ActionInvoked", (id: number, action: string) => {
-        if (id === notificationId && action === "default") invoke(open);
+      iface.on("ActionInvoked", (id: number, key: string) => {
+        if (id !== notificationId) return;
+        if (key === "default") invoke(open);
+        const action = actions.find((item) => item.key === key);
+        if (action) invoke(action.run);
       });
       notificationId = await iface.Notify(
         "Nix Manager",
@@ -51,7 +60,7 @@ export async function startTray(
         "system-software-update",
         title,
         body.replace(/[<>]/g, ""),
-        ["default", "Open Nix Manager"],
+        ["default", "Open Nix Manager", ...actions.flatMap((action) => [action.key, action.label])],
         { "desktop-entry": new Variant("s", "nix-manager") },
         -1,
       );
@@ -64,9 +73,31 @@ export async function startTray(
     try {
       manager.start(request({ action: "check", host: manager.config.hostKey }));
       await manager.wait();
+      // When it is turned on, found updates are prepared now; "Updates are ready" follows.
+      const prepared = prepareInBackground(manager);
+      if (typeof prepared === "string") console.log(`Updates are not prepared: ${prepared}`);
     } catch (e) {
       if (!(e instanceof ManagerError && /running/.test(e.message))) throw e;
     }
+  };
+  /** Applies a review from a notification; the result is notified like any other operation. */
+  const apply = (review: BuildReview, activation: "switch" | "boot") => {
+    manager.start(
+      request({ action: "review-apply", host: review.host, scope: review.scope, reviewId: review.id, activation }),
+    );
+  };
+  /** Says that updates prepared in the background are ready, with buttons to apply them. */
+  const ready = (reviewId: string) => {
+    let review: BuildReview;
+    try {
+      review = getReview(manager.config, reviewId);
+    } catch {
+      return;
+    }
+    return notify("Updates are ready", `${reviewSummary(review)} Nothing changes until you apply them.`, [
+      { key: "apply-now", label: "Apply now", run: () => apply(review, "switch") },
+      ...(review.system ? [{ key: "apply-boot", label: "Apply on next boot", run: () => apply(review, "boot") }] : []),
+    ]);
   };
   const actions = [
     { id: 1, label: "Open Nix Manager", run: open },
@@ -347,6 +378,8 @@ export async function startTray(
               "An operation failed. Open the dashboard for its log.",
           ),
         );
+      else if (op.request.action === "review-build" && op.status === "succeeded" && op.request.reviewId === lastPrepared(manager.config)?.reviewId)
+        invoke(() => ready(op.request.reviewId!));
       else if (op.request.action === "review-build" && op.status === "succeeded")
         invoke(() =>
           notify(

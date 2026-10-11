@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { BuildReview, EditedPackage, PackageChange, ReviewOutput } from "../src/contracts";
-import { reviewSummary } from "../ui/lib/format";
+import { reviewSummary } from "../src/summary";
 
 const MiB = 1024 * 1024;
 const review = (fields: Partial<BuildReview>): BuildReview => ({

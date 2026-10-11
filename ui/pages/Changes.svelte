@@ -3,6 +3,7 @@
   import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
   import ExternalLinkIcon from "@lucide/svelte/icons/external-link";
   import TrashIcon from "@lucide/svelte/icons/trash-2";
+  import RotateCwIcon from "@lucide/svelte/icons/rotate-cw";
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
   import type { BuildReview, ReviewOutput } from "../../src/contracts";
@@ -53,7 +54,8 @@
     if (put.length) points.push(`Puts back ${put.join(", ")} as ${put.length === 1 ? "it was" : "they were"} before that change.`);
     if (deleted.length) points.push(`Deletes ${deleted.join(", ")}, which that change created.`);
     if (review.home && activation === "switch") points.push("Activates the reviewed Home Manager generation.");
-    if (review.home && activation === "boot") points.push("Home changes are not applied on boot; apply them separately.");
+    if (review.home && review.system && review.scope !== "system" && activation === "boot")
+      points.push("Your apps are updated after the restart, once the computer runs the new system.");
     if (review.system)
       points.push(
         activation === "boot"
@@ -169,6 +171,13 @@
             </p>
           {/if}
         </div>
+      {/if}
+
+      {#if review.afterBoot}
+        <p class="mt-4 flex gap-2 rounded-lg bg-card px-3 py-2">
+          <RotateCwIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          The system update is used after the next restart. Your apps are updated then too, or apply now to update them right away.
+        </p>
       {/if}
 
       {#if review.undo}

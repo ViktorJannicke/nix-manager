@@ -3,6 +3,7 @@
   import { Button } from "$lib/components/ui/button";
   import { app, type Detail, type Theme } from "$lib/app.svelte";
   import Segmented from "$lib/components/app/Segmented.svelte";
+  import { Switch } from "$lib/components/ui/switch";
 
   const hosts = $derived(Object.keys(app.config?.hosts ?? {}).sort());
 </script>
@@ -49,6 +50,21 @@
         ]}
       />
     </div>
+
+    <label class="flex items-center justify-between gap-4 p-4">
+      <span>
+        <span class="block font-medium">Prepare updates in the background</span>
+        <span class="block text-xs text-muted-foreground">
+          When the tray finds updates, they are downloaded and built while the computer is plugged in and not busy.
+          A notification says when they are ready. Nothing is applied until you choose.
+        </span>
+      </span>
+      <Switch
+        checked={app.snapshot?.preferences.prepareUpdates ?? false}
+        disabled={!app.connected}
+        onCheckedChange={(prepareUpdates) => app.savePreferences({ prepareUpdates })}
+      />
+    </label>
 
     <div class="space-y-3 p-4">
       <div class="flex items-center justify-between gap-4">

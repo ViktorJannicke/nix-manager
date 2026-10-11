@@ -52,3 +52,12 @@ export function detectHardware(root = "/sys"): Hardware {
     ),
   };
 }
+
+/** Plugged in: no battery of its own, or a mains supply that is online. */
+export function onMains(root = "/sys") {
+  const supplies = join(root, "class/power_supply");
+  const names = list(supplies);
+  const type = (name: string) => read(join(supplies, name, "type"));
+  const battery = names.some((name) => type(name) === "Battery" && read(join(supplies, name, "scope")) !== "Device");
+  return !battery || names.some((name) => type(name) === "Mains" && read(join(supplies, name, "online")) === "1");
+}

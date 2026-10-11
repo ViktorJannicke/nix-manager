@@ -90,9 +90,23 @@ when it is finished. Tick items off in the commit that completes them.
 
 The tray already checks for updates read-only and sends notifications.
 
-- [ ] **Prepared updates.** Optionally update sources and build the review in the
+- [x] **Prepared updates.** Optionally update sources and build the review in the
   background (on power and idle), then notify "Updates are ready".
-- [ ] **Apply on next boot or shutdown** from the notification.
+  Decided: off by default, switched on in Settings. Only source updates are
+  prepared, never package pins, which change files in the checkout. "Idle"
+  means the load of the last minute is below half the processors; "on power"
+  means no system battery or mains online. The same set of updates is
+  prepared once. The notification uses the plain review summary.
+  Follow-ups: it needs the tray to run; the dashboard does not show that a
+  review came from the background.
+- [x] **Apply on next boot or shutdown** from the notification.
+  "Apply now" and, when the system changes, "Apply on next boot". A boot apply
+  keeps the review's home part and applies it by itself once the computer runs
+  the new system, so apps and system change together.
+  Decided: no separate shutdown action; boot plus the home part after it covers
+  it without running Nix while the computer shuts down.
+  Follow-ups: the home part is applied when the tray or dashboard next starts,
+  not by a boot service.
 - [ ] **Free up space** in plain terms: how much removing old restore points
   frees and how many are kept; optional automatic cleanup.
 - [ ] **History without Git.** Commit after each apply with a readable message

@@ -204,6 +204,8 @@ async function main(args: string[]) {
   }
   const { startServer, browserAssets } = await import("./server");
   const service = startServer(manager, await browserAssets());
+  // Apps of an update applied on next boot follow once the computer runs it.
+  manager.resumeAfterBoot().catch((error) => console.error(error));
   let window: ReturnType<typeof import("./window").createWindow> | undefined;
   let tray: Awaited<ReturnType<typeof import("./tray").startTray>> | undefined;
   let resolveShutdown!: () => void;

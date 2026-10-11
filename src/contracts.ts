@@ -196,6 +196,8 @@ export interface BuildReview {
   operationId?: string;
   /** For an undo: the applied change it reverses, from that change's operation. */
   undo?: { operationId: string; appliedAt: string; point: UndoPoint };
+  /** The system part was applied on next boot; the home part follows once the computer runs that system. */
+  afterBoot?: { system: string };
 }
 
 export interface Snapshot {

@@ -21,7 +21,7 @@ import {
 import type { BuildReview, ReviewEdits, ReviewOutput } from "./contracts";
 import type { Result } from "./process";
 import { kernelVersion, lockChanges, parseClosureDiff } from "./nix";
-import { hashText, readLock } from "./observe";
+import { hashText, readLock, repositoryState } from "./observe";
 
 type Run = (command: Command) => Effect.Effect<Result, ManagerError>;
 
@@ -52,6 +52,30 @@ export async function listReviews(config: Config): Promise<BuildReview[]> {
   return found
     .filter((review): review is BuildReview => !!review?.id)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/**
+ * After the system part of a review was applied on next boot, keeps the
+ * review for its home part, which is applied once the computer has started
+ * into that system. Edits and the lock are written already, so the kept
+ * review neither writes them again nor counts them as changed since.
+ */
+export async function keepForBoot(config: Config, review: BuildReview) {
+  const { system, edits: _edits, undo: _undo, ...rest } = review;
+  const kept: BuildReview = {
+    ...rest,
+    scope: "home",
+    fingerprint: (await repositoryState(config.flake)).fingerprint,
+    inputs: review.inputs && { ...review.inputs, baseLockHash: hashText(await readLock(config.flake)) },
+    afterBoot: { system: system!.path },
+  };
+  atomicWrite(reviewFile(config, review.id), JSON.stringify(kept));
+}
+
+/** Turns a review kept for the next boot back into an ordinary one, so it is applied by itself only once. */
+export function forgetBoot(config: Config, review: BuildReview) {
+  const { afterBoot: _afterBoot, ...rest } = review;
+  atomicWrite(reviewFile(config, review.id), JSON.stringify(rest));
 }
 
 /** Removes a review and its GC roots; the outputs become collectable. */

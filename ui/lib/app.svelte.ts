@@ -196,7 +196,8 @@ class AppState {
     void this.savePreferences({ detail });
   }
 
-  private async savePreferences(preferences: Preferences) {
+  /** Saves preferences that only the server uses; the next snapshot carries them. */
+  async savePreferences(preferences: Preferences) {
     try {
       await managerApi.preferences(preferences);
     } catch (error) {
