@@ -429,6 +429,34 @@ export function plan(config: Config, r: Request, review?: BuildReview, undo?: Un
   }
   return { steps, notes };
 }
+/**
+ * Commands that make earlier generations active again after a failed apply:
+ * the system first, then home, the reverse of the order they were activated in.
+ */
+export function goBackSteps(config: Config, generations: { home?: number; system?: number }): Command[] {
+  const steps: Command[] = [];
+  if (generations.system !== undefined)
+    steps.push({
+      label: `Go back to system generation ${generations.system}`,
+      argv: [...config.privileged, "activate-generation", String(generations.system)],
+      cwd: config.flake,
+    });
+  if (generations.home !== undefined)
+    steps.push(
+      {
+        label: `Go back to home generation ${generations.home}`,
+        argv: ["nix-env", "--profile", config.homeProfile, "--switch-generation", String(generations.home)],
+        cwd: config.flake,
+      },
+      {
+        label: "Activate the earlier home generation",
+        argv: [`${config.homeProfile}-${generations.home}-link/activate`, "--driver-version", "1"],
+        cwd: config.flake,
+        env: { HOME_MANAGER_BACKUP_EXT: "hm-backup" },
+      },
+    );
+  return steps;
+}
 export const formatCommand = (c: Command) =>
   c.internal
     ? "(performed by Nix Manager)"

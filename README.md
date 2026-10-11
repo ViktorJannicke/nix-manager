@@ -147,6 +147,10 @@ Overview lists them beside the next generation:
   change no kernel, boot loader or service. The prepared review is checked again
   before applying: if it builds the system or changes any other option, it waits
   on the Changes page instead. "Review it first" in the dialog does the same.
+- If applying fails after something changed, the earlier system and home
+  generations are activated again and the written files are put back. The
+  pending edits and the review are kept. Each part goes back on its own, and
+  anything that could not go back is named in the explanation.
 
 The same draft is available from a terminal. Edits are checked against the
 checkout before they are saved, and the dashboard shows them as pending edits:
@@ -248,8 +252,10 @@ cancellation. Interrupted operations retain their logs.
 System activation, system rollback and system cleanup go through the immutable
 packaged executable's `--privileged` entry point and the existing Polkit policy.
 Its `activate-output` command accepts only a NixOS system store path, sets the
-system profile to it and runs its `switch-to-configuration`. `rollback` takes no
-arguments, and `gc` accepts only a retention count from 1 to 100.
+system profile to it and runs its `switch-to-configuration`.
+`activate-generation` accepts only the number of an existing system generation
+and activates it the same way, for going back after a failed apply. `rollback`
+takes no arguments, and `gc` accepts only a retention count from 1 to 100.
 The dashboard and tray run as the ordinary user. The HTTP server binds only to
 `127.0.0.1` on a random port and checks a per-session bearer token, Host and Origin.
 The token is passed in the initial URL fragment and then kept in session storage.

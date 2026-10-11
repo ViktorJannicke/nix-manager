@@ -58,6 +58,8 @@ export interface Operation {
   undo?: UndoPoint;
   /** Edits prepared to apply in one step that wait for review instead, and why. */
   held?: string;
+  /** After a failed apply: whether going back to the earlier generations and files worked. */
+  rollback?: { done: boolean; error?: string };
 }
 
 /** The state an applied change replaced. */

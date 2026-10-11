@@ -65,9 +65,15 @@ when it is finished. Tick items off in the commit that completes them.
   checked again against the prepared review before applying.
   Follow-ups: curated home features and the CLI have no one-step path yet; Undo
   from the dialog prepares a review rather than applying in one step; a failed
-  activation leaves the written files and selected generation (next item).
-- [ ] **Automatic rollback.** If activation fails, return to the previous
+  activation now goes back (next item).
+- [x] **Automatic rollback.** If activation fails, return to the previous
   generation and restore the files, then explain what happened.
+  Applies to every apply from a review, not only one-step installs. Each part
+  goes back on its own, so files are put back even when the earlier generation
+  cannot be activated; the explanation names what is left.
+  Follow-ups: going back on the system uses the new privileged
+  `activate-generation`, which is covered by tests but has not run as root on a
+  real machine yet; with no earlier home generation the new one stays selected.
 - [ ] **Setting: simple or detailed.** Simple by default for new users: one
   button and a plain summary. Detailed shows the current prepare, review and
   apply steps.

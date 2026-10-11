@@ -62,6 +62,14 @@ export async function privileged(args: string[]) {
       throw new ManagerError({ message: "Invalid NixOS system output." });
     await run(["nix-env", "--profile", profile, "--set", output]);
     await switchTo(output, mode);
+  } else if (action === "activate-generation" && extra.length === 1) {
+    // Going back after a failed activation: exactly the generation that was active before.
+    const number = Number(extra[0]);
+    const link = `${profile}-${number}-link`;
+    if (!Number.isInteger(number) || number < 1 || !existsSync(link))
+      throw new ManagerError({ message: "Invalid system generation." });
+    await run(["nix-env", "--profile", profile, "--switch-generation", String(number)]);
+    await switchTo(realpathSync(link), "switch");
   } else if (action === "gc" && extra.length <= 1) {
     const retention = extra.length ? Number(extra[0]) : 3;
     if (!Number.isInteger(retention) || retention < 1 || retention > 100)

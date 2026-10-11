@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { cpSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { plan, request, reviewRoot, type Command } from "../src/domain";
+import { goBackSteps, ManagerError, plan, request, reviewRoot, type Command } from "../src/domain";
 import { diffLines, importPath, readDraft, renderDraft, writeDraft, type Change } from "../src/draft";
 import { remaining, splitAttr, writeSources } from "../src/edits";
 import type { ReviewEdits } from "../src/contracts";
@@ -105,8 +105,11 @@ test("applying writes created files and adds them to Git", async () => {
   await expect(Effect.runPromise(run)).rejects.toThrow("was created after");
 });
 
-/** A manager whose Nix finds btop added to modules/apps.nix by the edits and builds the home configuration. */
-const editManager = (config: ReturnType<typeof setup>, calls: Command[] = []) => {
+/**
+ * A manager whose Nix finds btop added to modules/apps.nix by the edits and
+ * builds the home configuration; commands `fails` picks fail.
+ */
+const editManager = (config: ReturnType<typeof setup>, calls: Command[] = [], fails = (_command: Command) => false) => {
   const snapshot = join(config.flake, "snapshot");
   cpSync(join(config.flake, "modules"), join(snapshot, "modules"), { recursive: true });
   writeFileSync(join(snapshot, "flake.nix"), "{}");
@@ -117,6 +120,7 @@ const editManager = (config: ReturnType<typeof setup>, calls: Command[] = []) =>
     calls.push(command);
     const [program, verb, sub] = command.argv;
     if (program === "cp") return runProcess(command);
+    if (fails(command)) return Effect.fail(new ManagerError({ message: `${command.label} failed (exit 1).` }));
     return Effect.sync(() => {
       if (verb === "flake" && sub === "metadata") {
         const ref = command.argv[4];
@@ -183,6 +187,94 @@ test("installing an app is prepared and applied in one step", async () => {
   expect(readFileSync(join(config.flake, "modules/apps.nix"), "utf8")).toContain("    btop\n");
   expect(readDraft(config)).toEqual([]);
   expect(await listReviews(config)).toEqual([]);
+});
+
+test("a failed activation goes back to the earlier generation and files", async () => {
+  const config = setup();
+  rmSync(config.homeProfile);
+  symlinkSync("home-manager-4-link", config.homeProfile);
+  const calls: Command[] = [];
+  // The new generation does not activate; the earlier one does.
+  const { manager } = editManager(config, calls, (command) => command.argv[0].endsWith("/activate") && !command.argv[0].includes("-4-link"));
+  writeDraft(config, [btop]);
+  manager.start(request({ action: "review-build", scope: "home", edits: true, reviewId: "abababab" }));
+  expect((await manager.wait())?.status).toBe("succeeded");
+  const before = readFileSync(join(config.flake, "modules/apps.nix"), "utf8");
+  manager.start(request({ action: "review-apply", scope: "home", reviewId: "abababab" }));
+  const failed = await manager.wait();
+  expect(failed?.status).toBe("failed");
+  expect(failed?.rollback).toEqual({ done: true });
+  expect(failed?.explanation).toEqual({
+    title: "Activate Home Manager failed",
+    body: "Activate Home Manager failed (exit 1). Everything went back to how it was before, files included.",
+  });
+  expect(calls.slice(-4).map((command) => command.argv.slice(0, 5))).toEqual([
+    ["nix-env", "--profile", config.homeProfile, "--set", join(config.flake, "home-output")],
+    [join(config.flake, "home-output/activate"), "--driver-version", "1"],
+    ["nix-env", "--profile", config.homeProfile, "--switch-generation", "4"],
+    [`${config.homeProfile}-4-link/activate`, "--driver-version", "1"],
+  ]);
+  expect(failed?.steps?.map((step) => [step.label, step.status])).toEqual([
+    ["Write modules/apps.nix", "succeeded"],
+    ["Select Home Manager generation", "succeeded"],
+    ["Activate Home Manager", "failed"],
+    ["Go back to home generation 4", "succeeded"],
+    ["Activate the earlier home generation", "succeeded"],
+    ["Put back the configuration files", "succeeded"],
+  ]);
+  expect(readFileSync(join(config.flake, "modules/apps.nix"), "utf8")).toBe(before);
+  // The change can be tried again: its pending edit and review are kept.
+  expect(readDraft(config)).toEqual([btop]);
+  expect((await listReviews(config)).map((review) => review.id)).toEqual(["abababab"]);
+});
+
+test("the system goes back before home, to exactly the recorded generations", () => {
+  const config = setup();
+  expect(goBackSteps(config, { home: 3, system: 7 }).map((step) => step.argv)).toEqual([
+    [...config.privileged, "activate-generation", "7"],
+    ["nix-env", "--profile", config.homeProfile, "--switch-generation", "3"],
+    [`${config.homeProfile}-3-link/activate`, "--driver-version", "1"],
+  ]);
+  expect(goBackSteps(config, {})).toEqual([]);
+});
+
+test("going back that fails too is reported", async () => {
+  const config = setup();
+  rmSync(config.homeProfile);
+  symlinkSync("home-manager-4-link", config.homeProfile);
+  const { manager } = editManager(config, [], (command) => command.argv[0].endsWith("/activate"));
+  writeDraft(config, [btop]);
+  manager.start(request({ action: "review-build", scope: "home", edits: true, reviewId: "abababab" }));
+  await manager.wait();
+  manager.start(request({ action: "review-apply", scope: "home", reviewId: "abababab" }));
+  const failed = await manager.wait();
+  expect(failed?.rollback).toEqual({ done: false, error: "Activate the earlier home generation failed (exit 1)." });
+  expect(failed?.explanation?.body).toBe(
+    "Activate Home Manager failed (exit 1). Going back did not work either: Activate the earlier home generation failed (exit 1). The Generations page can take you back.",
+  );
+  // The files go back anyway, so they match the pending edits that are kept.
+  expect(failed?.steps?.map((step) => [step.label, step.status]).slice(-3)).toEqual([
+    ["Go back to home generation 4", "succeeded"],
+    ["Activate the earlier home generation", "failed"],
+    ["Put back the configuration files", "succeeded"],
+  ]);
+  expect(readFileSync(join(config.flake, "modules/apps.nix"), "utf8")).not.toContain("btop");
+});
+
+test("without an earlier home generation only the files go back", async () => {
+  const config = setup();
+  rmSync(config.homeProfile, { force: true });
+  const { manager } = editManager(config, [], (command) => command.argv[0].endsWith("/activate"));
+  writeDraft(config, [btop]);
+  manager.start(request({ action: "review-build", scope: "home", edits: true, reviewId: "abababab" }));
+  await manager.wait();
+  manager.start(request({ action: "review-apply", scope: "home", reviewId: "abababab" }));
+  const failed = await manager.wait();
+  expect(failed?.rollback).toEqual({ done: false });
+  expect(failed?.explanation?.body).toBe(
+    "Activate Home Manager failed (exit 1). The files were put back, but there was no earlier home generation to go back to, so the new one stays selected.",
+  );
+  expect(readFileSync(join(config.flake, "modules/apps.nix"), "utf8")).not.toContain("btop");
 });
 
 test("edits that change settings wait for review instead of being applied in one step", async () => {

@@ -57,8 +57,14 @@
           {:else if prepare.held && prepare.status === "succeeded"}
             It was prepared but not applied. {prepare.held}
           {:else if current?.status === "failed" || current?.status === "cancelled" || current?.status === "interrupted"}
-            {#if current.request.action === "review-apply"}
-              It could not be applied, though your configuration files may already contain the change. The Generations page can take you back.
+            {#if current.request.action === "review-apply" && current.rollback?.done}
+              It could not be applied, so everything went back to how it was. Your change is still in your pending edits.
+            {:else if current.request.action === "review-apply" && current.rollback && !current.rollback.error}
+              It could not be applied, and only part of it could be undone. Your change is still in your pending edits.
+            {:else if current.request.action === "review-apply" && current.rollback}
+              It could not be applied, and going back did not work. The Generations page can take you back.
+            {:else if current.request.action === "review-apply"}
+              It could not be applied before anything changed. Your change is still in your pending edits.
             {:else}
               It could not be prepared, so nothing changed. Your change is still in your pending edits.
             {/if}

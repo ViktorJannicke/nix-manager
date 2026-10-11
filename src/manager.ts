@@ -15,7 +15,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { dlopen, FFIType } from "bun:ffi";
-import { Cause, Effect, Exit, Layer, Option } from "effect";
+import { Cause, Effect, Either, Exit, Layer, Option } from "effect";
 import {
   type Config,
   type Request,
@@ -25,6 +25,7 @@ import {
   plan,
   request,
   formatCommand,
+  goBackSteps,
   isPackage,
   reviewRoot,
   systemProfile,
@@ -54,6 +55,9 @@ import { readSources, remaining, restoreSources, stageSources, undoFiles, verify
 import type { ReviewEdits } from "./contracts";
 import { stripAnsi } from "./nix";
 export type { Operation } from "./contracts";
+
+const stepId = (index: number, label: string) =>
+  `${index + 1}-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
 
 /** What applying a review changes, in words. */
 const describeReview = (review: BuildReview): string[] => {
@@ -294,11 +298,7 @@ export class Manager {
               ? "Check inputs and package releases"
               : `Update ${r.action.replace("-update", "")} package pin`,
           ]
-      ).map((label, index): StepOutcome => ({
-        id: `${index + 1}-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`,
-        label,
-        status: "pending",
-      })),
+      ).map((label, index): StepOutcome => ({ id: stepId(index, label), label, status: "pending" })),
     };
     const controller = new AbortController();
     let logBytes = 0;
@@ -484,63 +484,121 @@ export class Manager {
         if (r.scope !== "home" && review?.system)
           generations.system = yield* Effect.promise(() => profileGeneration(systemProfile));
       }
+      // After a failed apply the earlier generations become active again and
+      // the written files are put back, so the computer is as it was before.
+      const goBack = (error: ManagerError) =>
+        Effect.gen(this, function* () {
+          const failed = operation.steps!.find((step) => step.status === "running");
+          const touched = (prefix: string) => operation.steps!.some((step) => step.label.startsWith(prefix) && step.status !== "pending");
+          const home = touched("Select Home Manager");
+          const back = goBackSteps(this.config, {
+            system: touched("Activate system") ? generations.system : undefined,
+            home: home ? generations.home : undefined,
+          });
+          const files = replaced.files.length > 0;
+          if (!back.length && !files) return yield* Effect.fail(error);
+          finishStep(failed, "failed");
+          const putBack = "Put back the configuration files";
+          const labels = [...back.map((step) => step.label), ...(files ? [putBack] : [])];
+          operation.steps!.push(
+            ...labels.map((label, index): StepOutcome => ({ id: stepId(operation.steps!.length + index, label), label, status: "pending" })),
+          );
+          log("Going back to how things were before.");
+          // Each part goes back on its own: files are put back even when a generation could not be activated.
+          const parts: Effect.Effect<unknown, ManagerError, Runner>[] = back.map((step) => Effect.flatMap(Runner, (runner) => runner.run(step)));
+          if (files)
+            parts.push(
+              Effect.gen(this, function* () {
+                const step = startStep(putBack);
+                const restored = yield* Effect.either(
+                  restoreSources(this.config, { changes: [], generations, files: replaced.files }, replaced.contents).pipe(
+                    Effect.provide(Layer.succeed(Runner, { run: quiet })),
+                  ),
+                );
+                finishStep(step, Either.isRight(restored) ? "succeeded" : "failed");
+                if (Either.isLeft(restored)) return yield* Effect.fail(restored.left);
+              }),
+            );
+          const results = yield* Effect.forEach(parts, (part) => Effect.either(part));
+          const outcome = results.find(Either.isLeft) ?? Either.right(undefined);
+          // Without an earlier home generation the new one stays selected, so only the rest went back.
+          const first = home && generations.home === undefined;
+          operation.rollback = Either.isRight(outcome) ? { done: !first } : { done: false, error: outcome.left.message };
+          const what = error.explanation?.body ?? error.message;
+          return yield* Effect.fail(
+            new ManagerError({
+              message: error.message,
+              explanation: {
+                title: error.explanation?.title ?? `${failed?.label ?? "Applying"} failed`,
+                body: Either.isRight(outcome)
+                  ? first
+                    ? `${what} ${files ? "The files were put back, but there" : "There"} was no earlier home generation to go back to, so the new one stays selected.`
+                    : `${what} Everything went back to how it was before${files ? ", files included" : ""}.`
+                  : `${what} Going back did not work either: ${outcome.left.message} The Generations page can take you back.`,
+              },
+            }),
+          );
+        });
       if (r.action === "review-build" && !r.dryRun)
         base = yield* Effect.promise(async () => ({
           fingerprint: (await repositoryState(this.config.flake)).fingerprint,
           lock: await readLock(this.config.flake),
         }));
-      for (const step of preview.steps) {
-        if (r.dryRun) {
-          const outcome = startStep(step.label);
-          log(formatCommand(step));
-          finishStep(outcome, "succeeded");
-        } else if (step.internal) {
-          const outcome = startStep(step.label);
-          if (step.internal === "compare") {
-            const result = yield* compareReview(
-              this.config,
-              r,
-              base!,
-              operation.id,
-              quiet,
-              edits,
-              undo && { operationId: undo.operation.id, appliedAt: undo.operation.finishedAt ?? undo.operation.startedAt, point: undo.point },
-            );
-            const packages = (result.home?.changes.length ?? 0) + (result.system?.changes.length ?? 0);
-            log(`${packages} package ${packages === 1 ? "change is" : "changes are"} ready for review.`);
-          } else if (step.internal === "stage-sources") {
-            staged = yield* stageSources(this.config, r, draft).pipe(
-              Effect.provide(Layer.succeed(Runner, { run: quiet })),
-            );
-            for (const file of staged.files) log(`Edited ${file.path}`);
-          } else if (step.internal === "verify-edits") {
-            edits = yield* verifyEdits(this.config, r, staged!, draft).pipe(
-              Effect.provide(Layer.succeed(Runner, { run: quiet })),
-            );
-            for (const effect of edits.effects) {
-              for (const item of effect.added) log(`${effect.scope}: adds ${item.name} (${item.file})`);
-              for (const item of effect.removed) log(`${effect.scope}: removes ${item.name} (${item.file})`);
-              for (const option of effect.options)
-                log(`${effect.scope}: ${option.option} = ${JSON.stringify(option.after) ?? "default"}`);
+      const steps = Effect.gen(this, function* () {
+        for (const step of preview.steps) {
+          if (r.dryRun) {
+            const outcome = startStep(step.label);
+            log(formatCommand(step));
+            finishStep(outcome, "succeeded");
+          } else if (step.internal) {
+            const outcome = startStep(step.label);
+            if (step.internal === "compare") {
+              const result = yield* compareReview(
+                this.config,
+                r,
+                base!,
+                operation.id,
+                quiet,
+                edits,
+                undo && { operationId: undo.operation.id, appliedAt: undo.operation.finishedAt ?? undo.operation.startedAt, point: undo.point },
+              );
+              const packages = (result.home?.changes.length ?? 0) + (result.system?.changes.length ?? 0);
+              log(`${packages} package ${packages === 1 ? "change is" : "changes are"} ready for review.`);
+            } else if (step.internal === "stage-sources") {
+              staged = yield* stageSources(this.config, r, draft).pipe(
+                Effect.provide(Layer.succeed(Runner, { run: quiet })),
+              );
+              for (const file of staged.files) log(`Edited ${file.path}`);
+            } else if (step.internal === "verify-edits") {
+              edits = yield* verifyEdits(this.config, r, staged!, draft).pipe(
+                Effect.provide(Layer.succeed(Runner, { run: quiet })),
+              );
+              for (const effect of edits.effects) {
+                for (const item of effect.added) log(`${effect.scope}: adds ${item.name} (${item.file})`);
+                for (const item of effect.removed) log(`${effect.scope}: removes ${item.name} (${item.file})`);
+                for (const option of effect.options)
+                  log(`${effect.scope}: ${option.option} = ${JSON.stringify(option.after) ?? "default"}`);
+              }
+            } else if (step.internal === "write-sources") {
+              const before = readSources(this.config, review!.edits!.files.map((file) => file.path));
+              yield* writeSources(this.config, review!.id, review!.edits!);
+              record(before);
+            } else if (step.internal === "restore-sources") {
+              const { point } = review!.undo!;
+              const { contents } = this.undoPoint(review!.undo!.operationId);
+              const before = readSources(this.config, point.files.map((file) => file.path));
+              yield* restoreSources(this.config, point, contents).pipe(Effect.provide(Layer.succeed(Runner, { run: quiet })));
+              record(before);
+            } else {
+              const before = readSources(this.config, ["flake.lock"]);
+              yield* writeReviewedLock(this.config, review!);
+              record(before);
             }
-          } else if (step.internal === "write-sources") {
-            const before = readSources(this.config, review!.edits!.files.map((file) => file.path));
-            yield* writeSources(this.config, review!.id, review!.edits!);
-            record(before);
-          } else if (step.internal === "restore-sources") {
-            const { point } = review!.undo!;
-            const { contents } = this.undoPoint(review!.undo!.operationId);
-            const before = readSources(this.config, point.files.map((file) => file.path));
-            yield* restoreSources(this.config, point, contents).pipe(Effect.provide(Layer.succeed(Runner, { run: quiet })));
-            record(before);
-          } else {
-            const before = readSources(this.config, ["flake.lock"]);
-            yield* writeReviewedLock(this.config, review!);
-            record(before);
-          }
-          finishStep(outcome, "succeeded");
-        } else yield* (yield* Runner).run(step);
-      }
+            finishStep(outcome, "succeeded");
+          } else yield* (yield* Runner).run(step);
+        }
+      });
+      yield* r.action === "review-apply" && !r.dryRun ? steps.pipe(Effect.catchAll(goBack)) : steps;
       if (r.action === "review-apply" && !r.dryRun && (r.activation ?? "switch") === "switch")
         if (generations.home !== undefined || generations.system !== undefined) undoable = { generations, ...replaced };
     }).pipe(Effect.provide(Layer.merge(runLayer, this.network)));
