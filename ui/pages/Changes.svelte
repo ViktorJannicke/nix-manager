@@ -5,8 +5,8 @@
   import TrashIcon from "@lucide/svelte/icons/trash-2";
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
-  import type { BuildReview, EditEffect, ReviewOutput } from "../../src/contracts";
-  import { bytes, dateTime, day, plural, relative, shortRev, summarize } from "$lib/format";
+  import type { BuildReview, ReviewOutput } from "../../src/contracts";
+  import { bytes, dateTime, day, editedPackages, plural, relative, reviewSummary, shortRev, summarize } from "$lib/format";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
   import Segmented from "$lib/components/app/Segmented.svelte";
   import PackageChanges from "$lib/components/app/PackageChanges.svelte";
@@ -32,16 +32,9 @@
     review?.system?.kernel && review.system.kernel.before !== review.system.kernel.after,
   );
   const preparing = $derived(app.active?.request.action === "review-build");
-  /** Packages only rebuilt by an edit (same name on both sides) are listed once, as updated. */
-  function packageEffects(effect: EditEffect) {
-    const removed = new Set(effect.removed.map((item) => item.name));
-    const added = new Set(effect.added.map((item) => item.name));
-    return {
-      added: effect.added.filter((item) => !removed.has(item.name)),
-      removed: effect.removed.filter((item) => !added.has(item.name)),
-      updated: effect.added.filter((item) => removed.has(item.name)),
-    };
-  }
+  // Simple mode keeps sizes, file diffs, sources and the full package list one click away.
+  let expanded = $state(false);
+  const detailed = $derived(app.detail === "detailed" || expanded);
   const draftMoved = $derived(review?.edits && app.snapshot && review.edits.hash !== app.snapshot.draft.hash);
 
   function apply(review: BuildReview, activation: "switch" | "boot") {
@@ -133,6 +126,7 @@
         <div class="min-w-0 flex-1">
           <p class="label">Prepared {relative(review.createdAt, app.now)} for {review.host}, not active yet</p>
           <h2 class="heading mt-1"><ReviewTitle {review} /></h2>
+          <p class="mt-1 max-w-prose">{reviewSummary(review)}</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <Button variant="ghost" disabled={app.busy} onclick={() => app.discard(review)}><TrashIcon /> Discard</Button>
@@ -191,34 +185,36 @@
         </div>
       {/if}
 
-      <dl class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {#each (["home", "system"] as const).filter((key) => review[key]) as key (key)}
-          {@const item = review[key]!}
-          {@const counts = summarize(item.changes)}
-          {@const delta = sizeChange(item)}
-          <div class="rounded-lg bg-card p-3">
-            <dt class="label">{key === "home" ? "Home packages" : "System packages"}</dt>
-            <dd class="mt-1 text-lg font-semibold">{item.compared ? plural(counts.changed + counts.added + counts.removed, "change") : "New"}</dd>
-            <dd class="text-xs text-muted-foreground">
-              {#if item.compared}{counts.changed} updated, {counts.added} new, {counts.removed} removed{:else}Nothing active to compare with{/if}
-            </dd>
-          </div>
-          <div class="rounded-lg bg-card p-3">
-            <dt class="label">{key === "home" ? "Home size" : "System size"}</dt>
-            <dd class="mt-1 text-lg font-semibold">{bytes(item.closureSize)}</dd>
-            <dd class="text-xs {delta && delta > 0 ? 'text-warning' : 'text-muted-foreground'}">
-              {delta === undefined ? "—" : `${bytes(delta, true)} compared to now`}
-            </dd>
-          </div>
-        {/each}
-        {#if review.system?.version?.after && review.system.version.after !== review.system.version.before}
-          <div class="rounded-lg bg-card p-3">
-            <dt class="label">NixOS</dt>
-            <dd class="mt-1 font-semibold">{review.system.version.after}</dd>
-            <dd class="text-xs text-muted-foreground">from {review.system.version.before ?? "unknown"}</dd>
-          </div>
-        {/if}
-      </dl>
+      {#if detailed}
+        <dl class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {#each (["home", "system"] as const).filter((key) => review[key]) as key (key)}
+            {@const item = review[key]!}
+            {@const counts = summarize(item.changes)}
+            {@const delta = sizeChange(item)}
+            <div class="rounded-lg bg-card p-3">
+              <dt class="label">{key === "home" ? "Home packages" : "System packages"}</dt>
+              <dd class="mt-1 text-lg font-semibold">{item.compared ? plural(counts.changed + counts.added + counts.removed, "change") : "New"}</dd>
+              <dd class="text-xs text-muted-foreground">
+                {#if item.compared}{counts.changed} updated, {counts.added} new, {counts.removed} removed{:else}Nothing active to compare with{/if}
+              </dd>
+            </div>
+            <div class="rounded-lg bg-card p-3">
+              <dt class="label">{key === "home" ? "Home size" : "System size"}</dt>
+              <dd class="mt-1 text-lg font-semibold">{bytes(item.closureSize)}</dd>
+              <dd class="text-xs {delta && delta > 0 ? 'text-warning' : 'text-muted-foreground'}">
+                {delta === undefined ? "—" : `${bytes(delta, true)} compared to now`}
+              </dd>
+            </div>
+          {/each}
+          {#if review.system?.version?.after && review.system.version.after !== review.system.version.before}
+            <div class="rounded-lg bg-card p-3">
+              <dt class="label">NixOS</dt>
+              <dd class="mt-1 font-semibold">{review.system.version.after}</dd>
+              <dd class="text-xs text-muted-foreground">from {review.system.version.before ?? "unknown"}</dd>
+            </div>
+          {/if}
+        </dl>
+      {/if}
     </section>
 
     {#if review.edits}
@@ -227,10 +223,10 @@
           <h2 id="edits-title" class="font-semibold">Your edits</h2>
           <p class="text-xs text-muted-foreground">Checked by evaluating {review.host}'s configuration with and without them. They are written to your checkout when you apply.</p>
         </div>
-        <div class="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
+        <div class="grid gap-4 p-4 {detailed ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]' : ''}">
           <div class="space-y-3">
             {#each review.edits.effects as effect (effect.scope)}
-              {@const packages = packageEffects(effect)}
+              {@const packages = editedPackages(effect)}
               <div>
                 <p class="label">{effect.scope === "home" ? "Your user" : "System"}</p>
                 <ul class="mt-1 space-y-1">
@@ -259,14 +255,22 @@
               </ul>
             </details>
           </div>
-          <div class="space-y-2">
-            {#each review.edits.files as file (file.path)}<DiffView {file} />{/each}
-          </div>
+          {#if detailed}
+            <div class="space-y-2">
+              {#each review.edits.files as file (file.path)}<DiffView {file} />{/each}
+            </div>
+          {/if}
         </div>
       </section>
     {/if}
 
-    {#if review.inputs?.changes.length}
+    {#if app.detail === "simple"}
+      <Button variant="outline" aria-expanded={expanded} onclick={() => (expanded = !expanded)}>
+        {expanded ? "Hide the details" : "Show all details"}
+      </Button>
+    {/if}
+
+    {#if detailed && review.inputs?.changes.length}
       <section class="panel overflow-hidden">
         <h2 class="border-b px-4 py-3 font-semibold">Flake inputs</h2>
         <ul class="divide-y">
@@ -289,27 +293,29 @@
       </section>
     {/if}
 
-    <section class="panel p-4">
-      <div class="mb-3 flex items-center justify-between gap-3">
-        <h2 class="heading">{review.edits ? "Everything that differs from what's running" : "Packages"}</h2>
-        {#if review.home && review.system}
-          <Segmented
-            label="Configuration"
-            bind:value={tab}
-            options={[
-              { value: "home", label: "Home", count: review.home.changes.length },
-              { value: "system", label: "System", count: review.system.changes.length },
-            ]}
-          />
+    {#if detailed}
+      <section class="panel p-4">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <h2 class="heading">{review.edits ? "Everything that differs from what's running" : "Packages"}</h2>
+          {#if review.home && review.system}
+            <Segmented
+              label="Configuration"
+              bind:value={tab}
+              options={[
+                { value: "home", label: "Home", count: review.home.changes.length },
+                { value: "system", label: "System", count: review.system.changes.length },
+              ]}
+            />
+          {/if}
+        </div>
+        {#if output}
+          {#if output.compared}
+            {#key `${review.id}-${tab}`}<PackageChanges changes={output.changes} />{/key}
+          {:else}
+            <p class="text-muted-foreground">There's no active {tab} configuration to compare with, so everything in this build is new.</p>
+          {/if}
         {/if}
-      </div>
-      {#if output}
-        {#if output.compared}
-          {#key `${review.id}-${tab}`}<PackageChanges changes={output.changes} />{/key}
-        {:else}
-          <p class="text-muted-foreground">There's no active {tab} configuration to compare with, so everything in this build is new.</p>
-        {/if}
-      {/if}
-    </section>
+      </section>
+    {/if}
   {/if}
 </div>

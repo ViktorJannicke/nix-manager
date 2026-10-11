@@ -12,6 +12,7 @@
   import StatusBadge from "$lib/components/app/StatusBadge.svelte";
   import ProgressBar from "$lib/components/app/ProgressBar.svelte";
   import GenerationRail from "$lib/components/app/GenerationRail.svelte";
+  import PendingButton from "$lib/components/app/PendingButton.svelte";
 
   const system = $derived(app.system);
   const running = $derived(app.active);
@@ -21,7 +22,6 @@
   const repo = $derived(system?.repository);
   const disk = $derived(system?.disk);
   const draft = $derived(software.draft);
-  const preparing = $derived(running?.request.action === "review-build" && running.request.edits);
   const last = $derived(app.lastChange);
   const undoing = $derived(Boolean(last && running?.request.undo === last.id));
 
@@ -74,9 +74,7 @@
       </div>
       <div class="flex gap-2">
         <Button variant="ghost" size="sm" onclick={() => app.navigate("software")}>Show edits</Button>
-        <Button size="sm" disabled={app.busy || !app.connected || draft.problems.length === draft.changes.length} onclick={() => software.prepare()}>
-          {preparing ? "Preparing…" : "Prepare"}
-        </Button>
+        <PendingButton />
       </div>
     </section>
   {/if}

@@ -7,6 +7,7 @@ import { extname, join, relative } from "node:path";
 import { tmpdir, userInfo } from "node:os";
 import { Observer } from "./observe";
 import { listReviews, removeReview } from "./reviews";
+import { readPreferences, writePreferences } from "./preferences";
 import type { SessionMessage, Snapshot } from "./contracts";
 import { Store } from "./store";
 import { detectHardware } from "./hardware";
@@ -118,6 +119,7 @@ export function startServer(
     reviews: await listReviews(manager.config),
     draft: await store.draft(fingerprint()),
     catalog: store.catalogStatus(lockHash()),
+    preferences: readPreferences(manager.config),
   });
   const send = (message: SessionMessage) => {
     const text = JSON.stringify(message);
@@ -239,6 +241,11 @@ export function startServer(
               removeReview(manager.config, id);
               broadcast();
               return json({ ok: true });
+            }
+            if (url.pathname === "/api/preferences") {
+              const preferences = writePreferences(manager.config, await body(req));
+              broadcast();
+              return json(preferences);
             }
             if (url.pathname === "/api/draft") {
               const { changes } = await body(req);

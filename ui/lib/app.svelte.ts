@@ -10,11 +10,14 @@ import type {
 } from "../../src/contracts";
 import { actionLabels, request, type Request, type Scope } from "../../src/domain";
 import type { Fix } from "../../src/explain";
+import type { Preferences } from "../../src/preferences";
 import { connectSession, managerApi } from "./api";
 import { plural } from "./format";
 
 export type Page = "overview" | "software" | "computer" | "updates" | "changes" | "generations" | "activity" | "settings";
 export type Theme = "system" | "light" | "dark";
+/** Simple shows one button and a plain summary; detailed shows every prepare, review and apply step. */
+export type Detail = "simple" | "detailed";
 const pages: Page[] = ["overview", "software", "computer", "updates", "changes", "generations", "activity", "settings"];
 
 export interface Toast {
@@ -78,7 +81,9 @@ class AppState {
   selectedOperation = $state<string>();
   selectedReview = $state<string>();
   hostOverride = $state<string | undefined>(localStorage.getItem("nix-manager-host") || undefined);
+  // Preferences come with each snapshot; browser storage only keeps the first paint from flickering.
   theme = $state<Theme>((localStorage.getItem("nix-manager-theme") as Theme | null) || "system");
+  detail = $state<Detail>((localStorage.getItem("nix-manager-detail") as Detail | null) || "simple");
   toasts = $state<Toast[]>([]);
   confirmation = $state<Confirmation>();
   /** A curated feature for the Software page to open, switched on, as the fix for a failure. */
@@ -180,6 +185,25 @@ class AppState {
     document.documentElement.classList.toggle("dark", dark);
   }
 
+  setTheme(theme: Theme) {
+    this.applyTheme(theme);
+    void this.savePreferences({ theme });
+  }
+
+  setDetail(detail: Detail) {
+    this.detail = detail;
+    localStorage.setItem("nix-manager-detail", detail);
+    void this.savePreferences({ detail });
+  }
+
+  private async savePreferences(preferences: Preferences) {
+    try {
+      await managerApi.preferences(preferences);
+    } catch (error) {
+      this.fail(error, "Could not save the setting");
+    }
+  }
+
   setHost(host: string | undefined) {
     this.hostOverride = host && host !== this.snapshot?.config.hostKey ? host : undefined;
     if (this.hostOverride) localStorage.setItem("nix-manager-host", this.hostOverride);
@@ -204,6 +228,12 @@ class AppState {
     if (event.type === "snapshot") {
       const previous = this.snapshot;
       this.snapshot = event.snapshot;
+      const { theme, detail } = event.snapshot.preferences;
+      if (theme && theme !== this.theme) this.applyTheme(theme);
+      if (detail && detail !== this.detail) {
+        this.detail = detail;
+        localStorage.setItem("nix-manager-detail", detail);
+      }
       if (!this.selectedOperation && event.snapshot.active)
         this.selectedOperation = event.snapshot.active.id;
       for (const operation of event.snapshot.operations) this.settle(operation);

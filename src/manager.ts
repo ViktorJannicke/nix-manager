@@ -90,7 +90,7 @@ export function acquireLock(stateDir: string): () => void {
   // Closing releases flock, including on crashes. Never unlink the lock inode.
   return () => closeSync(fd);
 }
-const atomicJson = (path: string, data: unknown) => {
+export const atomicJson = (path: string, data: unknown) => {
   const temp = `${path}.${crypto.randomUUID()}.tmp`;
   try {
     writeFileSync(temp, JSON.stringify(data, null, 2) + "\n", { mode: 0o600 });

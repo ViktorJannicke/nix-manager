@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
-import { rmSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { Effect } from "effect";
 import { Manager } from "../src/manager";
 import { startServer } from "../src/server";
 import { request } from "../src/domain";
+import { readPreferences } from "../src/preferences";
 import { fixture } from "./helpers";
 
 test("loopback API enforces authentication, origin, host, schema and single operation", async () => {
@@ -115,6 +117,44 @@ test("loopback API enforces authentication, origin, host, schema and single oper
   } finally {
     await manager.close();
     service.close();
+    rmSync(config.flake, { recursive: true, force: true });
+  }
+});
+
+test("preferences are kept in the state directory and only known ones are accepted", async () => {
+  const config = fixture(),
+    manager = new Manager(config, undefined, () => Effect.never);
+  const service = startServer(manager, "// fixture");
+  const base = service.url.split("/#")[0],
+    headers = { Authorization: `Bearer ${service.token}`, "Content-Type": "application/json" };
+  const state = async () => (await (await fetch(`${base}/api/state`, { headers })).json()).preferences;
+  const save = (body: unknown) => fetch(`${base}/api/preferences`, { method: "POST", headers, body: JSON.stringify(body) });
+  try {
+    // Without earlier operations the dashboard starts simple.
+    expect(await state()).toEqual({ detail: "simple" });
+    expect(await (await save({ detail: "detailed" })).json()).toEqual({ detail: "detailed" });
+    expect((await save({ theme: "dark" })).status).toBe(200);
+    expect(await state()).toEqual({ detail: "detailed", theme: "dark" });
+    expect((await save({ detail: "expert" })).status).toBe(400);
+    expect((await save({ token: "x" })).status).toBe(400);
+    expect(JSON.parse(readFileSync(join(config.stateDir, "preferences.json"), "utf8"))).toEqual({ detail: "detailed", theme: "dark" });
+  } finally {
+    await manager.close();
+    service.close();
+    rmSync(config.flake, { recursive: true, force: true });
+  }
+});
+
+test("someone who ran operations before starts with the detailed view", () => {
+  const config = fixture();
+  try {
+    mkdirSync(join(config.stateDir, "operations"), { recursive: true });
+    writeFileSync(join(config.stateDir, "operations", "1-a.json"), "{}");
+    expect(readPreferences(config)).toEqual({ detail: "detailed" });
+    // The choice sticks.
+    rmSync(join(config.stateDir, "operations"), { recursive: true });
+    expect(readPreferences(config)).toEqual({ detail: "detailed" });
+  } finally {
     rmSync(config.flake, { recursive: true, force: true });
   }
 });

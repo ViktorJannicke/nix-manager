@@ -6,6 +6,7 @@ import type {
   Snapshot,
 } from "../../src/contracts";
 import type { Request } from "../../src/domain";
+import type { Preferences } from "../../src/preferences";
 
 const fragment = location.hash.slice(1);
 const token = fragment || sessionStorage.getItem("nix-manager-token") || "";
@@ -41,6 +42,7 @@ export const managerApi = {
   run: (request: Request) => api<Operation>("run", request),
   cancel: (id: string) => api<{ ok: true }>("cancel", { id }),
   hold: (id: string) => api<{ ok: true }>("hold", { id }),
+  preferences: (preferences: Preferences) => api<Preferences>("preferences", preferences),
   log: (id: string) => api<LogResult>(`log/${id}`),
   removeReview: (id: string) => api<{ ok: true }>("review-remove", { id }),
 };

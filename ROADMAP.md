@@ -74,9 +74,17 @@ when it is finished. Tick items off in the commit that completes them.
   Follow-ups: going back on the system uses the new privileged
   `activate-generation`, which is covered by tests but has not run as root on a
   real machine yet; with no earlier home generation the new one stays selected.
-- [ ] **Setting: simple or detailed.** Simple by default for new users: one
+- [x] **Setting: simple or detailed.** Simple by default for new users: one
   button and a plain summary. Detailed shows the current prepare, review and
   apply steps.
+  Decided: "new" means a state directory without earlier operations, so existing
+  users keep the detailed view. Edits that cannot be applied in one step keep
+  their review in simple mode too ("Review and apply"); the review then starts
+  with the plain summary and hides the rest behind "Show all details".
+  Preferences (this and the theme) moved from browser storage to the state
+  directory, as each launch uses a new port.
+  Follow-ups: the Updates and Generations pages look the same in both modes;
+  option names in the review are still technical (Phase 5).
 
 ## 4. Look after the computer in the background
 
@@ -98,6 +106,9 @@ The tray already checks for updates read-only and sends notifications.
   and disk size. Technical names stay visible in detailed mode and tooltips.
 - [ ] **Review summary line.** Every review starts with one sentence: what is
   added, updated and removed, download size, whether a restart is needed.
+  Started with simple mode (`reviewSummary`): it names installed and removed
+  packages, counts updates and gives the change in disk use and a kernel restart.
+  Missing: the download size, which the review does not record yet.
 - [ ] **Time estimates** for builds and downloads based on earlier runs.
 
 ## 6. Discover as an app store

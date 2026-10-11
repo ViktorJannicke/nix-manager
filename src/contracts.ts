@@ -3,6 +3,7 @@ import type { Change, DraftFile, RenderedDraft } from "./draft";
 import type { UpdateReport } from "./updates";
 import type { Explanation } from "./explain";
 import type { Hardware } from "./hardware";
+import type { Preferences } from "./preferences";
 
 export type OperationStatus =
   | "running"
@@ -215,6 +216,7 @@ export interface Snapshot {
   reviews: BuildReview[];
   draft: RenderedDraft;
   catalog: CatalogStatus;
+  preferences: Preferences;
 }
 
 export interface CatalogStatus {

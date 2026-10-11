@@ -1,14 +1,10 @@
 <script lang="ts">
   import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
   import { Button } from "$lib/components/ui/button";
-  import { app, type Theme } from "$lib/app.svelte";
+  import { app, type Detail, type Theme } from "$lib/app.svelte";
   import Segmented from "$lib/components/app/Segmented.svelte";
 
   const hosts = $derived(Object.keys(app.config?.hosts ?? {}).sort());
-  let theme = $state(app.theme);
-  $effect(() => {
-    if (theme !== app.theme) app.applyTheme(theme);
-  });
 </script>
 
 <div class="max-w-3xl space-y-6">
@@ -24,11 +20,32 @@
       </div>
       <Segmented
         label="Theme"
-        bind:value={theme}
+        bind:value={() => app.theme, (theme) => app.setTheme(theme)}
         options={[
           { value: "system" as Theme, label: "System" },
           { value: "light" as Theme, label: "Light" },
           { value: "dark" as Theme, label: "Dark" },
+        ]}
+      />
+    </div>
+
+    <div class="flex items-center justify-between gap-4 p-4">
+      <div>
+        <p class="font-medium">How much to show</p>
+        <p class="text-xs text-muted-foreground">
+          {#if app.detail === "simple"}
+            One button applies your changes, with a short summary first when they need a look.
+          {:else}
+            Every step: prepare, then review the full comparison, then apply.
+          {/if}
+        </p>
+      </div>
+      <Segmented
+        label="How much to show"
+        bind:value={() => app.detail, (detail) => app.setDetail(detail)}
+        options={[
+          { value: "simple" as Detail, label: "Simple" },
+          { value: "detailed" as Detail, label: "Detailed" },
         ]}
       />
     </div>

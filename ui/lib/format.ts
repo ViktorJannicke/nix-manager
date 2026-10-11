@@ -1,4 +1,4 @@
-import type { Operation, PackageChange } from "../../src/contracts";
+import type { BuildReview, EditEffect, Operation, PackageChange } from "../../src/contracts";
 import type { Scope } from "../../src/domain";
 
 const relativeFormat = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
@@ -94,3 +94,52 @@ export function summarize(changes: PackageChange[]) {
 
 export const storeBaseName = (path: string) =>
   path.replace(/^\/nix\/store\/[a-z0-9]{32}-/, "");
+
+/** Packages only rebuilt by an edit (same name on both sides) are listed once, as updated. */
+export function editedPackages(effect: EditEffect) {
+  const removed = new Set(effect.removed.map((item) => item.name));
+  const added = new Set(effect.added.map((item) => item.name));
+  return {
+    added: effect.added.filter((item) => !removed.has(item.name)),
+    removed: effect.removed.filter((item) => !added.has(item.name)),
+    updated: effect.added.filter((item) => removed.has(item.name)),
+  };
+}
+
+/** "a", "a and b", "a, b and c". */
+const and = (items: string[]) => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`);
+/** Up to three names, then how many more. */
+const names = (list: string[]) => {
+  const unique = [...new Set(list)];
+  return unique.length <= 3 ? and(unique) : and([...unique.slice(0, 2), `${unique.length - 2} more`]);
+};
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** What applying a review does, in a few plain sentences. */
+export function reviewSummary(review: BuildReview) {
+  const outputs = [review.home, review.system].filter((output) => output !== undefined);
+  const parts: string[] = [];
+  if (review.edits) {
+    const packages = review.edits.effects.map(editedPackages);
+    const added = packages.flatMap((effect) => effect.added.map((item) => item.name));
+    const removed = packages.flatMap((effect) => effect.removed.map((item) => item.name));
+    const settings = review.edits.effects.reduce((count, effect) => count + effect.options.length, 0);
+    if (added.length) parts.push(`installs ${names(added)}`);
+    if (removed.length) parts.push(`removes ${names(removed)}`);
+    if (settings) parts.push(`changes ${plural(settings, "setting")}`);
+  } else if (outputs.every((output) => output.compared)) {
+    const counts = summarize(outputs.flatMap((output) => output.changes));
+    // Only the first count names what is counted: "updates 12 packages, adds 2 and removes 1".
+    const clauses = ([["updates", counts.changed], ["adds", counts.added], ["removes", counts.removed]] as const).filter(([, count]) => count);
+    parts.push(...clauses.map(([verb, count], index) => `${verb} ${index ? count : plural(count, "package")}`));
+  } else parts.push("builds everything new, as nothing is active to compare with");
+  const sentences = [parts.length ? `${capitalize(and(parts))}.` : "Nothing you use changes."];
+  if (review.inputs?.changes.length) sentences.unshift(`Updates ${plural(review.inputs.changes.length, "software source")}.`);
+  const sizes = outputs.filter((output) => output.closureSize !== undefined && output.currentClosureSize !== undefined);
+  const delta = sizes.reduce((total, output) => total + output.closureSize! - output.currentClosureSize!, 0);
+  if (sizes.length && Math.abs(delta) >= 1024 * 1024)
+    sentences.push(delta > 0 ? `It needs about ${bytes(delta)} more disk space.` : `It frees about ${bytes(-delta)} of disk space.`);
+  const kernel = review.system?.kernel;
+  if (kernel?.after && kernel.before !== kernel.after) sentences.push("Restart afterwards to use the new kernel.");
+  return sentences.join(" ");
+}

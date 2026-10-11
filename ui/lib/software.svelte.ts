@@ -295,6 +295,17 @@ class SoftwareState {
     return app.prepare(this.scope, { edits: true });
   }
 
+  /** Whether the pending edits, all of them, can be applied in one step. */
+  pendingInOneStep = $derived(
+    this.changes.length > 0 && !this.draft?.problems.length && !oneStepProblem(this.changes) && !app.foreignHost,
+  );
+
+  /** The one button for the pending edits in simple mode: applies them in one step where it can, otherwise prepares them for review. */
+  applyPending() {
+    if (!this.pendingInOneStep) return this.prepare();
+    return app.installNow("Applying your changes", "Your changes are applied");
+  }
+
   /**
    * Whether `changes` can be installed in one step from here: they qualify
    * (see `oneStepProblem`), nothing else is pending to be swept along, and the

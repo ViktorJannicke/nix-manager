@@ -176,7 +176,16 @@ The other pages are Overview (active generations, the prepared next generation,
 reboot notices and recent activity), Updates (flake inputs and package pins, each
 selectable before preparing), Generations (rollback and cleanup), Activity (step
 outcomes and a filterable live log with copy and download) and Settings. The
-Svelte 5 interface supports light, dark and system themes. Flake input updates and
+Svelte 5 interface supports light, dark and system themes.
+
+Settings chooses how much the dashboard shows. Simple, the default for a new
+state directory, gives pending edits one button: "Apply changes" when they can be
+applied in one step, otherwise "Review and apply", which prepares them. Reviews
+start with a plain summary; sizes, file diffs, flake inputs and the full package
+list are one click away. Detailed shows every prepare, review and apply step.
+A state directory with earlier operations starts detailed. Preferences are kept in
+`preferences.json` in the state directory, because each launch serves the
+dashboard from a new port and browser storage does not carry over. Flake input updates and
 package-pin updates are distinct: refreshing the lock does not refresh the three
 local package pins. After updating a pin, prepare a home build to apply it.
 
