@@ -1,7 +1,8 @@
 import type { Operation } from "../../src/contracts";
 import type { Scope } from "../../src/domain";
 
-export { bytes, editedPackages, plural, removedGenerations, reviewSummary, summarize } from "../../src/summary";
+export { bytes, editedPackages, plural, removedGenerations, reviewSummary, summarize, timeLeft, usualSeconds } from "../../src/summary";
+import { timeLeft, usualSeconds } from "../../src/summary";
 
 const relativeFormat = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 const units: [Intl.RelativeTimeFormatUnit, number][] = [
@@ -71,3 +72,7 @@ export const versions = (list: string[]) =>
 
 export const storeBaseName = (path: string) =>
   path.replace(/^\/nix\/store\/[a-z0-9]{32}-/, "");
+
+/** "About 3 minutes left" for a running operation, judged from earlier runs of the same kind. */
+export const remaining = (operations: readonly Operation[], operation: Operation, now = Date.now()) =>
+  timeLeft(usualSeconds(operations, operation.request), (now - Date.parse(operation.startedAt)) / 1000);

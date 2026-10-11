@@ -6,7 +6,7 @@
   import Undo2Icon from "@lucide/svelte/icons/undo-2";
   import { app } from "$lib/app.svelte";
   import { describeChange, software } from "$lib/software.svelte";
-  import { bytes, duration, plural, relative, scopeLabel, shortRev } from "$lib/format";
+  import { bytes, duration, plural, relative, remaining, scopeLabel, shortRev } from "$lib/format";
   import { actionLabels } from "../../src/domain";
   import BuildProgress from "$lib/components/app/BuildProgress.svelte";
   import StatusBadge from "$lib/components/app/StatusBadge.svelte";
@@ -18,6 +18,7 @@
   const system = $derived(app.system);
   const running = $derived(app.active);
   const runningStep = $derived(running?.steps?.find((step) => step.status === "running"));
+  const left = $derived(running && remaining(app.snapshot?.operations ?? [], running, app.now));
   const updates = $derived(app.inputUpdates.length + app.packageUpdates.length);
   const recent = $derived(app.snapshot?.operations.slice(0, 5) ?? []);
   const repo = $derived(system?.repository);
@@ -120,6 +121,7 @@
         <div>
           <h2 class="heading">{actionLabels[running.request.action]}</h2>
           <p class="text-muted-foreground">{runningStep?.label ?? running.step}, {duration(running, app.now)} so far</p>
+          {#if left}<p class="text-xs text-muted-foreground">{left}</p>{/if}
         </div>
         <div class="flex gap-2">
           <Button variant="outline" size="sm" onclick={() => open(running.id)}>Show output</Button>

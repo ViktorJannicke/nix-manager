@@ -154,7 +154,8 @@ The tray already checks for updates read-only and sends notifications.
   Decided: the download is reported as done ("were downloaded to prepare it"),
   since a review exists only after its build; amounts under 1 MiB are left out.
   Follow-up: an estimate before preparing would need a dry run of the build.
-- [ ] **Time estimates** for builds and downloads based on earlier runs.
+- [x] **Time estimates** for builds and downloads based on earlier runs: the
+  median of the last five runs of the same kind gives "about N minutes left".
 
 ## 6. Discover as an app store
 

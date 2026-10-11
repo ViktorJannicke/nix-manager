@@ -5,6 +5,7 @@
   import * as Dialog from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
+  import { remaining } from "$lib/format";
   import type { Operation } from "../../../../src/contracts";
   import BuildProgress from "./BuildProgress.svelte";
   import StatusBadge from "./StatusBadge.svelte";
@@ -24,6 +25,7 @@
   /** The operation the dialog is about now. */
   const current = $derived(apply ?? prepare);
   const running = $derived(current?.status === "running" || (prepare?.status === "succeeded" && !prepare.held && !apply));
+  const left = $derived(current?.status === "running" ? remaining(operations, current, app.now) : undefined);
   const building = $derived(prepare?.steps?.find((item) => item.status === "running" && item.label.startsWith("Build")));
 
   function close() {
@@ -91,6 +93,7 @@
           <StatusBadge status={apply?.status ?? (prepare.held || prepare.status !== "succeeded" ? "skipped" : "pending")} />
         </li>
       </ol>
+      {#if left}<p class="text-xs text-muted-foreground">{left}</p>{/if}
 
       {#if current && (current.status === "failed" || current.status === "interrupted")}
         <div class="flex gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs">

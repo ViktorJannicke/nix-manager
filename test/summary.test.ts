@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import type { BuildReview, EditedPackage, PackageChange, ReviewOutput } from "../src/contracts";
-import { reviewSummary } from "../src/summary";
+import type { Operation } from "../src/contracts";
+import { request } from "../src/domain";
+import { reviewSummary, timeLeft, usualSeconds } from "../src/summary";
 
 const MiB = 1024 * 1024;
 const review = (fields: Partial<BuildReview>): BuildReview => ({
@@ -56,4 +58,26 @@ test("an update counts packages, sources, space and a new kernel", () => {
   expect(reviewSummary(review({ home: output([], undefined, { compared: false }) }))).toBe(
     "Builds everything new, as nothing is active to compare with.",
   );
+});
+
+test("time estimates use the median of earlier runs of the same kind", () => {
+  const run = (minutes: number, day: number, fields: Partial<Operation> = {}, update = true): Operation =>
+    ({
+      id: `${day}`,
+      request: request({ action: "review-build", update }),
+      status: "succeeded",
+      startedAt: `2026-10-${String(day).padStart(2, "0")}T10:00:00Z`,
+      finishedAt: new Date(Date.parse(`2026-10-${String(day).padStart(2, "0")}T10:00:00Z`) + minutes * 60_000).toISOString(),
+      ...fields,
+    }) as Operation;
+  const asked = request({ action: "review-build", update: true });
+  expect(usualSeconds([run(4, 1)], asked)).toBeUndefined();
+  // The oldest of six runs is ignored, and so are failures and other kinds.
+  const runs = [run(60, 1), run(2, 2), run(3, 3), run(10, 4), run(4, 5), run(5, 6), run(1, 7, { status: "failed" }), run(1, 8, {}, false)];
+  expect(usualSeconds(runs, asked)).toBe(4 * 60);
+  expect(timeLeft(undefined, 10)).toBeUndefined();
+  expect(timeLeft(240, 60)).toBe("About 3 minutes left");
+  expect(timeLeft(240, 230)).toBe("Less than a minute left");
+  expect(timeLeft(240, 400)).toBe("Taking longer than usual");
+  expect(timeLeft(5400, 0)).toBe("About 1.5 hours left");
 });

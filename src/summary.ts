@@ -1,4 +1,5 @@
-import type { BuildReview, EditEffect, Generation, PackageChange } from "./contracts";
+import type { BuildReview, EditEffect, Generation, Operation, PackageChange } from "./contracts";
+import type { Request } from "./domain";
 
 /** "1 change", "2 changes". */
 export const plural = (count: number, one: string, many = `${one}s`) =>
@@ -86,4 +87,34 @@ export function removedGenerations(generations: Generation[], retention: number)
       .map((generation) => generation.number),
   );
   return generations.filter((generation) => !generation.current && !kept.has(generation.number));
+}
+
+const sameKind = (a: Request, b: Request) =>
+  a.action === b.action && a.scope === b.scope && a.update === b.update && !!a.edits === !!b.edits && !a.dryRun;
+
+/** Typical seconds for `request`: the median of the last five earlier runs of the same kind, if there were two. */
+export function usualSeconds(operations: readonly Operation[], request: Request) {
+  const seconds = operations
+    .filter((operation) => operation.status === "succeeded" && operation.finishedAt && sameKind(operation.request, request))
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    .slice(0, 5)
+    .map((operation) => (Date.parse(operation.finishedAt!) - Date.parse(operation.startedAt)) / 1000)
+    .sort((a, b) => a - b);
+  if (seconds.length < 2) return undefined;
+  const middle = Math.floor(seconds.length / 2);
+  return seconds.length % 2 ? seconds[middle] : (seconds[middle - 1] + seconds[middle]) / 2;
+}
+
+const roughly = (seconds: number) => {
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 1) return "less than a minute";
+  if (minutes < 60) return `about ${plural(minutes, "minute")}`;
+  return `about ${plural(Math.round(minutes / 6) / 10, "hour")}`;
+};
+
+/** A plain estimate of the time left, or undefined without earlier runs. */
+export function timeLeft(usual: number | undefined, elapsed: number) {
+  if (usual === undefined) return undefined;
+  if (elapsed > usual * 1.2 + 30) return "Taking longer than usual";
+  return `${roughly(Math.max(0, usual - elapsed))} left`.replace(/^./, (c) => c.toUpperCase());
 }
