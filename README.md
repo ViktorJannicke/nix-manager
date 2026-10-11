@@ -107,6 +107,11 @@ pinned WebUI native library; nothing is downloaded at application startup.
 An installed browser is required. `--browser` uses the desktop's default browser;
 `--no-open` prints the local session link for manual use.
 
+The package adds Nix Manager to the application menu with its own icon. Opening
+it while the tray runs brings up the tray's dashboard instead of a second one.
+When it was started without a terminal and cannot read the configuration, the
+window explains why.
+
 On a computer without a configuration checkout, `ui` starts with a setup
 assistant. It copies `/etc/nixos` into a new folder in the home folder (by
 default `~/nixos-config`), adds a `flake.nix` with the computer's NixOS
@@ -272,12 +277,12 @@ To start the tray with graphical sessions, set in the NixOS configuration:
 ```nix
 programs.nix-manager.tray = {
   enable = true;
-  flakePath = "%h/my-flakes";
   intervalMinutes = 360;
 };
 ```
 
-Tray autostart defaults to disabled. After a system switch that enables it, the
+The tray uses the same checkout as the window; `flakePath = "%h/configuration"`
+selects another one. Tray autostart defaults to disabled. After a system switch that enables it, the
 user service starts with the next graphical session, or with
 `systemctl --user start nix-manager-tray`. Only one tray instance per user can
 register. Restarting Plasma's tray host causes the item to register again.

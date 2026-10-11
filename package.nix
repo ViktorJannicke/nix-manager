@@ -22,10 +22,10 @@ let
     genericName = "System and package updates";
     comment = "Manage NixOS and Home Manager configurations";
     exec = "nix-manager ui";
-    icon = "system-software-update";
+    icon = "nix-manager";
     categories = [
       "System"
-      "Settings"
+      "PackageManager"
     ];
     terminal = false;
     actions.Tray = {
@@ -94,6 +94,7 @@ buildNpmPackage {
         ]
       }
     cp -r ${desktop}/share/applications $out/share/
+    install -Dm644 ui/public/nix-manager.svg $out/share/icons/hicolor/scalable/apps/nix-manager.svg
     runHook postInstall
   '';
   passthru = { inherit webui nixGrammar; };

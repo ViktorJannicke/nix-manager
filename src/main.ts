@@ -144,12 +144,12 @@ async function execute(cli: Cli, config: Config, manager: Manager, terminal: Ter
  * Runs the setup assistant until it created a checkout. Resolves with the
  * assistant's server and window, or undefined when its window was closed.
  */
-async function setUp(cli: Cli) {
+async function setUp(cli: Cli, problem?: { message: string; flake: string }) {
   const { browserAssets } = await import("./server");
   const { startSetupServer } = await import("./setup-server");
   let finish!: (path: string | undefined) => void;
   const created = new Promise<string | undefined>((resolve) => (finish = resolve));
-  const setup = startSetupServer(await browserAssets(), finish);
+  const setup = startSetupServer(await browserAssets(), finish, problem);
   let window: ReturnType<typeof import("./window").createWindow> | undefined;
   if (cli.noOpen) console.log(`Nix Manager setup: ${setup.url}`);
   else if (cli.browser)
@@ -160,8 +160,9 @@ async function setUp(cli: Cli) {
     window.show(setup.url);
   }
   const startedAt = Date.now();
+  // The window has no close event; it is closed once it stops asking.
   const idle = setInterval(() => {
-    if (!cli.noOpen && Date.now() - startedAt > 60_000 && !setup.attended) finish(undefined);
+    if (!cli.noOpen && Date.now() - startedAt > (problem ? 15_000 : 60_000) && !setup.attended) finish(undefined);
   }, 1_000);
   const interrupt = () => finish(undefined);
   process.on("SIGINT", interrupt);
@@ -212,6 +213,12 @@ async function main(args: string[]) {
   }
   const cli = await parseCli(args);
   if (!cli) return;
+  // The menu entry opens the tray's dashboard when the tray runs already,
+  // instead of a second dashboard for the same configuration.
+  if (cli.mode === "ui" && !cli.noOpen && !cli.browser && !cli.flake && !cli.host && !process.env.NIX_MANAGER_FLAKE) {
+    const { showRunningTray } = await import("./tray");
+    if (await showRunningTray()) return;
+  }
   // A computer the assistant just set up turns flakes on with its first apply;
   // asking for them again is harmless where they are on.
   allowFlakes();
@@ -224,9 +231,20 @@ async function main(args: string[]) {
       if (!setup) return;
     }
   }
-  const config = await Effect.runPromise(
-    loadConfig(cli.flake, cli.host).pipe(Effect.provide(runnerLayer())),
+  const loaded = await Effect.runPromise(
+    Effect.either(loadConfig(cli.flake, cli.host)).pipe(Effect.provide(runnerLayer())),
   );
+  if (loaded._tag === "Left") {
+    // Started from the menu, an error on the terminal would go unseen.
+    if (cli.mode === "ui" && !cli.noOpen && !setup && !process.stdout.isTTY) {
+      const checkout = await Effect.runPromise(selectCheckout(cli.flake).pipe(Effect.provide(runnerLayer())));
+      await setUp(cli, { message: loaded.left.message, flake: checkout.path });
+      process.exitCode = 1;
+      return;
+    }
+    throw loaded.left;
+  }
+  const config = loaded.right;
   const terminal = new TerminalRenderer(cli);
   const manager = new Manager(
     config,

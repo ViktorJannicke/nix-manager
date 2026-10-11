@@ -5,7 +5,7 @@ import dbus from "dbus-next";
 import { Effect } from "effect";
 import { fixture } from "./helpers";
 import { Manager } from "../src/manager";
-import { startTray } from "../src/tray";
+import { showRunningTray, startTray } from "../src/tray";
 
 test("tray registers StatusNotifierItem and exposes a working D-Bus menu on a private session", async () => {
   const config = fixture();
@@ -87,9 +87,16 @@ test("tray registers StatusNotifierItem and exposes a working D-Bus menu on a pr
     });
     const busyLayout = await menu.GetLayout(0, -1, []);
     expect(busyLayout[1][2][2].value[1].enabled.value).toBe(false);
+    // Starting the window again opens the running tray's dashboard instead.
+    expect(await showRunningTray()).toBe(true);
+    await Bun.sleep(5);
+    expect(opens).toBe(3);
     await menu.Event(4, "clicked", new dbus.Variant("s", ""), 0);
     await Bun.sleep(5);
     expect(quits).toBe(1);
+    tray.close();
+    tray = undefined;
+    expect(await showRunningTray()).toBe(false);
   } finally {
     tray?.close();
     await manager.close();

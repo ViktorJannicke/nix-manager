@@ -204,8 +204,13 @@ The tray already checks for updates read-only and sends notifications.
   (missing files, channel imports) is reported and the folder removed again;
   converting channel imports is left to the user. An `/etc/nixos` that is a
   flake already is not converted.
-- [ ] **Starts like an app.** Menu entry and icon from the NixOS module, opening
+- [x] **Starts like an app.** Menu entry and icon from the NixOS module, opening
   the dashboard without a terminal.
+  Decided: the package installs its own icon with the menu entry. Opening it
+  while the tray runs shows the tray's dashboard over D-Bus instead of starting
+  a second one, and a configuration that cannot be read is explained in the
+  window rather than on a terminal nobody sees. The tray follows the window's
+  checkout unless `tray.flakePath` is set.
 
 ## 8. For everyone
 

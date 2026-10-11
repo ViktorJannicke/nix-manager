@@ -13,6 +13,35 @@ type Layout = [number, Properties, InstanceType<typeof Variant>[]];
 /** A button on a desktop notification. */
 type NotificationAction = { key: string; label: string; run: () => void | Promise<void> };
 
+/** The bus name the running tray owns. */
+export const trayName = "org.kde.StatusNotifierItem.nix_manager";
+
+/**
+ * Opens the dashboard of a tray that already runs, as clicking it would.
+ * Resolves false when there is no tray or no session bus to ask.
+ */
+export async function showRunningTray(timeout = 2_000) {
+  if (!process.env.DBUS_SESSION_BUS_ADDRESS) return false;
+  const bus = dbus.sessionBus();
+  bus.on("error", () => {});
+  const ask = async () => {
+    const daemon = (await bus.getProxyObject("org.freedesktop.DBus", "/org/freedesktop/DBus")).getInterface("org.freedesktop.DBus");
+    if (!(await daemon.NameHasOwner(trayName))) return false;
+    const item = (await bus.getProxyObject(trayName, "/StatusNotifierItem")).getInterface("org.kde.StatusNotifierItem");
+    await item.Activate(0, 0);
+    return true;
+  };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([ask(), new Promise<boolean>((resolve) => (timer = setTimeout(() => resolve(false), timeout)))]);
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+    bus.disconnect();
+  }
+}
+
 export async function startTray(
   manager: Manager,
   open: () => Promise<void>,
@@ -315,7 +344,7 @@ export async function startTray(
   bus.export("/StatusNotifierItem", item);
   bus.export("/MenuBar", menu);
   // One tray per user, even if a desktop file and systemd both launch it.
-  const name = "org.kde.StatusNotifierItem.nix_manager";
+  const name = trayName;
   const result = await bus.requestName(name, 4);
   if (result !== 1) {
     bus.disconnect();

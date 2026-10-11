@@ -51,6 +51,17 @@
 
 <main class="scroll-thin h-screen overflow-auto">
   <div class="mx-auto max-w-2xl space-y-8 px-8 py-12">
+    {#if current?.problem}
+      <header class="space-y-2">
+        <p class="flex items-center gap-2 font-bold tracking-tight"><SnowflakeIcon class="size-5 text-primary" /> Nix Manager</p>
+        <h1 class="title">Nix Manager could not start</h1>
+      </header>
+      <p class="rounded-lg bg-destructive/10 px-4 py-3" role="alert">{current.problem.message}</p>
+      <p class="text-muted-foreground">
+        It reads the configuration in <code class="font-mono">{current.problem.flake}</code>. Fix the problem there and open Nix Manager again,
+        or run <code class="font-mono">nix-manager ui --flake &lt;folder&gt;</code> in a terminal to choose another configuration.
+      </p>
+    {:else}
     <header class="space-y-2">
       <p class="flex items-center gap-2 font-bold tracking-tight"><SnowflakeIcon class="size-5 text-primary" /> Nix Manager</p>
       <h1 class="title">Set up this computer</h1>
@@ -131,6 +142,8 @@
           version you applied stays as a restore point you can go back to.
         </p>
       </section>
+    {/if}
+
     {/if}
 
     {#if failure}<p class="text-destructive" role="alert">{failure}</p>{/if}

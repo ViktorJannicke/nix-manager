@@ -73,6 +73,8 @@ in
       first.systemd.user.services.nix-manager-tray.environment.NIX_MANAGER_HOSTS
       == "/etc/nix-manager/hosts.json";
     assert first.security.wrappers.pkexec.enable;
+    assert
+      !(lib.hasInfix "--flake" first.systemd.user.services.nix-manager-tray.serviceConfig.ExecStart);
     pkgs.runCommand "nix-manager-module-tests" { } "touch $out";
   formatting =
     pkgs.runCommand "nix-manager-nix-formatting"

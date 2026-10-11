@@ -56,9 +56,14 @@ in
     tray = {
       enable = lib.mkEnableOption "Nix Manager tray in graphical sessions";
       flakePath = lib.mkOption {
-        type = lib.types.str;
-        default = "%h/my-flakes";
-        description = "Checkout used by the tray; %h expands to the user's home directory.";
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "%h/nixos-config";
+        description = ''
+          Checkout used by the tray; %h expands to the user's home directory.
+          Null uses the same checkout as the window: the one the setup
+          assistant created, or ~/my-flakes.
+        '';
       };
       intervalMinutes = lib.mkOption {
         type = lib.types.ints.between 5 10080;
@@ -86,7 +91,18 @@ in
       after = [ "graphical-session.target" ];
       environment = lib.optionalAttrs hasHosts { NIX_MANAGER_HOSTS = registryPath; };
       serviceConfig = {
-        ExecStart = "${lib.getExe cfg.package} --flake ${lib.escapeShellArg cfg.tray.flakePath} tray --interval ${toString cfg.tray.intervalMinutes}";
+        ExecStart = lib.concatStringsSep " " (
+          [ (lib.getExe cfg.package) ]
+          ++ lib.optionals (cfg.tray.flakePath != null) [
+            "--flake"
+            (lib.escapeShellArg cfg.tray.flakePath)
+          ]
+          ++ [
+            "tray"
+            "--interval"
+            (toString cfg.tray.intervalMinutes)
+          ]
+        );
         Restart = "on-failure";
         RestartSec = 30;
       };

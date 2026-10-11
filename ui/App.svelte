@@ -30,7 +30,7 @@
   import Setup from "./pages/Setup.svelte";
 
   /** Started before there is a configuration: only the setup assistant runs. */
-  const setup = new URLSearchParams(location.search).has("setup");
+  const setup = new URLSearchParams(location.search).has("setup") || new URLSearchParams(location.search).has("problem");
   onMount(() => {
     if (setup) app.applyTheme(app.theme);
     else app.start();

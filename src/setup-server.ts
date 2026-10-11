@@ -1,5 +1,6 @@
 // A small server for the setup assistant, used before there is a checkout to
-// manage. It serves the same interface, which shows only the assistant.
+// manage. It serves the same interface, which shows only the assistant, or
+// why the dashboard could not start when it was opened without a terminal.
 
 import { timingSafeEqual } from "node:crypto";
 import { homedir } from "node:os";
@@ -17,13 +18,16 @@ export interface SetupState {
   error?: string;
   /** The dashboard's address, once it runs. */
   next?: string;
+  /** Why the dashboard could not start; nothing else is offered then. */
+  problem?: { message: string; flake: string };
 }
 
-export function startSetupServer(assets: UiAssets, onCreated: (path: string) => void) {
+export function startSetupServer(assets: UiAssets, onCreated: (path: string) => void, problem?: SetupState["problem"]) {
   const token = crypto.randomUUID() + crypto.randomUUID();
-  const state: SetupState = { steps: setupSteps.map((step) => ({ ...step, status: "waiting" })), running: false };
+  const state: SetupState = { steps: setupSteps.map((step) => ({ ...step, status: "waiting" })), running: false, problem };
   let lastSeen = Date.now();
   const read = () =>
+    problem ? Promise.resolve() :
     Effect.runPromise(readSetup().pipe(Effect.provide(runnerLayer()))).then(
       (info) => (state.info = info),
       (error) => (state.error = `${error.message ?? error}`),
@@ -72,6 +76,7 @@ export function startSetupServer(assets: UiAssets, onCreated: (path: string) => 
         await loaded;
         if (req.method === "GET") return json(state);
         if (req.method !== "POST") return json({ error: "Method not allowed." }, 405);
+        if (problem) return json({ error: "Nix Manager could not start." }, 409);
         if (req.headers.get("content-type") !== "application/json") return json({ error: "Expected application/json." }, 415);
         const { target, refresh } = ((await req.json().catch(() => ({}))) ?? {}) as { target?: unknown; refresh?: unknown };
         if (state.running || state.next) return json({ error: "Setup is already running." }, 409);
@@ -82,8 +87,8 @@ export function startSetupServer(assets: UiAssets, onCreated: (path: string) => 
         }
         if (typeof target !== "string") return json({ error: "Choose a folder." }, 400);
         const path = target.replace(/^~(?=$|\/)/, homedir());
-        const problem = state.info?.blocked ?? targetProblem(path);
-        if (problem) return json({ error: problem }, 400);
+        const refused = state.info?.blocked ?? targetProblem(path);
+        if (refused) return json({ error: refused }, 400);
         create(path);
         return json(state);
       }
@@ -96,7 +101,7 @@ export function startSetupServer(assets: UiAssets, onCreated: (path: string) => 
     },
   });
   return {
-    url: `http://127.0.0.1:${server.port}/?setup#${token}`,
+    url: `http://127.0.0.1:${server.port}/?${problem ? "problem" : "setup"}#${token}`,
     /** Whether a page asked for the state recently, or setup is running. */
     get attended() {
       return state.running || Date.now() - lastSeen < 20_000;
