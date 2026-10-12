@@ -37,6 +37,8 @@
           default = manager;
           nix-manager = manager;
           npm-deps = manager.npmDeps;
+          # Slow VM test, kept out of `nix flake check`; see nix/lab.
+          desktop-a11y = import ./nix/lab/desktop-a11y.nix { inherit pkgs self; };
         }
       );
 
