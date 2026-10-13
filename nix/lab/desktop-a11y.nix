@@ -2,7 +2,7 @@
 # what Orca says are copied to the test output; see machine.nix.
 { pkgs, self }:
 let
-  userAccount = "${pkgs.path}/nixos/tests/common/user-account.nix";
+  userAccount = pkgs.path + "/nixos/tests/common/user-account.nix";
 in
 pkgs.testers.runNixOSTest {
   name = "nix-manager-desktop-a11y";
