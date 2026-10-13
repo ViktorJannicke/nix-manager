@@ -40,6 +40,14 @@
           # Slow VM test, kept out of `nix flake check`; see nix/lab.
           desktop-a11y = import ./nix/lab/desktop-a11y.nix { inherit pkgs self; };
           speech-audio = import ./nix/lab/speech-audio.nix { inherit pkgs self; };
+          desktop-apply = import ./nix/lab/desktop-apply.nix {
+            inherit
+              pkgs
+              self
+              nixpkgs
+              home-manager
+              ;
+          };
           lab = import ./nix/lab/lab.nix {
             inherit pkgs;
             test = self.packages.${system}.desktop-a11y;
@@ -64,6 +72,20 @@
             program = nixpkgs.lib.getExe self.packages.${system}.lab;
             meta.description = "Drive a GNOME and Orca test VM with Nix Manager installed";
           };
+        }
+      );
+
+      # Lab VM systems and homes, for the configuration checkout in
+      # nix/lab/desktop-apply.nix; not for real machines.
+      lib.lab = forAllSystems (
+        system:
+        import ./nix/lab/system.nix {
+          inherit
+            nixpkgs
+            home-manager
+            self
+            system
+            ;
         }
       );
 
