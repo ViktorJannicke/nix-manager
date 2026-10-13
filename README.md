@@ -456,6 +456,27 @@ Nix formatting and the NixOS module, including runtime host configuration that
 does not alter the application derivation. Updater and fixed-output hash tests
 run as part of the package's Bun test suite.
 
+### Desktop and screen-reader VM tests
+
+Three slower NixOS VM tests in `nix/lab` run outside `nix flake check`. They
+need KVM:
+
+```sh
+nix build .#desktop-a11y   # GNOME and Orca: tab order, typing, and what Orca says
+nix build .#speech-audio   # Orca's real speech, recorded and heard by whisper.cpp
+nix build .#desktop-apply  # Apply now, Apply on next boot with a reboot, and cleanup
+```
+
+Orca's speech is written to a text transcript, so the tests compare exactly
+what a screen-reader user hears. `desktop-apply` boots through systemd-boot
+with a configuration checkout whose systems are prebuilt on the host through
+`lib.lab`, so the offline VM builds nothing. Its disk image takes about 9 GB.
+
+`nix run .#lab -- start` boots the `desktop-a11y` VM in the background, and
+further `nix run .#lab --` commands press keys, type, take screenshots, print the
+accessibility tree or Orca's speech, and run commands inside it. `nix run .#lab`
+lists them. Nothing opens on the host desktop.
+
 Core modules:
 
 - `domain.ts`, `contracts.ts`, `cli.ts`, `config.ts`: schemas, browser-safe state,
