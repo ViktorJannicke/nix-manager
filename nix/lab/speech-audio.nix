@@ -4,7 +4,7 @@
 # the test output.
 { pkgs, self }:
 let
-  userAccount = "${pkgs.path}/nixos/tests/common/user-account.nix";
+  userAccount = pkgs.path + "/nixos/tests/common/user-account.nix";
   # The model nixpkgs' local-ai tests use: small, English only.
   model = pkgs.fetchurl {
     url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en-q5_1.bin";
