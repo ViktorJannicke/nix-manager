@@ -403,7 +403,9 @@ live state.
 
 Update checks write a proposed flake lock to a temporary directory using Nix's
 `--output-lock-file`, then compare input revisions. Stable GitHub releases are
-compared against the local package pins. A package may already be newer in locked
+compared against the local package pins. A pin with `"channel": "nightly"`
+follows the newest `vX.Y.Z-nightly.YYYYMMDD.N` or stable release instead; a
+nightly sorts before the stable release with the same `X.Y.Z`. A package may already be newer in locked
 nixpkgs; its updater detects that and skips an unnecessary pin update. Partial
 check failures remain visible and make `check` exit nonzero. Cached results show
 their check time and can become stale until the next check.

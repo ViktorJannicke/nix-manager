@@ -411,11 +411,11 @@ export function plan(config: Config, r: Request, review?: BuildReview, undo?: Un
     ]);
   if (r.action === "check") {
     notes.push(
-      msg("Resolve inputs in a temporary copy and compare stable package releases. The checkout is unchanged."),
+      msg("Resolve inputs in a temporary copy and compare package releases on each pin's channel. The checkout is unchanged."),
     );
   } else if (isPackage(r.action)) {
     notes.push(
-      msg("Compare stable release and inherited recipes, discover hashes, then build before atomically replacing the pin."),
+      msg("Compare the latest release on the pin's channel and inherited recipes, discover hashes, then build before atomically replacing the pin."),
     );
   } else {
     if (r.action === "build") {

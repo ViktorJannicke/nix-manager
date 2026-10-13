@@ -42,10 +42,19 @@ export const networkLayer = Layer.succeed(Network, {
     ),
 });
 const json = (text: string): any => JSON.parse(text);
+const stableVersion = /^(\d+)\.(\d+)\.(\d+)$/;
+const nightlyVersion = /^(\d+)\.(\d+)\.(\d+)-nightly\.(\d{8})\.(\d+)$/;
 const Pin = Schema.Struct({
-  version: Schema.String.pipe(Schema.pattern(/^\d+\.\d+\.\d+$/)),
+  version: Schema.String.pipe(
+    Schema.filter((v) => stableVersion.test(v) || nightlyVersion.test(v), {
+      message: () => "Expected X.Y.Z or X.Y.Z-nightly.YYYYMMDD.N",
+    }),
+  ),
+  /** Nightly follows the newest nightly or stable release. */
+  channel: Schema.optional(Schema.Literal("stable", "nightly")),
   nixpkgsRev: Schema.optional(Schema.String),
 });
+type Channel = "stable" | "nightly";
 const Lockfile = Schema.Struct({
   nodes: Schema.Record({
     key: Schema.String,
@@ -81,14 +90,20 @@ const saveJson = (path: string, data: unknown) =>
   attempt(`Write ${path}`, () =>
     writeFile(path, JSON.stringify(data, null, 2) + "\n"),
   );
+/** Orders X.Y.Z and X.Y.Z-nightly.YYYYMMDD.N; nightlies precede their X.Y.Z. */
 export function compareVersions(a: string, b: string): number {
-  if (![a, b].every((v) => /^\d+\.\d+\.\d+$/.test(v)))
-    throw new ManagerError({
-      message: `Expected stable semantic versions: ${a}, ${b}`,
-    });
-  const aa = a.split(".").map(BigInt),
-    bb = b.split(".").map(BigInt);
-  for (let i = 0; i < 3; i++)
+  const parse = (v: string) => {
+    const stable = v.match(stableVersion),
+      parts = (stable || v.match(nightlyVersion))?.slice(1).map(BigInt);
+    if (!parts)
+      throw new ManagerError({
+        message: `Expected X.Y.Z or X.Y.Z-nightly.YYYYMMDD.N versions: ${a}, ${b}`,
+      });
+    return stable ? [...parts, BigInt(Number.MAX_SAFE_INTEGER), 0n] : parts;
+  };
+  const aa = parse(a),
+    bb = parse(b);
+  for (let i = 0; i < 5; i++)
     if (aa[i] !== bb[i]) return aa[i] > bb[i] ? 1 : -1;
   return 0;
 }
@@ -116,15 +131,28 @@ export const packages = {
   },
 };
 export type Package = keyof typeof packages;
-const latest = (name: Package) =>
+const latest = (name: Package, channel: Channel = "stable") =>
   Effect.gen(function* () {
     const network = yield* Network;
     const p = packages[name];
     const raw = yield* network.text(
-      `https://api.github.com/repos/${p.owner}/${p.repo}/releases/latest`,
+      channel === "nightly"
+        ? `https://api.github.com/repos/${p.owner}/${p.repo}/releases?per_page=100`
+        : `https://api.github.com/repos/${p.owner}/${p.repo}/releases/latest`,
     );
     return yield* Effect.try({
       try: () => {
+        if (channel === "nightly") {
+          const releases: { tag_name?: string; draft?: boolean }[] = json(raw);
+          const versions = releases
+            .filter((release) => !release.draft)
+            .map((release) => release.tag_name?.replace(/^v/, "") || "")
+            .filter((v) => stableVersion.test(v) || nightlyVersion.test(v))
+            .sort(compareVersions);
+          if (!versions.length)
+            throw new Error("No stable or nightly release tags found");
+          return versions.at(-1)!;
+        }
         const version = json(raw).tag_name?.match(/^v(\d+\.\d+\.\d+)$/)?.[1];
         if (!version)
           throw new Error("Release does not have a stable vX.Y.Z tag");
@@ -251,7 +279,8 @@ export const updatePackage = (
         readFile(pinFile, "utf8"),
       );
       const pin = yield* parsePin(before);
-      const version = yield* latest(name);
+      const channel = pin.channel || "stable";
+      const version = yield* latest(name, channel);
       if (p.blockedVersions.includes(version))
         return yield* Effect.fail(
           new ManagerError({
@@ -262,7 +291,7 @@ export const updatePackage = (
         try: () => compareVersions(pin.version, version),
         catch: (e) => e as ManagerError,
       });
-      log(`${name}: local pin ${pin.version} | stable release ${version}`);
+      log(`${name}: local pin ${pin.version} | ${channel} release ${version}`);
       if (order > 0)
         return yield* Effect.fail(
           new ManagerError({ message: `Refusing a ${name} downgrade.` }),
@@ -401,6 +430,7 @@ export const updatePackage = (
           ? { version, hash }
           : {
               version,
+              ...(pin.channel ? { channel: pin.channel } : {}),
               srcHash: hash,
               nixpkgsRev: rev,
               ...(name === "t3code"
@@ -529,7 +559,7 @@ export const checkUpdates = (config: Config) =>
           const pin = yield* attempt(`Read ${name} pin`, () =>
             readFile(join(config.flake, "pkgs", name, "source.json"), "utf8"),
           ).pipe(Effect.flatMap(parsePin));
-          const version = yield* latest(name);
+          const version = yield* latest(name, pin.channel);
           if (
             compareVersions(version, pin.version) > 0 &&
             !packages[name].blockedVersions.includes(version)
