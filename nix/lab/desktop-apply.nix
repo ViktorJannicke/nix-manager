@@ -154,7 +154,20 @@ let
         # What confirming does is part of the dialog's description.
         assert "stays as a restore point you can go back to" in spoken, "Orca did not read what confirming does"
         tab_to(action)
+        before = operations()
         machine.send_key("ret")
+        # The whole operation, boot entry and home activation included, not
+        # just the first profile it switches.
+        newest = "$(ls -t /home/alice/.local/state/nix-manager/operations/*.json | head -1)"
+        machine.wait_until_succeeds(
+            f"[ $(ls /home/alice/.local/state/nix-manager/operations/*.json | wc -l) -gt {before} ]"
+            f" && ! grep -q '^  \"status\": \"running\"' {newest}",
+            timeout=timedelta(minutes=10),
+        )
+        machine.succeed(f"grep -q '^  \"status\": \"succeeded\"' {newest}")
+
+    def operations():
+        return int(machine.succeed("ls /home/alice/.local/state/nix-manager/operations/*.json | wc -l").strip())
 
     def lab_setup():
         machine.copy_from_host("${cache}", "/tmp/lab-cache")

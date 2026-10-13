@@ -138,6 +138,9 @@
     ""
     "${pkgs.orca}/bin/orca --replace --debug --debug-file /run/lab/orca-debug.out"
   ];
+  # Chromium renders in software here and can answer AT-SPI slowly; Orca 50
+  # then blocks past its 6-second watchdog and is killed mid-sentence.
+  systemd.user.services.orca.serviceConfig.WatchdogSec = "30s";
   # Not /tmp: protected_regular stops root from opening files there that
   # the user's speech-dispatcher created.
   systemd.tmpfiles.rules = [ "d /run/lab 0777 root root -" ];
