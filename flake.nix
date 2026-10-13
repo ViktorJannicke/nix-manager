@@ -50,7 +50,14 @@
           };
           lab = import ./nix/lab/lab.nix {
             inherit pkgs;
+            name = "nix-manager-lab";
             test = self.packages.${system}.desktop-a11y;
+          };
+          lab-apply = import ./nix/lab/lab.nix {
+            inherit pkgs;
+            name = "nix-manager-lab-apply";
+            test = self.packages.${system}.desktop-apply;
+            setup = self.packages.${system}.desktop-apply.labSetup;
           };
         }
       );
@@ -71,6 +78,11 @@
             type = "app";
             program = nixpkgs.lib.getExe self.packages.${system}.lab;
             meta.description = "Drive a GNOME and Orca test VM with Nix Manager installed";
+          };
+          lab-apply = {
+            type = "app";
+            program = nixpkgs.lib.getExe self.packages.${system}.lab-apply;
+            meta.description = "Drive the test VM with a configuration checkout that can apply for real";
           };
         }
       );

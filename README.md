@@ -464,7 +464,7 @@ need KVM:
 ```sh
 nix build .#desktop-a11y   # GNOME and Orca: tab order, typing, and what Orca says
 nix build .#speech-audio   # Orca's real speech, recorded and heard by whisper.cpp
-nix build .#desktop-apply  # Apply now, Apply on next boot with a reboot, and cleanup
+nix build .#desktop-apply  # the dashboard and software apply for real, a reboot, cleanup
 ```
 
 Orca's speech is written to a text transcript, so the tests compare exactly
@@ -474,7 +474,9 @@ with a configuration checkout whose systems are prebuilt on the host through
 
 `nix run .#lab -- start` boots the `desktop-a11y` VM in the background, and
 further `nix run .#lab --` commands press keys, type, take screenshots, print the
-accessibility tree or Orca's speech, and run commands inside it. `nix run .#lab`
+accessibility tree or Orca's speech, copy files in and out, and run commands
+inside it. `nix run .#lab-apply` does the same with the `desktop-apply` VM and
+alice's checkout. Only one lab runs at a time. `nix run .#lab`
 lists them. Nothing opens on the host desktop.
 
 Core modules:
