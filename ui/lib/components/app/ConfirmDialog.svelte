@@ -21,15 +21,23 @@
     {#if confirmation}
       <Dialog.Header>
         <Dialog.Title>{confirmation.title}</Dialog.Title>
-        <Dialog.Description>{confirmation.description}</Dialog.Description>
+        <!-- The points belong to the description, so screen readers announce
+             what confirming does when the dialog opens. -->
+        <Dialog.Description>
+          {#snippet child({ props })}
+            <div {...props}>
+              <p>{confirmation.description}</p>
+              {#if confirmation.points?.length}
+                <ul class="mt-4 space-y-1.5 text-foreground">
+                  {#each confirmation.points as point}
+                    <li class="flex gap-2"><span class="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary"></span>{point}</li>
+                  {/each}
+                </ul>
+              {/if}
+            </div>
+          {/snippet}
+        </Dialog.Description>
       </Dialog.Header>
-      {#if confirmation.points?.length}
-        <ul class="space-y-1.5">
-          {#each confirmation.points as point}
-            <li class="flex gap-2"><span class="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary"></span>{point}</li>
-          {/each}
-        </ul>
-      {/if}
       {#if confirmation.error}
         <p class="rounded-lg bg-destructive/10 px-3 py-2 text-destructive" role="alert">{t(confirmation.error)}</p>
       {/if}
