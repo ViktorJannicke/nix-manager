@@ -62,14 +62,16 @@ while True:
         time.sleep(0.1)
         continue
     with open(request_path) as file:
-        request = json.load(file)
+        text = file.read()
     os.remove(request_path)
-    if request["kind"] == "stop":
-        break
+    request = {}
     try:
+        request = json.loads(text)
+        if request["kind"] == "stop":
+            break
         status, output = handle(request["kind"], request["args"])
     except Exception as error:
         status, output = 1, f"{type(error).__name__}: {error}\n"
     with open(f"{response_path}.tmp", "w") as file:
-        json.dump({"status": status, "output": output}, file)
+        json.dump({"id": request.get("id"), "status": status, "output": output}, file)
     os.rename(f"{response_path}.tmp", response_path)
