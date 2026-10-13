@@ -46,6 +46,9 @@ let
         ];
       };
       networking.hostName = "machine";
+      # NetworkManager asks for DHCP on the test network, which has none; when
+      # that times out during a switch, the failed unit fails the whole apply.
+      systemd.services.NetworkManager-wait-online.enable = false;
 
       # Tests drive the app without a password dialog. A test that checks the
       # dialog itself removes this rule.

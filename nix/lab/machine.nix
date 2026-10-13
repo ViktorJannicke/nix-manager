@@ -33,11 +33,18 @@
     "${pkgs.gnome-shell}/bin/gnome-shell --unsafe-mode"
   ];
 
-  # Chromium joins the accessibility bus only when the desktop says
-  # accessibility is on; Orca says so too, but tests also read the tree
-  # without it.
   programs.dconf.profiles.user.databases = [
-    { settings."org/gnome/desktop/interface".toolkit-accessibility = true; }
+    {
+      settings = {
+        # Chromium joins the accessibility bus only when the desktop says
+        # accessibility is on; Orca says so too, but tests also read the tree
+        # without it.
+        "org/gnome/desktop/interface".toolkit-accessibility = true;
+        # Long tests and lab sessions sit idle; keep the screen on and unlocked.
+        "org/gnome/desktop/session".idle-delay = pkgs.lib.gvariant.mkUint32 0;
+        "org/gnome/desktop/screensaver".lock-enabled = false;
+      };
+    }
   ];
 
   # libao has no sound card in the VM; its null driver always opens.
@@ -51,8 +58,8 @@
     modules.transcript = ''
       AddVoice "en" "male1" "transcript"
       AddVoice "de" "male1" "transcript"
-      GenericLanguage "en" "en"
-      GenericLanguage "de" "de"
+      GenericLanguage "en" "en" "utf-8"
+      GenericLanguage "de" "de" "utf-8"
       GenericExecuteSynth "echo \'$DATA\' >> /run/lab/spoken.txt"
     '';
   };

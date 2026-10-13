@@ -40,6 +40,9 @@ def handle(kind, args):
         return machine.execute(" ".join(args))
     if kind == "user":
         return user(" ".join(args))
+    if kind == "put":
+        machine.copy_from_host(args[0], args[1])
+        return 0, ""
     if kind == "copy":
         machine.copy_from_machine(args[0])
         return 0, f"{machine.out_dir}/{os.path.basename(args[0])}\n"
@@ -55,6 +58,10 @@ machine.wait_until_succeeds(
     timeout=timedelta(minutes=5),
 )
 machine.send_key("esc")
+# A test's own preparation, such as the apply VM's configuration checkout.
+if os.environ.get("LAB_SETUP"):
+    exec(open(os.environ["LAB_SETUP"]).read())
+    lab_setup()
 open(f"{lab}/ready", "w").close()
 
 while True:

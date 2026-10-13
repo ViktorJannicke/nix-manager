@@ -1,9 +1,17 @@
-# nix run .#lab -- start | stop | status | <request> ...
-# Boots the desktop-a11y VM in the background and drives it one request at a
-# time; see the usage text below. Nothing opens on the host desktop.
-{ pkgs, test }:
+# nix run .#lab -- start | stop | status | <request> ..., and .#lab-apply alike.
+# Boots a test's VM in the background (desktop-a11y, or desktop-apply with
+# alice's checkout) and drives it one request at a time; see the usage text
+# below. Nothing opens on the host desktop. Both labs share one directory, so
+# only one runs at a time.
+{
+  pkgs,
+  name,
+  test,
+  # Python run once the desktop is up, defining lab_setup(); see desktop-apply.nix.
+  setup ? null,
+}:
 pkgs.writeShellApplication {
-  name = "nix-manager-lab";
+  inherit name;
   runtimeInputs = [
     pkgs.coreutils
     pkgs.jq
@@ -13,7 +21,7 @@ pkgs.writeShellApplication {
     lab=''${LAB_DIR:-''${XDG_CACHE_HOME:-$HOME/.cache}/nix-manager-lab}
     usage() {
       cat <<'EOF'
-    Usage: nix run .#lab -- COMMAND
+    Usage: nix run .#lab -- COMMAND, or .#lab-apply for the VM with a checkout
 
       start                 boot the VM and wait for the GNOME desktop
       stop                  shut the VM down
@@ -27,6 +35,7 @@ pkgs.writeShellApplication {
       sh COMMAND            run a command as root in the VM
       user COMMAND          run a command in alice's desktop session
       copy PATH             copy a file out of the VM; prints its path
+      put HOSTPATH PATH     copy a file or folder from the host into the VM
 
     Orca: user gsettings set org.gnome.desktop.a11y.applications screen-reader-enabled true
     With Orca on, wait a second after moving focus into a field before typing:
@@ -57,7 +66,7 @@ pkgs.writeShellApplication {
         mkdir -p "$lab/out" "$lab/state"
         # The driver keeps the VM disk in XDG_RUNTIME_DIR; keep it on disk, apart
         # from test runs.
-        LAB_DIR=$lab XDG_RUNTIME_DIR=$lab/state setsid ${test.driver}/bin/nixos-test-driver --no-interactive \
+        LAB_DIR=$lab LAB_SETUP="${toString setup}" XDG_RUNTIME_DIR=$lab/state setsid ${test.driver}/bin/nixos-test-driver --no-interactive \
           --test-script ${./serve.py} -o "$lab/out" >"$lab/driver.log" 2>&1 </dev/null &
         echo $! >"$lab/pid"
         until [ -e "$lab/ready" ]; do
@@ -82,7 +91,7 @@ pkgs.writeShellApplication {
         rm -f "$lab/pid"
         echo "The lab stopped."
         ;;
-      key | type | shot | tree | focused | speech | sh | user | copy)
+      key | type | shot | tree | focused | speech | sh | user | copy | put)
         running || { echo "The lab is not running; start it first." >&2; exit 1; }
         send "$@"
         until [ -e "$lab/response.json" ] && [ "$(jq -r .id "$lab/response.json")" = "$id" ]; do
