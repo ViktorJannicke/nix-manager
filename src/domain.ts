@@ -241,6 +241,13 @@ export function plan(config: Config, r: Request, review?: BuildReview, undo?: Un
       { progress: true },
     );
   const activateHome = (output: string) => {
+    // A user's first home generation: nix-env needs the profile's folder.
+    if (!config.homeProfileExists)
+      add(msg("Create the folder for home generations"), [
+        "mkdir",
+        "-p",
+        config.homeProfile.replace(/\/[^/]+$/, ""),
+      ]);
     add(msg("Select Home Manager generation"), [
       "nix-env",
       "--profile",
