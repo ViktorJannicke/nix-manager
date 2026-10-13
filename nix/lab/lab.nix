@@ -10,7 +10,7 @@ pkgs.writeShellApplication {
     pkgs.util-linux
   ];
   text = ''
-    lab=''${LAB_DIR:-''${XDG_RUNTIME_DIR:-/tmp}/nix-manager-lab}
+    lab=''${LAB_DIR:-''${XDG_CACHE_HOME:-$HOME/.cache}/nix-manager-lab}
     usage() {
       cat <<'EOF'
     Usage: nix run .#lab -- COMMAND
@@ -31,7 +31,8 @@ pkgs.writeShellApplication {
     Orca: user gsettings set org.gnome.desktop.a11y.applications screen-reader-enabled true
     With Orca on, wait a second after moving focus into a field before typing:
     until Orca switches to focus mode, it takes letters as browse-mode commands.
-    Files and the driver log are in $LAB_DIR (default: $XDG_RUNTIME_DIR/nix-manager-lab).
+    Files, the VM disk and the driver log are in $LAB_DIR (default: ~/.cache/nix-manager-lab);
+    start replaces them.
     EOF
     }
 
@@ -40,9 +41,12 @@ pkgs.writeShellApplication {
     case "''${1:-}" in
       start)
         if running; then echo "The lab is already running."; exit 0; fi
-        rm -rf "$lab"
-        mkdir -p "$lab/out"
-        LAB_DIR=$lab setsid ${test.driver}/bin/nixos-test-driver --no-interactive \
+        rm -rf "$lab/out" "$lab/state"
+        rm -f "$lab/ready" "$lab/request.json" "$lab/response.json" "$lab/driver.log"
+        mkdir -p "$lab/out" "$lab/state"
+        # The driver keeps the VM disk in XDG_RUNTIME_DIR; keep it on disk, apart
+        # from test runs.
+        LAB_DIR=$lab XDG_RUNTIME_DIR=$lab/state setsid ${test.driver}/bin/nixos-test-driver --no-interactive \
           --test-script ${./serve.py} -o "$lab/out" >"$lab/driver.log" 2>&1 </dev/null &
         echo $! >"$lab/pid"
         until [ -e "$lab/ready" ]; do
