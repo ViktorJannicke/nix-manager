@@ -153,6 +153,16 @@ test("home gc skips absent profiles and targets only the Home Manager profile", 
     "+3",
   ]);
 });
+test("a first home generation creates its profile folder before selecting it", () => {
+  const config = setup();
+  const labels = (homeProfileExists: boolean) =>
+    plan({ ...config, homeProfileExists }, request({ action: "switch", scope: "home" })).steps.map((s) => s.label);
+  const steps = plan({ ...config, homeProfileExists: false }, request({ action: "switch", scope: "home" })).steps;
+  const create = steps.findIndex((s) => s.label === "Create the folder for home generations");
+  expect(steps[create].argv).toEqual(["mkdir", "-p", config.homeProfile.replace(/\/home-manager$/, "")]);
+  expect(steps[create + 1].label).toBe("Select Home Manager generation");
+  expect(labels(true)).not.toContain("Create the folder for home generations");
+});
 for (const failure of [
   "Build home configuration",
   "Build system configuration",

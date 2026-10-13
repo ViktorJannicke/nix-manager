@@ -19,6 +19,7 @@ export const labels: Record<string, string> = {
   "Apply changes": "Änderungen anwenden",
 
   // Steps
+  "Create the folder for home generations": "Ordner für Wiederherstellungspunkte der Benutzerkonfiguration anlegen",
   "Select Home Manager generation": "Wiederherstellungspunkt der Benutzerkonfiguration auswählen",
   "Activate Home Manager": "Benutzerkonfiguration aktivieren",
   "Activate system": "System aktivieren",

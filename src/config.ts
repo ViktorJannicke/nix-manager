@@ -194,14 +194,10 @@ export const loadConfig = (flake?: string, host?: string) =>
           });
     const state = process.env.XDG_STATE_HOME || join(homedir(), ".local/state");
     const modern = join(state, "nix/profiles");
-    const homeProfile = existsSync(modern)
-      ? join(modern, "home-manager")
-      : join(
-          process.env.NIX_STATE_DIR || "/nix/var/nix",
-          "profiles/per-user",
-          userInfo().username,
-          "home-manager",
-        );
+    const legacy = join(process.env.NIX_STATE_DIR || "/nix/var/nix", "profiles/per-user", userInfo().username);
+    // As Home Manager chooses: the legacy folder only when it already exists,
+    // since current NixOS no longer creates it for new users.
+    const homeProfile = join(existsSync(modern) || !existsSync(legacy) ? modern : legacy, "home-manager");
     // The Nix wrapper sets this to its immutable, Polkit-registered executable.
     const self = process.env.NIX_MANAGER_EXECUTABLE;
     const privileged = [
