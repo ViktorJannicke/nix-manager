@@ -68,10 +68,10 @@ export const labels: Record<string, string> = {
     "Die Benutzerkonfiguration wird vor dem System aktiviert. Schlägt die Aktivierung des Systems fehl, kann die Benutzerkonfiguration schon aktiv sein.",
   "The exact reviewed outputs are activated; the checkout is not evaluated again.":
     "Genau die geprüften Builds werden aktiviert; die Konfiguration wird nicht neu ausgewertet.",
-  "Resolve inputs in a temporary copy and compare stable package releases. The checkout is unchanged.":
-    "Löst die Softwarequellen in einer temporären Kopie auf und vergleicht stabile Paketversionen. Der Konfigurationsordner bleibt unverändert.",
-  "Compare stable release and inherited recipes, discover hashes, then build before atomically replacing the pin.":
-    "Vergleicht die stabile Version mit den geerbten Rezepten, ermittelt Prüfsummen und baut, bevor die festgelegte Version in einem Schritt ersetzt wird.",
+  "Resolve inputs in a temporary copy and compare package releases on each pin's channel. The checkout is unchanged.":
+    "Löst die Softwarequellen in einer temporären Kopie auf und vergleicht Paketversionen im Kanal der jeweiligen Festlegung. Der Konfigurationsordner bleibt unverändert.",
+  "Compare the latest release on the pin's channel and inherited recipes, discover hashes, then build before atomically replacing the pin.":
+    "Vergleicht die neueste Version im festgelegten Kanal mit den geerbten Rezepten, ermittelt Prüfsummen und baut, bevor die festgelegte Version in einem Schritt ersetzt wird.",
   "Once the privileged step starts, cancellation waits for it to finish before stopping subsequent steps.":
     "Hat der Schritt mit Administratorrechten begonnen, wartet der Abbruch auf sein Ende und hält erst die folgenden Schritte an.",
   "The change to undo is unavailable.": "Die Änderung, die rückgängig gemacht werden soll, ist nicht mehr verfügbar.",

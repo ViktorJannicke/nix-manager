@@ -31,6 +31,7 @@ function harness(
     force?: boolean;
     dryRun?: boolean;
     concurrentEdit?: boolean;
+    channel?: string;
   } = {},
 ) {
   const config = fixture();
@@ -42,6 +43,7 @@ function harness(
     pinFile,
     JSON.stringify({
       version: options.current || "0.0.34",
+      ...(options.channel ? { channel: options.channel } : {}),
       nixpkgsRev: options.pinRev || rev,
     }),
   );
@@ -86,7 +88,15 @@ function harness(
         : Effect.succeed(
             url.includes("releases/latest")
               ? '{"tag_name":"v0.0.38"}'
-              : url.includes("commits/nixos-unstable")
+              : url.includes("releases?per_page")
+                ? JSON.stringify([
+                    { tag_name: "v0.0.39-nightly.20261013.12" },
+                    { tag_name: "v0.0.39-nightly.20261013.9" },
+                    { tag_name: "v0.0.40-nightly.20261014.1", draft: true },
+                    { tag_name: "v0.0.39-preview.1" },
+                    { tag_name: "v0.0.38" },
+                  ])
+                : url.includes("commits/nixos-unstable")
                 ? JSON.stringify({ sha: rev })
                 : 'version = "0.0.38";\n',
           ),
@@ -113,6 +123,43 @@ test("semantic versions compare numerically and reject unstable formats", () => 
   expect(compareVersions("1.10.0", "1.9.99")).toBe(1);
   expect(compareVersions("1.0.0", "1.0.0")).toBe(0);
   expect(() => compareVersions("1.0.0-beta", "1.0.0")).toThrow();
+});
+test("nightlies order by date and run, before their stable release", () => {
+  const ordered = [
+    "0.0.45",
+    "0.0.46-nightly.20261012.99",
+    "0.0.46-nightly.20261013.9",
+    "0.0.46-nightly.20261013.10",
+    "0.0.46",
+    "0.0.47-nightly.20261001.1",
+  ];
+  for (let i = 1; i < ordered.length; i++) {
+    expect(compareVersions(ordered[i], ordered[i - 1])).toBe(1);
+    expect(compareVersions(ordered[i - 1], ordered[i])).toBe(-1);
+  }
+  expect(() => compareVersions("0.0.46-preview.1", "0.0.46")).toThrow();
+});
+test("t3code: nightly channel follows the newest published nightly", async () => {
+  const h = harness("t3code", {
+    current: "0.0.38-nightly.20261001.1",
+    channel: "nightly",
+  });
+  await h.run();
+  const pin = JSON.parse(readFileSync(h.pinFile, "utf8"));
+  expect(pin.version).toBe("0.0.39-nightly.20261013.12");
+  expect(pin.channel).toBe("nightly");
+  const stable = harness("t3code", { current: "0.0.38-nightly.20261001.1" });
+  await stable.run();
+  expect(JSON.parse(readFileSync(stable.pinFile, "utf8")).version).toBe(
+    "0.0.38",
+  );
+  const caughtUp = harness("t3code", {
+    current: "0.0.39-nightly.20261013.12",
+    channel: "nightly",
+    locked: "0.0.39",
+  });
+  await caughtUp.run();
+  expect(caughtUp.calls.some((c) => c.argv[1] === "build")).toBe(false);
 });
 test("hash discovery matches the exact derivation", () => {
   const log = `hash mismatch in fixed-output derivation '/nix/store/other.drv':\n got: sha256-${"A".repeat(43)}=\nhash mismatch in fixed-output derivation '/nix/store/expected.drv':\n got: ${hash}`;
