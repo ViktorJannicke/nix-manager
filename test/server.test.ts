@@ -162,6 +162,19 @@ test("someone who ran operations before starts with the detailed view", () => {
   }
 });
 
+test("a new user's first operation does not count as earlier use", async () => {
+  const config = fixture();
+  const manager = new Manager(config, undefined, () => Effect.never);
+  try {
+    // As `nix-manager software prepare` does before anything reads preferences.
+    manager.start(request({ action: "build", scope: "home" }));
+    expect(readPreferences(config)).toEqual({ detail: "simple", history: true });
+  } finally {
+    await manager.close();
+    rmSync(config.flake, { recursive: true, force: true });
+  }
+});
+
 test("authenticated sessions receive ordered operation and output events", async () => {
   const config = fixture();
   const manager = new Manager(config, undefined, (_command, output) =>
