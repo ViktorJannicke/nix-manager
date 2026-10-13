@@ -315,6 +315,9 @@ export class Manager {
       atomicJson(this.path(operation.id, "json"), operation);
     };
     try {
+      // A new user's first preferences are decided before their first
+      // operation is recorded, or that record would count as earlier use.
+      readPreferences(this.config);
       mkdirSync(join(this.config.stateDir, "operations"), {
         recursive: true,
         mode: 0o700,
