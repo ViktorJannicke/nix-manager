@@ -58,6 +58,42 @@ pkgs.testers.runNixOSTest {
         '';
       };
 
+      # What a fresh install leaves behind, so the setup assistant has
+      # something to start from. A mode makes a copy: the assistant skips
+      # symlinks such as the store links /etc usually holds.
+      environment.etc."nixos/configuration.nix" = {
+        mode = "0644";
+        text = ''
+          { pkgs, ... }:
+          {
+            imports = [ ./hardware-configuration.nix ];
+            boot.loader.systemd-boot.enable = true;
+            networking.hostName = "machine";
+            services.desktopManager.gnome.enable = true;
+            services.displayManager.gdm.enable = true;
+            users.users.alice = {
+              isNormalUser = true;
+              extraGroups = [ "wheel" ];
+            };
+            environment.systemPackages = [ pkgs.firefox ];
+            system.stateVersion = "26.05";
+          }
+        '';
+      };
+      environment.etc."nixos/hardware-configuration.nix" = {
+        mode = "0644";
+        text = ''
+          { modulesPath, ... }:
+          {
+            imports = [ (modulesPath + "/profiles/qemu-guest.nix") ];
+            fileSystems."/" = {
+              device = "/dev/vda";
+              fsType = "ext4";
+            };
+          }
+        '';
+      };
+
       programs.nix-manager.enable = true;
       environment.systemPackages = [
         # The VM has no GPU Chromium accepts; render in software as nixpkgs'
@@ -107,6 +143,14 @@ pkgs.testers.runNixOSTest {
     def speech():
         return machine.succeed("cat /run/lab/spoken.txt")
 
+    def settle():
+        # Orca reads a new page aloud and moves its caret while it does; wait
+        # until the transcript stops growing.
+        machine.wait_until_succeeds(
+            "a=$(wc -c < /run/lab/spoken.txt); sleep 3; [ $a = $(wc -c < /run/lab/spoken.txt) ]",
+            timeout=timedelta(seconds=120),
+        )
+
     def tree(app, file):
         machine.succeed(f"lab-user lab-atspi {app} > /run/lab/{file} 2>&1")
         machine.copy_from_machine(f"/run/lab/{file}")
@@ -142,15 +186,21 @@ pkgs.testers.runNixOSTest {
         print(speech())
 
     with subtest("Tab moves through the page"):
+        settle()
         machine.succeed("truncate -s 0 /run/lab/spoken.txt")
-        for _ in range(6):
+        expected = ["entry 'Folder'", "button 'Create my configuration'"] * 2
+        for press, want in enumerate(expected, 1):
             machine.send_key("tab")
             machine.sleep(2)
+            focused = machine.execute("lab-user lab-atspi chrom | grep -w focused")[1].strip()
+            print(f"Tab {press}: {focused or 'nothing focused in Chromium'}")
+            assert want in focused, f"Tab {press} focused {focused!r}, expected {want}"
         machine.screenshot("after-tabs")
         spoken = speech()
         print(spoken)
         machine.copy_from_machine("/run/lab/spoken.txt")
         machine.copy_from_machine("/run/lab/orca-debug.out")
-        assert spoken.strip(), "Orca said nothing while tabbing"
+        for phrase in ["Folder", "Create my configuration", "button", "A new, empty folder in your home folder."]:
+            assert phrase in spoken, f"Orca did not say {phrase!r}"
   '';
 }
