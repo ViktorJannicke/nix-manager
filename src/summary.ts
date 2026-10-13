@@ -56,14 +56,17 @@ export function reviewSummary(review: BuildReview) {
     if (added.length) parts.push(t("installs {names}", { names: names(added) }));
     if (removed.length) parts.push(t("removes {names}", { names: names(removed) }));
     if (settings) parts.push(tn("changes {count} setting", "changes {count} settings", settings));
-  } else if (outputs.every((output) => output.compared)) {
-    const counts = summarize(outputs.flatMap((output) => output.changes));
+  } else if (outputs.some((output) => output.compared)) {
+    const counts = summarize(outputs.filter((output) => output.compared).flatMap((output) => output.changes));
     // Only the first count names what is counted: "updates 12 packages, adds 2 and removes 1".
     if (counts.changed) parts.push(tn("updates {count} package", "updates {count} packages", counts.changed));
     if (counts.added)
       parts.push(parts.length ? t("adds {count}", { count: counts.added }) : tn("adds {count} package", "adds {count} packages", counts.added));
     if (counts.removed)
       parts.push(parts.length ? t("removes {count}", { count: counts.removed }) : tn("removes {count} package", "removes {count} packages", counts.removed));
+    // A part with nothing active yet, such as a user's first home generation.
+    if (review.home && !review.home.compared) parts.push(t("sets up your user's apps and settings for the first time"));
+    if (review.system && !review.system.compared) parts.push(t("builds the system new, as no system is active to compare with"));
   } else parts.push(t("builds everything new, as nothing is active to compare with"));
   const sentences = [parts.length ? `${capitalize(list(parts))}.` : t("Nothing you use changes.")];
   if (review.inputs?.changes.length)

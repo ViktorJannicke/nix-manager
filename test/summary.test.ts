@@ -60,6 +60,16 @@ test("an update counts packages, sources, space and a new kernel", () => {
   );
 });
 
+test("a first home generation beside an active system still counts the system's changes", () => {
+  const home = output([], undefined, { compared: false });
+  expect(reviewSummary(review({ scope: "all", home, system: output(["added"]) }))).toBe(
+    "Adds 1 package and sets up your user's apps and settings for the first time.",
+  );
+  expect(reviewSummary(review({ scope: "all", home, system: output([]) }))).toBe(
+    "Sets up your user's apps and settings for the first time.",
+  );
+});
+
 test("time estimates use the median of earlier runs of the same kind", () => {
   const run = (minutes: number, day: number, fields: Partial<Operation> = {}, update = true): Operation =>
     ({

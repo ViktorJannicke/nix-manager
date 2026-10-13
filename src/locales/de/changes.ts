@@ -176,6 +176,8 @@ export const changes: Record<string, string> = {
   "removes {count} package": "entfernt {count} Paket",
   "removes {count} packages": "entfernt {count} Pakete",
   "builds everything new, as nothing is active to compare with": "baut alles neu, da nichts Aktives zum Vergleichen da ist",
+  "sets up your user's apps and settings for the first time": "richtet die Apps und Einstellungen Ihres Benutzers zum ersten Mal ein",
+  "builds the system new, as no system is active to compare with": "baut das System neu, da kein aktives System zum Vergleichen da ist",
   "Nothing you use changes.": "An dem, was Sie benutzen, ändert sich nichts.",
   "Updates {count} software source.": "Aktualisiert {count} Softwarequelle.",
   "Updates {count} software sources.": "Aktualisiert {count} Softwarequellen.",
