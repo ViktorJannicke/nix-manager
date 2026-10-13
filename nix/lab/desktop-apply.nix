@@ -52,7 +52,8 @@ let
     cp ${./checkout/configuration.nix} $out/configuration.nix
     cp ${./checkout/home.nix} $out/home.nix
     substitute ${./checkout/flake.nix} $out/flake.nix \
-      --subst-var-by nix-manager ${self}
+      --subst-var-by nix-manager ${self} \
+      --subst-var-by system ${pkgs.stdenv.hostPlatform.system}
     cp ${pkgs.writeText "flake.lock" (builtins.toJSON lock)} $out/flake.lock
   '';
   variants = ./checkout/variants;

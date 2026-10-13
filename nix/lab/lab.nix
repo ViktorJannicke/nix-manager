@@ -38,6 +38,17 @@ pkgs.writeShellApplication {
 
     running() { [ -f "$lab/pid" ] && kill -0 "$(cat "$lab/pid")" 2>/dev/null; }
 
+    # send KIND ARG...: hand one request to the lab, one client at a time. The
+    # id tells this request's response from one an interrupted client left.
+    send() {
+      exec 9>"$lab/lock"
+      flock 9
+      id="$$-$RANDOM"
+      jq -n --arg id "$id" --arg kind "$1" '{id: $id, kind: $kind, args: $ARGS.positional}' \
+        --args -- "''${@:2}" >"$lab/request.json.tmp"
+      mv "$lab/request.json.tmp" "$lab/request.json"
+    }
+
     case "''${1:-}" in
       start)
         if running; then echo "The lab is already running."; exit 0; fi
@@ -64,20 +75,17 @@ pkgs.writeShellApplication {
         ;;
       stop)
         if ! running; then echo "The lab is not running."; exit 0; fi
-        jq -n '{kind: "stop", args: []}' >"$lab/request.json"
+        send stop
         for _ in $(seq 120); do running || break; sleep 1; done
-        if running; then kill "$(cat "$lab/pid")"; fi
+        # The driver leads its own process group, with QEMU in it.
+        if running; then kill -- -"$(cat "$lab/pid")"; fi
         rm -f "$lab/pid"
         echo "The lab stopped."
         ;;
       key | type | shot | tree | focused | speech | sh | user | copy)
         running || { echo "The lab is not running; start it first." >&2; exit 1; }
-        exec 9>"$lab/lock"
-        flock 9
-        rm -f "$lab/response.json"
-        jq -n --arg kind "$1" '{kind: $kind, args: $ARGS.positional}' --args -- "''${@:2}" >"$lab/request.json.tmp"
-        mv "$lab/request.json.tmp" "$lab/request.json"
-        until [ -e "$lab/response.json" ]; do
+        send "$@"
+        until [ -e "$lab/response.json" ] && [ "$(jq -r .id "$lab/response.json")" = "$id" ]; do
           running || { echo "The lab stopped; see $lab/driver.log." >&2; exit 1; }
           sleep 0.1
         done
