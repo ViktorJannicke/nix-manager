@@ -67,6 +67,21 @@ export const pickHome = (
 /** The running machine's platform, without evaluating a configuration. */
 export const currentPlatform = () => `${{ x64: "x86_64", arm64: "aarch64" }[process.arch as string] ?? process.arch}-linux`;
 
+/**
+ * The Home Manager profile in the `modern` (~/.local/state/nix/profiles) or
+ * `legacy` (/nix/var/nix/profiles/per-user/USER) folder. An existing profile
+ * stays where it is: Home Manager's activation moves legacy generations over,
+ * but deletes them when a new profile already exists. Otherwise the modern
+ * folder, unless only the legacy folder exists, as Home Manager chooses;
+ * current NixOS no longer creates the legacy folder for new users.
+ */
+export const chooseHomeProfile = (modern: string, legacy: string, exists: (path: string) => boolean = existsSync) => {
+  const [modernProfile, legacyProfile] = [join(modern, "home-manager"), join(legacy, "home-manager")];
+  if (exists(modernProfile)) return modernProfile;
+  if (exists(legacyProfile)) return legacyProfile;
+  return exists(modern) || !exists(legacy) ? modernProfile : legacyProfile;
+};
+
 /** Where the setup assistant remembers the checkout it created. */
 export const rememberedCheckout = () =>
   join(
@@ -193,11 +208,10 @@ export const loadConfig = (flake?: string, host?: string) =>
             catch: (e) => e as ManagerError,
           });
     const state = process.env.XDG_STATE_HOME || join(homedir(), ".local/state");
-    const modern = join(state, "nix/profiles");
-    const legacy = join(process.env.NIX_STATE_DIR || "/nix/var/nix", "profiles/per-user", userInfo().username);
-    // As Home Manager chooses: the legacy folder only when it already exists,
-    // since current NixOS no longer creates it for new users.
-    const homeProfile = join(existsSync(modern) || !existsSync(legacy) ? modern : legacy, "home-manager");
+    const homeProfile = chooseHomeProfile(
+      join(state, "nix/profiles"),
+      join(process.env.NIX_STATE_DIR || "/nix/var/nix", "profiles/per-user", userInfo().username),
+    );
     // The Nix wrapper sets this to its immutable, Polkit-registered executable.
     const self = process.env.NIX_MANAGER_EXECUTABLE;
     const privileged = [

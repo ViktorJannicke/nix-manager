@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { pickHome, pickSystem } from "../src/config";
+import { chooseHomeProfile, pickHome, pickSystem } from "../src/config";
 
 describe("host detection", () => {
   test("picks the NixOS configuration named like the host, as nixos-rebuild does", () => {
@@ -22,5 +22,25 @@ describe("host detection", () => {
     expect(pickHome("bob", ["anything"], names, users)).toBe("bob-laptop");
     expect(() => pickHome("alice", ["server"], names, users)).toThrow("alice-desktop, alice-laptop");
     expect(() => pickHome("alice", ["laptop"], [])).toThrow("standalone Home Manager");
+  });
+});
+
+describe("Home Manager profile", () => {
+  const modern = "/home/a/.local/state/nix/profiles";
+  const legacy = "/nix/var/nix/profiles/per-user/a";
+  const choose = (...present: string[]) => chooseHomeProfile(modern, legacy, (path) => present.includes(path));
+
+  test("a new user gets the modern folder, created before the first generation", () => {
+    expect(choose()).toBe(`${modern}/home-manager`);
+    expect(choose(modern)).toBe(`${modern}/home-manager`);
+  });
+  test("only a legacy folder keeps the legacy profile, as Home Manager chooses", () => {
+    expect(choose(legacy)).toBe(`${legacy}/home-manager`);
+  });
+  test("an existing legacy profile stays put until Home Manager moves it", () => {
+    // Nix creates the modern folder on its own; a new profile there would make
+    // Home Manager delete the legacy generations instead of moving them.
+    expect(choose(modern, legacy, `${legacy}/home-manager`)).toBe(`${legacy}/home-manager`);
+    expect(choose(modern, legacy, `${legacy}/home-manager`, `${modern}/home-manager`)).toBe(`${modern}/home-manager`);
   });
 });
