@@ -41,6 +41,13 @@ pkgs.testers.runNixOSTest {
         "${pkgs.gnome-shell}/bin/gnome-shell --unsafe-mode"
       ];
 
+      # Chromium joins the accessibility bus only when the desktop says
+      # accessibility is on; Orca says so too, but tests also read the tree
+      # without it.
+      programs.dconf.profiles.user.databases = [
+        { settings."org/gnome/desktop/interface".toolkit-accessibility = true; }
+      ];
+
       # libao has no sound card in the VM; its null driver always opens.
       environment.etc."libao.conf".text = "default_driver=null\n";
       services.speechd = {
@@ -202,5 +209,16 @@ pkgs.testers.runNixOSTest {
         machine.copy_from_machine("/run/lab/orca-debug.out")
         for phrase in ["Folder", "Create my configuration", "button", "A new, empty folder in your home folder."]:
             assert phrase in spoken, f"Orca did not say {phrase!r}"
+
+    with subtest("Typing reaches the folder field"):
+        machine.send_key("shift-tab")
+        # Orca switches to focus mode; before that it takes letters as commands.
+        machine.sleep(2)
+        machine.send_key("ctrl-a")
+        machine.send_chars("~/lab-config")
+        machine.wait_until_succeeds(
+            "lab-user lab-atspi chrom | grep -F \"entry 'Folder' value='~/lab-config'\"",
+            timeout=timedelta(seconds=30),
+        )
   '';
 }

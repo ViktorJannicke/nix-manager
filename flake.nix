@@ -39,6 +39,10 @@
           npm-deps = manager.npmDeps;
           # Slow VM test, kept out of `nix flake check`; see nix/lab.
           desktop-a11y = import ./nix/lab/desktop-a11y.nix { inherit pkgs self; };
+          lab = import ./nix/lab/lab.nix {
+            inherit pkgs;
+            test = self.packages.${system}.desktop-a11y;
+          };
         }
       );
 
@@ -54,6 +58,11 @@
         {
           default = app;
           nix-manager = app;
+          lab = {
+            type = "app";
+            program = nixpkgs.lib.getExe self.packages.${system}.lab;
+            meta.description = "Drive a GNOME and Orca test VM with Nix Manager installed";
+          };
         }
       );
 
