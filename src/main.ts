@@ -83,6 +83,10 @@ export async function privileged(args: string[]) {
       "--delete-generations",
       `+${retention}`,
     ]);
+    // Like nixos-rebuild boot after collecting garbage: the boot menu lists only
+    // the kept generations, so no entry starts a system the collection deletes.
+    if (existsSync(`${profile}/bin/switch-to-configuration`))
+      await switchTo(realpathSync(profile), "boot");
     await run(["nix-store", "--gc"]);
   } else
     throw new ManagerError({
