@@ -481,6 +481,38 @@ inside it. `nix run .#lab-apply` does the same with the `desktop-apply` VM and
 alice's checkout. Only one lab runs at a time. `nix run .#lab`
 lists them. Nothing opens on the host desktop.
 
+### Hyprland on the GPU, without a VM
+
+The VMs have no GPU render node, so Hyprland cannot start in them.
+`nix run .#hyprland-sandbox` runs Hyprland and Waybar (with its tray) headless
+on the host GPU instead, rootless, in a bubblewrap sandbox: its own PID, mount,
+network, IPC and user namespaces, a private runtime directory, HOME and D-Bus
+session bus, and no host Wayland, X11 or D-Bus sockets. Only
+`/dev/dri/renderD128` is passed in, never a card node, so nothing takes DRM
+master or touches the real monitors. It starts in about five seconds and
+leaves no processes behind: everything ends with the sandbox's PID namespace,
+also on `--timeout` or when the sandbox is killed.
+
+```sh
+nix run .#hyprland-sandbox                       # demo: a CopyQ tray icon, its menu, typing
+nix run .#hyprland-sandbox -- --out shots -- sh -c 'my-tray-app & sandbox-wait-sni && sandbox-shot tray.png'
+nix run .#hyprland-sandbox -- --help
+```
+
+The command runs inside with `WAYLAND_DISPLAY`, `HYPRLAND_INSTANCE_SIGNATURE`
+and the private bus set, and helpers on `PATH`: `sandbox-shot`,
+`sandbox-pointer` (a virtual pointer that stays connected, so GTK clients such
+as Waybar receive clicks), `sandbox-wait-sni`, `sandbox-sni-items`,
+`sandbox-wait-client`, plus `hyprctl`, `wtype` and `grim`. Its exit status is
+returned. Screenshots and logs go to `--out`. Store paths are visible; other
+host paths only with `--bind` or `--ro-bind`.
+
+Aquamarine's headless backend has no allocator of its own and its DRM backend
+needs a KMS card node, so Hyprland runs nested on its Wayland backend inside a
+headless labwc, which renders on the render node without a seat. Hyprland's
+own output is a headless one, rendered with OpenGL on the same GPU. Mesa comes
+from this flake's nixpkgs.
+
 Core modules:
 
 - `domain.ts`, `contracts.ts`, `cli.ts`, `config.ts`: schemas, browser-safe state,

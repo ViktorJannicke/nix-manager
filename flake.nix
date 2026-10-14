@@ -40,6 +40,7 @@
           # Slow VM test, kept out of `nix flake check`; see nix/lab.
           desktop-a11y = import ./nix/lab/desktop-a11y.nix { inherit pkgs self; };
           speech-audio = import ./nix/lab/speech-audio.nix { inherit pkgs self; };
+          hyprland-sandbox = import ./nix/hyprland-sandbox { inherit pkgs; };
           desktop-apply = import ./nix/lab/desktop-apply.nix {
             inherit
               pkgs
@@ -83,6 +84,11 @@
             type = "app";
             program = nixpkgs.lib.getExe self.packages.${system}.lab-apply;
             meta.description = "Drive the test VM with a configuration checkout that can apply for real";
+          };
+          hyprland-sandbox = {
+            type = "app";
+            program = nixpkgs.lib.getExe self.packages.${system}.hyprland-sandbox;
+            meta.description = "Run Hyprland and Waybar headless on the GPU render node in a rootless sandbox";
           };
         }
       );
