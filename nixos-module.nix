@@ -28,7 +28,6 @@ let
             <allow_active>auth_admin_keep</allow_active>
           </defaults>
           <annotate key="org.freedesktop.policykit.exec.path">${lib.getExe cfg.package}</annotate>
-          <annotate key="org.freedesktop.policykit.exec.allow_gui">false</annotate>
         </action>
       </policyconfig>
     '';
