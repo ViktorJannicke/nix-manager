@@ -65,6 +65,8 @@ public static class NixManagerCli
         bool handleSignals = true, CancellationToken cancellationToken = default)
     {
         var (arguments, extra) = CliArguments.Split(args);
+        // The whole grammar is the default command's: the application's help is that command's help.
+        if (arguments is ["--help"] or ["-h"] or ["help"]) arguments = ["run", "--help"];
         var output = session?.Output ?? new CliOutput();
         session ??= new CliSession { Output = output };
         session = new CliSession
@@ -94,7 +96,7 @@ public static class NixManagerCli
         Examples = ["nix-manager home update cleanup switch", "nix-manager --dry-run update cleanup switch", "nix-manager check --json"])]
     [DefaultCommand]
     internal static async Task<CommandOutcome<string>> Run(
-        [Argument(Description = "Scope, modifier and action words: home|system|all, update, cleanup|gc, build|switch|boot|rollback|check|t3code-update|opencode-update|pince-update, or ui|tray|status|history",
+        [Argument(Description = "Scope, modifier and action words, in any order",
             ValueName = "WORD", AllowMultipleValues = true, Choices = ["home", "system", "all", "update", "cleanup", "gc", "build", "switch", "boot", "rollback", "check",
                 "t3code-update", "opencode-update", "pince-update", "ui", "tray", "status", "history"])]
         string[]? words,

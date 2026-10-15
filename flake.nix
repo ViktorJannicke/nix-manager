@@ -43,6 +43,15 @@
           default = manager;
           nix-manager = manager;
           npm-deps = manager.npmDeps;
+        }
+        # The Runic port in runic/; its NuGet lock files cover linux-x64.
+        // nixpkgs.lib.optionalAttrs (system == "x86_64-linux") {
+          runic = pkgs.callPackage ./runic/package.nix {
+            buildRunicApplication = runic-sdk.lib.buildRunicApplication pkgs;
+            homeManager = home-manager.packages.${system}.home-manager;
+          };
+        }
+        // {
           # Slow VM test, kept out of `nix flake check`; see nix/lab.
           desktop-a11y = import ./nix/lab/desktop-a11y.nix { inherit pkgs self; };
           speech-audio = import ./nix/lab/speech-audio.nix { inherit pkgs self; };
