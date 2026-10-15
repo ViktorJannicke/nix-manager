@@ -372,11 +372,6 @@ settings {
   simple = Simple
 }
 
-# Pages whose backend follows in the second part of W300-032.
-placeholder {
-  page = This page follows in the next part of this version. Until then, use the previous version of Nix Manager for it.
-  page_title = Not available yet
-}
 
 rail {
   building_next = Building next
@@ -410,6 +405,25 @@ rail {
 pending {
   apply = Apply changes
   review_and_apply = Review and apply
+  clear = Clear
+  count =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} pending edit}}
+    * {{{$count} pending edits}}
+  hide_lines =
+    .input {$count :integer}
+    .match $count
+    one {{Hide the edited lines in {$count} file}}
+    * {{Hide the edited lines in {$count} files}}
+  not_written = Not written yet. Prepare builds them from a copy and shows what they change; your files change when you apply.
+  nothing_changes = Nothing on your computer changes until you apply them.
+  remove = Remove {$name}
+  show_lines =
+    .input {$count :integer}
+    .match $count
+    one {{Show the edited lines in {$count} file}}
+    * {{Show the edited lines in {$count} files}}
 }
 
 changes {
@@ -656,4 +670,262 @@ setup {
   opening = Opening Nix Manager…
   how = How changes work
   how_text = Everything you change, from apps to settings, is written into those files and waits as a pending edit. Prepare builds the new version in the background while you keep working, and shows what will change. Apply switches the computer to it, and every version you applied stays as a restore point you can go back to.
+}
+
+package {
+  will_be_installed = {$name} will be installed
+  non_free_software_will_be_allowed = Non-free software will be allowed too. Prepare your pending edits to build it.
+  prepare_your_pending_edits_to_build = Prepare your pending edits to build it.
+  installing = Installing {$name}
+  is_installed = {$name} is installed
+  removing = Removing {$name}
+  is_removed = {$name} is removed
+  will_be_removed = {$name} will be removed
+  prepare_your_pending_edits_to_build_2 = Prepare your pending edits to build without it.
+  no_description = No description.
+  category = Category
+  attribute = Attribute
+  command = Command
+  license = License
+  not_free = {$licenses} (not free)
+  website = Website
+  marked_as_broken_in_nixpkgs_building = Marked as broken in nixpkgs; building it will probably fail.
+  waiting_to_be_installed_in_your = Waiting to be installed in your pending edits ({$file}).
+  waiting_to_be_removed_in_your = Waiting to be removed in your pending edits ({$file}).
+  installed_for_every_user = Installed for every user
+  listed_in = Listed in {$file}
+  added_by = Added by {$origin}
+  install_for = Install for
+  just_you = Just you
+  every_user = Every user
+  add_it_to = Add it to
+  not_used_by_this_host = {$category}: {$file} (not used by this host)
+  new_file = New file…
+  the_package_is_added_to_this = The package is added to this file's package list, next to the others.
+  is_not_free_software = {$name} is not free software
+  your_user_only_installs_software_with = Your user only installs software with a free license. Adding it also allows non-free software for you, in {$file}.
+  this_computer_only_installs_software_with = This computer only installs software with a free license. Adding it also allows non-free software, in {$file}.
+  your_user_only_installs_software_with_2 = Your user only installs software with a free license. Allow non-free software first, then add it.
+  this_computer_only_installs_software_with_2 = This computer only installs software with a free license. Allow non-free software first, then add it.
+  allow_non_free_software = Allow non-free software…
+  add_to_pending_edits = Add to pending edits
+  remove_now = Remove now
+  remove = Remove
+  install_now = Install now
+}
+
+feature {
+  edit_pending = {$title}: edit pending
+  edits_pending = {$title}: {$count :integer} edits pending
+  non_free_software_will_be_allowed = Non-free software will be allowed too. Prepare your pending edits to build them.
+  prepare_your_pending_edits_to_build = Prepare your pending edits to build them.
+  turned_on = Turned on
+  turned_off = Turned off
+  system_setting_for_every_user_of = System setting for every user of this computer.
+  setting_for_your_user = Setting for your user.
+  set_in = Set in {$file}.
+  turn_on = Turn {$title} on
+  pending = pending
+  set_in_2 = {$option}, set in {$files}
+  write_new_settings_to = Write new settings to
+  used_by = Used by {$host}
+  not_used_by = Not used by {$host}
+  does_not_import_this_file_so = {$host} does not import this file, so settings written here have no effect on it. Prepare will refuse them.
+  prepare_checks_that_every_setting_takes = Prepare checks that every setting takes effect before anything is built.
+  is_not_free_software = {$title} is not free software
+  this_computer_only_installs_software_with = This computer only installs software with a free license. Turning it on also allows non-free software, in {$file}.
+  this_computer_only_installs_software_with_2 = This computer only installs software with a free license. Allow non-free software first, then turn it on.
+  no_changes = No changes
+  turning_off_writes = Turning it off writes {$value} into {$file}.
+}
+
+bundle {
+  item_pending =
+    .input {$count :integer}
+    .match $count
+    one {{{$title}: {$count} item pending}}
+    * {{{$title}: {$count} items pending}}
+  include = Include {$name}
+  untick_what_you_do_not_want = Untick what you do not want; everything else becomes one pending edit.
+  the_package_index_could_not_be = The package index could not be built. {$error}
+  reading_the_package_index = Reading the package index…
+  features = Features
+  apps_installed_for_you = Apps, installed for you
+  pending = Pending
+  is_not_free_software_allowing_non =
+    .input {$count :integer}
+    .match $count
+    one {{{$names} is not free software; allowing non-free software is part of the edit.}}
+    * {{{$names} are not free software; allowing non-free software is part of the edit.}}
+  needs_a_file_chosen_by_hand =
+    .input {$count :integer}
+    .match $count
+    one {{{$names} needs a file chosen by hand. Add it from Discover on its own.}}
+    * {{{$names} need a file chosen by hand. Add them from Discover on their own.}}
+  add_item_to_pending_edits =
+    .input {$count :integer}
+    .match $count
+    one {{Add {$count} item to pending edits}}
+    * {{Add {$count} items to pending edits}}
+  everything_is_there = Everything is there
+}
+
+software {
+  games = Games
+  development = Development
+  internet = Internet
+  media = Media
+  productivity = Productivity
+  will_be_installed = Will be installed
+  will_be_removed = Will be removed
+  broken = Broken
+  not_free = Not free
+  install_packages_and_turn_on_features = Install packages and turn on features for {$host}. Your edits wait here until you prepare them.
+  view = View
+  discover = Discover
+  could_not_read_s_configuration = Could not read {$host}'s configuration.
+  search_apps_and_packages = Search apps and packages
+  search_apps_and_over_a_hundred = Search apps and over a hundred thousand packages
+  press_to_search = Press / to search
+  building_the_package_index = Building the package index
+  result =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} result}}
+    * {{{$count} results}}
+  no_packages_match = No packages match
+  free_software_only = Free software only
+  hide_packages_marked_as_broken = Hide packages marked as broken
+  apps = Apps
+  other_software = Other software
+  command_line_tools_libraries_and_parts = Command-line tools, libraries and parts other software uses.
+  no_packages_match_2 = No packages match “{$query}”
+  try_the_program_s_name_or = Try the program's name, or a word from what it does.
+  index_of_packages_from_your_locked = Index of {$count :integer} packages from your locked nixpkgs and overlays, built {$when}.
+  rebuild = Rebuild
+  the_package_index_could_not_be = The package index could not be built
+  nix_manager_reads_every_package_in = Nix Manager reads every package in your locked nixpkgs once, which takes about half a minute. It is built again after nixpkgs updates.
+  reading_s_configuration = Reading {$host}'s configuration
+  evaluating_what_the_home_and_system = Evaluating what the home and system configurations contain. This takes a few seconds.
+  starting_points = Starting points
+  apps_with_details_from_flathub = {$count :integer} apps with details from Flathub
+  app_categories = App categories
+  popular = Popular
+  show_fewer = Show fewer
+  show_all_apps = Show all {$count :integer} apps
+  searching_still_finds_every_package = Searching still finds every package.
+  the_app_list_needs_the_package = The app list needs the package index, which could not be built.
+  downloading_app_details_from_flathub = Downloading app details from Flathub…
+  reading_every_package_in_your_nixpkgs = Reading every package in your nixpkgs once. This takes about half a minute.
+  compared_with_the_version_in_use = Compared with the version in use now. Apply your configuration to get them.
+  package_changes_on_the_next_apply =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} package changes on the next apply}}
+    * {{{$count} packages change on the next apply}}
+  filter_installed_packages = Filter installed packages
+  filter = Filter (/)
+  not_read_yet = Not read yet
+  installed_by = Installed by
+  actions = Actions
+  the_version_in_use_has_your = The version in use has {$previous}; your configuration builds {$version}.
+  this_item_is_computed_edit_it = This item is computed; edit it in the file.
+  computed = Computed
+  no_installed_packages_match = No installed packages match.
+  nothing_installed_here_yet = Nothing installed here yet.
+  hide_package_added_by_settings_and =
+    .input {$count :integer}
+    .match $count
+    one {{Hide {$count} package added by settings and modules}}
+    * {{Hide {$count} packages added by settings and modules}}
+  show_package_added_by_settings_and =
+    .input {$count :integer}
+    .match $count
+    one {{Show {$count} package added by settings and modules}}
+    * {{Show {$count} packages added by settings and modules}}
+  could_not_build_index = Could not build the package index
+  could_not_read = Could not read {$host}'s configuration.
+  could_not_read_apps = Could not read the app list
+  could_not_read_docs = Could not read option documentation
+  could_not_save = Could not save the edit
+  new = new
+  not_in_use_now = Not in the version in use now.
+  search_failed = Search failed
+}
+
+computer {
+  you_cannot_remove_the_user_you = You cannot remove the user you are logged in as.
+  make_another_user_an_administrator_first = Make another user an administrator first.
+  set_up_in_remove_it_in = Set up in {$files}. Remove it in those files.
+  user = user {$name}
+  edit_pending =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} edit pending}}
+    * {{{$count} edits pending}}
+  settings_for_everyone_who_uses_changes = Settings for everyone who uses {$host}. Changes wait in your pending edits until you prepare and apply them.
+  reading_s_settings = Reading {$host}'s settings
+  suggested_for_this_computer = Suggested for this computer
+  nix_manager_found_this_hardware_these = Nix Manager found this hardware. These features make it work fully.
+  not_now = Not now
+  set_up = Set up…
+  changed = changed
+  set_directly_in_flake_nix_change = Set directly in flake.nix. Change it there.
+  set_in_which_nix_manager_cannot = Set in {$file}, which Nix Manager cannot edit. Change it there.
+  set_in = Set in {$files}
+  users = Users
+  people_who_can_log_in_administrators = People who can log in. Administrators can install software and change these settings.
+  add_user = Add user
+  set_in_2 = set in {$file}
+  you = you
+  will_be_removed = will be removed
+  administrator = Administrator
+  is_an_administrator = {$name} is an administrator
+  full_name = Full name
+  user_name = User name
+  you_set_the_password_after_applying = You set the password after applying, so it is never written into your configuration.
+  this_configuration_manages_passwords_itself_so = This configuration manages passwords itself, so add a password for the new user in its file before applying.
+  add = Add
+  removing_a_user_keeps_their_files = Removing a user keeps their files in /home.
+  s_configuration_has_none_of_these = {$host}'s configuration has none of these settings.
+  change_not_added_yet =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} change not added yet}}
+    * {{{$count} changes not added yet}}
+  write_to = Write {$settings} to
+  more_than_one_place = more than one place
+  password_after_apply = After you apply, give {$user} a password in your desktop's user settings, or run {$command}. Until then {$user} cannot log in.
+  keep_user = Keep {$name}
+}
+
+field {
+  choose_user = Choose a user
+  mixed = Mixed, set in the file
+  not_set = Not set
+  one_per_line = One per line
+  ports_invalid = Enter port numbers from 1 to 65535.
+  ports_placeholder = None, for example 22, 8080
+  same_as_language = Same as the language
+}
+
+newfile {
+  imported_from = Imported from
+  new_file = New file
+  no_importer = No file {$host} imports has an imports list Nix Manager can add to.
+  starts_empty = The file starts as an empty module; its path is added to the imports of the file above.
+}
+
+# Categories of the app list (Freedesktop main categories).
+apps {
+  audio_video = Audio and video
+  development = Development
+  education = Education
+  games = Games
+  graphics = Graphics
+  internet = Internet
+  office = Office
+  science = Science
+  system = System
+  utilities = Utilities
 }

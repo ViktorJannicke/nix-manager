@@ -1,6 +1,8 @@
 import type { DashboardClient, DashboardState } from "../generated/dashboard.js";
 import type { OperationsClient, OperationsState } from "../generated/operations.js";
 import type { ReviewsClient, ReviewsState } from "../generated/reviews.js";
+import type { AppIconsClient, AppIconsState } from "../generated/appIcons.js";
+import type { AppListClient, AppListState } from "../generated/appList.js";
 import type { SoftwareClient, SoftwareState } from "../generated/software.js";
 import type { SystemClient, SystemState } from "../generated/system.js";
 import type { BuildReview, Fix, Operation, Plan, PreferenceChange, Request } from "../generated/types.js";
@@ -74,6 +76,8 @@ class AppState {
   reviewsView = $state.raw<ViewHandle<ReviewsClient, ReviewsState>>();
   systemView = $state.raw<ViewHandle<SystemClient, SystemState>>();
   softwareView = $state.raw<ViewHandle<SoftwareClient, SoftwareState>>();
+  appListView = $state.raw<ViewHandle<AppListClient, AppListState>>();
+  iconsView = $state.raw<ViewHandle<AppIconsClient, AppIconsState>>();
   now = $state(Date.now());
   page = $state<Page>(initialPage());
   hostOverride = $state<string | undefined>(localStorage.getItem("nix-manager-host") || undefined);

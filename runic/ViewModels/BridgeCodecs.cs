@@ -36,6 +36,25 @@ public sealed class JsonElementBridgeCodec : IRunicBridgeCodec<JsonElement>
 }
 
 /// <summary>
+/// <c>InstalledPackage.previous</c> as the Bun contract has it: the running generation's version, null when the running
+/// generation lacks the package (it is new), and undefined when nothing changes. JSON has no undefined, so the wire
+/// carries it as <see langword="false"/>, and the page receives the three cases apart.
+/// </summary>
+[RunicCodecShape("string | null | undefined",
+    "(typeof $value === \"string\" ? $value : $value === null ? null : undefined)",
+    "($value === undefined ? false : $value)")]
+public sealed class PreviousVersionBridgeCodec : IRunicBridgeCodec<JsonElement>
+{
+    public static JsonElement Read(JsonElement value) => value.ValueKind is JsonValueKind.False or JsonValueKind.Undefined ? default : value.Clone();
+
+    public static void Write(Utf8JsonWriter writer, JsonElement value)
+    {
+        if (value.ValueKind == JsonValueKind.Undefined) writer.WriteBooleanValue(false);
+        else value.WriteTo(writer);
+    }
+}
+
+/// <summary>
 /// A pending edit as <c>Change</c> in <c>src/draft.ts</c>: written in its member order, read as the Bun
 /// dashboard's store decodes edits it receives (<see cref="Change.Decode"/>).
 /// </summary>

@@ -31,7 +31,7 @@ public sealed record InstalledPackage : PackageInfo
     /// generation lacks the package. Undefined (omitted) when nothing changes or the running generation is not this
     /// configuration's.
     /// </summary>
-    [JsonPropertyOrder(1), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault), Runic.Application.Views.RunicBridgeCodec(typeof(ViewModels.JsonElementBridgeCodec))] public JsonElement Previous { get; init; }
+    [JsonPropertyOrder(1), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault), Runic.Application.Views.RunicBridgeCodec(typeof(ViewModels.PreviousVersionBridgeCodec))] public JsonElement Previous { get; init; }
 }
 
 /// <summary>A file with a package list a scope could add to (<c>PackageFile</c>).</summary>

@@ -22,7 +22,7 @@ export function setLocale(locale: string) {
   document.documentElement.lang = current;
 }
 
-type Pattern = { key: string; pattern: RegExp; names: string[]; literal: number };
+type Pattern = { key: string; english: string; pattern: RegExp; names: string[]; literal: number };
 let exact: Map<string, string> | undefined;
 let patterns: Pattern[] | undefined;
 const call = (key: string, values?: Record<string, string>) =>
@@ -41,7 +41,7 @@ function index() {
       .split(/\{\w+\}/)
       .map((piece) => piece.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
       .join("([\\s\\S]+?)");
-    patterns.push({ key, pattern: new RegExp(`^${source}$`), names, literal: english.replace(/\{\w+\}/g, "").length });
+    patterns.push({ key, english, pattern: new RegExp(`^${source}$`), names, literal: english.replace(/\{\w+\}/g, "").length });
   }
   // The most specific key wins, so "{label} failed" does not take "Building {name} failed".
   patterns.sort((a, b) => b.literal - a.literal);
@@ -62,6 +62,17 @@ export function stored(text: string | null | undefined): string {
     if (match) return call(key, Object.fromEntries(names.map((name, i) => [name, stored(match[i + 1])])));
   }
   return text;
+}
+
+/**
+ * Stored text with placeholders, such as "{label}: {option} on", filled with `values` in the current language.
+ * Unlike matching the filled English with `stored`, the template is known, so a value cannot be mistaken for part
+ * of another message. Values are used as given; translate those that are stored text first.
+ */
+export function storedTemplate(english: string, values: Record<string, string>): string {
+  if (!exact) index();
+  const key = exact!.get(english) ?? patterns!.find((pattern) => pattern.english === english)?.key;
+  return key ? call(key, values) : english.replace(/\{(\w+)\}/g, (_, name: string) => values[name] ?? "");
 }
 
 /** English action labels as the backend stores them (`actionLabels`). */
