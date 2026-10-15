@@ -4,6 +4,7 @@ Mocked build tools as in test-manager.py; never activates the machine. Every pro
 directory, so the single-instance socket never reaches a real Nix Manager. The daemon runs in Runic's serve-only
 mode: its dashboard Window is served instead of shown, and a line on its standard input closes it.
 """
+import base64
 import http.client
 import json
 import os
@@ -13,11 +14,14 @@ import re
 import shlex
 import shutil
 import signal
+import socket
+import struct
 import subprocess
 import tempfile
 import threading
 import time
 import unittest
+from urllib.parse import urljoin, urlsplit
 
 COMMAND = shlex.split(os.environ["NIX_MANAGER_TEST_COMMAND"])
 TIMEOUT = 60
@@ -200,6 +204,130 @@ class Instance:
                 stream.close()
             except BrokenPipeError:
                 pass
+
+
+class Tab:
+    """A browser tab on a served page: it loads the page and its WebUI bridge script, then holds the authenticated
+    WebSocket connection the bridge opens, as WebKitGTK or Chromium would, until it is closed or reloaded."""
+
+    def __init__(self, address, cookies=None):
+        self.address = address
+        # A browser keeps the page's cookies across a reload; the page then knows the tab again.
+        self.cookies = cookies if cookies is not None else {}
+        page = self.get(address)
+        bridge = self.get(urljoin(page, "webui.js"), read=True)
+        token = int(re.search(r"const TOKEN = (\d+);", bridge).group(1))
+        port = int(re.search(r"const PORT = (\d+);", bridge).group(1))
+        base = re.search(r'const BASE_PATH = "([^"]*)";', bridge).group(1)
+        credential = json.loads(re.search(r"const SESSION_CREDENTIAL = (\"[^\"]*\");", bridge).group(1))
+        origin = urlsplit(address)
+        # Until the server has let go of a reloaded page's socket, it refuses the next one; the bridge tries again.
+        for _ in range(20):
+            if self.upgrade(origin, port, base, credential):
+                break
+            time.sleep(0.05)
+        else:
+            raise AssertionError("the served page refused the tab's connection")
+        self.lock = threading.Lock()
+        # The bridge's token check (CMD_CHECK_TK); the server answers 1 once the connection is authenticated.
+        self.authenticated = threading.Event()
+        self.send(bytes([0xDD]) + struct.pack("<IH", token, 0) + bytes([0xF5, 0]))
+        self.reader = threading.Thread(target=self.receive, daemon=True)
+        self.reader.start()
+        if not self.authenticated.wait(TIMEOUT):
+            raise AssertionError("the served page did not accept the tab's token")
+
+    def upgrade(self, origin, port, base, credential):
+        """Opens the bridge's WebSocket; false when the server refused it."""
+        self.socket = socket.create_connection((origin.hostname, port), timeout=TIMEOUT)
+        key = base64.b64encode(os.urandom(16)).decode()
+        headers = [
+            f"GET {base}/_webui_ws_connect HTTP/1.1", f"Host: {origin.hostname}:{port}", "Upgrade: websocket",
+            "Connection: Upgrade", f"Sec-WebSocket-Key: {key}", "Sec-WebSocket-Version: 13",
+            f"Origin: {origin.scheme}://{origin.netloc}",
+        ]
+        if credential:
+            headers.append(f"Sec-WebSocket-Protocol: runic-desktop.{credential}")
+        if self.cookies:
+            headers.append("Cookie: " + "; ".join(f"{name}={value}" for name, value in self.cookies.items()))
+        self.socket.sendall(("\r\n".join(headers) + "\r\n\r\n").encode())
+        response = b""
+        while b"\r\n\r\n" not in response:
+            response += self.socket.recv(4096)
+        if response.startswith(b"HTTP/1.1 101"):
+            return True
+        assert response.startswith(b"HTTP/1.1 403"), response
+        self.socket.close()
+        return False
+
+    def get(self, address, read=False):
+        """Follows redirects as a browser does; returns the final address, or with read the body."""
+        for _ in range(5):
+            parts = urlsplit(address)
+            connection = http.client.HTTPConnection(parts.netloc, timeout=TIMEOUT)
+            try:
+                headers = {"Cookie": "; ".join(f"{name}={value}" for name, value in self.cookies.items())} if self.cookies else {}
+                connection.request("GET", parts.path + (f"?{parts.query}" if parts.query else ""), headers=headers)
+                response = connection.getresponse()
+                body = response.read().decode()
+                for cookie in response.headers.get_all("Set-Cookie") or []:
+                    name, _, value = cookie.split(";", 1)[0].partition("=")
+                    self.cookies[name] = value
+                if response.status in (301, 302, 303, 307, 308):
+                    address = urljoin(address, response.getheader("Location"))
+                    continue
+                assert response.status == 200, (address, response.status)
+                return body if read else address
+            finally:
+                connection.close()
+        raise AssertionError(f"too many redirects from {address}")
+
+    def send(self, payload, opcode=0x2):
+        mask = os.urandom(4)
+        length = len(payload)
+        header = bytes([0x80 | opcode])
+        header += bytes([0x80 | length]) if length < 126 else bytes([0x80 | 126]) + struct.pack(">H", length) \
+            if length < 65536 else bytes([0x80 | 127]) + struct.pack(">Q", length)
+        with self.lock:
+            self.socket.sendall(header + mask + bytes(byte ^ mask[i % 4] for i, byte in enumerate(payload)))
+
+    def receive(self):
+        """Reads what the page is sent, answers pings, and notes the token check's answer; the rest is ignored."""
+        stream = self.socket.makefile("rb")
+        try:
+            while True:
+                first, second = stream.read(2)
+                length = second & 0x7F
+                if length == 126:
+                    length = struct.unpack(">H", stream.read(2))[0]
+                elif length == 127:
+                    length = struct.unpack(">Q", stream.read(8))[0]
+                payload = stream.read(length)
+                opcode = first & 0x0F
+                if opcode == 0x9:
+                    self.send(payload, 0xA)
+                elif opcode == 0x8:
+                    return
+                elif len(payload) > 8 and payload[0] == 0xDD and payload[7] == 0xF5 and payload[8] == 1:
+                    self.authenticated.set()
+        except (OSError, ValueError):
+            return
+
+    def reload(self):
+        """Reloads the page: its connection closes, and the reloaded page connects again with the same cookies."""
+        self.close()
+        return Tab(self.address, self.cookies)
+
+    def close(self):
+        """Closes the tab: the bridge's socket closes, as when the browser closes the tab."""
+        try:
+            self.send(struct.pack(">H", 1001), 0x8)
+            # The server answers the close, as it does a browser's.
+            self.reader.join(5)
+            self.socket.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        self.socket.close()
 
 
 def tray(sandbox, env=None):
@@ -492,6 +620,82 @@ class SetupTests(unittest.TestCase):
                     served.close()
         finally:
             browser.unlink()
+
+
+class BrowserTests(unittest.TestCase):
+    """`ui --browser` ends once its last tab has been closed for a second, so a reload keeps it, as the Bun version's
+    `ui` did (main in src/main.ts). A daemon that runs meanwhile keeps running."""
+
+    def setUp(self):
+        self.sandbox = Sandbox()
+        self.instances = []
+        self.tabs = []
+        # The default browser opens nothing; the tests are the browser.
+        browser = self.sandbox.root / "bin" / "xdg-open"
+        browser.write_text(f'#!{shutil.which("bash")}\nexit 0\n')
+        browser.chmod(0o755)
+
+    def tearDown(self):
+        for tab in self.tabs:
+            tab.close()
+        for instance in self.instances:
+            if instance.process.poll() is None:
+                instance.process.kill()
+            instance.process.wait(TIMEOUT)
+            instance.close()
+        self.sandbox.close()
+
+    def browse(self, env=None):
+        instance = Instance(self.sandbox, ["ui", "--browser"], env, ready=("stdout", "RUNIC_APPLICATION_URL="))
+        self.instances.append(instance)
+        return instance
+
+    def tab(self, instance):
+        with instance.changed:
+            line = next(line for line in instance.lines["stdout"] if line.startswith("RUNIC_APPLICATION_URL="))
+        tab = Tab(line.split("=", 1)[1])
+        self.tabs.append(tab)
+        return tab
+
+    def assertServes(self, instance, seconds=3):
+        time.sleep(seconds)
+        self.assertIsNone(instance.process.poll(), instance.lines)
+
+    def assertEnds(self, instance):
+        # The grace period is a second, and the page is looked at four times a second.
+        self.assertEqual(instance.process.wait(15), 0, instance.lines)
+
+    def test_the_dashboard_ends_when_its_last_tab_closes_and_a_reload_keeps_it(self):
+        served = self.browse()
+        first = self.tab(served)
+        self.assertServes(served)
+        second = first.reload()
+        self.tabs.append(second)
+        self.assertServes(served)
+        second.close()
+        self.assertEnds(served)
+
+    def test_with_the_daemon_running_only_the_browser_session_ends(self):
+        daemon = tray(self.sandbox)
+        self.instances.append(daemon)
+        served = self.browse()
+        tab = self.tab(served)
+        self.assertServes(served, 2)
+        tab.close()
+        self.assertEnds(served)
+        time.sleep(2)
+        self.assertIsNone(daemon.process.poll(), daemon.lines)
+        result = self.sandbox.run(["home", "build"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIsNone(daemon.process.poll(), daemon.lines)
+
+    def test_the_setup_assistant_ends_when_its_last_tab_closes(self):
+        served = self.browse(self.sandbox.without_checkout())
+        tab = self.tab(served)
+        self.assertServes(served)
+        tab.close()
+        self.assertEnds(served)
+        self.assertFalse((self.sandbox.root / "home" / "nixos-config").exists())
 
 
 if __name__ == "__main__":

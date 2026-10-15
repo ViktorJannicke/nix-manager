@@ -60,6 +60,8 @@
             inherit pkgs self;
             runic = true;
           };
+          # The WebKitGTK attribute-run abort in both Linux hosts; see nix/lab/webkit-attribute-run/REPORT.md.
+          webkit-attribute-run = import ./nix/lab/webkit-attribute-run { inherit pkgs; };
           hyprland-sandbox = import ./nix/hyprland-sandbox { inherit pkgs; };
           # Runic against Bun: start-up, memory and size, in the sandbox; see runic/COMPARISON.md.
           compare = import ./nix/compare {

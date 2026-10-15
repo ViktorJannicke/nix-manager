@@ -1,5 +1,5 @@
 # Prints the accessibility tree of every running application, one node per
-# line: depth, role, name, an entry's text and the states a screen reader
+# line: depth, role, name, an entry's text or a spin button's value, and the states a screen reader
 # announces.
 import os
 import sys
@@ -29,6 +29,8 @@ def walk(node, depth, limit):
     # Accessible.get_text shadows the Text interface's method; call it directly.
     if role == "entry" and node.get_text_iface() is not None:
         value = f" value={Atspi.Text.get_text(node, 0, -1)!r}"
+    elif role == "spin button" and node.get_value_iface() is not None:
+        value = f" value={Atspi.Value.get_current_value(node):g}"
     size = ""
     # LAB_ATSPI_EXTENTS=1 adds each node's size, to see zoom and text scaling.
     if os.environ.get("LAB_ATSPI_EXTENTS") and node.get_component_iface() is not None:

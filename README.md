@@ -577,7 +577,8 @@ nix build .#desktop-a11y   # GNOME and Orca: tab order, typing, and what Orca sa
 nix build .#speech-audio   # Orca's real speech, recorded and heard by whisper.cpp
 nix build .#desktop-apply  # the dashboard and software apply for real, a reboot, cleanup
 nix build .#desktop-a11y-runic   # the same machine with the Runic port installed
-nix build .#speech-audio-runic   # Orca's speech, and a Tab stop in the port's dashboard
+nix build .#speech-audio-runic   # Orca's speech, and Tab stops in the port's dashboard
+nix build .#webkit-attribute-run # the WebKitGTK attribute-run abort in both WebKitGTK flavours
 ```
 
 The `-runic` tests install the port through `programs.nix-manager.runic.enable`
@@ -599,17 +600,26 @@ process crash fails those steps. The AT-SPI application is `nix-manager`
 (Chromium's is `chrom…`), and its window class is `nix-manager`.
 
 WebKitGTK 2.54.1 aborts its web process when Orca asks for the text attributes
-of a list item whose text is only the U+FFFC of an embedded button. A
-`CrashOnOverflow` in `textAttributesWithUTF8Offset` indexes its UTF-16-to-UTF-8
-offset table out of bounds, and the Window freezes. WebKit main still has the
-unchecked index. The dashboard's navigation used such list items. Its items
-are now `display: contents`, so each one's text is its button's label
-(`runic/Frontend/src/App.svelte`). The side effect is that Orca no longer says
-"list with 8 items" when Tab enters the navigation, but it still says "leaving
-list". `nix/lab/webkit-attribute-run` has the minimal page and AT-SPI calls for
-an upstream report. The VM test counts the web process's core dumps after every
-Tab and names the press. `nix run .#lab-runic` drives the port's VM like
-`.#lab`.
+of a list item whose text is only the U+FFFC of an embedded button and whose
+last node has no box, such as whitespace or the comment anchors Svelte leaves.
+A `CrashOnOverflow` in `textAttributesWithUTF8Offset` indexes its
+UTF-16-to-UTF-8 offset table out of bounds, and the Window freezes. GTK 4's
+webkitgtk-6.0 aborts the same way, and WebKit main still has the unchecked
+index. The dashboard's navigation items are `display: contents`, which WebKitGTK
+answers without that computation, and each gives its position with
+`aria-setsize` and `aria-posinset`, so Orca says "list with 8 items" when Tab
+enters the navigation, as with the Bun version (`runic/Frontend/src/App.svelte`).
+`nix build .#webkit-attribute-run` opens the minimal pages of
+`nix/lab/webkit-attribute-run` in both WebKitGTK flavours and records which
+abort; `REPORT.md` there is the upstream report. The VM test counts the web
+process's core dumps after every Tab and names the press. It also checks that
+Orca says the list's size and reads the new number of restore points to keep.
+
+WebKitGTK sends no AT-SPI event when the text of a live region changes, so Orca
+announces no live region in the port (Chromium does, with the same page). The
+restore points to keep are therefore a spin button, whose value Orca reads as it
+changes; its "Keep more" and "Keep fewer" buttons are for the pointer and leave
+focus on it. `nix run .#lab-runic` drives the port's VM like `.#lab`.
 
 Orca's speech is written to a text transcript, so the tests compare exactly
 what a screen-reader user hears. `desktop-apply` boots through systemd-boot
