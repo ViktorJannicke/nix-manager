@@ -350,11 +350,13 @@ The Runic port keeps one Runic Translations catalogue for both sides, in
 the backend stores in English (`stored/`, imported from the Bun catalogue by
 `runic/Frontend/scripts/import-bun-catalog.py`), and the daemon's status icon,
 menu and notifications (`tray/`). The page reads it through the Vite plugin as
-`m.*()`. The C# build compiles the same catalogue into
-`NixManager.Dashboard.DashboardText` (`TranslationProject` in
-`runic/NixManager.csproj`), which `runic/Daemon/TrayText.cs` uses for the tray:
-its typed `tray_*` messages, and stored text found by its English as the page's
-`stored()` does. The tray follows the dashboard's language setting while it runs.
+`m.*()`. The daemon reads `tray/` and `stored/` from the same files, embedded
+in its assembly, with a small reader for the part of RMF2 they use
+(`runic/Daemon/TrayText.cs`): its `tray_*` messages, and stored text found by
+its English as the page's `stored()` does. It does not use the C# that
+Runic.Translations.Build would generate for the whole catalogue, which costs
+the idle daemon about 50 MiB; `TrayMessages` keeps the generated names, so that
+class can replace the reader later. The tray follows the dashboard's language setting while it runs.
 
 German uses the formal "Sie", „these quotes“ and the same word for the same
 thing everywhere:
