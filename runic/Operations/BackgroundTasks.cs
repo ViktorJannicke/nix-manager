@@ -1,0 +1,155 @@
+using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using NixManager.Domain;
+using NixManager.Nix;
+using NixManager.Observation;
+
+namespace NixManager.Operations;
+
+/// <summary>Whether the computer may work unasked: plugged in and not busy.</summary>
+public sealed record BackgroundConditions(Func<bool> Mains, Func<bool> Idle)
+{
+    /// <summary>This computer: <c>NIX_MANAGER_SYSFS</c> or /sys for power, the load average for work.</summary>
+    public static BackgroundConditions Computer { get; } = new(
+        () => Hardware.OnMains(Environment.GetEnvironmentVariable("NIX_MANAGER_SYSFS") is { Length: > 0 } root ? root : "/sys"),
+        Hardware.NotBusy);
+}
+
+/// <summary>The computer's power supply and load (<c>onMains</c> in <c>src/hardware.ts</c>, <c>notBusy</c> in <c>src/background.ts</c>).</summary>
+public static class Hardware
+{
+    private static string Read(string path)
+    {
+        try { return File.ReadAllText(path).Trim(); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return ""; }
+    }
+
+    private static string[] List(string path)
+    {
+        try { return Directory.GetFileSystemEntries(path).Select(entry => Path.GetFileName(entry)).ToArray(); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return []; }
+    }
+
+    /// <summary>Plugged in: no battery of its own (a mouse's battery does not count), or a mains supply that is online.</summary>
+    public static bool OnMains(string root = "/sys")
+    {
+        var supplies = Path.Combine(root, "class/power_supply");
+        var names = List(supplies);
+        string Type(string name) => Read(Path.Combine(supplies, name, "type"));
+        var battery = names.Any(name => Type(name) == "Battery" && Read(Path.Combine(supplies, name, "scope")) != "Device");
+        return !battery || names.Any(name => Type(name) == "Mains" && Read(Path.Combine(supplies, name, "online")) == "1");
+    }
+
+    /// <summary>Not busy: the load of the last minute is below half the processors (<c>notBusy</c>).</summary>
+    public static bool NotBusy()
+    {
+        var first = Read("/proc/loadavg").Split(' ').FirstOrDefault();
+        var load = double.TryParse(first, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : 0;
+        return load < Environment.ProcessorCount / 2.0;
+    }
+}
+
+/// <summary>The input updates last prepared in the background, so the same ones are not prepared twice.</summary>
+public sealed record PreparedUpdates(string Signature, string ReviewId);
+
+/// <summary>The last automatic cleanup, with the free space before it to say what it freed.</summary>
+public sealed record AutomaticCleanup(string At, string OperationId, long? Free);
+
+/// <summary>
+/// Work the daemon (W300-031) starts unasked (<c>src/background.ts</c>): preparing the input updates the last check
+/// found, and a weekly cleanup of the apps' restore points, each only when the preferences allow it and the computer
+/// is plugged in and not busy. Each call returns the started operation or why nothing started.
+/// </summary>
+public sealed class BackgroundTasks(IOperationService manager, BackgroundConditions? conditions = null, TimeProvider? clock = null)
+{
+    /// <summary>Automatic cleanup keeps this many restore points of the apps (<c>keptAutomatically</c>).</summary>
+    public const int KeptAutomatically = 5;
+
+    private static readonly TimeSpan Week = TimeSpan.FromDays(7);
+    private readonly BackgroundConditions _conditions = conditions ?? BackgroundConditions.Computer;
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+
+    private static string PreparedPath(Config config) => Path.Combine(config.StateDir, "background.json");
+    private static string CleanedPath(Config config) => Path.Combine(config.StateDir, "cleanup.json");
+
+    private static JsonObject? ReadObject(string path)
+    {
+        try { return JsonNode.Parse(File.ReadAllText(path)) as JsonObject; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException) { return null; }
+    }
+
+    private static string? Text(JsonObject value, string name) =>
+        value[name] is JsonValue node && node.TryGetValue<string>(out var text) ? text : null;
+
+    /// <summary>The updates last prepared in the background (<c>lastPrepared</c>).</summary>
+    public static PreparedUpdates? LastPrepared(Config config) =>
+        ReadObject(PreparedPath(config)) is { } value ? new PreparedUpdates(Text(value, "signature") ?? "", Text(value, "reviewId") ?? "") : null;
+
+    /// <summary>The last automatic cleanup (<c>lastCleanup</c>).</summary>
+    public static AutomaticCleanup? LastCleanup(Config config) =>
+        ReadObject(CleanedPath(config)) is { } value
+            ? new AutomaticCleanup(Text(value, "at") ?? "", Text(value, "operationId") ?? "",
+                value["free"] is JsonValue free && free.TryGetValue<double>(out var bytes) ? (long)bytes : null)
+            : null;
+
+    /// <summary>Free bytes in /nix/store, or null (<c>freeSpace</c>).</summary>
+    public static long? FreeSpace(string store = "/nix/store") => SystemObserver.Disk(store)?.Free;
+
+    private static bool Allowed(Config config, string preference) =>
+        Preferences.Read(config)[preference] is JsonValue value && value.TryGetValue<bool>(out var allowed) && allowed;
+
+    /// <summary>
+    /// Starts preparing the input updates the last check found, when the preferences allow it, these updates were not
+    /// prepared before and the computer is plugged in and not busy (<c>prepareInBackground</c>). Package pins change
+    /// files in the checkout, so only source updates are prepared unasked.
+    /// </summary>
+    /// <returns>The started operation, or why none started.</returns>
+    public (Operation? Operation, string? Reason) PrepareInBackground()
+    {
+        var config = manager.Config;
+        if (!Allowed(config, "prepareUpdates")) return (null, "Preparing updates in the background is off.");
+        var inputs = manager.Updates()?.Items.Where(item => item.Kind == "input").ToList() ?? [];
+        if (inputs.Count == 0) return (null, "There are no updates to prepare.");
+        var signature = JsJson.Stringify(new JsonArray([.. inputs.Select(item => (JsonNode)new JsonArray(item.Name, item.Latest))]));
+        if (LastPrepared(config)?.Signature == signature) return (null, "These updates were prepared already.");
+        if (manager.Busy) return (null, "Something else is running.");
+        if (!_conditions.Mains()) return (null, "The computer runs on battery.");
+        if (!_conditions.Idle()) return (null, "The computer is busy.");
+        var run = manager.Start(Request.Create() with
+        {
+            Action = Actions.ReviewBuild,
+            Host = config.HostKey,
+            Update = true,
+            ReviewId = Guid.NewGuid().ToString(),
+        });
+        var reviewId = run.Operation.Request.ReviewId!;
+        OperationStore.AtomicJson(PreparedPath(config), JsJson.Indented(new JsonObject { ["signature"] = signature, ["reviewId"] = reviewId }));
+        return (run.Operation, null);
+    }
+
+    /// <summary>
+    /// Removes older restore points of the apps and unused store paths, at most once a week, when the preferences
+    /// allow it and the computer is plugged in and not busy. System restore points need a password, so they are never
+    /// removed unasked (<c>cleanUpInBackground</c>).
+    /// </summary>
+    /// <returns>The started operation, or why none started.</returns>
+    public (Operation? Operation, string? Reason) CleanUpInBackground(DateTimeOffset? now = null, string store = "/nix/store")
+    {
+        var config = manager.Config;
+        var at = now ?? _clock.GetUtcNow();
+        if (!Allowed(config, "cleanUp")) return (null, "Cleaning up automatically is off.");
+        if (LastCleanup(config) is { } last && Timestamps.Parse(last.At) is { } previous && at - previous < Week)
+            return (null, "The last cleanup was less than a week ago.");
+        if (manager.Busy) return (null, "Something else is running.");
+        if (!_conditions.Mains()) return (null, "The computer runs on battery.");
+        if (!_conditions.Idle()) return (null, "The computer is busy.");
+        var free = FreeSpace(store);
+        var run = manager.Start(Request.Create() with { Action = Actions.Gc, Scope = Scopes.Home, Host = config.HostKey, Retention = KeptAutomatically });
+        var record = new JsonObject { ["at"] = Timestamps.Format(at), ["operationId"] = run.Operation.Id };
+        // JsJson writes numbers as JavaScript does, from doubles.
+        if (free is { } bytes) record["free"] = (double)bytes;
+        OperationStore.AtomicJson(CleanedPath(config), JsJson.Indented(record));
+        return (run.Operation, null);
+    }
+}

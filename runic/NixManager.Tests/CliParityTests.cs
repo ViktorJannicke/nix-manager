@@ -14,9 +14,38 @@ public sealed class CliParityTests
 {
     private sealed record Recorded(string Name, string[] Args, int ExitCode, string Stdout, string? Error);
 
-    private static readonly Dictionary<string, Recorded> Recordings =
-        JsonSerializer.Deserialize<List<Recorded>>(File.ReadAllText(Path.Combine(BunFixtures.Directory, "bun-cli.json")),
-            new JsonSerializerOptions(JsonSerializerDefaults.Web))!.ToDictionary(r => r.Name);
+    /// <param name="Volatile">Members whose values differ between runs, such as an operation's ID and times; compared as present only.</param>
+    private sealed record Case(string Name, Dictionary<string, string>? Files, List<string>? Volatile = null);
+
+    private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
+
+    /// <summary>Every recorded case of every <c>bun-cli*.json</c>.</summary>
+    private static readonly Dictionary<string, Recorded> Recordings = System.IO.Directory
+        .EnumerateFiles(BunFixtures.Directory, "bun-cli*.json")
+        .SelectMany(file => JsonSerializer.Deserialize<List<Recorded>>(File.ReadAllText(file), Web)!)
+        .ToDictionary(r => r.Name);
+
+    /// <summary>The files each case adds to the checkout (<c>cli-cases*.json</c>).</summary>
+    private static readonly Dictionary<string, Case> CaseFiles = System.IO.Directory
+        .EnumerateFiles(BunFixtures.Directory, "cli-cases*.json")
+        .SelectMany(file => JsonSerializer.Deserialize<List<Case>>(File.ReadAllText(file), Web)!)
+        .ToDictionary(c => c.Name);
+
+    /// <summary>The document with the values of <paramref name="names"/> replaced, at any depth.</summary>
+    private static JsonNode? WithoutVolatile(JsonNode? node, IReadOnlyCollection<string> names)
+    {
+        switch (node)
+        {
+            case JsonObject value:
+                foreach (var (name, child) in value.ToList())
+                    value[name] = names.Contains(name) ? JsonValue.Create("<volatile>") : WithoutVolatile(child?.DeepClone(), names);
+                return value;
+            case JsonArray array:
+                return new JsonArray([.. array.Select(item => WithoutVolatile(item?.DeepClone(), names))]);
+            default:
+                return node;
+        }
+    }
 
     public static IEnumerable<string> Cases() => Recordings.Keys;
 
@@ -39,7 +68,9 @@ public sealed class CliParityTests
     public async Task The_command_line_answers_as_the_Bun_version(string name)
     {
         var recorded = Recordings[name];
-        using var fixtures = new BunFixtures();
+        var @case = CaseFiles.GetValueOrDefault(name);
+        using var fixtures = new BunFixtures(@case?.Files);
+        var volatileNames = @case?.Volatile ?? [];
 
         var (exitCode, stdout, stderr) = await RunAsync(fixtures, recorded.Args);
 
@@ -48,8 +79,8 @@ public sealed class CliParityTests
         await Assert.That(error is null ? null : fixtures.NormalizeText(error)).IsEqualTo(recorded.Error);
         if (recorded.Stdout.TrimStart().StartsWith('{') || recorded.Stdout.TrimStart().StartsWith('['))
         {
-            var expected = BunFixtures.NormalizeJson(JsonNode.Parse(recorded.Stdout));
-            var actual = BunFixtures.NormalizeJson(JsonNode.Parse(fixtures.NormalizeText(stdout)));
+            var expected = WithoutVolatile(BunFixtures.NormalizeJson(JsonNode.Parse(recorded.Stdout)), volatileNames);
+            var actual = WithoutVolatile(BunFixtures.NormalizeJson(JsonNode.Parse(fixtures.NormalizeText(stdout))), volatileNames);
             await Assert.That(BunFixtures.Difference(expected, actual)).IsNull();
         }
         else await Assert.That(fixtures.NormalizeText(stdout)).IsEqualTo(BunFixtures.NormalizeRecordedText(recorded.Stdout));

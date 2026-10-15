@@ -119,7 +119,7 @@ public static class DashboardCommand
     /// <summary>Loads the configuration as the command line does, then runs the dashboard.</summary>
     public static int Run(Invocation invocation)
     {
-        CliHandler.AllowFlakes(ManagerEnvironment.Current);
+        Setup.SetupAssistant.AllowFlakes(ManagerEnvironment.Current);
         Config config;
         try
         {

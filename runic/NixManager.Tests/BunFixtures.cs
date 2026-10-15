@@ -20,7 +20,8 @@ internal sealed partial class BunFixtures : IDisposable
     public Dictionary<string, string?> Variables { get; }
     public ManagerEnvironment Environment { get; }
 
-    public BunFixtures()
+    /// <param name="files">Files to add, by path relative to the checkout; <c>&lt;flake&gt;</c> in their text is the checkout.</param>
+    public BunFixtures(IReadOnlyDictionary<string, string>? files = null)
     {
         var created = System.IO.Directory.CreateTempSubdirectory("nix-manager-fixtures-").FullName;
         Root = NixManager.Operations.Native.RealPath(created) ?? created;
@@ -33,6 +34,12 @@ internal sealed partial class BunFixtures : IDisposable
         var profile = Path.Combine(Root, "state", "nix", "profiles", "home-manager");
         System.IO.Directory.CreateDirectory(Path.GetDirectoryName(profile)!);
         File.WriteAllText(profile, "");
+        foreach (var (name, text) in files ?? new Dictionary<string, string>())
+        {
+            var path = Path.Combine(Root, name);
+            System.IO.Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, text.Replace("<flake>", Root, StringComparison.Ordinal));
+        }
         Variables = new()
         {
             ["NIX_MANAGER_HOSTS"] = Path.Combine(Root, "hosts.json"),

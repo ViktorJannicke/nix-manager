@@ -5,6 +5,7 @@ using NixManager.Operations;
 using NixManager.Updates;
 using Runic.CommandLine;
 using Runic.CommandLine.Generated;
+using Runic.CommandLine.Processes;
 using Runic.Platform.Linux.Polkit;
 
 namespace NixManager.Cli;
@@ -32,6 +33,8 @@ public sealed class CliSession
     public Func<Config, ICommandRunner, IOperationClient> CreateClient { get; init; } = DefaultClient;
     public TimeProvider Clock { get; init; } = TimeProvider.System;
     public TimeSpan HeartbeatInterval { get; init; } = TimeSpan.FromSeconds(15);
+    /// <summary>Runs processes whose output goes to a file, such as the package catalog's evaluation.</summary>
+    public IProcessRunner Processes { get; init; } = new ProcessRunner(new LocalExecutablePolicy());
 
     /// <summary>The privileged entry point as plans show it: <c>pkexec PROGRAM --privileged</c>.</summary>
     public static IReadOnlyList<string> PrivilegedPrefix =>
@@ -64,9 +67,17 @@ public static class NixManagerCli
     public static async Task<int> RunAsync(string[] args, CliSession? session = null, ICommandConsole? console = null,
         bool handleSignals = true, CancellationToken cancellationToken = default)
     {
-        var (arguments, extra) = CliArguments.Split(args);
-        // The whole grammar is the default command's: the application's help is that command's help.
-        if (arguments is ["--help"] or ["-h"] or ["help"]) arguments = ["run", "--help"];
+        string[] arguments, extra;
+        var isSoftware = false;
+        // `software ...` has its own grammar: options before `software` or after the arguments, and `--` before
+        // positional arguments (src/software-cli.ts).
+        if (SoftwareCli.Arguments(args) is { } software) (arguments, extra, isSoftware) = (SoftwareCli.Normalize(software), [], true);
+        else
+        {
+            (arguments, extra) = CliArguments.Split(args);
+            // The whole grammar is the default command's: the application's help is that command's help.
+            if (arguments is ["--help"] or ["-h"] or ["help"]) arguments = ["run", "--help"];
+        }
         var output = session?.Output ?? new CliOutput();
         session ??= new CliSession { Output = output };
         session = new CliSession
@@ -78,6 +89,7 @@ public static class NixManagerCli
             CreateClient = session.CreateClient,
             Clock = session.Clock,
             HeartbeatInterval = session.HeartbeatInterval,
+            Processes = session.Processes,
         };
         var app = new CommandApp(Catalog())
         {
@@ -85,7 +97,7 @@ public static class NixManagerCli
             Version = "1.0.0",
             Console = console ?? new SystemCommandConsole(),
             ScopeFactory = CommandScopes.FromServices(CommandServices.Empty.With(session)),
-            OutcomeSink = new CliOutcomeSink(output),
+            OutcomeSink = isSoftware ? new SoftwareOutcomeSink(output) : new CliOutcomeSink(output),
             ExitCodePolicy = new CliExitCodes(),
             HandleCancelKeyPress = handleSignals,
         };

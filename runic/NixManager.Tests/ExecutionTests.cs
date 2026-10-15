@@ -59,13 +59,27 @@ public sealed class ExecutionTests
             e => { lock (events) events.Add((clock.Elapsed, e)); }, CancellationToken.None);
 
         await Assert.That(result.Code).IsEqualTo(0);
-        await Assert.That(result.Stdout).IsEqualTo("first\nlast without newline\n");
+        // The result keeps standard output as written, as the Bun version's capture does.
+        await Assert.That(result.Stdout).IsEqualTo("first\nlast without newline");
         await Assert.That(result.Stderr).IsEqualTo("to stderr\n");
         var text = events.Select(e => e.Event).OfType<TextOutput>().ToList();
         await Assert.That(text.Select(t => (t.Stream, t.Text)))
             .IsEquivalentTo([("stdout", "first\n"), ("stderr", "to stderr\n"), ("stdout", "last without newline\n")]);
         // The first line arrived before the process slept, not after it exited.
         await Assert.That(events[0].At).IsLessThan(events[^1].At - TimeSpan.FromMilliseconds(300));
+    }
+
+    [Test]
+    public async Task A_line_longer_than_the_runner_passes_at_once_stays_whole()
+    {
+        // nix eval --json prints a document of megabytes on one line; Runic passes lines over 64 Ki characters in parts.
+        var result = await new ProcessCommandRunner().RunAsync(
+            Shell("""printf '["'; head -c 200000 /dev/zero | tr '\0' 'x'; printf '","\303\244"]\n'""") with { Quiet = true },
+            _ => { }, CancellationToken.None);
+
+        await Assert.That(result.Stdout.Length).IsEqualTo(200000 + 9);
+        await Assert.That(result.Stdout).DoesNotContain("x\nx");
+        await Assert.That(System.Text.Json.Nodes.JsonNode.Parse(result.Stdout)![1]!.GetValue<string>()).IsEqualTo("ä");
     }
 
     [Test]

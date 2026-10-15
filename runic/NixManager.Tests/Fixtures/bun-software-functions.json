@@ -1,0 +1,371 @@
+{
+  "previousVersion": [
+    {
+      "item": {
+        "out": "/nix/store/00000000000000000000000000000000-ripgrep-14.1.1",
+        "name": "ripgrep",
+        "version": "14.1.1"
+      },
+      "previous": "undefined"
+    },
+    {
+      "item": {
+        "out": "/nix/store/11111111111111111111111111111111-git-2.51.0",
+        "name": "git",
+        "version": "2.51.0"
+      },
+      "previous": "2.50.0"
+    },
+    {
+      "item": {
+        "out": "/nix/store/22222222222222222222222222222222-git-2.50.0",
+        "name": "git",
+        "version": "2.50.0"
+      },
+      "previous": "undefined"
+    },
+    {
+      "item": {
+        "out": "/nix/store/33333333333333333333333333333333-python3-3.13.5",
+        "name": "python3",
+        "version": "3.13.5"
+      },
+      "previous": "undefined"
+    },
+    {
+      "item": {
+        "out": "/nix/store/44444444444444444444444444444444-hello-2.12.3",
+        "name": "hello",
+        "version": "2.12.3"
+      },
+      "previous": "2.12.1"
+    },
+    {
+      "item": {
+        "out": "/nix/store/55555555555555555555555555555555-new-1.0",
+        "name": "new",
+        "version": "1.0"
+      },
+      "previous": null
+    },
+    {
+      "item": {
+        "out": "/nix/store/66666666666666666666666666666666-fzf",
+        "name": "fzf",
+        "version": null
+      },
+      "previous": "0.65.2"
+    },
+    {
+      "item": {
+        "out": "/nix/store/77777777777777777777777777777777-nodejs-24.0.0",
+        "name": "nodejs",
+        "version": "24.0.0"
+      },
+      "previous": "20.0.0"
+    }
+  ],
+  "importedFiles": [
+    {
+      "used": [
+        "hosts/test/default.nix"
+      ],
+      "result": [
+        "hosts/test/default.nix",
+        "hosts/test/hardware.nix",
+        "modules/nixos/default.nix",
+        "modules/nixos/desktop.nix",
+        "modules/shared/fonts.nix"
+      ]
+    },
+    {
+      "used": [
+        "home.nix"
+      ],
+      "result": [
+        "home.nix",
+        "modules/home/default.nix"
+      ]
+    },
+    {
+      "used": [
+        "modules/shared/fonts.nix"
+      ],
+      "result": [
+        "modules/nixos/desktop.nix",
+        "modules/shared/fonts.nix"
+      ]
+    },
+    {
+      "used": [],
+      "result": []
+    }
+  ],
+  "splitAttr": [
+    {
+      "text": "pkgs.fzf",
+      "result": [
+        "pkgs",
+        "fzf"
+      ]
+    },
+    {
+      "text": "pkgs.",
+      "result": [
+        "pkgs"
+      ]
+    },
+    {
+      "text": "pkgs",
+      "result": [
+        "pkgs"
+      ]
+    },
+    {
+      "text": "pkgs.kdePackages.kate",
+      "result": [
+        "pkgs",
+        "kdePackages",
+        "kate"
+      ]
+    },
+    {
+      "text": "pkgs.\"my-pkg\".x",
+      "result": [
+        "pkgs",
+        "my-pkg",
+        "x"
+      ]
+    },
+    {
+      "text": "pkgs.\"a\\\"b\"",
+      "result": [
+        "pkgs",
+        "a\"b"
+      ]
+    },
+    {
+      "text": "pkgs..x",
+      "result": null
+    },
+    {
+      "text": "1pkgs.x",
+      "result": null
+    },
+    {
+      "text": "pkgs.x-y'z",
+      "result": [
+        "pkgs",
+        "x-y'z"
+      ]
+    },
+    {
+      "text": "pkgs.x.",
+      "result": [
+        "pkgs",
+        "x"
+      ]
+    },
+    {
+      "text": "",
+      "result": null
+    }
+  ],
+  "software": [
+    {
+      "args": [
+        "software",
+        "pending"
+      ],
+      "result": [
+        "software",
+        "pending"
+      ]
+    },
+    {
+      "args": [
+        "--json",
+        "software",
+        "pending",
+        "--diff"
+      ],
+      "result": [
+        "software",
+        "pending",
+        "--json",
+        "--diff"
+      ]
+    },
+    {
+      "args": [
+        "--flake",
+        "/x",
+        "--host",
+        "h",
+        "software",
+        "add",
+        "fzf",
+        "--system"
+      ],
+      "result": [
+        "software",
+        "add",
+        "--flake",
+        "/x",
+        "--host",
+        "h",
+        "fzf",
+        "--system"
+      ]
+    },
+    {
+      "args": [
+        "--json",
+        "switch"
+      ],
+      "result": null
+    },
+    {
+      "args": [
+        "software"
+      ],
+      "result": [
+        "software"
+      ]
+    },
+    {
+      "args": [
+        "--limit",
+        "3",
+        "software",
+        "search",
+        "git"
+      ],
+      "result": [
+        "software",
+        "search",
+        "--limit",
+        "3",
+        "git"
+      ]
+    },
+    {
+      "args": [
+        "--flake"
+      ],
+      "result": null
+    },
+    {
+      "args": [
+        "home",
+        "software"
+      ],
+      "result": null
+    }
+  ],
+  "normalize": [
+    {
+      "path": "a/b/../c",
+      "result": "a/c"
+    },
+    {
+      "path": "./a//b/",
+      "result": "a/b/"
+    },
+    {
+      "path": "../../x",
+      "result": "../../x"
+    },
+    {
+      "path": "a/..",
+      "result": "."
+    },
+    {
+      "path": "/a/../../b",
+      "result": "/b"
+    },
+    {
+      "path": "",
+      "result": "."
+    },
+    {
+      "path": ".",
+      "result": "."
+    },
+    {
+      "path": "a/./b/.",
+      "result": "a/b"
+    },
+    {
+      "path": "x/../../y/",
+      "result": "../y/"
+    }
+  ],
+  "join": [
+    {
+      "parts": [
+        "hosts/test",
+        "../../modules/nixos"
+      ],
+      "result": "modules/nixos"
+    },
+    {
+      "parts": [
+        ".",
+        "./home.nix"
+      ],
+      "result": "home.nix"
+    },
+    {
+      "parts": [
+        "",
+        ""
+      ],
+      "result": "."
+    },
+    {
+      "parts": [
+        "a",
+        "/b"
+      ],
+      "result": "a/b"
+    },
+    {
+      "parts": [
+        "modules",
+        "x/"
+      ],
+      "result": "modules/x/"
+    }
+  ],
+  "dirname": [
+    {
+      "path": "a/b.nix",
+      "result": "a"
+    },
+    {
+      "path": "b.nix",
+      "result": "."
+    },
+    {
+      "path": "/x",
+      "result": "/"
+    },
+    {
+      "path": "/",
+      "result": "/"
+    },
+    {
+      "path": "a/b/",
+      "result": "a"
+    },
+    {
+      "path": "a//b",
+      "result": "a/"
+    },
+    {
+      "path": "",
+      "result": "."
+    }
+  ]
+}
