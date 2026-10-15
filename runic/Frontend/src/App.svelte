@@ -60,11 +60,11 @@
 
   $effect(() => app.settle(app.history));
 
-  // The configuration's history is read again whenever its last commit changes.
+  // The configuration's history is read again whenever its last commit changes, not with every observation.
+  const revision = $derived(app.system ? (app.system.repository.revision ?? "") : undefined);
   $effect(() => {
-    void app.system?.repository.revision;
     const client = reviews.client;
-    if (client && app.system) void client.refreshHistory().catch(() => {});
+    if (client && revision !== undefined) void client.refreshHistory().catch(() => {});
   });
 
   const nav = $derived.by(() => {
