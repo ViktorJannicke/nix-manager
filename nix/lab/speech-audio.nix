@@ -2,7 +2,11 @@
 # espeak-ng setup into a silent virtual sound card, the test records it, and
 # whisper.cpp turns the recording back into text. The recording is copied to
 # the test output.
-{ pkgs, self }:
+{
+  pkgs,
+  self,
+  runic ? false,
+}:
 let
   userAccount = pkgs.path + "/nixos/tests/common/user-account.nix";
   # The model nixpkgs' local-ai tests use: small, English only.
@@ -12,12 +16,12 @@ let
   };
 in
 pkgs.testers.runNixOSTest {
-  name = "nix-manager-speech-audio";
+  name = "nix-manager-speech-audio" + pkgs.lib.optionalString runic "-runic";
 
   nodes.machine =
     { lib, pkgs, ... }:
     {
-      imports = [ (import ./machine.nix { inherit self userAccount; }) ];
+      imports = [ (import ./machine.nix { inherit self userAccount runic; }) ];
 
       services.speechd = {
         config = lib.mkForce null;
@@ -68,5 +72,29 @@ pkgs.testers.runNixOSTest {
         print(f"whisper.cpp heard: {heard.strip()!r}")
         # The tiny model sometimes mishears "Screen" ("Spring reader on").
         assert "reader on" in heard.lower(), "the recording does not say 'reader on'"
+  ''
+  # The Runic port's Window: a Tab stop in its web page, spoken by Orca
+  # through espeak-ng.
+  + pkgs.lib.optionalString runic ''
+
+    with subtest("whisper.cpp hears a Tab stop in the dashboard"):
+        machine.succeed("lab-user systemd-run --user --unit nix-manager nix-manager ui")
+        machine.wait_until_succeeds("lab-user lab-atspi nix-manager | grep -q \"landmark 'Sections'\"", timeout=timedelta(seconds=180))
+        machine.sleep(10)
+        machine.succeed(
+            "lab-user systemd-run --user --unit record-window parecord --device=@DEFAULT_MONITOR@"
+            " --rate=16000 --channels=1 --file-format=wav /run/lab/window.wav"
+        )
+        machine.sleep(2)
+        machine.send_key("tab")
+        machine.sleep(6)
+        machine.succeed("lab-user systemctl --user kill -s INT record-window")
+        machine.wait_until_fails("lab-user systemctl --user is-active record-window")
+        machine.copy_from_machine("/run/lab/window.wav")
+        heard = machine.succeed("lab-transcribe /run/lab/window.wav 2>/dev/null")
+        print(f"whisper.cpp heard: {heard.strip()!r}")
+        # The first stop is the skip link, or Overview when the page put
+        # focus on the skip link itself; the tiny model mishears words.
+        assert any(word in heard.lower() for word in ["content", "overview", "button"]), "the recording has no Tab stop"
   '';
 }
