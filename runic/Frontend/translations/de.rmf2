@@ -249,3 +249,45 @@ placeholder {
   settings = Vorbereiten im Hintergrund, automatisches Aufräumen, der Verlauf der Änderungen und App-Details werden vorerst in der vorherigen Version von Nix Manager eingestellt.
   updates = Aktualisierungen zur Prüfung vorbereiten und angeheftete Apps aktualisieren ist in dieser Version noch nicht möglich. Nutzen Sie dafür die vorherige Version von Nix Manager oder aktualisieren und wenden Sie über die Befehlszeile an, zum Beispiel mit nix-manager update switch.
 }
+
+setup {
+  could_not_start = Nix Manager konnte nicht gestartet werden
+  problem_hint = Nix Manager liest die Konfiguration in {$flake}. Beheben Sie das Problem dort und öffnen Sie Nix Manager erneut, oder führen Sie {$command} in einem Terminal aus, um eine andere Konfiguration zu wählen.
+  not_connected = Das Dashboard konnte keine Verbindung zu Nix Manager herstellen.
+  title = Diesen Computer einrichten
+  intro = Nix Manager hält die Konfiguration dieses Computers in einem Ordner, der Ihnen gehört, damit es sie für Sie ändern und jede Version aufbewahren kann. Dabei wird Ihre Konfiguration einmalig aus /etc/nixos in diesen Ordner kopiert; am laufenden System ändert sich nichts.
+  looking = Dieser Computer wird untersucht…
+  what_is_here = Was vorhanden ist
+  computer = Computer
+  you = Sie
+  configuration = Konfiguration
+  files =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Datei in /etc/nixos}}
+    * {{{$count} Dateien in /etc/nixos}}
+  none_found = Keine gefunden
+  flakes = Flakes
+  flakes_on = An
+  flakes_off = Vorerst aus; die neue Konfiguration schaltet sie ein
+  unreadable =
+    .input {$count :integer}
+    .match $count
+    one {{Nur ein Administrator kann {$files} lesen, daher bleibt die Datei zurück. Wenn die Konfiguration sie braucht, kopieren Sie sie anschließend in den neuen Ordner.}}
+    * {{Nur ein Administrator kann {$files} lesen, daher bleiben diese Dateien zurück. Wenn die Konfiguration sie braucht, kopieren Sie sie anschließend in den neuen Ordner.}}
+  channel_imports = Die Konfiguration importiert {$imports} aus Channels. Ein Flake kann keine Channels sehen, deshalb schlägt die Prüfung unten fehl, bis diese Importe zu Flake-Eingaben werden.
+  where = Wo Ihre Konfiguration liegt
+  folder = Ordner
+  folder_help = Ein neuer, leerer Ordner in Ihrem Home-Ordner. Er wird zu einem Git-Repository, damit jede Ihrer Änderungen aufbewahrt wird.
+  try_again = Erneut versuchen
+  create = Meine Konfiguration erstellen
+  setting_up = Einrichtung läuft
+  step_running = läuft
+  step_done = fertig
+  step_failed = fehlgeschlagen
+  step_waiting = wartet
+  removed = Der Ordner wurde wieder entfernt, sodass Sie es noch einmal versuchen können.
+  opening = Nix Manager wird geöffnet…
+  how = So funktionieren Änderungen
+  how_text = Alles, was Sie ändern, von Apps bis zu Einstellungen, wird in diese Dateien geschrieben und wartet als vorgemerkte Änderung. „Vorbereiten“ baut die neue Version im Hintergrund, während Sie weiterarbeiten, und zeigt, was sich ändern wird. „Anwenden“ stellt den Computer darauf um, und jede angewendete Version bleibt als Wiederherstellungspunkt erhalten, zu dem Sie zurückkehren können.
+}

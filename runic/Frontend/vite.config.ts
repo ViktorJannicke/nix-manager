@@ -21,7 +21,7 @@ export default defineConfig({
     runic(),
   ],
   build: {
-    rolldownOptions: { input: ["index.html"] },
+    rolldownOptions: { input: ["index.html", "setup.html"] },
     outDir: "dist",
     emptyOutDir: true,
     target: "es2022",
