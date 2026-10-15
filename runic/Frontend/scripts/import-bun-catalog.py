@@ -5,7 +5,8 @@ The Bun version keys its catalogue by English text. This script, run from the re
 
 1. writes translations/stored/{en,de}.rmf2 and src/lib/stored-catalog.ts from the Bun catalogue's `labels` and
    `messages` parts: text the backend stores in English (step labels, errors, failure explanations) and the
-   dashboard translates where it shows it (src/lib/i18n.ts);
+   dashboard translates where it shows it (src/lib/i18n.ts); and from its `features` part, the English data
+   text of the curated features, starting points and Computer page settings;
 2. adds German to translations/de.rmf2 for every message of translations/en.rmf2 that has none yet, taken from
    the Bun catalogue by its English text. Messages already in de.rmf2 are kept as they are, so German written
    there by hand or in the Translations Editor wins.
@@ -65,7 +66,9 @@ def slug(text, taken):
 
 
 def write_stored(catalogue):
-    english_to_german = {**catalogue["labels"], **catalogue["messages"]}
+    # Data text after the stored text: the curated features, starting points and Computer page settings
+    # (src/lib/curated.ts, bundles.ts, computer.ts, apps.ts) are English and translated where they are shown.
+    english_to_german = {**catalogue["labels"], **catalogue["messages"], **catalogue["features"]}
     taken, rows = set(), []
     for english, german in english_to_german.items():
         rows.append((slug(english, taken), english, german))
