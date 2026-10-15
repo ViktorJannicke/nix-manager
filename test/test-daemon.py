@@ -211,6 +211,9 @@ TIMESTAMP = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z")
 PID = re.compile(r'"pid": \d+')
 
 
+MOCKED_WARNING = "evaluation warning: a mocked warning\n"
+
+
 def normal(text):
     """The output without what differs between two runs: operation IDs, times and the process that ran it."""
     return PID.sub('"pid": 0', TIMESTAMP.sub("TIME", OPERATION_ID.sub("ID", text)))
@@ -243,7 +246,10 @@ class DaemonTests(unittest.TestCase):
     def assertSameRun(self, standalone, forwarded):
         self.assertEqual(forwarded.returncode, standalone.returncode, (standalone.stderr, forwarded.stderr))
         self.assertEqual(normal(forwarded.stdout), normal(standalone.stdout))
-        self.assertEqual(normal(forwarded.stderr), normal(standalone.stderr))
+        # The mocked nix writes one line to each of its streams; which of the two the runner reads first is up to the
+        # scheduler, in a standalone run as much as in the daemon, so that line is compared by count, not by place.
+        self.assertEqual(forwarded.stderr.count(MOCKED_WARNING), standalone.stderr.count(MOCKED_WARNING))
+        self.assertEqual(normal(forwarded.stderr.replace(MOCKED_WARNING, "")), normal(standalone.stderr.replace(MOCKED_WARNING, "")))
 
     def test_forwarded_output_and_exit_status_equal_a_standalone_run(self):
         # The daemon runs operations with its own environment, so a failing step is set there.
