@@ -138,16 +138,17 @@
       (change) => change.scope === item.scope && (change.label === item.title || ("option" in change && Object.keys(item.enable).includes(change.option))),
     );
 
-  // The Bridge sends a package the running generation lacks and one it has unchanged both with a null `previous`,
-  // so only updated packages are known here: those with the version in use.
+  // `previous` is the version in use when the next build changes a package, null when the version in use lacks it
+  // (new), and undefined when nothing changes (PreviousVersionBridgeCodec).
   const updated = (item: InstalledPackage) => typeof item.previous === "string";
-  /** Packages the next applied build updates, compared with the running generation. */
-  const changing = $derived((inventory?.[scope].packages ?? []).filter((item) => updated(item) && (showModules || !item.external)));
+  const changes = (item: InstalledPackage) => item.previous !== undefined;
+  /** Packages the next applied build adds or updates, compared with the running generation. */
+  const changing = $derived((inventory?.[scope].packages ?? []).filter((item) => changes(item) && (showModules || !item.external)));
   const installed = $derived(
     (inventory?.[scope].packages ?? []).filter(
       (item) =>
         (showModules || !item.external) &&
-        (!changingOnly || updated(item)) &&
+        (!changingOnly || changes(item)) &&
         `${item.name} ${item.attr ?? ""} ${item.description ?? ""}`.toLowerCase().includes(filter.trim().toLowerCase()),
     ),
   );
@@ -456,6 +457,7 @@
                     {:else}
                       {item.version ?? ""}
                     {/if}
+                    {#if item.previous === null}<span class="ml-1 font-sans text-[0.68rem] font-medium text-primary" title={m.software_not_in_use_now()}>{m.software_new()}</span>{/if}
                   </td>
                   <td class="px-3 py-1.5" title={item.file}>
                     {#if item.external}<span class="text-muted-foreground">{origin(item.file)}</span>

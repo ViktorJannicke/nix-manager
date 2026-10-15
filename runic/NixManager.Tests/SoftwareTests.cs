@@ -14,6 +14,21 @@ namespace NixManager.Tests;
 /// </summary>
 public sealed class SoftwareTests
 {
+    [Test]
+    [Arguments(null, "false")]
+    [Arguments("null", "null")]
+    [Arguments("\"1.2\"", "\"1.2\"")]
+    public async Task The_page_tells_a_new_package_from_an_unchanged_one(string? previous, string wire)
+    {
+        // Undefined (nothing changes), null (new) and a version (updated) cross the Bridge apart; JSON has no undefined.
+        var value = previous is null ? default : JsonDocument.Parse(previous).RootElement;
+        using var buffer = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(buffer)) ViewModels.PreviousVersionBridgeCodec.Write(writer, value);
+        await Assert.That(System.Text.Encoding.UTF8.GetString(buffer.ToArray())).IsEqualTo(wire);
+        var read = ViewModels.PreviousVersionBridgeCodec.Read(JsonDocument.Parse(wire).RootElement);
+        await Assert.That(read.ValueKind == JsonValueKind.Undefined ? null : read.GetRawText()).IsEqualTo(previous);
+    }
+
     private static readonly JsonNode Functions = JsonNode.Parse(File.ReadAllText(Path.Combine(BunFixtures.Directory, "bun-software-functions.json")))!;
 
     private static List<string> Strings(JsonNode? node) => node!.AsArray().Select(item => item!.GetValue<string>()).ToList();

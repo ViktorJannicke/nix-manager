@@ -849,6 +849,7 @@ software {
   could_not_read_docs = Could not read option documentation
   could_not_save = Could not save the edit
   new = new
+  not_in_use_now = Not in the version in use now.
   search_failed = Search failed
 }
 

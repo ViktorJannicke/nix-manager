@@ -815,6 +815,7 @@ software {
   could_not_read_docs = Die Dokumentation der Optionen konnte nicht gelesen werden
   could_not_save = Die Änderung konnte nicht gespeichert werden
   new = neu
+  not_in_use_now = Nicht in der Version, die jetzt in Gebrauch ist.
   search_failed = Die Suche ist fehlgeschlagen
 }
 
