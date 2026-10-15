@@ -42,6 +42,57 @@ modules = [
 ```
 
 The module installs the application, its Polkit policy and optional tray service.
+
+### Trying the Runic port
+
+The port in `runic/` (C# on the Runic SDK) installs instead of the Bun version
+with one more line:
+
+```nix
+programs.nix-manager = {
+  enable = true;
+  runic.enable = true;   # off by default until the port replaces the Bun version
+  tray.enable = true;    # the port's daemon with its status icon
+};
+```
+
+The module then installs only the port's package: its `nix-manager` command,
+the desktop entry (with a "Start in system tray" action and `StartupNotify`,
+so the desktop hands `nix-manager ui` an activation token), the icon, bash,
+zsh and fish completions generated from its command line at build time (NixOS
+links them when `programs.bash.completion`, `programs.zsh` or `programs.fish`
+is on), and the Polkit policy that its build generates for the same action,
+whose program is the package's binary wrapper that pkexec runs
+(`/run/wrappers/bin/pkexec`, which the module enables). The host registry,
+`NIX_MANAGER_HOSTS` and the tray options work the same. The Bun package and
+the module's own policy are not installed, so nothing competes for the
+command, the entry or the action; `runic.enable = false` installs exactly what
+it did before. `checks.module` evaluates both configurations and inspects what
+each links into the system path.
+
+Two later one-line changes finish the switch:
+
+1. Make the port the default: in `nixos-module.nix`, `runic.enable`'s
+   `default = false;` becomes `default = true;`.
+2. Remove the Bun version from the module: in `nixos-module.nix`,
+   `useRunic = cfg.runic.enable;` becomes `useRunic = true;`. The module then
+   never installs or evaluates the Bun package or its policy, whatever
+   `runic.enable` says; the Bun files and flake outputs (`package.nix`,
+   `webui.nix`, `src/`, `ui/`, `packages.default`, the Bun checks and VM
+   tests) and the then unused options can go in a separate cleanup.
+
+The port builds for x86_64-linux and aarch64-linux (`packages.runic`). The
+aarch64 build has only been evaluated so far, without an aarch64 builder: its
+NuGet lock files (`packages.linux-arm64.lock.json`, written with `dotnet
+restore NixManager.slnx -r linux-arm64 --force-evaluate` in `runic/`) restore
+in locked mode, and its Bun frontend hash comes from `bun install
+--frozen-lockfile --ignore-scripts --backend=copyfile --os=linux --cpu=arm64`
+on x86_64-linux, which reproduces the x86_64 hash with `--cpu=x64`. Each
+runtime needs its own lock file because nixpkgs restores with `--runtime` for
+the system's runtime identifier alone, and NuGet's locked mode rejects a lock
+file that records other runtimes. Regenerate both lock files after changing
+package references: `dotnet restore NixManager.slnx --force-evaluate` and the
+`-r linux-arm64` restore above.
 It writes the host registry to `/etc/nix-manager/hosts.json` and sets
 `NIX_MANAGER_HOSTS` for login sessions and the tray. An empty `hosts` option uses
 `data/hosts.nix` from the selected configuration checkout when it exists, and
@@ -295,12 +346,12 @@ Tray mode and `--no-open` stay resident until quit or interrupted.
 #### The Runic port's daemon
 
 The Runic port in `runic/` runs as one per-user process (decision D025). With
-`programs.nix-manager.runic.enable = true` (x86_64-linux; off by default until
-the port replaces the Bun version), the `nix-manager-tray` user service runs
-`nix-manager tray` from the port, windowless with the status icon, and that
-process owns every operation. Its
-`nix-manager` command comes first on the PATH and its Polkit policy replaces the
-Bun version's. Without the option, the Bun version runs alone.
+`programs.nix-manager.runic.enable = true` (off by default until the port
+replaces the Bun version; see [Trying the Runic port](#trying-the-runic-port)),
+the `nix-manager-tray` user service runs `nix-manager tray` from the port,
+windowless with the status icon, and that process owns every operation. The
+port is then the only version installed. Without the option, the Bun version
+runs alone.
 
 - `nix-manager ui` hands its launch to the daemon over the single-instance
   socket in `XDG_RUNTIME_DIR`. The daemon opens its dashboard Window, or brings
@@ -466,7 +517,9 @@ with no external asset requests. `bun build.ts` builds the browser app with Vite
 and embeds its explicit HTML/CSS/JS asset map in the Bun entry point. Effect 3,
 `@effect/cli`, and Clack are pinned in both dependency lock files.
 
-Generated completions are available for the shells supported by `@effect/cli`:
+The Runic port's package installs its completions itself. For the Bun
+version, generated completions are available for the shells supported by
+`@effect/cli`:
 
 ```sh
 nix-manager --completions bash > ~/.local/share/bash-completion/completions/nix-manager
@@ -492,14 +545,41 @@ run as part of the package's Bun test suite.
 
 ### Desktop and screen-reader VM tests
 
-Three slower NixOS VM tests in `nix/lab` run outside `nix flake check`. They
+Slower NixOS VM tests in `nix/lab` run outside `nix flake check`. They
 need KVM:
 
 ```sh
 nix build .#desktop-a11y   # GNOME and Orca: tab order, typing, and what Orca says
 nix build .#speech-audio   # Orca's real speech, recorded and heard by whisper.cpp
 nix build .#desktop-apply  # the dashboard and software apply for real, a reboot, cleanup
+nix build .#desktop-a11y-runic   # the same machine with the Runic port installed
+nix build .#speech-audio-runic   # Orca's speech, and a Tab stop in the port's dashboard
 ```
+
+The `-runic` tests install the port through `programs.nix-manager.runic.enable`
+(`machine.nix` takes `runic = true`). Until the port has its setup assistant,
+alice starts with a seeded `~/my-flakes` and a registered host, so the
+dashboard opens on its Overview. `desktop-a11y-runic` checks the installed
+command, the policy (pkexec maps the program to the action and runs the
+privileged helper as root), the desktop entry and the completions; then it
+walks the dashboard's Tab cycle without Orca and with it. Its expectations are
+about structure, so page changes keep it valid: the skip link comes first, the
+sections follow in order, at most one stop has no name (G-17, the stop
+outside the web view; not seen with SDK 0.8.0-preview.3), Orca's walk has the
+same stops and says their names, and the keyboard opens Settings. The AT-SPI
+application is `nix-manager` (Chromium's is `chrom…`), and its window class is
+`nix-manager`.
+
+As of W300-032 the walk with Orca fails: WebKitGTK 2.54.1's web process aborts
+(SIGABRT from `WTF::CrashOnOverflow` in
+`WebCore::AccessibilityObjectAtspi::textAttributesWithUTF8Offset`, called from
+Orca's AT-SPI text-attribute request) after two or three Tab presses, and the
+Window stays frozen on its last frame. WebKitGTK's MiniBrowser shows the same
+crash on the dashboard page served with `nix-manager ui --no-open`, but not on
+a plain page with the same buttons, so something in the dashboard's markup or
+styles triggers it. The test counts the web process's core dumps after every
+Tab and names the press. `nix run .#lab-runic` drives the port's VM like
+`.#lab`.
 
 Orca's speech is written to a text transcript, so the tests compare exactly
 what a screen-reader user hears. `desktop-apply` boots through systemd-boot
@@ -512,6 +592,14 @@ accessibility tree or Orca's speech, copy files in and out, and run commands
 inside it. `nix run .#lab-apply` does the same with the `desktop-apply` VM and
 alice's checkout. Only one lab runs at a time. `nix run .#lab`
 lists them. Nothing opens on the host desktop.
+
+### Runic against Bun: start-up, memory and size
+
+`nix run .#compare -- [DIRECTORY]` measures both versions the same way inside
+the Hyprland sandbox below (no host desktop, session bus or network, fresh
+state directories and a fixture checkout) and writes a table to
+`DIRECTORY/report.md`. [runic/COMPARISON.md](runic/COMPARISON.md) has the
+method and the latest numbers.
 
 ### Hyprland on the GPU, without a VM
 

@@ -10,6 +10,7 @@ let
   hasHosts = cfg.hosts != { };
   # The Runic port (runic/), built where its NuGet lock files apply.
   runicDefault = self.packages.${pkgs.stdenv.hostPlatform.system}.runic or null;
+  # `true` here removes the Bun version from the module (README.md, Trying the Runic port).
   useRunic = cfg.runic.enable;
   # The one version installed: its command, desktop entry, icon and completions, and the tray service's daemon.
   # The Runic package brings its own Polkit policy; the Bun version's comes from this module.

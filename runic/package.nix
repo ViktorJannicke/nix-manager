@@ -69,6 +69,8 @@ buildRunicApplication {
           ./package.nix
           # Local tools are for development; the build needs none of them.
           (lib.fileset.maybeMissing ./.config)
+          # Documentation, such as COMPARISON.md.
+          (lib.fileset.fileFilter (file: file.hasExt "md") ./.)
         ]
       ))
       # The Bun version's Nix error fixtures, which the explanation tests read.

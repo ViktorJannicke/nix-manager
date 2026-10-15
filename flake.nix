@@ -61,6 +61,13 @@
             runic = true;
           };
           hyprland-sandbox = import ./nix/hyprland-sandbox { inherit pkgs; };
+          # Runic against Bun: start-up, memory and size, in the sandbox; see runic/COMPARISON.md.
+          compare = import ./nix/compare {
+            inherit pkgs;
+            runic = self.packages.${system}.runic;
+            bun = self.packages.${system}.default;
+            sandbox = self.packages.${system}.hyprland-sandbox;
+          };
           desktop-apply = import ./nix/lab/desktop-apply.nix {
             inherit
               pkgs
@@ -114,6 +121,11 @@
             type = "app";
             program = nixpkgs.lib.getExe self.packages.${system}.lab-apply;
             meta.description = "Drive the test VM with a configuration checkout that can apply for real";
+          };
+          compare = {
+            type = "app";
+            program = nixpkgs.lib.getExe self.packages.${system}.compare;
+            meta.description = "Measure the Runic port against the Bun version in the headless sandbox";
           };
           hyprland-sandbox = {
             type = "app";
