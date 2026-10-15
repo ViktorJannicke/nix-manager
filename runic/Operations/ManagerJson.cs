@@ -71,6 +71,8 @@ public sealed record CheckDocument(Operation? Operation, UpdateReport? Updates);
 [JsonSerializable(typeof(List<Software.CatalogEntry>))]
 [JsonSerializable(typeof(Dictionary<string, Software.CatalogEntry>))]
 [JsonSerializable(typeof(Software.CatalogStatus))]
+[JsonSerializable(typeof(Software.AppStream))]
+[JsonSerializable(typeof(Software.AppsStatus))]
 [JsonSerializable(typeof(List<Software.OptionDoc>))]
 [JsonSerializable(typeof(UndoPoint))]
 [JsonSerializable(typeof(JsonNode))]

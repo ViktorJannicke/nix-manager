@@ -16,6 +16,9 @@ internal sealed class ReleaseNetwork(Func<string, string> answer) : INetwork
         lock (Urls) Urls.Add(url);
         return Task.FromResult(answer(url));
     }
+
+    public Task<NetworkResponse> GetAsync(string url, bool followRedirects, CancellationToken cancellationToken) =>
+        throw new NotSupportedException(url);
 }
 
 /// <summary>The package pin updaters with a fake network and runner (the updatePackage parts of <c>test/updates.test.ts</c>).</summary>

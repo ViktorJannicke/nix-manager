@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<components version="0.8" origin="flathub">
+  <component type="desktop-application">
+    <id>org.mozilla.firefox</id>
+    <name>Firefox</name>
+    <name xml:lang="de">Firefox-Browser</name>
+    <summary>Fast, Private &amp; Safe Web Browser</summary>
+    <summary xml:lang="de">Schneller Webbrowser</summary>
+    <developer id="org.mozilla"><name>Mozilla</name></developer>
+    <description><p>Firefox &lt;3 the web</p><name>Not a name</name></description>
+    <categories><category>Network</category><category>WebBrowser</category><category>Network</category></categories>
+    <icon type="cached" height="64" width="64">org.mozilla.firefox.png</icon>
+    <icon type="cached" height="128" width="128">org.mozilla.firefox.png</icon>
+    <icon type="cached" height="128" width="128" scale="2">org.mozilla.firefox.png</icon>
+    <icon type="remote" height="128" width="128">https://dl.flathub.org/media/org/mozilla/firefox/icons/128x128/org.mozilla.firefox.png</icon>
+    <url type="homepage">https://www.mozilla.org/firefox/</url>
+    <keywords><keyword>Internet</keyword><keyword>WWW</keyword><keyword>Browser</keyword><keyword xml:lang="de">Netz</keyword><keyword>internet</keyword></keywords>
+  </component>
+  <component type="desktop">
+    <id>com.discordapp.Discord</id>
+    <name>Discord</name>
+    <summary>Messaging, voice and video client</summary>
+    <categories><category>Network</category><category>InstantMessaging</category></categories>
+    <icon type="remote" height="64" width="64">https://dl.flathub.org/media/com/discordapp/Discord/icons/64x64/com.discordapp.Discord.png</icon>
+    <icon type="remote" height="256" width="256">https://example.com/discord.png</icon>
+    <url type="homepage">https://discord.com/</url>
+    <keywords><keyword>voice</keyword><keyword>chat</keyword></keywords>
+  </component>
+  <component type="desktop-application">
+    <id>io.github.ahrm.sioyek</id>
+    <name>Sioyek</name>
+    <summary>PDF viewer for research papers &#x26; textbooks</summary>
+    <categories><category>Office</category><category>Viewer</category></categories>
+    <icon type="cached" height="128" width="128">io.github.ahrm.sioyek.png</icon>
+    <url type="homepage">https://sioyek.info/</url>
+  </component>
+  <component type="desktop-application">
+    <id>art.darkly.Darkly</id>
+    <name>Darkly</name>
+    <summary>A dark theme for research tables</summary>
+    <categories><category>Graphics</category></categories>
+    <url type="homepage">https://darkly.art</url>
+  </component>
+  <component type="desktop-application">
+    <id>org.gimp.GIMP</id>
+    <name>GNU Image Manipulation Program</name>
+    <summary>Create images and edit photographs</summary>
+    <categories><category>Graphics</category><category>2DGraphics</category></categories>
+    <icon type="cached" height="128" width="128">../../../etc/passwd</icon>
+    <icon type="remote" height="128" width="128">https://dl.flathub.org/media/org/gimp/GIMP/icons/128x128/org.gimp.GIMP.png?x=1</icon>
+    <icon type="cached" height="64" width="64">org.gimp.GIMP.png</icon>
+    <url type="homepage">https://www.gimp.org/</url>
+    <keywords><keyword>GIMP</keyword><keyword>graphic</keyword><keyword>design</keyword><keyword>illustration</keyword><keyword>painting</keyword><keyword>a</keyword><keyword>b</keyword><keyword>c</keyword><keyword>d</keyword><keyword>e</keyword><keyword>f</keyword><keyword>g</keyword><keyword>h</keyword><keyword>i</keyword></keywords>
+  </component>
+  <component type="desktop-application">
+    <id>org.keepassxc.KeePassXC.desktop</id>
+    <name>KeePassXC</name>
+    <summary>Community-driven port of the Windows application “KeePass Password Safe”</summary>
+    <categories><category>Utility</category><category>Security</category></categories>
+    <icon type="stock">keepassxc</icon>
+    <url type="homepage">https://keepassxc.org</url>
+  </component>
+  <component type="desktop-application">
+    <id>org.videolan.VLC</id>
+    <name>VLC</name>
+    <summary>VLC media player, the open-source multimedia player</summary>
+    <categories><category>AudioVideo</category><category>Player</category><category>Video</category></categories>
+    <url type="homepage">https://www.videolan.org/vlc/index.html</url>
+  </component>
+  <component type="desktop-application">
+    <id>org.example.NoName</id>
+    <summary>Has no name</summary>
+  </component>
+  <component type="console-application">
+    <id>org.example.Console</id>
+    <name>Console tool</name>
+  </component>
+  <component type="desktop-application">
+    <id>com.example.Ripgrep</id>
+    <name>ripgrep</name>
+    <summary>Search tool</summary>
+    <url type="homepage">https://example.com/rg</url>
+  </component>
+</components>

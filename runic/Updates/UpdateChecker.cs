@@ -15,15 +15,32 @@ public interface IUpdateChecker
     Task<UpdateReport> CheckAsync(Config config, Func<Command, Task<CommandResult>> run, CancellationToken cancellationToken);
 }
 
-/// <summary>Reads a URL; the GitHub release lookups go through it so tests can answer them.</summary>
+/// <summary>A response read whole: its status and body, for downloads that are not text.</summary>
+/// <param name="Status">The HTTP status code.</param>
+/// <param name="Reason">The status text, such as <c>Not Found</c>.</param>
+/// <param name="MediaType">The <c>Content-Type</c> media type, such as <c>image/png</c>.</param>
+public sealed record NetworkResponse(int Status, string Reason, string? MediaType, byte[] Body)
+{
+    public bool Ok => Status is >= 200 and < 300;
+}
+
+/// <summary>Reads a URL; the GitHub release lookups and Flathub's app details go through it so tests can answer them.</summary>
 public interface INetwork
 {
     Task<string> TextAsync(string url, CancellationToken cancellationToken);
+
+    /// <summary>Reads a URL once, as <c>fetch</c> does: any status is an answer, only a failed connection throws.</summary>
+    /// <param name="followRedirects">Follow redirects; otherwise a redirect is the answer (<c>redirect: "error"</c> refuses it).</param>
+    /// <exception cref="ManagerException">The request failed or was cancelled.</exception>
+    Task<NetworkResponse> GetAsync(string url, bool followRedirects, CancellationToken cancellationToken);
 }
 
 public sealed class HttpNetwork(HttpClient? client = null) : INetwork
 {
     private readonly HttpClient _client = client ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+    // Downloads end by their caller's token: Flathub's catalogue may take longer than the release lookups' timeout.
+    private readonly Lazy<HttpClient> _downloads = new(() => new HttpClient { Timeout = Timeout.InfiniteTimeSpan });
+    private readonly Lazy<HttpClient> _direct = new(() => new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan });
 
     public async Task<string> TextAsync(string url, CancellationToken cancellationToken)
     {
@@ -43,6 +60,22 @@ public sealed class HttpNetwork(HttpClient? client = null) : INetwork
                 if (attempt >= 2) throw new ManagerException($"Fetch failed: {e.Message}");
                 await Task.Delay(TimeSpan.FromMilliseconds(500 * Math.Pow(2, attempt)), cancellationToken).ConfigureAwait(false);
             }
+        }
+    }
+
+    public async Task<NetworkResponse> GetAsync(string url, bool followRedirects, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.UserAgent.ParseAdd("nix-manager");
+            using var response = await (followRedirects ? _downloads : _direct).Value.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var body = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+            return new NetworkResponse((int)response.StatusCode, response.ReasonPhrase ?? "", response.Content.Headers.ContentType?.MediaType, body);
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+        {
+            throw new ManagerException(cancellationToken.IsCancellationRequested ? "The operation timed out." : $"Fetch failed: {e.Message}");
         }
     }
 }

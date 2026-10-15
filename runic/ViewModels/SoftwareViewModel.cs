@@ -56,7 +56,7 @@ public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
     public partial bool WorkingOnly { get; set; }
 
     [ObservableProperty]
-    public partial IReadOnlyList<CatalogEntry> Results { get; private set; } = [];
+    public partial IReadOnlyList<AppEntry> Results { get; private set; } = [];
 
     /// <summary>Why the last read or change failed.</summary>
     [ObservableProperty]
