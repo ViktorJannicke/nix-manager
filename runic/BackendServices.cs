@@ -37,7 +37,8 @@ public static class BackendServices
         services.TryAddSingleton<IOperationClient>(provider => new LocalOperationClient(provider.GetRequiredService<IOperationService>()));
         services.TryAddSingleton<IReviewService>(provider => new ReviewService(provider.GetRequiredService<IOperationService>()));
         // The Software page's store: one per checkout, shared like the operation service.
-        services.TryAddSingleton<ISoftwareService>(provider => new SoftwareService(config, provider.GetRequiredService<ICommandRunner>()));
+        services.TryAddSingleton<ISoftwareService>(provider => new SoftwareService(config, provider.GetRequiredService<ICommandRunner>(),
+            curatedOptions: CuratedOptions.For, network: provider.GetRequiredService<INetwork>(), clock: provider.GetRequiredService<TimeProvider>()));
         // A Window scope has one model context; a CommunityToolkit.Mvvm application without navigation registers it.
         services.TryAddScoped<IRunicModelContext, RunicModelContext>();
         services.TryAddScoped<OperationsViewModel>();

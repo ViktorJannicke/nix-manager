@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using NixManager.Domain;
@@ -11,43 +10,7 @@ namespace NixManager.Operations;
 public sealed record BackgroundConditions(Func<bool> Mains, Func<bool> Idle)
 {
     /// <summary>This computer: <c>NIX_MANAGER_SYSFS</c> or /sys for power, the load average for work.</summary>
-    public static BackgroundConditions Computer { get; } = new(
-        () => Hardware.OnMains(Environment.GetEnvironmentVariable("NIX_MANAGER_SYSFS") is { Length: > 0 } root ? root : "/sys"),
-        Hardware.NotBusy);
-}
-
-/// <summary>The computer's power supply and load (<c>onMains</c> in <c>src/hardware.ts</c>, <c>notBusy</c> in <c>src/background.ts</c>).</summary>
-public static class Hardware
-{
-    private static string Read(string path)
-    {
-        try { return File.ReadAllText(path).Trim(); }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return ""; }
-    }
-
-    private static string[] List(string path)
-    {
-        try { return Directory.GetFileSystemEntries(path).Select(entry => Path.GetFileName(entry)).ToArray(); }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return []; }
-    }
-
-    /// <summary>Plugged in: no battery of its own (a mouse's battery does not count), or a mains supply that is online.</summary>
-    public static bool OnMains(string root = "/sys")
-    {
-        var supplies = Path.Combine(root, "class/power_supply");
-        var names = List(supplies);
-        string Type(string name) => Read(Path.Combine(supplies, name, "type"));
-        var battery = names.Any(name => Type(name) == "Battery" && Read(Path.Combine(supplies, name, "scope")) != "Device");
-        return !battery || names.Any(name => Type(name) == "Mains" && Read(Path.Combine(supplies, name, "online")) == "1");
-    }
-
-    /// <summary>Not busy: the load of the last minute is below half the processors (<c>notBusy</c>).</summary>
-    public static bool NotBusy()
-    {
-        var first = Read("/proc/loadavg").Split(' ').FirstOrDefault();
-        var load = double.TryParse(first, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : 0;
-        return load < Environment.ProcessorCount / 2.0;
-    }
+    public static BackgroundConditions Computer { get; } = new(() => Hardware.OnMains(Hardware.SysfsRoot), Hardware.NotBusy);
 }
 
 /// <summary>The input updates last prepared in the background, so the same ones are not prepared twice.</summary>

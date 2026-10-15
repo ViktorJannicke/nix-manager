@@ -610,3 +610,50 @@ summary {
     one {{Updates {$count} software source.}}
     * {{Updates {$count} software sources.}}
 }
+
+# The setup assistant's Window (Setup.svelte), before there is a checkout.
+setup {
+  could_not_start = Nix Manager could not start
+  @param $flake - The checkout's folder, shown as code
+  @param $command - A command line, shown as code
+  problem_hint = It reads the configuration in {$flake}. Fix the problem there and open Nix Manager again, or run {$command} in a terminal to choose another configuration.
+  not_connected = The dashboard could not connect to Nix Manager.
+  title = Set up this computer
+  intro = Nix Manager keeps this computer's configuration in a folder you own, so it can change it for you and keep every version. This copies your configuration from /etc/nixos into that folder once; nothing on the running system changes.
+  looking = Looking at this computer…
+  what_is_here = What is here
+  computer = Computer
+  you = You
+  configuration = Configuration
+  files =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} file in /etc/nixos}}
+    * {{{$count} files in /etc/nixos}}
+  none_found = None found
+  flakes = Flakes
+  flakes_on = On
+  flakes_off = Off for now; the new configuration turns them on
+  @param $files - File names separated by commas
+  unreadable =
+    .input {$count :integer}
+    .match $count
+    one {{Only an administrator can read {$files}, so it stays behind. If the configuration needs it, copy it into the new folder afterwards.}}
+    * {{Only an administrator can read {$files}, so they stay behind. If the configuration needs them, copy them into the new folder afterwards.}}
+  @param $imports - Search paths such as <home-manager/nixos>, separated by commas
+  channel_imports = The configuration imports {$imports} from channels. A flake cannot see channels, so the check below will fail until those imports become flake inputs.
+  where = Where your configuration lives
+  folder = Folder
+  folder_help = A new, empty folder in your home folder. It becomes a Git repository, so every change you make is kept.
+  try_again = Try again
+  create = Create my configuration
+  setting_up = Setting up
+  step_running = running
+  step_done = done
+  step_failed = failed
+  step_waiting = waiting
+  removed = The folder was removed again, so you can try once more.
+  opening = Opening Nix Manager…
+  how = How changes work
+  how_text = Everything you change, from apps to settings, is written into those files and waits as a pending edit. Prepare builds the new version in the background while you keep working, and shows what will change. Apply switches the computer to it, and every version you applied stays as a restore point you can go back to.
+}

@@ -4,6 +4,8 @@ using System.Text.RegularExpressions;
 using NixManager.Domain;
 using NixManager.Edits;
 using NixManager.Execution;
+using NixManager.Operations;
+using NixManager.Updates;
 using Runic.CommandLine.Processes;
 
 namespace NixManager.Software;
@@ -13,14 +15,15 @@ public sealed record SoftwareInventory(ScopeInventory Home, ScopeInventory Syste
 
 /// <summary>
 /// The Software page's server side (<c>Store</c> in <c>src/store.ts</c>): the pending draft, what each host
-/// installs, the package catalog and option documentation. Evaluations are cached by the checkout state they read
-/// (the fingerprint and lock hash the caller observed); the dashboard (W300-030) and the daemon (W300-031) share one.
+/// installs, the package catalog with Flathub's app details, and option documentation. Evaluations are cached by the
+/// checkout state they read (the fingerprint and lock hash the caller observed); the dashboard (W300-030) and the
+/// daemon (W300-031) share one.
 /// </summary>
 public interface ISoftwareService
 {
     Config Config { get; }
 
-    /// <summary>Raised when the draft or the catalog changed, so views can take a new snapshot (<c>changed</c>).</summary>
+    /// <summary>Raised when the draft, the catalog or the app details changed, so views can take a new snapshot (<c>changed</c>).</summary>
     event Action? Changed;
 
     /// <summary>The draft rendered against the checkout, cached by its edits and the checkout fingerprint.</summary>
@@ -38,11 +41,32 @@ public interface ISoftwareService
     /// <summary>Builds the catalog for the current lock file in the background unless it exists already (<c>buildCatalog</c>).</summary>
     void BuildCatalog(string lockHash, bool rebuild = false);
 
-    /// <summary>Catalog entries matching a query, best first; empty until the catalog of this lock file is loaded.</summary>
-    IReadOnlyList<CatalogEntry> Search(string? lockHash, string query, CatalogFilter? filter = null);
+    /// <summary>
+    /// Catalog entries matching a query, best first, with their app details; empty until the catalog of this lock
+    /// file is loaded (<c>search</c>).
+    /// </summary>
+    IReadOnlyList<AppEntry> Search(string? lockHash, string query, CatalogFilter? filter = null);
 
-    /// <summary>Catalog entries by attribute, for details of installed packages (<c>lookup</c>).</summary>
-    IReadOnlyDictionary<string, CatalogEntry> Lookup(string? lockHash, IReadOnlyList<string> attrs);
+    /// <summary>Catalog entries by attribute with their app details, for details of installed packages (<c>lookup</c>).</summary>
+    IReadOnlyDictionary<string, AppEntry> Lookup(string? lockHash, IReadOnlyList<string> attrs);
+
+    /// <summary>Whether app details are on: the <c>appDetails</c> preference, on unless turned off.</summary>
+    bool AppDetails { get; }
+
+    /// <summary>The state of Flathub's catalogue; <c>off</c> unless <paramref name="enabled"/> (<c>appsStatus</c>).</summary>
+    AppsStatus AppsStatus(bool enabled);
+
+    /// <summary>
+    /// Downloads Flathub's catalogue in the background when there is none or it is a week old, or with
+    /// <paramref name="force"/>; after a failure it waits an hour unless forced (<c>fetchApps</c>).
+    /// </summary>
+    void FetchApps(bool force = false);
+
+    /// <summary>Every package of the catalog that Flathub describes as an app, in catalog order (<c>appList</c>).</summary>
+    IReadOnlyList<AppEntry> AppList(string? lockHash);
+
+    /// <summary>An app's icon by AppStream id, downloaded once and kept; null when the catalogue has none (<c>icon</c>).</summary>
+    Task<byte[]?> IconAsync(string id, CancellationToken cancellationToken = default);
 
     /// <summary>Documented options matching a query, best matches first (<c>searchOptions</c>).</summary>
     Task<IReadOnlyList<OptionDoc>> SearchOptionsAsync(string host, string scope, string query, string fingerprint);
@@ -57,11 +81,20 @@ public interface ISoftwareService
 /// <summary>The software store of one checkout (<c>Store</c>).</summary>
 /// <param name="curatedOptions">
 /// Options of the curated experiences and the Computer page for a scope, so the inventory reports their state
-/// (<c>curatedOptions</c>); the experiences are not ported yet, so the default reports none.
+/// (<c>curatedOptions</c>); <see cref="CuratedOptions.For"/> in the application, none by default.
 /// </param>
+/// <param name="network">Where Flathub's catalogue and icons come from; tests answer it.</param>
 public sealed partial class SoftwareService(Config config, ICommandRunner runner, IProcessRunner? processes = null,
-    Func<string, IReadOnlyList<string>>? curatedOptions = null) : ISoftwareService
+    Func<string, IReadOnlyList<string>>? curatedOptions = null, INetwork? network = null, TimeProvider? clock = null) : ISoftwareService
 {
+    /// <summary>Flathub's catalogue is downloaded again after a week (<c>fetchApps</c>).</summary>
+    public static readonly TimeSpan AppsMaxAge = TimeSpan.FromDays(7);
+
+    /// <summary>A failed download is not tried again on its own for an hour.</summary>
+    public static readonly TimeSpan AppsRetry = TimeSpan.FromHours(1);
+
+    private readonly INetwork _network = network ?? new HttpNetwork();
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
     private readonly Memo<SoftwareInventory> _inventories = new();
     private readonly Memo<List<OptionDoc>> _docs = new();
     private readonly Lock _lock = new();
@@ -70,6 +103,10 @@ public sealed partial class SoftwareService(Config config, ICommandRunner runner
     private (string Key, Task Task)? _building;
     private (string Key, string Error)? _failure;
     private Task? _loading;
+    private (bool Read, AppStream? Value) _appStream;
+    private Task? _fetchingApps;
+    private (string Error, DateTimeOffset At)? _appsFailure;
+    private (string Key, Dictionary<string, AppInfo> Apps)? _matched;
 
     public Config Config => config;
     public event Action? Changed;
@@ -223,16 +260,113 @@ public sealed partial class SoftwareService(Config config, ICommandRunner runner
         lock (_lock) return !string.IsNullOrEmpty(lockHash) && _catalog is { } catalog && catalog.Key == lockHash ? catalog.Entries : null;
     }
 
-    public IReadOnlyList<CatalogEntry> Search(string? lockHash, string query, CatalogFilter? filter = null) =>
-        Entries(lockHash) is { } entries ? Catalog.Search(entries, query, 60, filter) : [];
-
-    public IReadOnlyDictionary<string, CatalogEntry> Lookup(string? lockHash, IReadOnlyList<string> attrs)
+    public IReadOnlyList<AppEntry> Search(string? lockHash, string query, CatalogFilter? filter = null)
     {
-        var result = new Dictionary<string, CatalogEntry>();
+        if (Entries(lockHash) is not { } entries) return [];
+        var apps = MatchedApps(lockHash!, entries);
+        return Catalog.Search(entries, query, 60, filter, apps).Select(entry => WithApp(entry, apps)).ToList();
+    }
+
+    public IReadOnlyDictionary<string, AppEntry> Lookup(string? lockHash, IReadOnlyList<string> attrs)
+    {
+        var result = new Dictionary<string, AppEntry>();
         if (Entries(lockHash) is not { } entries) return result;
+        var apps = MatchedApps(lockHash!, entries);
         var wanted = attrs.Take(500).ToHashSet();
         foreach (var entry in entries)
-            if (wanted.Contains(entry.A)) result[entry.A] = entry;
+            if (wanted.Contains(entry.A)) result[entry.A] = WithApp(entry, apps);
         return result;
+    }
+
+    private static AppEntry WithApp(CatalogEntry entry, IReadOnlyDictionary<string, AppInfo> apps) => new(entry, apps.GetValueOrDefault(entry.A));
+
+    // --- Flathub's app details -------------------------------------------------------------------------------
+
+    public bool AppDetails => Apps.Enabled(config);
+
+    /// <summary>The saved Flathub catalogue, read once (<c>stream</c>).</summary>
+    private AppStream? Stream()
+    {
+        lock (_lock)
+        {
+            if (!_appStream.Read) _appStream = (true, Apps.Read(config));
+            return _appStream.Value;
+        }
+    }
+
+    public AppsStatus AppsStatus(bool enabled)
+    {
+        if (!enabled) return new AppsStatus { State = "off" };
+        lock (_lock)
+            if (_fetchingApps is not null) return new AppsStatus { State = "fetching" };
+        var stream = Stream();
+        lock (_lock)
+        {
+            if (stream is not null) return new AppsStatus { State = "ready", FetchedAt = stream.FetchedAt, Error = _appsFailure?.Error };
+            return _appsFailure is { } failure ? new AppsStatus { State = "failed", Error = failure.Error } : new AppsStatus { State = "missing" };
+        }
+    }
+
+    public void FetchApps(bool force = false)
+    {
+        var stream = Stream();
+        var now = _clock.GetUtcNow();
+        lock (_lock)
+        {
+            if (_fetchingApps is not null) return;
+            if (!force && stream is not null && Timestamps.Parse(stream.FetchedAt) is { } fetchedAt && now - fetchedAt < AppsMaxAge) return;
+            if (!force && _appsFailure is { } failure && now - failure.At < AppsRetry) return;
+            _fetchingApps = Task.Run(async () =>
+            {
+                try
+                {
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+                    var value = await Apps.FetchAsync(config, _network, _clock, timeout.Token).ConfigureAwait(false);
+                    lock (_lock)
+                    {
+                        _appStream = (true, value);
+                        _appsFailure = null;
+                    }
+                }
+                catch (Exception error)
+                {
+                    lock (_lock) _appsFailure = ($"App details could not be downloaded from Flathub. {error.Message}", _clock.GetUtcNow());
+                }
+                finally
+                {
+                    lock (_lock) _fetchingApps = null;
+                    OnChanged();
+                }
+            });
+        }
+        OnChanged();
+    }
+
+    /// <summary>Apps of the current catalog by attribute, matched once per catalog and catalogue (<c>apps</c>).</summary>
+    private Dictionary<string, AppInfo> MatchedApps(string lockHash, List<CatalogEntry> entries)
+    {
+        if (Stream() is not { } stream) return [];
+        var key = $"{lockHash}\0{stream.FetchedAt}";
+        lock (_lock)
+            if (_matched is { } matched && matched.Key == key) return matched.Apps;
+        // Matching reads the whole catalog; a concurrent caller may match the same pair once more.
+        var apps = Apps.Match(stream.Apps, entries);
+        lock (_lock) _matched = (key, apps);
+        return apps;
+    }
+
+    public IReadOnlyList<AppEntry> AppList(string? lockHash)
+    {
+        if (Entries(lockHash) is not { } entries) return [];
+        var apps = MatchedApps(lockHash!, entries);
+        return entries.Where(entry => apps.ContainsKey(entry.A)).Select(entry => WithApp(entry, apps)).ToList();
+    }
+
+    public async Task<byte[]?> IconAsync(string id, CancellationToken cancellationToken = default)
+    {
+        if (!Apps.ValidAppId(id) || Stream()?.Apps.FirstOrDefault(item => item.Id == id) is not { } app) return null;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        return await Apps.IconAsync(config, app, _network, timeout.Token).ConfigureAwait(false);
     }
 }

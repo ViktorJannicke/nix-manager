@@ -4,9 +4,11 @@ Mocked build tools as in test-manager.py; never activates the machine. Every pro
 directory, so the single-instance socket never reaches a real Nix Manager. The daemon runs in Runic's serve-only
 mode: its dashboard Window is served instead of shown, and a line on its standard input closes it.
 """
+import http.client
 import json
 import os
 from pathlib import Path
+import pty
 import re
 import shlex
 import shutil
@@ -114,6 +116,12 @@ class Sandbox:
         return subprocess.Popen([*COMMAND, *args], env=self.env | (env or {}), text=True, stdin=subprocess.DEVNULL,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
+    def without_checkout(self):
+        """No checkout asked for, and none where Nix Manager looks: the setup assistant's case."""
+        home = self.root / "home"
+        home.mkdir(exist_ok=True)
+        return {"NIX_MANAGER_FLAKE": "", "NIX_MANAGER_HOST": "", "HOME": str(home)}
+
     def history(self):
         result = self.run(["history", "--json"])
         assert result.returncode == 0, result.stderr
@@ -124,7 +132,8 @@ class Instance:
     """A daemon (`tray`) or a dashboard (`ui`) process, with its output collected as it arrives."""
 
     def __init__(self, sandbox, args, env=None, ready=None):
-        self.process = subprocess.Popen([*COMMAND, *args], env=sandbox.env | (env or {}), text=True,
+        # Outside any Git checkout, which Nix Manager would otherwise consider managing.
+        self.process = subprocess.Popen([*COMMAND, *args], env=sandbox.env | (env or {}), text=True, cwd=sandbox.root,
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.lines = {"stdout": [], "stderr": []}
         self.changed = threading.Condition()
@@ -156,6 +165,21 @@ class Instance:
                 raise AssertionError(f"{text!r} did not appear on {stream}: {self.lines}")
             if self.count(stream, text) < count:
                 raise AssertionError(f"the process ended before {text!r} appeared on {stream}: {self.lines}")
+
+    def page(self):
+        """The page the served Window starts with, from the address it printed, without loading it."""
+        with self.changed:
+            line = next(line for line in self.lines["stdout"] if line.startswith("RUNIC_APPLICATION_URL="))
+        address = line.split("=", 1)[1]
+        host, _, path = address.removeprefix("http://").partition("/")
+        connection = http.client.HTTPConnection(host, timeout=TIMEOUT)
+        try:
+            connection.request("GET", "/" + path)
+            response = connection.getresponse()
+            response.read()
+            return (response.getheader("Location") or "").rsplit("/", 1)[-1]
+        finally:
+            connection.close()
 
     def close_window(self):
         self.process.stdin.write("\n")
@@ -382,6 +406,63 @@ class DaemonTests(unittest.TestCase):
         self.assertEqual(second.returncode, 1)
         self.assertIn("Nix Manager is already running in the tray.", second.stderr)
         self.assertEqual(waiting.stop(), 0)
+
+
+class SetupTests(unittest.TestCase):
+    """`ui` before there is a checkout, and with one that does not load (setUp and main in src/main.ts)."""
+
+    def setUp(self):
+        self.sandbox = Sandbox()
+        self.instances = []
+
+    def tearDown(self):
+        for instance in self.instances:
+            if instance.process.poll() is None:
+                instance.process.kill()
+            instance.process.wait(TIMEOUT)
+            instance.close()
+        self.sandbox.close()
+
+    def served(self, args, env):
+        instance = Instance(self.sandbox, args, env, ready=("stdout", "RUNIC_APPLICATION_URL="))
+        self.instances.append(instance)
+        return instance
+
+    def test_ui_without_a_checkout_serves_the_setup_assistant_until_it_is_closed(self):
+        for args in (["ui"], ["ui", "--no-open"]):
+            with self.subTest(args=args):
+                setup = self.served(args, self.sandbox.without_checkout())
+                self.assertEqual(setup.page(), "setup.html")
+                self.assertEqual(setup.process.poll(), None)
+                setup.close_window()
+                # Closed before it created anything, as the Bun version's assistant ends.
+                self.assertEqual(setup.process.wait(TIMEOUT), 0, setup.lines)
+                setup.close()
+                self.assertFalse((self.sandbox.root / "home" / "nixos-config").exists())
+                self.assertFalse((self.sandbox.root / "state" / "nix-manager" / "checkout").exists())
+
+    def test_a_configuration_that_does_not_load_is_shown_in_the_assistant_s_window_from_the_menu(self):
+        broken = {"NIX_MANAGER_FLAKE": str(self.sandbox.root / "missing")}
+        # Started from the menu, standard output is not a terminal: the Window says why until it is closed.
+        problem = self.served(["ui"], broken)
+        self.assertEqual(problem.page(), "setup.html")
+        problem.wait_for("stderr", "Error: Resolve flake directory:")
+        problem.close_window()
+        self.assertEqual(problem.process.wait(TIMEOUT), 1)
+        problem.close()
+        # In a terminal, and with --no-open, the error is enough.
+        primary, secondary = pty.openpty()
+        try:
+            in_terminal = subprocess.run([*COMMAND, "ui"], env=self.sandbox.env | broken, stdin=subprocess.DEVNULL, stdout=secondary,
+                                         stderr=subprocess.PIPE, text=True, timeout=TIMEOUT, cwd=self.sandbox.root)
+        finally:
+            os.close(secondary)
+            os.close(primary)
+        self.assertEqual(in_terminal.returncode, 1)
+        self.assertIn("Error: Resolve flake directory:", in_terminal.stderr)
+        no_open = self.sandbox.run(["ui", "--no-open"], broken)
+        self.assertEqual(no_open.returncode, 1)
+        self.assertNotIn("RUNIC_APPLICATION_URL=", no_open.stdout)
 
 
 if __name__ == "__main__":

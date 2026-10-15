@@ -8,6 +8,7 @@ using NixManager.Observation;
 using NixManager.Operations;
 using Runic.Application.Views;
 using Runic.Application.Views.Desktop;
+using Runic.Desktop;
 using Runic.Platform;
 using Runic.Platform.Runtime;
 
@@ -20,7 +21,16 @@ public static class DaemonApplication
     /// Runs the running instance until it ends, then releases <paramref name="instance"/>. Call it before any
     /// <see langword="await"/>, since the Desktop host's event loop may need the main thread.
     /// </summary>
-    public static int Run(Config config, IApplicationInstance? instance, DaemonSettings settings)
+    public static int Run(Config config, IApplicationInstance? instance, DaemonSettings settings) =>
+        DesktopEventLoop.Run(DashboardApplication.HostOptions(), desktop => RunAsync(config, instance, settings, desktop));
+
+    /// <summary>
+    /// Runs the running instance on a Desktop host that runs already, as after the setup assistant created the checkout
+    /// (<see cref="Setup.SetupApplication"/>), until it ends; then releases <paramref name="instance"/>.
+    /// </summary>
+    /// <param name="opened">Called with the dashboard Window each time it opens.</param>
+    public static async Task<int> RunAsync(Config config, IApplicationInstance? instance, DaemonSettings settings, DesktopHost desktop,
+        Action<IRunicWindow>? opened = null)
     {
         var provider = new ServiceCollection()
             .AddNixManagerBackend(config)
@@ -39,16 +49,15 @@ public static class DaemonApplication
             // Right after claiming: launches wait for the first handler, and the core queues them until its loop runs.
             if (instance is not null) instance.Launched += (_, launch) => core.OnLaunch(launch);
             if (settings.Mode == DaemonMode.Tray) Console.WriteLine("Nix Manager is running in the tray.");
-            return RunicDesktopHost.Run(provider, DashboardApplication.HostOptions(),
-                host => core.RunAsync(new DesktopDashboardWindows(host), host.Desktop.ShutdownRequested));
+            return await core.RunAsync(new DesktopDashboardWindows(new RunicDesktopHost(provider, desktop), opened), desktop.ShutdownRequested);
         }
         finally
         {
             // Released before the services: a later launch then becomes the next instance instead of reaching this one.
-            instance?.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            icon.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            notifications.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            provider.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            if (instance is not null) await instance.DisposeAsync();
+            await icon.DisposeAsync();
+            await notifications.DisposeAsync();
+            await provider.DisposeAsync();
         }
     }
 
@@ -56,45 +65,60 @@ public static class DaemonApplication
     /// Prints what the running instance says about a forwarded launch and returns its exit status, or null when it
     /// asks this process to go ahead without it.
     /// </summary>
-    internal static int? Follow(IForwardedLaunchReply reply)
+    internal static int? Follow(IForwardedLaunchReply reply) => FollowAsync(reply).GetAwaiter().GetResult();
+
+    /// <inheritdoc cref="Follow"/>
+    internal static async Task<int?> FollowAsync(IForwardedLaunchReply reply)
     {
         try
         {
             var elsewhere = false;
-            foreach (var text in reply.ReadMessagesAsync().ToBlockingEnumerable())
+            await foreach (var text in reply.ReadMessagesAsync())
             {
                 var message = DaemonProtocol.ParseMessage(text);
                 if (message?.Kind == "elsewhere") elsewhere = true;
                 else if (message?.Message is { } note) Console.Error.WriteLine(note);
             }
-            var exit = reply.WaitForExitAsync().AsTask().GetAwaiter().GetResult();
+            var exit = await reply.WaitForExitAsync();
             if (exit is PlatformResult<int>.Success(var code)) return elsewhere || code == DaemonProtocol.RunHere ? null : code;
             Console.Error.WriteLine("Error: The running Nix Manager ended before it answered.");
             return 1;
         }
         finally
         {
-            reply.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            await reply.DisposeAsync();
         }
     }
 
     /// <summary>Loads the configuration as the command line does, before any event loop runs; null after reporting why not.</summary>
-    internal static Config? Load(string? flake, string? host)
+    internal static Config? Load(string? flake, string? host) => Load(flake, host, out _);
+
+    /// <inheritdoc cref="Load(string?, string?)"/>
+    /// <param name="error">Why it could not be loaded, as reported.</param>
+    internal static Config? Load(string? flake, string? host, out string? error)
+    {
+        (var config, error) = LoadAsync(flake, host).GetAwaiter().GetResult();
+        return config;
+    }
+
+    /// <summary>Loads the configuration as the command line does; on failure, reports why and returns the reason.</summary>
+    internal static async Task<(Config? Config, string? Error)> LoadAsync(string? flake, string? host)
     {
         try
         {
-            return new ConfigLoader(new ProcessCommandRunner()).LoadAsync(flake, host, CliSession.PrivilegedPrefix).GetAwaiter().GetResult();
+            return (await new ConfigLoader(new ProcessCommandRunner()).LoadAsync(flake, host, CliSession.PrivilegedPrefix), null);
         }
         catch (ManagerException error)
         {
             Console.Error.WriteLine($"Error: {error.Message}");
-            return null;
+            return (null, error.Message);
         }
     }
 }
 
 /// <summary>The dashboard Window on the Desktop host, opened once and brought forward after that.</summary>
-internal sealed class DesktopDashboardWindows(IRunicWindowHost host) : IDashboardWindows
+/// <param name="opened">Called with each Window it opens, such as to close the setup assistant's.</param>
+internal sealed class DesktopDashboardWindows(IRunicWindowHost host, Action<IRunicWindow>? opened = null) : IDashboardWindows
 {
     private IRunicWindow? _window;
     private Task? _closed;
@@ -120,8 +144,9 @@ internal sealed class DesktopDashboardWindows(IRunicWindowHost host) : IDashboar
         _closed = WatchAsync(window, closed);
         // A Window the daemon opens for a launch or a click gets focus only with that launch's activation token (KWin,
         // and Wayland compositors generally). OpenWindowAsync takes none, so the new Window is presented with it.
-        if (context is not null && window.Host is DesktopBridgeWindow<DashboardViewModel> opened && Owner(opened) is { } created)
+        if (context is not null && window.Host is DesktopBridgeWindow<DashboardViewModel> shown && Owner(shown) is { } created)
             await PlatformServices.PresentAsync(created, context);
+        opened?.Invoke(window);
         return true;
     }
 

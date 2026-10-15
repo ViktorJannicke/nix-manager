@@ -7,9 +7,9 @@ using Runic.Navigation;
 namespace NixManager.ViewModels;
 
 /// <summary>
-/// The setup assistant as the dashboard shows it before there is a checkout (the setup page of
-/// <c>src/setup-server.ts</c>): what was found on this computer, the folder to create, each step's status, and why
-/// setup cannot continue or the dashboard could not start.
+/// The setup assistant's Window (<see cref="Setup.SetupWindow"/>, the setup page of <c>src/setup-server.ts</c>) before
+/// there is a checkout: what was found on this computer, the folder to create, each step's status, and why setup
+/// cannot continue or the dashboard could not start.
 /// </summary>
 /// <remarks>
 /// A view of <see cref="SetupAssistantService"/>, whose state changes arrive on its threads and are committed in
@@ -31,6 +31,12 @@ public sealed partial class SetupViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     public partial SetupState State { get; private set; }
+
+    /// <summary>
+    /// The language the assistant speaks, <c>en</c> or <c>de</c>: the desktop's, since there are no preferences before
+    /// setup (<c>locale</c> of <c>SetupState</c>).
+    /// </summary>
+    public string Locale { get; } = Dashboard.DashboardPreferences.ResolveLocale("system", Environment.GetEnvironmentVariable);
 
     /// <summary>The folder to create; the suggested one until the user types another.</summary>
     [ObservableProperty]

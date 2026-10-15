@@ -16,6 +16,3 @@ public sealed partial class SoftwareView : RunicView<SoftwareViewModel>;
 
 /// <summary>Restore points, the checkout's state and cleanup estimates (<see cref="SystemViewModel"/>).</summary>
 public sealed partial class SystemView : RunicView<SystemViewModel>;
-
-/// <summary>The setup assistant, before there is a checkout to manage (<see cref="SetupViewModel"/>).</summary>
-public sealed partial class SetupView : RunicView<SetupViewModel>;
