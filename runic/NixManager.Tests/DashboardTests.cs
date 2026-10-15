@@ -263,11 +263,21 @@ public sealed class DashboardTests : IAsyncDisposable
     [Arguments(new[] { "ui" }, true)]
     [Arguments(new[] { "--flake", "/x", "ui", "--host=laptop" }, true)]
     [Arguments(new[] { "ui", "--no-open" }, true)]
+    [Arguments(new[] { "ui", "--browser" }, true)]
     [Arguments(new[] { "ui", "--help" }, false)]
     [Arguments(new[] { "home", "switch" }, false)]
     [Arguments(new[] { "ui", "--json" }, false)]
     public async Task Only_a_dashboard_invocation_starts_the_Window(string[] args, bool dashboard) =>
         await Assert.That(DashboardCommand.TryParse(args, out _)).IsEqualTo(dashboard);
+
+    [Test]
+    public async Task A_browser_is_served_the_page_as_with_no_open()
+    {
+        await Assert.That(DashboardCommand.TryParse(["ui", "--browser"], out var browser)).IsTrue();
+        await Assert.That(browser.Served && browser.Browser && !browser.NoOpen).IsTrue();
+        await Assert.That(DashboardCommand.TryParse(["ui"], out var shown)).IsTrue();
+        await Assert.That(shown.Served).IsFalse();
+    }
 
     private string PreferencesPath => DashboardPreferences.PathOf(TestConfig.Create(_fixtures.Root) with { StateDir = _fixtures.StateDir });
 

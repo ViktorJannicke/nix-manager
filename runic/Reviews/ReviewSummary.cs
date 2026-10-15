@@ -11,8 +11,8 @@ namespace NixManager.Reviews;
 /// </summary>
 public static class ReviewSummary
 {
-    /// <summary>Sizes in binary units, optionally with a sign (<c>bytes</c>), with the decimal separator of <paramref name="culture"/>.</summary>
-    public static string Bytes(double? value, bool signed = false, CultureInfo? culture = null)
+    /// <summary>Sizes in binary units, optionally with a sign (<c>bytes</c>), with the decimal separator of <paramref name="numbers"/>.</summary>
+    public static string Bytes(double? value, bool signed = false, IFormatProvider? numbers = null)
     {
         if (value is not { } number || double.IsNaN(number)) return "—";
         var sign = signed ? (number > 0 ? "+" : number < 0 ? "−" : "±") : number < 0 ? "−" : "";
@@ -25,7 +25,7 @@ public static class ReviewSummary
             index++;
         }
         var digits = size >= 100 || index == 0 ? 0 : 1;
-        return $"{sign}{size.ToString(digits == 0 ? "F0" : "F1", culture ?? CultureInfo.InvariantCulture)} {scale[index]}";
+        return $"{sign}{size.ToString(digits == 0 ? "F0" : "F1", numbers ?? CultureInfo.InvariantCulture)} {scale[index]}";
     }
 
     /// <summary>A conjunction as <c>Intl.ListFormat("en-GB")</c> writes it: "a, b and c".</summary>

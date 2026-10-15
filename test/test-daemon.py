@@ -464,6 +464,29 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(no_open.returncode, 1)
         self.assertNotIn("RUNIC_APPLICATION_URL=", no_open.stdout)
 
+    def test_ui_with_browser_serves_the_page_and_opens_it_in_the_default_browser(self):
+        opened = self.sandbox.root / "opened"
+        browser = self.sandbox.root / "bin" / "xdg-open"
+        browser.write_text(f'#!{shutil.which("bash")}\nprintf "%s\\n" "$*" >> {opened}\n')
+        browser.chmod(0o755)
+        try:
+            for env, page in (({}, "index.html"), (self.sandbox.without_checkout(), "setup.html")):
+                with self.subTest(page=page):
+                    opened.unlink(missing_ok=True)
+                    served = self.served(["ui", "--browser"], env)
+                    self.assertEqual(served.page(), page)
+                    with served.changed:
+                        address = next(line for line in served.lines["stdout"] if line.startswith("RUNIC_APPLICATION_URL="))
+                    deadline = time.monotonic() + TIMEOUT
+                    while not opened.exists() and time.monotonic() < deadline:
+                        time.sleep(0.05)
+                    self.assertEqual(opened.read_text().strip(), address.split("=", 1)[1])
+                    served.close_window()
+                    self.assertEqual(served.process.wait(TIMEOUT), 0, served.lines)
+                    served.close()
+        finally:
+            browser.unlink()
+
 
 if __name__ == "__main__":
     unittest.main()
