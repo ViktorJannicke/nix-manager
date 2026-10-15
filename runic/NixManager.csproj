@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- The command and the Polkit helper keep the Bun version's name. -->
+    <AssemblyName>nix-manager</AssemblyName>
+    <RootNamespace>NixManager</RootNamespace>
+    <Version>1.0.0</Version>
+    <!-- dotnet restore writes packages.lock.json for the Nix build (W300-032), which restores in locked mode
+         for linux-x64. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RuntimeIdentifiers>linux-x64</RuntimeIdentifiers>
+    <!-- The test project has its own sources and build output. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);NixManager.Tests/**</DefaultItemExcludes>
+    <!-- The policy keeps the Bun version's file name and action ID (nixos-module.nix). -->
+    <RunicPolkitPolicyName>org.nixos.nix-manager</RunicPolkitPolicyName>
+    <!-- The Nix builder sets RunicApplicationInstallPrefix to $out, whose bin/nix-manager is the wrapper pkexec
+         runs. Other builds install under /usr. -->
+    <NixManagerInstallPrefix Condition="'$(NixManagerInstallPrefix)' == ''">$(RunicApplicationInstallPrefix)</NixManagerInstallPrefix>
+    <NixManagerInstallPrefix Condition="'$(NixManagerInstallPrefix)' == ''">/usr</NixManagerInstallPrefix>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
+    <PackageReference Include="Runic.Application.Views" Version="0.8.0-preview.2" />
+    <PackageReference Include="Runic.CommandLine" Version="0.7.0-preview.1" />
+    <PackageReference Include="Runic.CommandLine.Processes" Version="0.7.0-preview.1" />
+    <PackageReference Include="Runic.Platform.Linux.Polkit" Version="0.8.0-preview.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="NixManager.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- One action, as in the Bun version's policy: one authorization is kept (auth_admin_keep) across the
+         privileged steps of an operation, such as activation followed by garbage collection. The verb is the
+         Bun version's entry point; the helper checks positions and meaning itself (PrivilegedHelper). -->
+    <RunicPrivilegedAction Include="org.nixos.nix-manager"
+                           Name="Privileged"
+                           Program="$(NixManagerInstallPrefix)/bin/nix-manager"
+                           Verb="--privileged"
+                           Description="Rebuild NixOS System"
+                           Message="Authentication is required to rebuild the NixOS system configuration."
+                           IconName="system-software-update"
+                           AllowAny="auth_admin"
+                           AllowInactive="auth_admin"
+                           AllowActive="auth_admin_keep"
+                           MaximumArguments="3"
+                           ArgumentPattern="activate-output|activate-generation|rollback|gc|switch|boot|[1-9][0-9]{0,9}|/nix/store/[a-z0-9]{32}-nixos-system-[A-Za-z0-9._+-]+" />
+  </ItemGroup>
+</Project>

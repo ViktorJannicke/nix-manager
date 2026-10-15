@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RuntimeIdentifiers>linux-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="TUnit" Version="1.73.19" />
+    <PackageReference Include="Runic.Application.Testing" Version="0.8.0-preview.2" />
+    <PackageReference Include="Runic.CommandLine.Testing" Version="0.7.0-preview.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../NixManager.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Records and outputs of the Bun version, and the Bun version's own Nix error fixtures. -->
+    <None Include="Fixtures/**/*" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../test/fixtures/nix-errors/*.txt" Link="Fixtures/nix-errors/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

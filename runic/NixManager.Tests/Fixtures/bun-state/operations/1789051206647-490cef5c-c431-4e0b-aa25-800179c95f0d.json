@@ -1,0 +1,20 @@
+{
+  "id": "1789051206647-490cef5c-c431-4e0b-aa25-800179c95f0d",
+  "pid": 285230,
+  "flake": "/home/user/my-flakes",
+  "request": {
+    "action": "switch",
+    "scope": "all",
+    "host": "desktop",
+    "update": false,
+    "cleanup": false,
+    "force": false,
+    "dryRun": false,
+    "extra": []
+  },
+  "status": "cancelled",
+  "startedAt": "2026-09-10T14:40:06.647Z",
+  "step": "Build system configuration",
+  "error": "Cancelled. Any completed activation or input update remains applied.",
+  "finishedAt": "2026-09-10T14:40:41.583Z"
+}

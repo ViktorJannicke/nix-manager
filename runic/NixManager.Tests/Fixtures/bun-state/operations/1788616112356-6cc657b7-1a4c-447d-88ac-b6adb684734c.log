@@ -1,0 +1,7 @@
+→ Resolve inputs in a temporary copy and compare stable package releases. The checkout is unchanged.
+→ Check flake inputs without changing the checkout
+  nix flake update --flake /home/user/my-flakes --output-lock-file /tmp/nix-manager-CxRhPi/flake.lock
+warning: Git tree '/home/user/my-flakes' is dirty
+unpacking 'github:nix-community/home-manager/df6fe1a630d5137c32fc3ee9964b28e79b427a5a' into the Git cache...
+→ home-manager: 693e8ce0fb24 → df6fe1a630d5
+→ 1 updates found.

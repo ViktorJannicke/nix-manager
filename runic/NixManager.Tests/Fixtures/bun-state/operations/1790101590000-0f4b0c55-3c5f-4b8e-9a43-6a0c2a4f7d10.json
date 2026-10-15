@@ -1,0 +1,51 @@
+{
+  "id": "1790101590000-0f4b0c55-3c5f-4b8e-9a43-6a0c2a4f7d10",
+  "pid": 3327853,
+  "flake": "/home/user/other-flakes",
+  "request": {
+    "action": "switch",
+    "scope": "all",
+    "host": "desktop",
+    "update": false,
+    "cleanup": false,
+    "force": false,
+    "dryRun": false,
+    "extra": [],
+    "retention": 3
+  },
+  "status": "succeeded",
+  "startedAt": "2026-09-22T18:26:20.086Z",
+  "step": "Complete",
+  "steps": [
+    {
+      "id": "1-build-home-configuration",
+      "label": "Build home configuration",
+      "status": "succeeded",
+      "startedAt": "2026-09-22T18:26:20.087Z",
+      "finishedAt": "2026-09-22T18:26:22.647Z"
+    },
+    {
+      "id": "2-build-system-configuration",
+      "label": "Build system configuration",
+      "status": "succeeded",
+      "startedAt": "2026-09-22T18:26:22.647Z",
+      "finishedAt": "2026-09-22T18:29:38.667Z"
+    },
+    {
+      "id": "3-activate-home-configuration",
+      "label": "Activate home configuration",
+      "status": "succeeded",
+      "startedAt": "2026-09-22T18:29:38.667Z",
+      "finishedAt": "2026-09-22T18:29:40.654Z"
+    },
+    {
+      "id": "4-activate-system-configuration",
+      "label": "Activate system configuration",
+      "status": "succeeded",
+      "startedAt": "2026-09-22T18:29:40.654Z",
+      "finishedAt": "2026-09-22T18:30:00.662Z"
+    }
+  ],
+  "finishingPrivilegedStep": false,
+  "finishedAt": "2026-09-22T18:30:00.664Z"
+}

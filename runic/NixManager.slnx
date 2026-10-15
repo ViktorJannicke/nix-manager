@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="NixManager.csproj" />
+  <Project Path="NixManager.Tests/NixManager.Tests.csproj" />
+</Solution>

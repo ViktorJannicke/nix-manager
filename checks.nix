@@ -14,6 +14,7 @@ let
       ./webui.nix
       ./nixos-module.nix
       ./checks.nix
+      ./runic/package.nix
     ];
   };
   host = {
@@ -47,6 +48,34 @@ let
 in
 {
   nix-manager = manager;
+}
+// lib.optionalAttrs (self.packages.${system} ? runic) {
+  # The Runic port, built and unit-tested in the sandbox, and the Bun version's CLI regression suite run
+  # against its command line.
+  runic = self.packages.${system}.runic;
+  cli-runic =
+    pkgs.runCommand "nix-manager-runic-cli-tests"
+      {
+        nativeBuildInputs = with pkgs; [
+          python3
+          bash
+          coreutils
+        ];
+        # The program without its wrapper, whose PATH prefix would put the real nix before the mocked one,
+        # as the Bun check runs main.js without its wrapper.
+        NIX_MANAGER_TEST_COMMAND = lib.escapeShellArgs [
+          "env"
+          "DOTNET_ROOT=${pkgs.dotnetCorePackages.sdk_10_0.aspnetcore}/share/dotnet"
+          "DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1"
+          "${self.packages.${system}.runic}/lib/nix-manager-runic/nix-manager"
+        ];
+      }
+      ''
+        python3 ${./test/test-manager.py}
+        touch $out
+      '';
+}
+// {
   cli =
     pkgs.runCommand "nix-manager-cli-tests"
       {

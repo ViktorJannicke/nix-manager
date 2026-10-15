@@ -1,0 +1,402 @@
+[
+  {
+    "name": "history-json",
+    "args": [
+      "history",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "[\n  {\n    \"id\": \"1791890132324-a3d344fb-f8cb-4886-9148-083ee3c68850\",\n    \"pid\": 112002,\n    \"flake\": \"<flake>\",\n    \"request\": {\n      \"action\": \"check\",\n      \"scope\": \"all\",\n      \"host\": \"desktop\",\n      \"update\": false,\n      \"cleanup\": false,\n      \"force\": false,\n      \"dryRun\": false,\n      \"extra\": [],\n      \"retention\": 3\n    },\n    \"status\": \"failed\",\n    \"startedAt\": \"2026-10-13T11:15:32.324Z\",\n    \"step\": \"Check flake inputs without changing the checkout\",\n    \"steps\": [\n      {\n        \"id\": \"1-check-inputs-and-package-releases\",\n        \"label\": \"Check inputs and package releases\",\n        \"status\": \"failed\",\n        \"startedAt\": \"2026-10-13T11:15:32.325Z\",\n        \"finishedAt\": \"2026-10-13T11:15:38.349Z\"\n      }\n    ],\n    \"error\": \"Some update checks failed. The report contains the successful results and errors.\",\n    \"finishedAt\": \"2026-10-13T11:15:38.349Z\"\n  },\n  {\n    \"id\": \"1791887134695-9b8e1959-db27-48a5-b96b-9cc573455e98\",\n    \"pid\": 2848,\n    \"flake\": \"<flake>\",\n    \"request\": {\n      \"action\": \"gc\",\n      \"scope\": \"home\",\n      \"host\": \"desktop\",\n      \"update\": false,\n      \"cleanup\": false,\n      \"force\": false,\n      \"dryRun\": false,\n      \"extra\": [],\n      \"retention\": 5\n    },\n    \"status\": \"succeeded\",\n    \"startedAt\": \"2026-10-13T10:25:34.695Z\",\n    \"step\": \"Complete\",\n    \"steps\": [\n      {\n        \"id\": \"1-keep-5-home-generations\",\n        \"label\": \"Keep 5 home generations\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-10-13T10:25:34.697Z\",\n        \"finishedAt\": \"2026-10-13T10:25:34.710Z\"\n      },\n      {\n        \"id\": \"2-collect-unreferenced-store-paths\",\n        \"label\": \"Collect unreferenced store paths\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-10-13T10:25:34.711Z\",\n        \"finishedAt\": \"2026-10-13T10:26:37.894Z\"\n      }\n    ],\n    \"finishedAt\": \"2026-10-13T10:26:37.895Z\"\n  },\n  {\n    \"id\": \"1791817200000-3a9e5c71-2b84-4d6f-a0c3-9e8d7f6b5a41\",\n    \"pid\": 745467,\n    \"flake\": \"<flake>\",\n    \"request\": {\n      \"action\": \"review-apply\",\n      \"scope\": \"all\",\n      \"host\": \"desktop\",\n      \"update\": false,\n      \"cleanup\": false,\n      \"force\": false,\n      \"dryRun\": false,\n      \"extra\": [],\n      \"reviewId\": \"2f89612a-fb6f-4e01-bbd6-530c836e1eae\",\n      \"retention\": 3,\n      \"activation\": \"switch\"\n    },\n    \"status\": \"failed\",\n    \"startedAt\": \"2026-10-12T14:59:52.010Z\",\n    \"step\": \"Activate system\",\n    \"steps\": [\n      {\n        \"id\": \"1-write-the-reviewed-flake-lock\",\n        \"label\": \"Write the reviewed flake.lock\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-10-12T14:59:52.013Z\",\n        \"finishedAt\": \"2026-10-12T14:59:52.015Z\"\n      },\n      {\n        \"id\": \"2-select-home-manager-generation\",\n        \"label\": \"Select Home Manager generation\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-10-12T14:59:52.015Z\",\n        \"finishedAt\": \"2026-10-12T14:59:52.042Z\"\n      },\n      {\n        \"id\": \"3-activate-home-manager\",\n        \"label\": \"Activate Home Manager\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-10-12T14:59:52.042Z\",\n        \"finishedAt\": \"2026-10-12T14:59:52.980Z\"\n      },\n      {\n        \"id\": \"4-activate-system\",\n        \"label\": \"Activate system\",\n        \"status\": \"failed\",\n        \"startedAt\": \"2026-10-12T14:59:52.981Z\",\n        \"finishedAt\": \"2026-10-12T15:00:00.765Z\"\n      },\n      {\n        \"id\": \"5-go-back-to-system-generation-81\",\n        \"label\": \"Go back to system generation 81\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-10-12T15:00:01.000Z\",\n        \"finishedAt\": \"2026-10-12T15:00:09.000Z\"\n      },\n      {\n        \"id\": \"6-put-back-the-configuration-files\",\n        \"label\": \"Put back the configuration files\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-10-12T15:00:09.000Z\",\n        \"finishedAt\": \"2026-10-12T15:00:09.004Z\"\n      }\n    ],\n    \"finishingPrivilegedStep\": false,\n    \"finishedAt\": \"2026-10-12T15:00:09.010Z\",\n    \"error\": \"Activate system failed (exit 4). warning: the following units failed: home-manager-user.service\",\n    \"explanation\": {\n      \"title\": \"Activate system failed\",\n      \"body\": \"warning: the following units failed: home-manager-user.service Everything went back to how it was before, files included.\"\n    },\n    \"rollback\": {\n      \"done\": true\n    }\n  },\n  {\n    \"id\": \"1791817192010-c45c9d14-1d7b-4b9c-81d7-f0ced48b0947\",\n    \"pid\": 745467,\n    \"flake\": \"<flake>\",\n    \"request\": {\n      \"action\": \"review-apply\",\n      \"scope\": \"all\",\n      \"host\": \"desktop\",\n      \"update\": false,\n      \"cleanup\": false,\n      \"force\": false,\n      \"dryRun\": false,\n      \"extra\": [],\n      \"reviewId\": \"2f89612a-fb6f-4e01-bbd6-530c836e1eae\",\n      \"retention\": 3,\n      \"activation\": \"switch\"\n    },\n    \"status\": \"succeeded\",\n    \"startedAt\": \"2026-10-12T14:59:52.010Z\",\n    \"step\": \"Complete\",\n    \"steps\": [\n      {\n        \"id\": \"1-write-the-reviewed-flake-lock\",\n        \"label\": \"Write the reviewed flake.lock\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-10-12T14:59:52.013Z\",\n        \"finishedAt\": \"2026-10-12T14:59:52.015Z\"\n      },\n      {\n        \"id\": \"2-select-home-manager-generation\",\n        \"label\": \"Select Home Manager generation\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-10-12T14:59:52.015Z\",\n        \"finishedAt\": \"2026-10-12T14:59:52.042Z\"\n      },\n      {\n        \"id\": \"3-activate-home-manager\",\n        \"label\": \"Activate Home Manager\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-10-12T14:59:52.042Z\",\n        \"finishedAt\": \"2026-10-12T14:59:52.980Z\"\n      },\n      {\n        \"id\": \"4-activate-system\",\n        \"label\": \"Activate system\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-10-12T14:59:52.981Z\",\n        \"finishedAt\": \"2026-10-12T15:00:00.765Z\"\n      }\n    ],\n    \"finishingPrivilegedStep\": false,\n    \"undo\": {\n      \"changes\": [\n        \"Update all inputs\"\n      ],\n      \"generations\": {\n        \"home\": 99,\n        \"system\": 81\n      },\n      \"files\": [\n        {\n          \"path\": \"flake.lock\",\n          \"created\": false,\n          \"written\": \"e8365e08cd0710d74730024a855deb2f6999eb22daebfb67985006e9cf02dbb3\"\n        }\n      ]\n    },\n    \"finishedAt\": \"2026-10-12T15:00:00.766Z\"\n  },\n  {\n    \"id\": \"1791817115229-465fe18a-e7d2-467a-96fc-3369e963e285\",\n    \"pid\": 745467,\n    \"flake\": \"<flake>\",\n    \"request\": {\n      \"action\": \"review-build\",\n      \"scope\": \"all\",\n      \"host\": \"desktop\",\n      \"update\": true,\n      \"cleanup\": false,\n      \"force\": false,\n      \"dryRun\": false,\n      \"extra\": [],\n      \"retention\": 3,\n      \"reviewId\": \"2f89612a-fb6f-4e01-bbd6-530c836e1eae\"\n    },\n    \"status\": \"succeeded\",\n    \"startedAt\": \"2026-10-12T14:58:35.229Z\",\n    \"step\": \"Complete\",\n    \"steps\": [\n      {\n        \"id\": \"1-resolve-all-flake-inputs\",\n        \"label\": \"Resolve all flake inputs\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-10-12T14:58:35.238Z\",\n        \"progress\": {\n          \"evaluating\": true,\n          \"builds\": {\n            \"done\": 0,\n            \"expected\": 0,\n            \"running\": 0,\n            \"failed\": 0\n          },\n          \"downloads\": {\n            \"done\": 0,\n            \"expected\": 0,\n            \"running\": 0\n          },\n          \"bytes\": {\n            \"done\": 0,\n            \"expected\": 0\n          },\n          \"current\": []\n        },\n        \"finishedAt\": \"2026-10-12T14:58:37.885Z\"\n      },\n      {\n        \"id\": \"2-build-home-configuration\",\n        \"label\": \"Build home configuration\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-10-12T14:58:37.885Z\",\n        \"progress\": {\n          \"evaluating\": false,\n          \"builds\": {\n            \"done\": 15,\n            \"expected\": 15,\n            \"running\": 0,\n            \"failed\": 0\n          },\n          \"downloads\": {\n            \"done\": 1,\n            \"expected\": 1,\n            \"running\": 0\n          },\n          \"bytes\": {\n            \"done\": 255840664,\n            \"expected\": 255840664\n          },\n          \"current\": []\n        },\n        \"finishedAt\": \"2026-10-12T14:59:33.316Z\"\n      },\n      {\n        \"id\": \"3-build-system-configuration\",\n        \"label\": \"Build system configuration\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-10-12T14:59:33.317Z\",\n        \"progress\": {\n          \"evaluating\": true,\n          \"builds\": {\n            \"done\": 0,\n            \"expected\": 0,\n            \"running\": 0,\n            \"failed\": 0\n          },\n          \"downloads\": {\n            \"done\": 0,\n            \"expected\": 0,\n            \"running\": 0\n          },\n          \"bytes\": {\n            \"done\": 0,\n            \"expected\": 0\n          },\n          \"current\": []\n        },\n        \"finishedAt\": \"2026-10-12T14:59:41.283Z\"\n      },\n      {\n        \"id\": \"4-compare-with-the-active-configuration\",\n        \"label\": \"Compare with the active configuration\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-10-12T14:59:41.284Z\",\n        \"finishedAt\": \"2026-10-12T14:59:41.688Z\"\n      }\n    ],\n    \"finishedAt\": \"2026-10-12T14:59:41.689Z\"\n  },\n  {\n    \"id\": \"1791000000000-7d6a2b1e-9c3f-4e8a-b5d2-1f0e3c4a5b6c\",\n    \"pid\": 4194300,\n    \"flake\": \"<flake>\",\n    \"request\": {\n      \"action\": \"switch\",\n      \"scope\": \"all\",\n      \"host\": \"desktop\",\n      \"update\": false,\n      \"cleanup\": false,\n      \"force\": false,\n      \"dryRun\": false,\n      \"extra\": [],\n      \"retention\": 3\n    },\n    \"status\": \"interrupted\",\n    \"startedAt\": \"2026-09-22T18:26:20.086Z\",\n    \"step\": \"Build system configuration\",\n    \"steps\": [\n      {\n        \"id\": \"1-build-home-configuration\",\n        \"label\": \"Build home configuration\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-09-22T18:26:20.087Z\",\n        \"finishedAt\": \"2026-09-22T18:26:22.647Z\"\n      },\n      {\n        \"id\": \"2-build-system-configuration\",\n        \"label\": \"Build system configuration\",\n        \"status\": \"running\",\n        \"startedAt\": \"2026-09-22T18:26:22.647Z\"\n      },\n      {\n        \"id\": \"3-activate-home-configuration\",\n        \"label\": \"Activate home configuration\",\n        \"status\": \"pending\"\n      },\n      {\n        \"id\": \"4-activate-system-configuration\",\n        \"label\": \"Activate system configuration\",\n        \"status\": \"pending\"\n      }\n    ],\n    \"finishingPrivilegedStep\": false,\n    \"error\": \"The manager exited before recording completion. Check the log and active generations before retrying.\"\n  },\n  {\n    \"id\": \"1790107522576-f1f493f8-ff91-4054-bbfb-c506dc96ec61\",\n    \"pid\": 3327853,\n    \"flake\": \"<flake>\",\n    \"request\": {\n      \"action\": \"pince-update\",\n      \"scope\": \"home\",\n      \"host\": \"desktop\",\n      \"update\": false,\n      \"cleanup\": false,\n      \"force\": false,\n      \"dryRun\": false,\n      \"extra\": [],\n      \"retention\": 3\n    },\n    \"status\": \"succeeded\",\n    \"startedAt\": \"2026-09-22T20:05:22.576Z\",\n    \"step\": \"Complete\",\n    \"steps\": [\n      {\n        \"id\": \"1-update-pince-package-pin\",\n        \"label\": \"Update pince package pin\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-09-22T20:05:22.576Z\",\n        \"finishedAt\": \"2026-09-22T20:05:34.823Z\"\n      }\n    ],\n    \"finishedAt\": \"2026-09-22T20:05:34.823Z\"\n  },\n  {\n    \"id\": \"1790101580086-cef0be75-82b4-4374-8be3-a2a199a8cdfd\",\n    \"pid\": 3327853,\n    \"flake\": \"<flake>\",\n    \"request\": {\n      \"action\": \"switch\",\n      \"scope\": \"all\",\n      \"host\": \"desktop\",\n      \"update\": false,\n      \"cleanup\": false,\n      \"force\": false,\n      \"dryRun\": false,\n      \"extra\": [],\n      \"retention\": 3\n    },\n    \"status\": \"succeeded\",\n    \"startedAt\": \"2026-09-22T18:26:20.086Z\",\n    \"step\": \"Complete\",\n    \"steps\": [\n      {\n        \"id\": \"1-build-home-configuration\",\n        \"label\": \"Build home configuration\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-09-22T18:26:20.087Z\",\n        \"finishedAt\": \"2026-09-22T18:26:22.647Z\"\n      },\n      {\n        \"id\": \"2-build-system-configuration\",\n        \"label\": \"Build system configuration\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-09-22T18:26:22.647Z\",\n        \"finishedAt\": \"2026-09-22T18:29:38.667Z\"\n      },\n      {\n        \"id\": \"3-activate-home-configuration\",\n        \"label\": \"Activate home configuration\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-09-22T18:29:38.667Z\",\n        \"finishedAt\": \"2026-09-22T18:29:40.654Z\"\n      },\n      {\n        \"id\": \"4-activate-system-configuration\",\n        \"label\": \"Activate system configuration\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-09-22T18:29:40.654Z\",\n        \"finishedAt\": \"2026-09-22T18:30:00.662Z\"\n      }\n    ],\n    \"finishingPrivilegedStep\": false,\n    \"finishedAt\": \"2026-09-22T18:30:00.664Z\"\n  },\n  {\n    \"id\": \"1790100349410-9c781dc3-f535-4a93-9428-8662b5f1a0aa\",\n    \"pid\": 3327853,\n    \"flake\": \"<flake>\",\n    \"request\": {\n      \"action\": \"switch\",\n      \"scope\": \"all\",\n      \"host\": \"desktop\",\n      \"update\": true,\n      \"cleanup\": false,\n      \"force\": false,\n      \"dryRun\": false,\n      \"extra\": [],\n      \"retention\": 3\n    },\n    \"status\": \"failed\",\n    \"startedAt\": \"2026-09-22T18:05:49.410Z\",\n    \"step\": \"Build home configuration\",\n    \"steps\": [\n      {\n        \"id\": \"1-update-flake-inputs\",\n        \"label\": \"Update flake inputs\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-09-22T18:05:49.411Z\",\n        \"finishedAt\": \"2026-09-22T18:05:51.150Z\"\n      },\n      {\n        \"id\": \"2-build-home-configuration\",\n        \"label\": \"Build home configuration\",\n        \"status\": \"failed\",\n        \"startedAt\": \"2026-09-22T18:05:51.150Z\",\n        \"finishedAt\": \"2026-09-22T18:07:01.511Z\"\n      },\n      {\n        \"id\": \"3-build-system-configuration\",\n        \"label\": \"Build system configuration\",\n        \"status\": \"skipped\"\n      },\n      {\n        \"id\": \"4-activate-home-configuration\",\n        \"label\": \"Activate home configuration\",\n        \"status\": \"skipped\"\n      },\n      {\n        \"id\": \"5-activate-system-configuration\",\n        \"label\": \"Activate system configuration\",\n        \"status\": \"skipped\"\n      }\n    ],\n    \"error\": \"Build home configuration failed (exit 1). /store/lksdb0riixr0j5slys59cm48bzcn3nvg-disable-bun-splitting.patch\\n       > patching file packages/opencode/script/build.ts\\n       > substituteStream() in derivation opencode-1.18.31: ERROR: pattern splitting:\\\\ true\\\\, doesn't match anything in file 'packages/opencode/script/build.ts'\\n       For full logs, run:\\n         nix log /nix/store/nmrl1bqavi8qbx48dbkkp5x2zbnzzblk-opencode-1.18.31.drv\\nerror: Cannot build '/nix/store/ncmmqlswgfgvwnxchf79jzzwg6158z5h-home-manager-path.drv'.\\n       Reason: 1 dependency failed.\\n       Output paths:\\n         /nix/store/2wyscgwq73kgba4l8qnshb6s5h310rnx-home-manager-path\\nerror: Cannot build '/nix/store/fm1xwrk4wqp8da7ha79kci1aa22y9h98-man-paths.drv'.\\n       Reason: 1 dependency failed.\\n       Output paths:\\n         /nix/store/q3wb40wn55wzvccglvq4gb51imgxj044-man-paths\\nerror: Cannot build '/nix/store/6hj59n2i6wf37i9r36h018yg3imwvmwf-opencode-1.18.31-fish-completions.drv'.\\n       Reason: 1 dependency failed.\\n       Output paths:\\n         /nix/store/429czx6kxz13l57sr54mrm29n2x6sl6m-opencode-1.18.31-fish-completions\\nerror: Cannot build '/nix/store/rl3w5jqdqwd70n43nbv4977rxk99q0ih-t3code-0.0.42.drv'.\\n       Reason: 1 dependency failed.\\n       Output paths:\\n         /nix/store/vfbrprg92sj2iy40vhjas6dkakmp2qyv-t3code-0.0.42\\nerror: Cannot build '/nix/store/jfnb99ybrnw36zvk43hv78m6b0lfxllm-home-manager-generation.drv'.\\n       Reason: 1 dependency failed.\\n       Output paths:\\n         /nix/store/gbysw0im3kl7b6hdmib6pznll4bnbjir-home-manager-generation\",\n    \"finishedAt\": \"2026-09-22T18:07:01.512Z\"\n  },\n  {\n    \"id\": \"1789815615691-ff2bd500-9b4a-4668-b76d-8e1de16ec2cf\",\n    \"pid\": 129879,\n    \"flake\": \"<flake>\",\n    \"request\": {\n      \"action\": \"check\",\n      \"scope\": \"all\",\n      \"host\": \"desktop\",\n      \"update\": false,\n      \"cleanup\": false,\n      \"force\": false,\n      \"dryRun\": false,\n      \"extra\": [],\n      \"retention\": 3\n    },\n    \"status\": \"succeeded\",\n    \"startedAt\": \"2026-09-19T11:00:15.691Z\",\n    \"step\": \"Complete\",\n    \"steps\": [\n      {\n        \"id\": \"1-check-inputs-and-package-releases\",\n        \"label\": \"Check inputs and package releases\",\n        \"status\": \"succeeded\",\n        \"startedAt\": \"2026-09-19T11:00:15.694Z\",\n        \"finishedAt\": \"2026-09-19T11:00:17.789Z\"\n      }\n    ],\n    \"finishedAt\": \"2026-09-19T11:00:17.790Z\"\n  },\n  {\n    \"id\": \"1789639669515-e24bffc8-c2d6-4b85-9a23-f0fd2b37f7b0\",\n    \"pid\": 377388,\n    \"flake\": \"<flake>\",\n    \"request\": {\n      \"action\": \"t3code-update\",\n      \"scope\": \"all\",\n      \"host\": \"desktop\",\n      \"update\": false,\n      \"cleanup\": false,\n      \"force\": false,\n      \"dryRun\": false,\n      \"extra\": []\n    },\n    \"status\": \"failed\",\n    \"startedAt\": \"2026-09-17T10:07:49.515Z\",\n    \"step\": \"Build t3code 0.0.42 before saving pin\",\n    \"error\": \"Build t3code 0.0.42 before saving pin failed (exit 1). ild@0.28.1_jiti@2.7.0_terser_1b0486c48d974eaf1b48b72da4c5b253/node_modules/@voidzero-dev/vite-plus-core/dist/vite/node/chunks/node.js:39593:19)\\n       >     at async Object.buildApp (file:///build/source/node_modules/.pnpm/@voidzero-dev+vite-plus-core@0.3.0_@types+node@24.12.4_esbuild@0.28.1_jiti@2.7.0_terser_1b0486c48d974eaf1b48b72da4c5b253/node_modules/@voidzero-dev/vite-plus-core/dist/vite/node/chunks/node.js:39590:153)\\n       >     at async CAC.<anonymous> (file:///build/source/node_modules/.pnpm/@voidzero-dev+vite-plus-core@0.3.0_@types+node@24.12.4_esbuild@0.28.1_jiti@2.7.0_terser_1b0486c48d974eaf1b48b72da4c5b253/node_modules/@voidzero-dev/vite-plus-core/dist/vite/node/cli.js:776:3) {\\n       >   errors: [Getter/Setter]\\n       > }\\n       >\\n       > [ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @t3tools/monorepo@ build:desktop: `vp run --filter @t3tools/desktop --filter t3 build`\\n       > Exit status 1\\n       >\\n       > ERROR: 'pnpm run build:desktop' failed\\n       >\\n       > Here are a few things you can try, depending on the error:\\n       > 1. Make sure your build script (build:desktop) exists\\n       >    If there isnt one, set `dontPnpmBuild = true`.\\n       >\\n       For full logs, run:\\n         nix log /nix/store/p8lr46hfpn0839shp2rfpzij2q838dly-t3code-unwrapped-0.0.42.drv\\nerror: Cannot build '/nix/store/971p9jv6svs6j1pcc12afgkzbhklbrn9-t3code-0.0.42.drv'.\\n       Reason: 1 dependency failed.\\n       Output paths:\\n         /nix/store/5shgsnvx9krnvzbwyf6c4qra8b98n20x-t3code-0.0.42\",\n    \"finishedAt\": \"2026-09-17T10:10:30.336Z\"\n  },\n  {\n    \"id\": \"1789051206647-490cef5c-c431-4e0b-aa25-800179c95f0d\",\n    \"pid\": 285230,\n    \"flake\": \"<flake>\",\n    \"request\": {\n      \"action\": \"switch\",\n      \"scope\": \"all\",\n      \"host\": \"desktop\",\n      \"update\": false,\n      \"cleanup\": false,\n      \"force\": false,\n      \"dryRun\": false,\n      \"extra\": []\n    },\n    \"status\": \"cancelled\",\n    \"startedAt\": \"2026-09-10T14:40:06.647Z\",\n    \"step\": \"Build system configuration\",\n    \"error\": \"Cancelled. Any completed activation or input update remains applied.\",\n    \"finishedAt\": \"2026-09-10T14:40:41.583Z\"\n  },\n  {\n    \"id\": \"1788787590681-08b41598-2588-4dad-b6c0-eb62b76163e3\",\n    \"pid\": 484124,\n    \"flake\": \"<flake>\",\n    \"request\": {\n      \"action\": \"switch\",\n      \"scope\": \"all\",\n      \"host\": \"desktop\",\n      \"update\": false,\n      \"cleanup\": true,\n      \"force\": false,\n      \"dryRun\": false,\n      \"extra\": []\n    },\n    \"status\": \"succeeded\",\n    \"startedAt\": \"2026-09-07T13:26:30.682Z\",\n    \"step\": \"Complete\",\n    \"finishingPrivilegedStep\": false,\n    \"finishedAt\": \"2026-09-07T13:29:51.178Z\"\n  },\n  {\n    \"id\": \"1788616112356-6cc657b7-1a4c-447d-88ac-b6adb684734c\",\n    \"pid\": 472364,\n    \"flake\": \"<flake>\",\n    \"request\": {\n      \"action\": \"check\",\n      \"scope\": \"all\",\n      \"host\": \"desktop\",\n      \"update\": false,\n      \"cleanup\": false,\n      \"force\": false,\n      \"dryRun\": false,\n      \"extra\": []\n    },\n    \"status\": \"succeeded\",\n    \"startedAt\": \"2026-09-05T13:48:32.356Z\",\n    \"step\": \"Complete\",\n    \"finishedAt\": \"2026-09-05T13:48:35.810Z\"\n  }\n]\n",
+    "error": null
+  },
+  {
+    "name": "status-json",
+    "args": [
+      "status",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"host\": \"test\",\n  \"flake\": \"<flake>\",\n  \"config\": {\n    \"system\": \"x86_64-linux\",\n    \"nixosConfiguration\": \"test-machine\",\n    \"nixosHostName\": \"test-machine\",\n    \"homeConfiguration\": \"user-test\"\n  },\n  \"updates\": {\n    \"checkedAt\": \"2026-10-15T08:04:43.249Z\",\n    \"items\": [\n      {\n        \"name\": \"codex-desktop-linux\",\n        \"current\": \"ac4c7c173768\",\n        \"latest\": \"1153895b6fe9\",\n        \"kind\": \"input\",\n        \"currentDate\": \"2026-10-14T06:38:19.000Z\",\n        \"latestDate\": \"2026-10-15T08:01:06.000Z\",\n        \"source\": \"ilysenko/codex-desktop-linux\",\n        \"url\": \"https://github.com/ilysenko/codex-desktop-linux/commit/1153895b6fe9101fcf777a4264ccaaf3a4ce55be\"\n      },\n      {\n        \"name\": \"nixpkgs_2\",\n        \"current\": \"7fd4004d0511\",\n        \"latest\": \"55bfb4d7437b\",\n        \"kind\": \"input\",\n        \"currentDate\": \"2026-10-11T15:54:36.000Z\",\n        \"latestDate\": \"2026-10-14T05:35:54.000Z\",\n        \"source\": \"nixos/nixpkgs\",\n        \"url\": \"https://github.com/nixos/nixpkgs/commit/55bfb4d7437bd4e09ab7cba58a43bd68eb310044\"\n      },\n      {\n        \"name\": \"zen-browser\",\n        \"current\": \"d98522a05b8a\",\n        \"latest\": \"9342d127aa8c\",\n        \"kind\": \"input\",\n        \"currentDate\": \"2026-10-14T07:10:31.000Z\",\n        \"latestDate\": \"2026-10-15T07:02:55.000Z\",\n        \"source\": \"0xc000022070/zen-browser-flake\",\n        \"url\": \"https://github.com/0xc000022070/zen-browser-flake/commit/9342d127aa8c585e82f3f57ddb25800fd546029f\"\n      },\n      {\n        \"name\": \"t3code\",\n        \"current\": \"0.0.46-nightly.20261014.3118\",\n        \"latest\": \"0.0.46-nightly.20261015.3145\",\n        \"kind\": \"package\",\n        \"source\": \"pingdotgg/t3code\",\n        \"url\": \"https://github.com/pingdotgg/t3code/releases/tag/v0.0.46-nightly.20261015.3145\"\n      }\n    ],\n    \"errors\": []\n  },\n  \"latest\": {\n    \"id\": \"1791890132324-a3d344fb-f8cb-4886-9148-083ee3c68850\",\n    \"pid\": 112002,\n    \"flake\": \"<flake>\",\n    \"request\": {\n      \"action\": \"check\",\n      \"scope\": \"all\",\n      \"host\": \"desktop\",\n      \"update\": false,\n      \"cleanup\": false,\n      \"force\": false,\n      \"dryRun\": false,\n      \"extra\": [],\n      \"retention\": 3\n    },\n    \"status\": \"failed\",\n    \"startedAt\": \"2026-10-13T11:15:32.324Z\",\n    \"step\": \"Check flake inputs without changing the checkout\",\n    \"steps\": [\n      {\n        \"id\": \"1-check-inputs-and-package-releases\",\n        \"label\": \"Check inputs and package releases\",\n        \"status\": \"failed\",\n        \"startedAt\": \"2026-10-13T11:15:32.325Z\",\n        \"finishedAt\": \"2026-10-13T11:15:38.349Z\"\n      }\n    ],\n    \"error\": \"Some update checks failed. The report contains the successful results and errors.\",\n    \"finishedAt\": \"2026-10-13T11:15:38.349Z\"\n  }\n}\n",
+    "error": null
+  },
+  {
+    "name": "dry-run-update-cleanup-switch",
+    "args": [
+      "--dry-run",
+      "update",
+      "cleanup",
+      "switch",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"steps\": [\n    {\n      \"label\": \"Update flake inputs\",\n      \"argv\": [\n        \"nix\",\n        \"flake\",\n        \"update\",\n        \"--flake\",\n        \"<flake>\"\n      ],\n      \"cwd\": \"<flake>\"\n    },\n    {\n      \"label\": \"Build home configuration\",\n      \"argv\": [\n        \"nix\",\n        \"build\",\n        \"--out-link\",\n        \"<flake>/state/nix-manager/build/home\",\n        \"--log-format\",\n        \"internal-json\",\n        \"--print-out-paths\",\n        \"<flake>#homeConfigurations.user-test.activationPackage\"\n      ],\n      \"cwd\": \"<flake>\",\n      \"progress\": true\n    },\n    {\n      \"label\": \"Build system configuration\",\n      \"argv\": [\n        \"nix\",\n        \"build\",\n        \"--out-link\",\n        \"<flake>/state/nix-manager/build/system\",\n        \"--log-format\",\n        \"internal-json\",\n        \"--print-out-paths\",\n        \"<flake>#nixosConfigurations.test-machine.config.system.build.toplevel\"\n      ],\n      \"cwd\": \"<flake>\",\n      \"progress\": true\n    },\n    {\n      \"label\": \"Select Home Manager generation\",\n      \"argv\": [\n        \"nix-env\",\n        \"--profile\",\n        \"<flake>/state/nix/profiles/home-manager\",\n        \"--set\",\n        \"<flake>/state/nix-manager/build/home\"\n      ],\n      \"cwd\": \"<flake>\"\n    },\n    {\n      \"label\": \"Activate Home Manager\",\n      \"argv\": [\n        \"<flake>/state/nix-manager/build/home/activate\",\n        \"--driver-version\",\n        \"1\"\n      ],\n      \"cwd\": \"<flake>\",\n      \"env\": {\n        \"HOME_MANAGER_BACKUP_EXT\": \"hm-backup\"\n      }\n    },\n    {\n      \"label\": \"Activate system\",\n      \"argv\": [\n        \"/run/wrappers/bin/pkexec\",\n        \"/nix/store/216mr46yy8xspaydgapjhf4a21y643ji-bun-1.4.2/bin/bun\",\n        \"/home/viktor/Development/nix-manager-worktrees/w300-029-backend/src/main.ts\",\n        \"--privileged\",\n        \"activate-output\",\n        \"switch\",\n        \"<flake>/state/nix-manager/build/system\"\n      ],\n      \"cwd\": \"<flake>\"\n    },\n    {\n      \"label\": \"Keep 3 home generations\",\n      \"argv\": [\n        \"nix-env\",\n        \"--profile\",\n        \"<flake>/state/nix/profiles/home-manager\",\n        \"--delete-generations\",\n        \"+3\"\n      ],\n      \"cwd\": \"<flake>\"\n    },\n    {\n      \"label\": \"Keep 3 system generations and collect garbage\",\n      \"argv\": [\n        \"/run/wrappers/bin/pkexec\",\n        \"/nix/store/216mr46yy8xspaydgapjhf4a21y643ji-bun-1.4.2/bin/bun\",\n        \"/home/viktor/Development/nix-manager-worktrees/w300-029-backend/src/main.ts\",\n        \"--privileged\",\n        \"gc\",\n        \"3\"\n      ],\n      \"cwd\": \"<flake>\"\n    }\n  ],\n  \"notes\": [\n    \"Home activates before system. If system activation fails, home may already be active.\",\n    \"Once the privileged step starts, cancellation waits for it to finish before stopping subsequent steps.\",\n    \"Garbage collection deletes unreferenced store paths and older generations; these cannot be rolled back afterward.\"\n  ]\n}\n",
+    "error": null
+  },
+  {
+    "name": "dry-run-modifiers-after-json",
+    "args": [
+      "--json",
+      "update",
+      "--dry-run",
+      "cleanup",
+      "switch"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"steps\": [\n    {\n      \"label\": \"Update flake inputs\",\n      \"argv\": [\n        \"nix\",\n        \"flake\",\n        \"update\",\n        \"--flake\",\n        \"<flake>\"\n      ],\n      \"cwd\": \"<flake>\"\n    },\n    {\n      \"label\": \"Build home configuration\",\n      \"argv\": [\n        \"nix\",\n        \"build\",\n        \"--out-link\",\n        \"<flake>/state/nix-manager/build/home\",\n        \"--log-format\",\n        \"internal-json\",\n        \"--print-out-paths\",\n        \"<flake>#homeConfigurations.user-test.activationPackage\"\n      ],\n      \"cwd\": \"<flake>\",\n      \"progress\": true\n    },\n    {\n      \"label\": \"Build system configuration\",\n      \"argv\": [\n        \"nix\",\n        \"build\",\n        \"--out-link\",\n        \"<flake>/state/nix-manager/build/system\",\n        \"--log-format\",\n        \"internal-json\",\n        \"--print-out-paths\",\n        \"<flake>#nixosConfigurations.test-machine.config.system.build.toplevel\"\n      ],\n      \"cwd\": \"<flake>\",\n      \"progress\": true\n    },\n    {\n      \"label\": \"Select Home Manager generation\",\n      \"argv\": [\n        \"nix-env\",\n        \"--profile\",\n        \"<flake>/state/nix/profiles/home-manager\",\n        \"--set\",\n        \"<flake>/state/nix-manager/build/home\"\n      ],\n      \"cwd\": \"<flake>\"\n    },\n    {\n      \"label\": \"Activate Home Manager\",\n      \"argv\": [\n        \"<flake>/state/nix-manager/build/home/activate\",\n        \"--driver-version\",\n        \"1\"\n      ],\n      \"cwd\": \"<flake>\",\n      \"env\": {\n        \"HOME_MANAGER_BACKUP_EXT\": \"hm-backup\"\n      }\n    },\n    {\n      \"label\": \"Activate system\",\n      \"argv\": [\n        \"/run/wrappers/bin/pkexec\",\n        \"/nix/store/216mr46yy8xspaydgapjhf4a21y643ji-bun-1.4.2/bin/bun\",\n        \"/home/viktor/Development/nix-manager-worktrees/w300-029-backend/src/main.ts\",\n        \"--privileged\",\n        \"activate-output\",\n        \"switch\",\n        \"<flake>/state/nix-manager/build/system\"\n      ],\n      \"cwd\": \"<flake>\"\n    },\n    {\n      \"label\": \"Keep 3 home generations\",\n      \"argv\": [\n        \"nix-env\",\n        \"--profile\",\n        \"<flake>/state/nix/profiles/home-manager\",\n        \"--delete-generations\",\n        \"+3\"\n      ],\n      \"cwd\": \"<flake>\"\n    },\n    {\n      \"label\": \"Keep 3 system generations and collect garbage\",\n      \"argv\": [\n        \"/run/wrappers/bin/pkexec\",\n        \"/nix/store/216mr46yy8xspaydgapjhf4a21y643ji-bun-1.4.2/bin/bun\",\n        \"/home/viktor/Development/nix-manager-worktrees/w300-029-backend/src/main.ts\",\n        \"--privileged\",\n        \"gc\",\n        \"3\"\n      ],\n      \"cwd\": \"<flake>\"\n    }\n  ],\n  \"notes\": [\n    \"Home activates before system. If system activation fails, home may already be active.\",\n    \"Once the privileged step starts, cancellation waits for it to finish before stopping subsequent steps.\",\n    \"Garbage collection deletes unreferenced store paths and older generations; these cannot be rolled back afterward.\"\n  ]\n}\n",
+    "error": null
+  },
+  {
+    "name": "dry-run-home-cleanup-switch-extra",
+    "args": [
+      "--dry-run",
+      "home",
+      "cleanup",
+      "switch",
+      "--json",
+      "--",
+      "--show-trace"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"steps\": [\n    {\n      \"label\": \"Build home configuration\",\n      \"argv\": [\n        \"nix\",\n        \"build\",\n        \"--out-link\",\n        \"<flake>/state/nix-manager/build/home\",\n        \"--log-format\",\n        \"internal-json\",\n        \"--print-out-paths\",\n        \"<flake>#homeConfigurations.user-test.activationPackage\",\n        \"--show-trace\"\n      ],\n      \"cwd\": \"<flake>\",\n      \"progress\": true\n    },\n    {\n      \"label\": \"Select Home Manager generation\",\n      \"argv\": [\n        \"nix-env\",\n        \"--profile\",\n        \"<flake>/state/nix/profiles/home-manager\",\n        \"--set\",\n        \"<flake>/state/nix-manager/build/home\"\n      ],\n      \"cwd\": \"<flake>\"\n    },\n    {\n      \"label\": \"Activate Home Manager\",\n      \"argv\": [\n        \"<flake>/state/nix-manager/build/home/activate\",\n        \"--driver-version\",\n        \"1\"\n      ],\n      \"cwd\": \"<flake>\",\n      \"env\": {\n        \"HOME_MANAGER_BACKUP_EXT\": \"hm-backup\"\n      }\n    },\n    {\n      \"label\": \"Keep 3 home generations\",\n      \"argv\": [\n        \"nix-env\",\n        \"--profile\",\n        \"<flake>/state/nix/profiles/home-manager\",\n        \"--delete-generations\",\n        \"+3\"\n      ],\n      \"cwd\": \"<flake>\"\n    },\n    {\n      \"label\": \"Collect unreferenced store paths\",\n      \"argv\": [\n        \"nix-store\",\n        \"--gc\"\n      ],\n      \"cwd\": \"<flake>\"\n    }\n  ],\n  \"notes\": [\n    \"Garbage collection deletes unreferenced store paths and older generations; these cannot be rolled back afterward.\"\n  ]\n}\n",
+    "error": null
+  },
+  {
+    "name": "dry-run-system-switch",
+    "args": [
+      "--dry-run",
+      "system",
+      "switch",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"steps\": [\n    {\n      \"label\": \"Build system configuration\",\n      \"argv\": [\n        \"nix\",\n        \"build\",\n        \"--out-link\",\n        \"<flake>/state/nix-manager/build/system\",\n        \"--log-format\",\n        \"internal-json\",\n        \"--print-out-paths\",\n        \"<flake>#nixosConfigurations.test-machine.config.system.build.toplevel\"\n      ],\n      \"cwd\": \"<flake>\",\n      \"progress\": true\n    },\n    {\n      \"label\": \"Activate system\",\n      \"argv\": [\n        \"/run/wrappers/bin/pkexec\",\n        \"/nix/store/216mr46yy8xspaydgapjhf4a21y643ji-bun-1.4.2/bin/bun\",\n        \"/home/viktor/Development/nix-manager-worktrees/w300-029-backend/src/main.ts\",\n        \"--privileged\",\n        \"activate-output\",\n        \"switch\",\n        \"<flake>/state/nix-manager/build/system\"\n      ],\n      \"cwd\": \"<flake>\"\n    }\n  ],\n  \"notes\": [\n    \"Once the privileged step starts, cancellation waits for it to finish before stopping subsequent steps.\"\n  ]\n}\n",
+    "error": null
+  },
+  {
+    "name": "dry-run-boot",
+    "args": [
+      "--dry-run",
+      "boot",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"steps\": [\n    {\n      \"label\": \"Build system configuration\",\n      \"argv\": [\n        \"nix\",\n        \"build\",\n        \"--out-link\",\n        \"<flake>/state/nix-manager/build/system\",\n        \"--log-format\",\n        \"internal-json\",\n        \"--print-out-paths\",\n        \"<flake>#nixosConfigurations.test-machine.config.system.build.toplevel\"\n      ],\n      \"cwd\": \"<flake>\",\n      \"progress\": true\n    },\n    {\n      \"label\": \"Activate system on next boot\",\n      \"argv\": [\n        \"/run/wrappers/bin/pkexec\",\n        \"/nix/store/216mr46yy8xspaydgapjhf4a21y643ji-bun-1.4.2/bin/bun\",\n        \"/home/viktor/Development/nix-manager-worktrees/w300-029-backend/src/main.ts\",\n        \"--privileged\",\n        \"activate-output\",\n        \"boot\",\n        \"<flake>/state/nix-manager/build/system\"\n      ],\n      \"cwd\": \"<flake>\"\n    }\n  ],\n  \"notes\": [\n    \"Once the privileged step starts, cancellation waits for it to finish before stopping subsequent steps.\"\n  ]\n}\n",
+    "error": null
+  },
+  {
+    "name": "dry-run-build",
+    "args": [
+      "--dry-run",
+      "build",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"steps\": [\n    {\n      \"label\": \"Build home configuration\",\n      \"argv\": [\n        \"nix\",\n        \"build\",\n        \"--no-link\",\n        \"--log-format\",\n        \"internal-json\",\n        \"--print-out-paths\",\n        \"<flake>#homeConfigurations.user-test.activationPackage\"\n      ],\n      \"cwd\": \"<flake>\",\n      \"progress\": true\n    },\n    {\n      \"label\": \"Build system configuration\",\n      \"argv\": [\n        \"nix\",\n        \"build\",\n        \"--no-link\",\n        \"--log-format\",\n        \"internal-json\",\n        \"--print-out-paths\",\n        \"<flake>#nixosConfigurations.test-machine.config.system.build.toplevel\"\n      ],\n      \"cwd\": \"<flake>\",\n      \"progress\": true\n    }\n  ],\n  \"notes\": []\n}\n",
+    "error": null
+  },
+  {
+    "name": "dry-run-home-build-host",
+    "args": [
+      "--dry-run",
+      "home",
+      "build",
+      "--host",
+      "test-machine",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"steps\": [\n    {\n      \"label\": \"Build home configuration\",\n      \"argv\": [\n        \"nix\",\n        \"build\",\n        \"--no-link\",\n        \"--log-format\",\n        \"internal-json\",\n        \"--print-out-paths\",\n        \"<flake>#homeConfigurations.user-test.activationPackage\"\n      ],\n      \"cwd\": \"<flake>\",\n      \"progress\": true\n    }\n  ],\n  \"notes\": []\n}\n",
+    "error": null
+  },
+  {
+    "name": "dry-run-system-rollback",
+    "args": [
+      "--dry-run",
+      "system",
+      "rollback",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"steps\": [\n    {\n      \"label\": \"Roll back system configuration\",\n      \"argv\": [\n        \"/run/wrappers/bin/pkexec\",\n        \"/nix/store/216mr46yy8xspaydgapjhf4a21y643ji-bun-1.4.2/bin/bun\",\n        \"/home/viktor/Development/nix-manager-worktrees/w300-029-backend/src/main.ts\",\n        \"--privileged\",\n        \"rollback\"\n      ],\n      \"cwd\": \"<flake>\"\n    }\n  ],\n  \"notes\": []\n}\n",
+    "error": null
+  },
+  {
+    "name": "dry-run-home-rollback-extra",
+    "args": [
+      "--dry-run",
+      "home",
+      "rollback",
+      "--json",
+      "--",
+      "-b",
+      "backup"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"steps\": [\n    {\n      \"label\": \"Roll back home configuration\",\n      \"argv\": [\n        \"home-manager\",\n        \"switch\",\n        \"--rollback\",\n        \"-b\",\n        \"backup\"\n      ],\n      \"cwd\": \"<flake>\"\n    }\n  ],\n  \"notes\": []\n}\n",
+    "error": null
+  },
+  {
+    "name": "dry-run-all-rollback",
+    "args": [
+      "--dry-run",
+      "rollback",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"steps\": [\n    {\n      \"label\": \"Roll back home configuration\",\n      \"argv\": [\n        \"home-manager\",\n        \"switch\",\n        \"--rollback\"\n      ],\n      \"cwd\": \"<flake>\"\n    },\n    {\n      \"label\": \"Roll back system configuration\",\n      \"argv\": [\n        \"/run/wrappers/bin/pkexec\",\n        \"/nix/store/216mr46yy8xspaydgapjhf4a21y643ji-bun-1.4.2/bin/bun\",\n        \"/home/viktor/Development/nix-manager-worktrees/w300-029-backend/src/main.ts\",\n        \"--privileged\",\n        \"rollback\"\n      ],\n      \"cwd\": \"<flake>\"\n    }\n  ],\n  \"notes\": []\n}\n",
+    "error": null
+  },
+  {
+    "name": "dry-run-gc",
+    "args": [
+      "--dry-run",
+      "gc",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"steps\": [\n    {\n      \"label\": \"Keep 3 home generations\",\n      \"argv\": [\n        \"nix-env\",\n        \"--profile\",\n        \"<flake>/state/nix/profiles/home-manager\",\n        \"--delete-generations\",\n        \"+3\"\n      ],\n      \"cwd\": \"<flake>\"\n    },\n    {\n      \"label\": \"Keep 3 system generations and collect garbage\",\n      \"argv\": [\n        \"/run/wrappers/bin/pkexec\",\n        \"/nix/store/216mr46yy8xspaydgapjhf4a21y643ji-bun-1.4.2/bin/bun\",\n        \"/home/viktor/Development/nix-manager-worktrees/w300-029-backend/src/main.ts\",\n        \"--privileged\",\n        \"gc\",\n        \"3\"\n      ],\n      \"cwd\": \"<flake>\"\n    }\n  ],\n  \"notes\": [\n    \"Garbage collection deletes unreferenced store paths and older generations; these cannot be rolled back afterward.\"\n  ]\n}\n",
+    "error": null
+  },
+  {
+    "name": "dry-run-cleanup-alone",
+    "args": [
+      "--dry-run",
+      "cleanup",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"steps\": [\n    {\n      \"label\": \"Keep 3 home generations\",\n      \"argv\": [\n        \"nix-env\",\n        \"--profile\",\n        \"<flake>/state/nix/profiles/home-manager\",\n        \"--delete-generations\",\n        \"+3\"\n      ],\n      \"cwd\": \"<flake>\"\n    },\n    {\n      \"label\": \"Keep 3 system generations and collect garbage\",\n      \"argv\": [\n        \"/run/wrappers/bin/pkexec\",\n        \"/nix/store/216mr46yy8xspaydgapjhf4a21y643ji-bun-1.4.2/bin/bun\",\n        \"/home/viktor/Development/nix-manager-worktrees/w300-029-backend/src/main.ts\",\n        \"--privileged\",\n        \"gc\",\n        \"3\"\n      ],\n      \"cwd\": \"<flake>\"\n    }\n  ],\n  \"notes\": [\n    \"Garbage collection deletes unreferenced store paths and older generations; these cannot be rolled back afterward.\"\n  ]\n}\n",
+    "error": null
+  },
+  {
+    "name": "dry-run-home-gc",
+    "args": [
+      "--dry-run",
+      "home",
+      "gc",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"steps\": [\n    {\n      \"label\": \"Keep 3 home generations\",\n      \"argv\": [\n        \"nix-env\",\n        \"--profile\",\n        \"<flake>/state/nix/profiles/home-manager\",\n        \"--delete-generations\",\n        \"+3\"\n      ],\n      \"cwd\": \"<flake>\"\n    },\n    {\n      \"label\": \"Collect unreferenced store paths\",\n      \"argv\": [\n        \"nix-store\",\n        \"--gc\"\n      ],\n      \"cwd\": \"<flake>\"\n    }\n  ],\n  \"notes\": [\n    \"Garbage collection deletes unreferenced store paths and older generations; these cannot be rolled back afterward.\"\n  ]\n}\n",
+    "error": null
+  },
+  {
+    "name": "dry-run-check",
+    "args": [
+      "--dry-run",
+      "check",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"steps\": [],\n  \"notes\": [\n    \"Resolve inputs in a temporary copy and compare package releases on each pin's channel. The checkout is unchanged.\"\n  ]\n}\n",
+    "error": null
+  },
+  {
+    "name": "dry-run-update-build",
+    "args": [
+      "--dry-run",
+      "update",
+      "build",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"steps\": [\n    {\n      \"label\": \"Update flake inputs\",\n      \"argv\": [\n        \"nix\",\n        \"flake\",\n        \"update\",\n        \"--flake\",\n        \"<flake>\"\n      ],\n      \"cwd\": \"<flake>\"\n    },\n    {\n      \"label\": \"Build home configuration\",\n      \"argv\": [\n        \"nix\",\n        \"build\",\n        \"--no-link\",\n        \"--log-format\",\n        \"internal-json\",\n        \"--print-out-paths\",\n        \"<flake>#homeConfigurations.user-test.activationPackage\"\n      ],\n      \"cwd\": \"<flake>\",\n      \"progress\": true\n    },\n    {\n      \"label\": \"Build system configuration\",\n      \"argv\": [\n        \"nix\",\n        \"build\",\n        \"--no-link\",\n        \"--log-format\",\n        \"internal-json\",\n        \"--print-out-paths\",\n        \"<flake>#nixosConfigurations.test-machine.config.system.build.toplevel\"\n      ],\n      \"cwd\": \"<flake>\",\n      \"progress\": true\n    }\n  ],\n  \"notes\": []\n}\n",
+    "error": null
+  },
+  {
+    "name": "dry-run-text",
+    "args": [
+      "--dry-run",
+      "update",
+      "cleanup",
+      "switch"
+    ],
+    "exitCode": 0,
+    "stdout": "! Home activates before system. If system activation fails, home may already be active.\n! Once the privileged step starts, cancellation waits for it to finish before stopping subsequent steps.\n! Garbage collection deletes unreferenced store paths and older generations; these cannot be rolled back afterward.\n 1  Update flake inputs\n    nix flake update --flake <flake>\n 2  Build home configuration\n    nix build --out-link <flake>/state/nix-manager/build/home --log-format internal-json --print-out-paths <flake>#homeConfigurations.user-test.activationPackage\n 3  Build system configuration\n    nix build --out-link <flake>/state/nix-manager/build/system --log-format internal-json --print-out-paths <flake>#nixosConfigurations.test-machine.config.system.build.toplevel\n 4  Select Home Manager generation\n    nix-env --profile <flake>/state/nix/profiles/home-manager --set <flake>/state/nix-manager/build/home\n 5  Activate Home Manager\n    <flake>/state/nix-manager/build/home/activate --driver-version 1\n 6  Activate system\n    /run/wrappers/bin/pkexec /nix/store/216mr46yy8xspaydgapjhf4a21y643ji-bun-1.4.2/bin/bun /home/viktor/Development/nix-manager-worktrees/w300-029-backend/src/main.ts --privileged activate-output switch <flake>/state/nix-manager/build/system\n 7  Keep 3 home generations\n    nix-env --profile <flake>/state/nix/profiles/home-manager --delete-generations +3\n 8  Keep 3 system generations and collect garbage\n    /run/wrappers/bin/pkexec /nix/store/216mr46yy8xspaydgapjhf4a21y643ji-bun-1.4.2/bin/bun /home/viktor/Development/nix-manager-worktrees/w300-029-backend/src/main.ts --privileged gc 3\n",
+    "error": null
+  },
+  {
+    "name": "two-actions",
+    "args": [
+      "switch",
+      "boot"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Specify one action."
+  },
+  {
+    "name": "two-scopes",
+    "args": [
+      "home",
+      "all",
+      "switch"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Specify one scope."
+  },
+  {
+    "name": "cleanup-build",
+    "args": [
+      "cleanup",
+      "build"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Cleanup requires successful activation or the gc action."
+  },
+  {
+    "name": "update-rollback",
+    "args": [
+      "update",
+      "rollback"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Cannot update inputs during rollback."
+  },
+  {
+    "name": "cleanup-rollback",
+    "args": [
+      "cleanup",
+      "rollback"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Cleanup requires successful activation or the gc action."
+  },
+  {
+    "name": "force-switch",
+    "args": [
+      "--force",
+      "switch"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: --force applies to package updates."
+  },
+  {
+    "name": "system-package-update",
+    "args": [
+      "system",
+      "t3code-update"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Package updates apply to home packages."
+  },
+  {
+    "name": "package-update-extra",
+    "args": [
+      "t3code-update",
+      "--",
+      "--show-trace"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Package updates cannot combine with update, cleanup or extra arguments."
+  },
+  {
+    "name": "home-boot",
+    "args": [
+      "home",
+      "boot"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: boot requires system scope."
+  },
+  {
+    "name": "unknown-host",
+    "args": [
+      "--host",
+      "missing",
+      "switch"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Unknown or ambiguous host: missing. Available: test"
+  },
+  {
+    "name": "no-action",
+    "args": [],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Specify an action; see --help."
+  },
+  {
+    "name": "modifier-without-action",
+    "args": [
+      "update"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Specify an action; see --help."
+  },
+  {
+    "name": "mode-with-modifier",
+    "args": [
+      "history",
+      "--dry-run"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Action modifiers require a build, activation, maintenance, or package action."
+  },
+  {
+    "name": "window-option-without-ui",
+    "args": [
+      "switch",
+      "--browser"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Window and interval options require ui or tray."
+  },
+  {
+    "name": "interval-out-of-range",
+    "args": [
+      "tray",
+      "--interval",
+      "2"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: --interval must be 5–10080 minutes."
+  },
+  {
+    "name": "gc-extra",
+    "args": [
+      "gc",
+      "--",
+      "--show-trace"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: gc takes no extra arguments."
+  },
+  {
+    "name": "check-extra",
+    "args": [
+      "check",
+      "--",
+      "--show-trace"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: check takes no extra arguments."
+  },
+  {
+    "name": "system-rollback-extra",
+    "args": [
+      "system",
+      "rollback",
+      "--",
+      "--show-trace"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: System rollback takes no extra arguments."
+  }
+]
