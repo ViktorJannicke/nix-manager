@@ -11,6 +11,7 @@
   buildRunicApplication,
   coreutils,
   diffutils,
+  xdg-utils,
   nix,
   homeManager,
   git,
@@ -156,6 +157,8 @@ buildRunicApplication {
       coreutils
       # Package updates show the recipe they change with diff -u (PackageUpdater).
       diffutils
+      # `ui --browser` opens the served dashboard with xdg-open, as the Bun version does.
+      xdg-utils
       nix
       homeManager
       git
