@@ -45,6 +45,22 @@ let
       nixosHostName = "another-machine";
     };
   };
+  # The tray service and command of the Runic port, turned on explicitly.
+  runicOn =
+    (self.inputs.nixpkgs.lib.nixosSystem {
+      inherit system;
+      modules = [
+        self.nixosModules.default
+        {
+          system.stateVersion = "26.05";
+          programs.nix-manager = {
+            enable = true;
+            runic.enable = true;
+            tray.enable = true;
+          };
+        }
+      ];
+    }).config;
   # The tray service and command of the Bun version, with the Runic port turned off.
   bunOnly =
     (self.inputs.nixpkgs.lib.nixosSystem {
@@ -140,11 +156,12 @@ in
     assert first.security.wrappers.pkexec.enable;
     assert
       !(lib.hasInfix "--flake" first.systemd.user.services.nix-manager-tray.serviceConfig.ExecStart);
-    # The tray service runs the Runic daemon where the port is built, and the Bun tray when it is turned off.
+    # The tray service runs the Bun tray by default and the Runic daemon when the port is turned on.
+    assert lib.hasPrefix "${lib.getExe manager} tray --interval 360" (trayStart first);
     assert
       (self.packages.${system} ? runic)
       -> lib.hasPrefix "${lib.getExe self.packages.${system}.runic} tray --interval 360" (
-        trayStart first
+        trayStart runicOn
       );
     assert lib.hasPrefix "${lib.getExe manager} tray --interval 360" (trayStart bunOnly);
     assert builtins.elem manager bunOnly.environment.systemPackages;
