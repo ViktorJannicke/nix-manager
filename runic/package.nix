@@ -9,8 +9,14 @@
   nix,
   homeManager,
   git,
+  tree-sitter,
 }:
 let
+  # The Nix grammar the Bun version uses, built as a native library, and the tree-sitter runtime (NixSyntax).
+  parserEnvironment = {
+    NIX_MANAGER_NIX_PARSER = "${tree-sitter.builtGrammars.tree-sitter-nix}/parser";
+    NIX_MANAGER_TREE_SITTER = "${tree-sitter}/lib/libtree-sitter.so";
+  };
   # The version in .config/dotnet-tools.json.
   translationsTool = fetchzip {
     url = "https://api.nuget.org/v3-flatcontainer/dotnet-runic-translations/0.7.0-preview.2/dotnet-runic-translations.0.7.0-preview.2.nupkg";
@@ -55,13 +61,23 @@ buildRunicApplication {
   '';
   executables = [ "nix-manager" ];
   doCheck = true;
+  # The change history tests commit in temporary Git repositories.
+  nativeCheckInputs = [ git ];
   # Microsoft.Testing.Platform runs the test application itself; dotnet test's VSTest flags do not apply.
   checkPhase = ''
     runHook preCheck
+    export NIX_MANAGER_NIX_PARSER=${parserEnvironment.NIX_MANAGER_NIX_PARSER}
+    export NIX_MANAGER_TREE_SITTER=${parserEnvironment.NIX_MANAGER_TREE_SITTER}
     dotnet runic/NixManager.Tests/bin/Release/net10.0/linux-x64/NixManager.Tests.dll --no-progress --no-ansi
     runHook postCheck
   '';
   makeWrapperArgs = [
+    "--set-default"
+    "NIX_MANAGER_NIX_PARSER"
+    parserEnvironment.NIX_MANAGER_NIX_PARSER
+    "--set-default"
+    "NIX_MANAGER_TREE_SITTER"
+    parserEnvironment.NIX_MANAGER_TREE_SITTER
     "--prefix"
     "PATH"
     ":"

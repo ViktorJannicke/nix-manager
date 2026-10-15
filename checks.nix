@@ -69,6 +69,8 @@ in
           "DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1"
           "${self.packages.${system}.runic}/lib/nix-manager-runic/nix-manager"
         ];
+        # The software commands are ported (W300-033); their draft needs the edit engine of the same merge.
+        NIX_MANAGER_TEST_SOFTWARE = "1";
       }
       ''
         python3 ${./test/test-manager.py}

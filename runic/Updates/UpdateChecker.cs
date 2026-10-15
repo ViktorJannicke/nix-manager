@@ -51,17 +51,14 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
 {
     /// <summary>The package pins of <c>packages</c> in <c>src/updates.ts</c>, checked in this order.</summary>
     public static readonly IReadOnlyList<(string Name, string Owner, string Repo)> Packages =
-    [
-        ("t3code", "pingdotgg", "t3code"),
-        ("opencode", "anomalyco", "opencode"),
-        ("pince", "korcankaraokcu", "PINCE"),
-    ];
+        PackageUpdater.Packages.Select(pair => (pair.Key, pair.Value.Owner, pair.Value.Repo)).ToList();
 
-    [GeneratedRegex(@"^(\d+)\.(\d+)\.(\d+)$")]
-    private static partial Regex StableVersion();
+    /// <summary>Where release lookups go; package pin updates share it.</summary>
+    public INetwork Network => network;
 
-    [GeneratedRegex(@"^(\d+)\.(\d+)\.(\d+)-nightly\.(\d{8})\.(\d+)$")]
-    private static partial Regex NightlyVersion();
+    private static Regex StableVersion() => PackagePins.StableVersion();
+
+    private static Regex NightlyVersion() => PackagePins.NightlyVersion();
 
     [GeneratedRegex(@"^v(\d+\.\d+\.\d+)$")]
     private static partial Regex StableTag();
@@ -86,8 +83,8 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
                 try
                 {
                     var pin = ReadPin(Path.Combine(config.Flake, "pkgs", name, "source.json"), name);
-                    var version = await LatestAsync(name, owner, repo, pin.Channel, cancellationToken).ConfigureAwait(false);
-                    if (CompareVersions(version, pin.Version) > 0)
+                    var version = await LatestAsync(network, name, owner, repo, pin.Channel, cancellationToken).ConfigureAwait(false);
+                    if (CompareVersions(version, pin.Version) > 0 && !PackageUpdater.Packages[name].BlockedVersions.Contains(version))
                         report.Items.Add(new UpdateItem
                         {
                             Name = name,
@@ -181,31 +178,16 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
 
     private static string Truncate(string text, int length) => text.Length <= length ? text : text[..length];
 
-    private sealed record Pin(string Version, string? Channel);
-
-    private static Pin ReadPin(string path, string name)
+    private static PackagePin ReadPin(string path, string name)
     {
         string text;
         try { text = File.ReadAllText(path); }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { throw new ManagerException($"Read {name} pin: {e.Message}"); }
-        try
-        {
-            using var document = JsonDocument.Parse(text);
-            var root = document.RootElement;
-            var version = root.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.String ? v.GetString()! : "";
-            if (!StableVersion().IsMatch(version) && !NightlyVersion().IsMatch(version))
-                throw new ManagerException("Invalid source pin: Expected X.Y.Z or X.Y.Z-nightly.YYYYMMDD.N");
-            var channel = root.TryGetProperty("channel", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() : null;
-            if (channel is not (null or "stable" or "nightly")) throw new ManagerException("Invalid source pin: unknown channel");
-            return new Pin(version, channel);
-        }
-        catch (JsonException e)
-        {
-            throw new ManagerException($"Invalid source pin: {e.Message}");
-        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { throw new ManagerException($"Read {name} pin: {NodeErrors.Describe(e, path)}"); }
+        return PackagePins.Parse(text);
     }
 
-    private async Task<string> LatestAsync(string name, string owner, string repo, string? channel, CancellationToken cancellationToken)
+    /// <summary>The newest release on a pin's channel (<c>latest</c>).</summary>
+    internal static async Task<string> LatestAsync(INetwork network, string name, string owner, string repo, string? channel, CancellationToken cancellationToken)
     {
         var nightly = channel == "nightly";
         var raw = await network.TextAsync(nightly
@@ -222,15 +204,16 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
                     .Where(version => StableVersion().IsMatch(version) || NightlyVersion().IsMatch(version))
                     .ToList();
                 versions.Sort(CompareVersions);
-                return versions.Count > 0 ? versions[^1] : throw new ManagerException($"{name}: No stable or nightly release tags found");
+                return versions.Count > 0 ? versions[^1] : throw new ManagerException($"{name}: Error: No stable or nightly release tags found");
             }
             var latest = document.RootElement.TryGetProperty("tag_name", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString()! : "";
             var match = StableTag().Match(latest);
-            return match.Success ? match.Groups[1].Value : throw new ManagerException($"{name}: Release does not have a stable vX.Y.Z tag");
+            return match.Success ? match.Groups[1].Value : throw new ManagerException($"{name}: Error: Release does not have a stable vX.Y.Z tag");
         }
         catch (Exception e) when (e is JsonException or InvalidOperationException)
         {
-            throw new ManagerException($"{name}: {e.Message}");
+            // JavaScriptCore names the error's kind first; the reason is .NET's.
+            throw new ManagerException($"{name}: {(e is JsonException ? "SyntaxError: JSON Parse error" : "TypeError")}: {e.Message}");
         }
     }
 

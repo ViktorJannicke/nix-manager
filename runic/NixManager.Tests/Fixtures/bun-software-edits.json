@@ -1,0 +1,705 @@
+[
+  {
+    "name": "add",
+    "args": [
+      "software",
+      "add",
+      "fzf"
+    ],
+    "exitCode": 0,
+    "stdout": "+ Install fzf (home.nix)\n1 pending edit. Run nix-manager software prepare to build it.\n",
+    "stderr": [
+      "Reading test's home configuration..."
+    ],
+    "error": null,
+    "draft": [
+      {
+        "kind": "add-package",
+        "scope": "home",
+        "file": "home.nix",
+        "attr": "pkgs.fzf"
+      }
+    ]
+  },
+  {
+    "name": "add-json",
+    "args": [
+      "software",
+      "add",
+      "fzf",
+      "pkgs.htop",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"changes\": [\n    {\n      \"kind\": \"add-package\",\n      \"scope\": \"home\",\n      \"file\": \"home.nix\",\n      \"attr\": \"pkgs.fzf\"\n    },\n    {\n      \"kind\": \"add-package\",\n      \"scope\": \"home\",\n      \"file\": \"home.nix\",\n      \"attr\": \"pkgs.htop\"\n    }\n  ],\n  \"files\": [\n    {\n      \"path\": \"home.nix\",\n      \"baseHash\": \"67baa0b4bfa56dcc38414236c336bb2396da923e54697d8d32130232184ea115\",\n      \"hunks\": [\n        {\n          \"line\": 5,\n          \"lines\": [\n            {\n              \"kind\": \" \",\n              \"text\": \"    git\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"    ripgrep\"\n            },\n            {\n              \"kind\": \"+\",\n              \"text\": \"    fzf\"\n            },\n            {\n              \"kind\": \"+\",\n              \"text\": \"    htop\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"  ];\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"}\"\n            }\n          ]\n        }\n      ]\n    }\n  ],\n  \"problems\": [],\n  \"hash\": \"37c7ecf921a206b9ec0fbf523e94ff71533d4a5c8f6a432ed86c5e0c9c72a9a8\"\n}\n",
+    "stderr": [
+      "Reading test's home configuration..."
+    ],
+    "error": null,
+    "draft": [
+      {
+        "kind": "add-package",
+        "scope": "home",
+        "file": "home.nix",
+        "attr": "pkgs.fzf"
+      },
+      {
+        "kind": "add-package",
+        "scope": "home",
+        "file": "home.nix",
+        "attr": "pkgs.htop"
+      }
+    ]
+  },
+  {
+    "name": "add-merges",
+    "args": [
+      "software",
+      "add",
+      "htop"
+    ],
+    "exitCode": 0,
+    "stdout": "+ Install htop (home.nix)\n2 pending edits. Run nix-manager software prepare to build them.\n",
+    "stderr": [
+      "Reading test's home configuration..."
+    ],
+    "error": null,
+    "draft": [
+      {
+        "kind": "add-package",
+        "attr": "pkgs.fzf",
+        "scope": "home",
+        "file": "home.nix"
+      },
+      {
+        "kind": "add-package",
+        "scope": "home",
+        "file": "home.nix",
+        "attr": "pkgs.htop"
+      }
+    ]
+  },
+  {
+    "name": "add-again",
+    "args": [
+      "software",
+      "add",
+      "fzf"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": [
+      "Reading test's home configuration...",
+      "Error: Install fzf: pkgs.fzf is already listed in this file."
+    ],
+    "error": "Error: Install fzf: pkgs.fzf is already listed in this file.",
+    "draft": [
+      {
+        "kind": "add-package",
+        "attr": "pkgs.fzf",
+        "scope": "home",
+        "file": "home.nix"
+      }
+    ]
+  },
+  {
+    "name": "add-listed",
+    "args": [
+      "software",
+      "add",
+      "git"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": [
+      "Reading test's home configuration...",
+      "Error: pkgs.git is already listed in home.nix."
+    ],
+    "error": "Error: pkgs.git is already listed in home.nix.",
+    "draft": null
+  },
+  {
+    "name": "add-external",
+    "args": [
+      "software",
+      "add",
+      "bash"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": [
+      "Reading test's home configuration...",
+      "Error: pkgs.bash is already installed by Home Manager: programs/bash.nix."
+    ],
+    "error": "Error: pkgs.bash is already installed by Home Manager: programs/bash.nix.",
+    "draft": null
+  },
+  {
+    "name": "add-file",
+    "args": [
+      "software",
+      "add",
+      "--file",
+      "modules/home/default.nix",
+      "fzf"
+    ],
+    "exitCode": 0,
+    "stdout": "+ Install fzf (modules/home/default.nix)\n1 pending edit. Run nix-manager software prepare to build it.\n",
+    "stderr": [
+      "Reading test's home configuration..."
+    ],
+    "error": null,
+    "draft": [
+      {
+        "kind": "add-package",
+        "scope": "home",
+        "file": "modules/home/default.nix",
+        "attr": "pkgs.fzf"
+      }
+    ]
+  },
+  {
+    "name": "add-file-and-new-file",
+    "args": [
+      "software",
+      "add",
+      "--file",
+      "a.nix",
+      "--new-file",
+      "b.nix",
+      "fzf"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": [
+      "Reading test's home configuration...",
+      "Error: Use either --file or --new-file."
+    ],
+    "error": "Error: Use either --file or --new-file.",
+    "draft": null
+  },
+  {
+    "name": "add-bad-file",
+    "args": [
+      "software",
+      "add",
+      "--file",
+      "../x.nix",
+      "fzf"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": [
+      "Reading test's home configuration...",
+      "Error: Install fzf: Invalid file: ../x.nix"
+    ],
+    "error": "Error: Install fzf: Invalid file: ../x.nix",
+    "draft": null
+  },
+  {
+    "name": "add-new-file",
+    "args": [
+      "software",
+      "add",
+      "--new-file",
+      "modules/home/tools.nix",
+      "fzf",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"changes\": [\n    {\n      \"kind\": \"create-module\",\n      \"scope\": \"home\",\n      \"file\": \"modules/home/tools.nix\",\n      \"importer\": \"home.nix\"\n    },\n    {\n      \"kind\": \"add-package\",\n      \"scope\": \"home\",\n      \"file\": \"modules/home/tools.nix\",\n      \"attr\": \"pkgs.fzf\"\n    }\n  ],\n  \"files\": [\n    {\n      \"path\": \"home.nix\",\n      \"baseHash\": \"67baa0b4bfa56dcc38414236c336bb2396da923e54697d8d32130232184ea115\",\n      \"hunks\": [\n        {\n          \"line\": 1,\n          \"lines\": [\n            {\n              \"kind\": \" \",\n              \"text\": \"{ pkgs, ... }:\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"{\"\n            },\n            {\n              \"kind\": \"-\",\n              \"text\": \"  imports = [ ./modules/home ];\"\n            },\n            {\n              \"kind\": \"+\",\n              \"text\": \"  imports = [ ./modules/home ./modules/home/tools.nix ];\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"  home.packages = with pkgs; [\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"    git\"\n            }\n          ]\n        }\n      ]\n    },\n    {\n      \"path\": \"modules/home/tools.nix\",\n      \"baseHash\": \"\",\n      \"created\": true,\n      \"hunks\": [\n        {\n          \"line\": 1,\n          \"lines\": [\n            {\n              \"kind\": \"+\",\n              \"text\": \"{ pkgs, ... }:\"\n            },\n            {\n              \"kind\": \"+\",\n              \"text\": \"{\"\n            },\n            {\n              \"kind\": \"+\",\n              \"text\": \"  home.packages = [ pkgs.fzf ];\"\n            },\n            {\n              \"kind\": \"+\",\n              \"text\": \"}\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"\"\n            }\n          ]\n        }\n      ]\n    }\n  ],\n  \"problems\": [],\n  \"hash\": \"152fb3a357c394e8a00d61bdb1ad1d8a95ecef401b424cc8cddbc1bc792a51f2\"\n}\n",
+    "stderr": [
+      "Reading test's home configuration..."
+    ],
+    "error": null,
+    "draft": [
+      {
+        "kind": "create-module",
+        "scope": "home",
+        "file": "modules/home/tools.nix",
+        "importer": "home.nix"
+      },
+      {
+        "kind": "add-package",
+        "scope": "home",
+        "file": "modules/home/tools.nix",
+        "attr": "pkgs.fzf"
+      }
+    ]
+  },
+  {
+    "name": "add-new-file-exists",
+    "args": [
+      "software",
+      "add",
+      "--new-file",
+      "home.nix",
+      "fzf"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": [
+      "Reading test's home configuration...",
+      "Error: home.nix: This file exists already."
+    ],
+    "error": "Error: home.nix: This file exists already.",
+    "draft": null
+  },
+  {
+    "name": "add-new-file-import-from",
+    "args": [
+      "software",
+      "add",
+      "--new-file",
+      "tools/x.nix",
+      "--import-from",
+      "modules/home/default.nix",
+      "fzf"
+    ],
+    "exitCode": 0,
+    "stdout": "+ Create x.nix (tools/x.nix, imported from modules/home/default.nix)\n+ Install fzf (tools/x.nix)\n2 pending edits. Run nix-manager software prepare to build them.\n",
+    "stderr": [
+      "Reading test's home configuration..."
+    ],
+    "error": null,
+    "draft": [
+      {
+        "kind": "create-module",
+        "scope": "home",
+        "file": "tools/x.nix",
+        "importer": "modules/home/default.nix"
+      },
+      {
+        "kind": "add-package",
+        "scope": "home",
+        "file": "tools/x.nix",
+        "attr": "pkgs.fzf"
+      }
+    ]
+  },
+  {
+    "name": "add-unfree",
+    "args": [
+      "software",
+      "add",
+      "vscode",
+      "slack"
+    ],
+    "exitCode": 0,
+    "stdout": "+ Install vscode (home.nix)\n+ Install slack (home.nix)\n2 pending edits. Run nix-manager software prepare to build them.\n",
+    "stderr": [
+      "Reading test's home configuration...",
+      "vscode, slack are not free software, which test's home configuration does not allow. To allow it: nix-manager software set nixpkgs.config.allowUnfree true"
+    ],
+    "error": null,
+    "draft": [
+      {
+        "kind": "add-package",
+        "scope": "home",
+        "file": "home.nix",
+        "attr": "pkgs.vscode"
+      },
+      {
+        "kind": "add-package",
+        "scope": "home",
+        "file": "home.nix",
+        "attr": "pkgs.slack"
+      }
+    ]
+  },
+  {
+    "name": "add-unfree-allowed",
+    "args": [
+      "software",
+      "add",
+      "vscode"
+    ],
+    "exitCode": 0,
+    "stdout": "+ Install vscode (home.nix)\n2 pending edits. Run nix-manager software prepare to build them.\n",
+    "stderr": [
+      "Reading test's home configuration..."
+    ],
+    "error": null,
+    "draft": [
+      {
+        "kind": "set-option",
+        "option": "nixpkgs.config.allowUnfree",
+        "value": true,
+        "scope": "home",
+        "file": "home.nix"
+      },
+      {
+        "kind": "add-package",
+        "scope": "home",
+        "file": "home.nix",
+        "attr": "pkgs.vscode"
+      }
+    ]
+  },
+  {
+    "name": "add-system-no-list",
+    "args": [
+      "software",
+      "add",
+      "--system",
+      "fzf"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": [
+      "Reading test's system...",
+      "Error: No file of test's system has a package list. Choose one with --file, or create one with --new-file."
+    ],
+    "error": "Error: No file of test's system has a package list. Choose one with --file, or create one with --new-file.",
+    "draft": null
+  },
+  {
+    "name": "remove",
+    "args": [
+      "software",
+      "remove",
+      "ripgrep"
+    ],
+    "exitCode": 0,
+    "stdout": "+ Remove ripgrep (home.nix)\n1 pending edit. Run nix-manager software prepare to build it.\n",
+    "stderr": [
+      "Reading test's home configuration..."
+    ],
+    "error": null,
+    "draft": [
+      {
+        "kind": "remove-package",
+        "scope": "home",
+        "file": "home.nix",
+        "attr": "pkgs.ripgrep"
+      }
+    ]
+  },
+  {
+    "name": "remove-json",
+    "args": [
+      "software",
+      "remove",
+      "pkgs.git",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"changes\": [\n    {\n      \"kind\": \"remove-package\",\n      \"scope\": \"home\",\n      \"file\": \"home.nix\",\n      \"attr\": \"pkgs.git\"\n    }\n  ],\n  \"files\": [\n    {\n      \"path\": \"home.nix\",\n      \"baseHash\": \"67baa0b4bfa56dcc38414236c336bb2396da923e54697d8d32130232184ea115\",\n      \"hunks\": [\n        {\n          \"line\": 3,\n          \"lines\": [\n            {\n              \"kind\": \" \",\n              \"text\": \"  imports = [ ./modules/home ];\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"  home.packages = with pkgs; [\"\n            },\n            {\n              \"kind\": \"-\",\n              \"text\": \"    git\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"    ripgrep\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"  ];\"\n            }\n          ]\n        }\n      ]\n    }\n  ],\n  \"problems\": [],\n  \"hash\": \"2f1330de41928984f1fc633e1244433ae13e18a1c4dd951142a9c2fdf56939c5\"\n}\n",
+    "stderr": [
+      "Reading test's home configuration..."
+    ],
+    "error": null,
+    "draft": [
+      {
+        "kind": "remove-package",
+        "scope": "home",
+        "file": "home.nix",
+        "attr": "pkgs.git"
+      }
+    ]
+  },
+  {
+    "name": "remove-wrong-file",
+    "args": [
+      "software",
+      "remove",
+      "--file",
+      "modules/home/default.nix",
+      "git"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": [
+      "Reading test's home configuration...",
+      "Error: pkgs.git is not listed in a file of test's home configuration. For system packages, add --system."
+    ],
+    "error": "Error: pkgs.git is not listed in a file of test's home configuration. For system packages, add --system.",
+    "draft": null
+  },
+  {
+    "name": "remove-external",
+    "args": [
+      "software",
+      "remove",
+      "bash"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": [
+      "Reading test's home configuration...",
+      "Error: pkgs.bash is added by Home Manager: programs/bash.nix, not a package list. Turn off the setting that adds it instead."
+    ],
+    "error": "Error: pkgs.bash is added by Home Manager: programs/bash.nix, not a package list. Turn off the setting that adds it instead.",
+    "draft": null
+  },
+  {
+    "name": "remove-missing",
+    "args": [
+      "software",
+      "remove",
+      "htop"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": [
+      "Reading test's home configuration...",
+      "Error: pkgs.htop is not listed in a file of test's home configuration. For system packages, add --system."
+    ],
+    "error": "Error: pkgs.htop is not listed in a file of test's home configuration. For system packages, add --system.",
+    "draft": null
+  },
+  {
+    "name": "remove-missing-system",
+    "args": [
+      "software",
+      "remove",
+      "--system",
+      "htop"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": [
+      "Reading test's system...",
+      "Error: pkgs.htop is not listed in a file of test's system."
+    ],
+    "error": "Error: pkgs.htop is not listed in a file of test's system.",
+    "draft": null
+  },
+  {
+    "name": "set-placed",
+    "args": [
+      "software",
+      "set",
+      "programs.git.enable",
+      "true"
+    ],
+    "exitCode": 0,
+    "stdout": "+ programs.git.enable on (modules/home/default.nix)\n1 pending edit. Run nix-manager software prepare to build it.\n",
+    "stderr": [
+      "Reading programs.git.enable in test's home configuration...",
+      "Reading test's home configuration...",
+      "Writing to modules/home/default.nix."
+    ],
+    "error": null,
+    "draft": [
+      {
+        "kind": "set-option",
+        "scope": "home",
+        "file": "modules/home/default.nix",
+        "option": "programs.git.enable",
+        "value": true
+      }
+    ]
+  },
+  {
+    "name": "set-file",
+    "args": [
+      "software",
+      "set",
+      "programs.git.enable",
+      "true",
+      "--file",
+      "home.nix",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"changes\": [\n    {\n      \"kind\": \"set-option\",\n      \"scope\": \"home\",\n      \"file\": \"home.nix\",\n      \"option\": \"programs.git.enable\",\n      \"value\": true\n    }\n  ],\n  \"files\": [\n    {\n      \"path\": \"home.nix\",\n      \"baseHash\": \"67baa0b4bfa56dcc38414236c336bb2396da923e54697d8d32130232184ea115\",\n      \"hunks\": [\n        {\n          \"line\": 6,\n          \"lines\": [\n            {\n              \"kind\": \" \",\n              \"text\": \"    ripgrep\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"  ];\"\n            },\n            {\n              \"kind\": \"+\",\n              \"text\": \"  programs.git.enable = true;\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"}\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"\"\n            }\n          ]\n        }\n      ]\n    }\n  ],\n  \"problems\": [],\n  \"hash\": \"530980697834a73e1eddd3701d86c00feb394ee063b295978aef37d09f14f4ce\"\n}\n",
+    "stderr": [
+      "Reading programs.git.enable in test's home configuration..."
+    ],
+    "error": null,
+    "draft": [
+      {
+        "kind": "set-option",
+        "scope": "home",
+        "file": "home.nix",
+        "option": "programs.git.enable",
+        "value": true
+      }
+    ]
+  },
+  {
+    "name": "set-text",
+    "args": [
+      "software",
+      "set",
+      "programs.git.userName",
+      "Ada Lovelace",
+      "--file",
+      "home.nix"
+    ],
+    "exitCode": 0,
+    "stdout": "+ programs.git.userName \"Ada Lovelace\" (home.nix)\n1 pending edit. Run nix-manager software prepare to build it.\n",
+    "stderr": [
+      "Reading programs.git.userName in test's home configuration..."
+    ],
+    "error": null,
+    "draft": [
+      {
+        "kind": "set-option",
+        "scope": "home",
+        "file": "home.nix",
+        "option": "programs.git.userName",
+        "value": "Ada Lovelace"
+      }
+    ]
+  },
+  {
+    "name": "set-same",
+    "args": [
+      "software",
+      "set",
+      "programs.git.enable",
+      "true"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": [
+      "Reading programs.git.enable in test's home configuration...",
+      "Error: programs.git.enable is already on."
+    ],
+    "error": "Error: programs.git.enable is already on.",
+    "draft": null
+  },
+  {
+    "name": "set-other-value",
+    "args": [
+      "software",
+      "set",
+      "programs.git.enable",
+      "false"
+    ],
+    "exitCode": 0,
+    "stdout": "+ programs.git.enable off (modules/home/default.nix)\n1 pending edit. Run nix-manager software prepare to build it.\n",
+    "stderr": [
+      "Reading programs.git.enable in test's home configuration..."
+    ],
+    "error": null,
+    "draft": [
+      {
+        "kind": "set-option",
+        "scope": "home",
+        "file": "modules/home/default.nix",
+        "option": "programs.git.enable",
+        "value": false
+      }
+    ]
+  },
+  {
+    "name": "set-twice",
+    "args": [
+      "software",
+      "set",
+      "programs.git.enable",
+      "false"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": [
+      "Reading programs.git.enable in test's home configuration...",
+      "Error: programs.git.enable is set in home.nix, modules/home/default.nix. Choose one with --file."
+    ],
+    "error": "Error: programs.git.enable is set in home.nix, modules/home/default.nix. Choose one with --file.",
+    "draft": null
+  },
+  {
+    "name": "set-no-option",
+    "args": [
+      "software",
+      "set",
+      "programs.nothing.enable",
+      "true"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": [
+      "Reading programs.nothing.enable in test's home configuration...",
+      "Error: programs.nothing.enable is not an option of test's home configuration."
+    ],
+    "error": "Error: programs.nothing.enable is not an option of test's home configuration.",
+    "draft": null
+  },
+  {
+    "name": "set-new-file",
+    "args": [
+      "software",
+      "set",
+      "programs.git.enable",
+      "true",
+      "--new-file",
+      "modules/home/git2.nix"
+    ],
+    "exitCode": 0,
+    "stdout": "+ Create git2.nix (modules/home/git2.nix, imported from home.nix)\n+ programs.git.enable on (modules/home/git2.nix)\n2 pending edits. Run nix-manager software prepare to build them.\n",
+    "stderr": [
+      "Reading programs.git.enable in test's home configuration...",
+      "Reading test's home configuration..."
+    ],
+    "error": null,
+    "draft": [
+      {
+        "kind": "create-module",
+        "scope": "home",
+        "file": "modules/home/git2.nix",
+        "importer": "home.nix"
+      },
+      {
+        "kind": "set-option",
+        "scope": "home",
+        "file": "modules/home/git2.nix",
+        "option": "programs.git.enable",
+        "value": true
+      }
+    ]
+  },
+  {
+    "name": "unset",
+    "args": [
+      "software",
+      "unset",
+      "programs.git.enable"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": [
+      "Reading programs.git.enable in test's home configuration...",
+      "Error: Reset programs.git.enable to its default: programs.git.enable is not set in this file."
+    ],
+    "error": "Error: Reset programs.git.enable to its default: programs.git.enable is not set in this file.",
+    "draft": null
+  },
+  {
+    "name": "unset-not-set",
+    "args": [
+      "software",
+      "unset",
+      "programs.git.enable"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": [
+      "Reading programs.git.enable in test's home configuration...",
+      "Error: programs.git.enable is not set in the flake yet. Choose where to write it with --file <path> or --new-file <path>."
+    ],
+    "error": "Error: programs.git.enable is not set in the flake yet. Choose where to write it with --file <path> or --new-file <path>.",
+    "draft": null
+  },
+  {
+    "name": "unset-wrong-file",
+    "args": [
+      "software",
+      "unset",
+      "programs.git.enable",
+      "--file",
+      "home.nix"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": [
+      "Reading programs.git.enable in test's home configuration...",
+      "Error: programs.git.enable is not set in home.nix."
+    ],
+    "error": "Error: programs.git.enable is not set in home.nix.",
+    "draft": null
+  }
+]

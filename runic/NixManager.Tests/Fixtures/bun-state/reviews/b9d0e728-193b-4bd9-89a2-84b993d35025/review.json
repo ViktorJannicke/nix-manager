@@ -1,0 +1,242 @@
+{
+  "id": "b9d0e728-193b-4bd9-89a2-84b993d35025",
+  "host": "desktop",
+  "scope": "all",
+  "createdAt": "2026-10-13T10:23:29.878Z",
+  "fingerprint": "9b38493681c06e4f9772a4f405f9d48f8b97486313aaf556b2ccfedef5f1fb38",
+  "source": "inputs",
+  "inputs": {
+    "names": [],
+    "changes": [
+      {
+        "name": "codex-desktop-linux",
+        "before": {
+          "rev": "134fe5f87b0d9cc5b8895cf212702ff4c337c973",
+          "narHash": "sha256-1Ileh4VFCAvvodeez40Mz053tJNKv7JH3LqfbzCaOuk=",
+          "lastModified": "2026-10-12T10:04:33.000Z",
+          "source": "ilysenko/codex-desktop-linux",
+          "url": "https://github.com/ilysenko/codex-desktop-linux/commit/134fe5f87b0d9cc5b8895cf212702ff4c337c973"
+        },
+        "after": {
+          "rev": "b9b59e536acdb229569d557b87cf90802c89ac8c",
+          "narHash": "sha256-6AWH4nqesYtuiH0iECGlvwvdl9Jlcrg0hIhuOEvJFo0=",
+          "lastModified": "2026-10-13T06:04:40.000Z",
+          "source": "ilysenko/codex-desktop-linux",
+          "url": "https://github.com/ilysenko/codex-desktop-linux/commit/b9b59e536acdb229569d557b87cf90802c89ac8c"
+        }
+      },
+      {
+        "name": "nixpkgs_2",
+        "before": {
+          "rev": "6510408d147d8c5e6d76043e899e9251756f6a75",
+          "narHash": "sha256-XK4KceonkwD8LuMAt/vNrz982mXJM5jeHAxMwsUXXAQ=",
+          "lastModified": "2026-10-10T01:01:48.000Z",
+          "source": "nixos/nixpkgs",
+          "url": "https://github.com/nixos/nixpkgs/commit/6510408d147d8c5e6d76043e899e9251756f6a75"
+        },
+        "after": {
+          "rev": "7fd4004d0511991fff3a0524856a9be09e28c5f0",
+          "narHash": "sha256-i5qk1kLiit98rRbh1AXmWBNT9QXC/y4l5Wk/u5EdpDQ=",
+          "lastModified": "2026-10-11T15:54:36.000Z",
+          "source": "nixos/nixpkgs",
+          "url": "https://github.com/nixos/nixpkgs/commit/7fd4004d0511991fff3a0524856a9be09e28c5f0"
+        }
+      },
+      {
+        "name": "zen-browser",
+        "before": {
+          "rev": "a6e68f44a3c4b326ebd9f007550f8a3350ad3cf5",
+          "narHash": "sha256-2UlAIie3kiZYSlqFlwniaJrMwKeFKOiM1radCrrKWfs=",
+          "lastModified": "2026-10-12T02:07:01.000Z",
+          "source": "0xc000022070/zen-browser-flake",
+          "url": "https://github.com/0xc000022070/zen-browser-flake/commit/a6e68f44a3c4b326ebd9f007550f8a3350ad3cf5"
+        },
+        "after": {
+          "rev": "c495e98991c333c9cb2b6f9dda7e32e49e54d66d",
+          "narHash": "sha256-92V8wFy1G9ajZcuJNHcckzj8UwF34RYXiZisUQyyWCA=",
+          "lastModified": "2026-10-13T00:26:52.000Z",
+          "source": "0xc000022070/zen-browser-flake",
+          "url": "https://github.com/0xc000022070/zen-browser-flake/commit/c495e98991c333c9cb2b6f9dda7e32e49e54d66d"
+        }
+      }
+    ],
+    "baseLockHash": "e8365e08cd0710d74730024a855deb2f6999eb22daebfb67985006e9cf02dbb3"
+  },
+  "home": {
+    "path": "/nix/store/fha2p46wh067wil8c0grq4x7r7jblfas-home-manager-generation",
+    "changes": [
+      {
+        "name": "Jan",
+        "before": [
+          "0.8.4",
+          "0.8.4-fhsenv",
+          "0.8.4-fish"
+        ],
+        "after": [],
+        "sizeDelta": -480457523,
+        "kind": "removed"
+      },
+      {
+        "name": "dee",
+        "before": [
+          "1.2.7-unstable-2017-06-16"
+        ],
+        "after": [],
+        "sizeDelta": -383795,
+        "kind": "removed"
+      },
+      {
+        "name": "discord",
+        "before": [],
+        "after": [],
+        "sizeDelta": -9523,
+        "kind": "rebuilt"
+      },
+      {
+        "name": "fzf",
+        "before": [
+          "0.74.4",
+          "0.74.4-fish"
+        ],
+        "after": [
+          "0.74.5",
+          "0.74.5-fish"
+        ],
+        "sizeDelta": 0,
+        "kind": "changed"
+      },
+      {
+        "name": "jan",
+        "before": [],
+        "after": [
+          "0.8.6",
+          "0.8.6-fhsenv",
+          "0.8.6-fish",
+          "2.2 GiB"
+        ],
+        "sizeDelta": 0,
+        "kind": "added"
+      },
+      {
+        "name": "kirigami-addons",
+        "before": [
+          "1.14.2"
+        ],
+        "after": [
+          "1.15.0",
+          "283.7 KiB"
+        ],
+        "sizeDelta": 0,
+        "kind": "changed"
+      },
+      {
+        "name": "libunity",
+        "before": [
+          "7.1.4-unstable-2021-02-01"
+        ],
+        "after": [],
+        "sizeDelta": -1782579,
+        "kind": "removed"
+      },
+      {
+        "name": "ntfs3g",
+        "before": [
+          "2026.9.18"
+        ],
+        "after": [
+          "2026.9.28"
+        ],
+        "sizeDelta": 0,
+        "kind": "changed"
+      }
+    ],
+    "compared": true,
+    "closureSize": 33830031464,
+    "currentClosureSize": 31944987536
+  },
+  "system": {
+    "path": "/nix/store/rng1bkzlkdk2hk8ahf00gzzv4ha55320-nixos-system-users-nixos-desktop-26.11.20261011.7fd4004",
+    "changes": [
+      {
+        "name": "firefox-unwrapped",
+        "before": [],
+        "after": [],
+        "sizeDelta": -31744,
+        "kind": "rebuilt"
+      },
+      {
+        "name": "fwupd",
+        "before": [
+          "2.1.6"
+        ],
+        "after": [
+          "2.1.8",
+          "261.0 KiB"
+        ],
+        "sizeDelta": 0,
+        "kind": "changed"
+      },
+      {
+        "name": "hipblaslt",
+        "before": [],
+        "after": [],
+        "sizeDelta": -901939,
+        "kind": "rebuilt"
+      },
+      {
+        "name": "kirigami-addons",
+        "before": [
+          "1.14.2"
+        ],
+        "after": [
+          "1.15.0",
+          "283.7 KiB"
+        ],
+        "sizeDelta": 0,
+        "kind": "changed"
+      },
+      {
+        "name": "nixos-system-users-nixos-desktop",
+        "before": [
+          "26.11.20261010.6510408"
+        ],
+        "after": [
+          "26.11.20261011.7fd4004"
+        ],
+        "sizeDelta": 0,
+        "kind": "changed"
+      },
+      {
+        "name": "ntfs3g",
+        "before": [
+          "2026.9.18"
+        ],
+        "after": [
+          "2026.9.28"
+        ],
+        "sizeDelta": 0,
+        "kind": "changed"
+      },
+      {
+        "name": "rocblas",
+        "before": [],
+        "after": [],
+        "sizeDelta": -34099,
+        "kind": "rebuilt"
+      }
+    ],
+    "compared": true,
+    "closureSize": 21848759776,
+    "currentClosureSize": 21849061472,
+    "version": {
+      "before": "26.11.20261010.6510408",
+      "after": "26.11.20261011.7fd4004"
+    },
+    "kernel": {
+      "before": "7.2.9",
+      "after": "7.2.9"
+    }
+  },
+  "operationId": "1791886663240-09499066-6f1c-43c7-9892-9c4883d339e7",
+  "downloaded": 9338101096
+}

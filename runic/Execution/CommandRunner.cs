@@ -95,17 +95,32 @@ public sealed class ProcessCommandRunner(IProcessRunner? runner = null, TimeProv
         private readonly bool _quiet = command.Quiet == true;
         private DateTimeOffset _lastProgress = DateTimeOffset.MinValue;
 
+        private readonly Decoder _stdoutDecoder = new UTF8Encoding(false).GetDecoder();
+
         public string Stdout => _stdout.ToString();
         public string Stderr => _stderr.ToString();
+
+        /// <summary>
+        /// Standard output is kept as the child wrote it, from the raw bytes: the runner passes a line longer than
+        /// 64 Ki characters in parts, so lines would break a large <c>nix eval --json</c> document.
+        /// </summary>
+        public ValueTask OnChunkAsync(ProcessOutputChunk chunk, CancellationToken cancellationToken)
+        {
+            if (chunk.Channel != ProcessOutputChannel.StandardOutput) return ValueTask.CompletedTask;
+            var chars = new char[_stdoutDecoder.GetCharCount(chunk.Bytes.Span, flush: false)];
+            _stdoutDecoder.GetChars(chunk.Bytes.Span, chars, flush: false);
+            _stdout.Append(new string(chars));
+            return ValueTask.CompletedTask;
+        }
 
         public ValueTask OnLineAsync(ProcessOutputLine line, CancellationToken cancellationToken)
         {
             if (line.Channel == ProcessOutputChannel.StandardOutput || _nix is null)
             {
-                var stream = line.Channel == ProcessOutputChannel.StandardOutput ? "stdout" : "stderr";
+                var stdout = line.Channel == ProcessOutputChannel.StandardOutput;
                 var text = line.Text + "\n";
-                (line.Channel == ProcessOutputChannel.StandardOutput ? _stdout : _stderr).Append(text);
-                if (!_quiet) output(new TextOutput(stream, text));
+                if (!stdout) _stderr.Append(text);
+                if (!_quiet) output(new TextOutput(stdout ? "stdout" : "stderr", text));
                 return ValueTask.CompletedTask;
             }
             // Nix's structured log is converted to readable lines and throttled progress snapshots.
@@ -124,6 +139,9 @@ public sealed class ProcessCommandRunner(IProcessRunner? runner = null, TimeProv
 
         public void Finish()
         {
+            var rest = new char[_stdoutDecoder.GetCharCount([], flush: true)];
+            _stdoutDecoder.GetChars([], rest, flush: true);
+            if (rest.Length > 0) _stdout.Append(new string(rest));
             if (_nix is not null && !_quiet) output(new ProgressOutput(_nix.Snapshot()));
         }
     }

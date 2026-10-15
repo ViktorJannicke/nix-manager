@@ -1,0 +1,542 @@
+[
+  {
+    "name": "software-search",
+    "args": [
+      "software",
+      "search",
+      "git"
+    ],
+    "exitCode": 0,
+    "stdout": "git 2.51.0\n    Distributed version control system\ngitFull 2.51.0\n    Distributed version control system (full)\ngitui 0.27.0\n    Blazing fast terminal-ui for git written in Rust\npython313Packages.gitpython 3.1.45\n    Python Git Library\nlazygit 0.55.1\n    Simple terminal UI for git commands\nbrokenthing 1.0 (broken)\n    A git helper that does not build\n",
+    "error": null
+  },
+  {
+    "name": "software-search-json",
+    "args": [
+      "software",
+      "search",
+      "git",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "[\n  {\n    \"a\": \"git\",\n    \"n\": \"git\",\n    \"v\": \"2.51.0\",\n    \"d\": \"Distributed version control system\",\n    \"h\": null,\n    \"p\": \"git\",\n    \"l\": [\n      \"GPL-2.0-only\"\n    ],\n    \"f\": true,\n    \"b\": false,\n    \"g\": false\n  },\n  {\n    \"a\": \"gitFull\",\n    \"n\": \"git\",\n    \"v\": \"2.51.0\",\n    \"d\": \"Distributed version control system (full)\",\n    \"h\": null,\n    \"p\": \"git\",\n    \"l\": [],\n    \"f\": true,\n    \"b\": false,\n    \"g\": false\n  },\n  {\n    \"a\": \"gitui\",\n    \"n\": \"gitui\",\n    \"v\": \"0.27.0\",\n    \"d\": \"Blazing fast terminal-ui for git written in Rust\",\n    \"h\": null,\n    \"p\": \"gitui\",\n    \"l\": [],\n    \"f\": true,\n    \"b\": false,\n    \"g\": false\n  },\n  {\n    \"a\": \"python313Packages.gitpython\",\n    \"n\": \"gitpython\",\n    \"v\": \"3.1.45\",\n    \"d\": \"Python Git Library\",\n    \"h\": null,\n    \"p\": null,\n    \"l\": [],\n    \"f\": true,\n    \"b\": false,\n    \"g\": false\n  },\n  {\n    \"a\": \"lazygit\",\n    \"n\": \"lazygit\",\n    \"v\": \"0.55.1\",\n    \"d\": \"Simple terminal UI for git commands\",\n    \"h\": null,\n    \"p\": \"lazygit\",\n    \"l\": [],\n    \"f\": true,\n    \"b\": false,\n    \"g\": false\n  },\n  {\n    \"a\": \"brokenthing\",\n    \"n\": \"brokenthing\",\n    \"v\": \"1.0\",\n    \"d\": \"A git helper that does not build\",\n    \"h\": null,\n    \"p\": null,\n    \"l\": [],\n    \"f\": true,\n    \"b\": true,\n    \"g\": false\n  }\n]\n",
+    "error": null
+  },
+  {
+    "name": "software-search-two-words",
+    "args": [
+      "software",
+      "search",
+      "terminal",
+      "git",
+      "--limit",
+      "2"
+    ],
+    "exitCode": 0,
+    "stdout": "gitui 0.27.0\n    Blazing fast terminal-ui for git written in Rust\nlazygit 0.55.1\n    Simple terminal UI for git commands\n",
+    "error": null
+  },
+  {
+    "name": "software-search-free-working",
+    "args": [
+      "software",
+      "search",
+      "--free",
+      "--working",
+      "git"
+    ],
+    "exitCode": 0,
+    "stdout": "git 2.51.0\n    Distributed version control system\ngitFull 2.51.0\n    Distributed version control system (full)\ngitui 0.27.0\n    Blazing fast terminal-ui for git written in Rust\npython313Packages.gitpython 3.1.45\n    Python Git Library\nlazygit 0.55.1\n    Simple terminal UI for git commands\n",
+    "error": null
+  },
+  {
+    "name": "software-search-editor",
+    "args": [
+      "software",
+      "search",
+      "editor"
+    ],
+    "exitCode": 0,
+    "stdout": "vscode 1.104.0 (unfree)\n    Code editor developed by Microsoft\nkdePackages.kate 25.08.1\n    Advanced text editor\n",
+    "error": null
+  },
+  {
+    "name": "software-search-plus",
+    "args": [
+      "software",
+      "search",
+      "c++"
+    ],
+    "exitCode": 0,
+    "stdout": "cplusplus 1\n    Tools for c++ developers\n",
+    "error": null
+  },
+  {
+    "name": "software-search-limit-zero",
+    "args": [
+      "software",
+      "search",
+      "git",
+      "--limit",
+      "0"
+    ],
+    "exitCode": 0,
+    "stdout": "git 2.51.0\n    Distributed version control system\n",
+    "error": null
+  },
+  {
+    "name": "software-search-none",
+    "args": [
+      "software",
+      "search",
+      "nothingmatches"
+    ],
+    "exitCode": 0,
+    "stdout": "No packages match \"nothingmatches\".\n",
+    "error": null
+  },
+  {
+    "name": "software-search-empty-query",
+    "args": [
+      "software",
+      "search",
+      "--",
+      "..."
+    ],
+    "exitCode": 0,
+    "stdout": "No packages match \"...\".\n",
+    "error": null
+  },
+  {
+    "name": "software-add-not-in-catalog",
+    "args": [
+      "software",
+      "add",
+      "fzf",
+      "pkgs.doesnotexist"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: pkgs.doesnotexist is not in the locked nixpkgs. Find packages with nix-manager software search."
+  },
+  {
+    "name": "software-add-quoted-not-in-catalog",
+    "args": [
+      "software",
+      "add",
+      "pkgs.\"my-pkg\".x"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: pkgs.\"my-pkg\".x is not in the locked nixpkgs. Find packages with nix-manager software search."
+  },
+  {
+    "name": "software-pending-empty",
+    "args": [
+      "software",
+      "pending"
+    ],
+    "exitCode": 0,
+    "stdout": "No pending edits.\n",
+    "error": null
+  },
+  {
+    "name": "software-pending-empty-json",
+    "args": [
+      "software",
+      "pending",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"changes\": [],\n  \"files\": [],\n  \"problems\": [],\n  \"hash\": \"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\"\n}\n",
+    "error": null
+  },
+  {
+    "name": "software-pending",
+    "args": [
+      "software",
+      "pending"
+    ],
+    "exitCode": 0,
+    "stdout": "  1  Install fzf\n     home.nix\n  2  programs.git.enable on\n     home.nix\n",
+    "error": null
+  },
+  {
+    "name": "software-pending-diff",
+    "args": [
+      "software",
+      "pending",
+      "--diff"
+    ],
+    "exitCode": 0,
+    "stdout": "  1  Install fzf\n     home.nix\n  2  programs.git.enable on\n     home.nix\n\n--- a/home.nix\n+++ b/home.nix\n@@ line 4 @@\n     git\n     ripgrep\n+    fzf\n   ];\n+  programs.git.enable = true;\n }\n \n",
+    "error": null
+  },
+  {
+    "name": "software-pending-json",
+    "args": [
+      "software",
+      "pending",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"changes\": [\n    {\n      \"kind\": \"add-package\",\n      \"attr\": \"pkgs.fzf\",\n      \"scope\": \"home\",\n      \"file\": \"home.nix\"\n    },\n    {\n      \"kind\": \"set-option\",\n      \"option\": \"programs.git.enable\",\n      \"value\": true,\n      \"scope\": \"home\",\n      \"file\": \"home.nix\"\n    }\n  ],\n  \"files\": [\n    {\n      \"path\": \"home.nix\",\n      \"baseHash\": \"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\n      \"hunks\": [\n        {\n          \"line\": 4,\n          \"lines\": [\n            {\n              \"kind\": \" \",\n              \"text\": \"    git\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"    ripgrep\"\n            },\n            {\n              \"kind\": \"+\",\n              \"text\": \"    fzf\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"  ];\"\n            },\n            {\n              \"kind\": \"+\",\n              \"text\": \"  programs.git.enable = true;\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"}\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"\"\n            }\n          ]\n        }\n      ]\n    }\n  ],\n  \"problems\": [],\n  \"hash\": \"6ef032fc175c35c38a2230c5b7ea35542bf8284d4daeb94863a99a221d5f5db8\"\n}\n",
+    "error": null
+  },
+  {
+    "name": "software-pending-problem",
+    "args": [
+      "software",
+      "pending",
+      "--diff"
+    ],
+    "exitCode": 0,
+    "stdout": "  1  Install fzf\n     home.nix\n  2  programs.git.enable on\n     home.nix\n  3  Remove htop\n     home.nix\n     Cannot apply: pkgs.htop is not listed in this file.\n\n--- a/home.nix\n+++ b/home.nix\n@@ line 4 @@\n     git\n     ripgrep\n+    fzf\n   ];\n+  programs.git.enable = true;\n }\n \n",
+    "error": null
+  },
+  {
+    "name": "software-pending-problem-json",
+    "args": [
+      "software",
+      "pending",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"changes\": [\n    {\n      \"kind\": \"add-package\",\n      \"attr\": \"pkgs.fzf\",\n      \"scope\": \"home\",\n      \"file\": \"home.nix\"\n    },\n    {\n      \"kind\": \"set-option\",\n      \"option\": \"programs.git.enable\",\n      \"value\": true,\n      \"scope\": \"home\",\n      \"file\": \"home.nix\"\n    },\n    {\n      \"kind\": \"remove-package\",\n      \"attr\": \"pkgs.htop\",\n      \"scope\": \"home\",\n      \"file\": \"home.nix\"\n    }\n  ],\n  \"files\": [\n    {\n      \"path\": \"home.nix\",\n      \"baseHash\": \"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\n      \"hunks\": [\n        {\n          \"line\": 4,\n          \"lines\": [\n            {\n              \"kind\": \" \",\n              \"text\": \"    git\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"    ripgrep\"\n            },\n            {\n              \"kind\": \"+\",\n              \"text\": \"    fzf\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"  ];\"\n            },\n            {\n              \"kind\": \"+\",\n              \"text\": \"  programs.git.enable = true;\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"}\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"\"\n            }\n          ]\n        }\n      ]\n    }\n  ],\n  \"problems\": [\n    {\n      \"index\": 2,\n      \"message\": \"pkgs.htop is not listed in this file.\"\n    }\n  ],\n  \"hash\": \"0b31447baee4f8f5d3bb26f44fb9f61bf66e419a3a9ad1a4960421c0bf5119cc\"\n}\n",
+    "error": null
+  },
+  {
+    "name": "software-pending-other-flake",
+    "args": [
+      "software",
+      "pending"
+    ],
+    "exitCode": 0,
+    "stdout": "No pending edits.\n",
+    "error": null
+  },
+  {
+    "name": "software-pending-options-before",
+    "args": [
+      "--json",
+      "software",
+      "pending"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"changes\": [\n    {\n      \"kind\": \"add-package\",\n      \"attr\": \"pkgs.fzf\",\n      \"scope\": \"home\",\n      \"file\": \"home.nix\"\n    },\n    {\n      \"kind\": \"set-option\",\n      \"option\": \"programs.git.enable\",\n      \"value\": true,\n      \"scope\": \"home\",\n      \"file\": \"home.nix\"\n    }\n  ],\n  \"files\": [\n    {\n      \"path\": \"home.nix\",\n      \"baseHash\": \"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\n      \"hunks\": [\n        {\n          \"line\": 4,\n          \"lines\": [\n            {\n              \"kind\": \" \",\n              \"text\": \"    git\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"    ripgrep\"\n            },\n            {\n              \"kind\": \"+\",\n              \"text\": \"    fzf\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"  ];\"\n            },\n            {\n              \"kind\": \"+\",\n              \"text\": \"  programs.git.enable = true;\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"}\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"\"\n            }\n          ]\n        }\n      ]\n    }\n  ],\n  \"problems\": [],\n  \"hash\": \"6ef032fc175c35c38a2230c5b7ea35542bf8284d4daeb94863a99a221d5f5db8\"\n}\n",
+    "error": null
+  },
+  {
+    "name": "software-pending-host-before",
+    "args": [
+      "--host",
+      "test",
+      "software",
+      "pending",
+      "--diff"
+    ],
+    "exitCode": 0,
+    "stdout": "  1  Install fzf\n     home.nix\n  2  programs.git.enable on\n     home.nix\n\n--- a/home.nix\n+++ b/home.nix\n@@ line 4 @@\n     git\n     ripgrep\n+    fzf\n   ];\n+  programs.git.enable = true;\n }\n \n",
+    "error": null
+  },
+  {
+    "name": "software-pending-host-after",
+    "args": [
+      "software",
+      "pending",
+      "--host",
+      "test-machine"
+    ],
+    "exitCode": 0,
+    "stdout": "  1  Install fzf\n     home.nix\n  2  programs.git.enable on\n     home.nix\n",
+    "error": null
+  },
+  {
+    "name": "software-drop",
+    "args": [
+      "software",
+      "drop",
+      "1"
+    ],
+    "exitCode": 0,
+    "stdout": "Dropped: Install fzf. 1 pending edit left.\n",
+    "error": null
+  },
+  {
+    "name": "software-drop-json",
+    "args": [
+      "software",
+      "drop",
+      "2",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"changes\": [\n    {\n      \"kind\": \"add-package\",\n      \"attr\": \"pkgs.fzf\",\n      \"scope\": \"home\",\n      \"file\": \"home.nix\"\n    }\n  ],\n  \"files\": [\n    {\n      \"path\": \"home.nix\",\n      \"baseHash\": \"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\n      \"hunks\": [\n        {\n          \"line\": 4,\n          \"lines\": [\n            {\n              \"kind\": \" \",\n              \"text\": \"    git\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"    ripgrep\"\n            },\n            {\n              \"kind\": \"+\",\n              \"text\": \"    fzf\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"  ];\"\n            },\n            {\n              \"kind\": \" \",\n              \"text\": \"}\"\n            }\n          ]\n        }\n      ]\n    }\n  ],\n  \"problems\": [],\n  \"hash\": \"3e2e8ecf23e9ec959447beefc4fd5904dbeca79407f081b8f397011f7b6217e9\"\n}\n",
+    "error": null
+  },
+  {
+    "name": "software-drop-out-of-range",
+    "args": [
+      "software",
+      "drop",
+      "3"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Choose an edit from 1 to 2."
+  },
+  {
+    "name": "software-drop-zero",
+    "args": [
+      "software",
+      "drop",
+      "0"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Choose an edit from 1 to 2."
+  },
+  {
+    "name": "software-drop-none",
+    "args": [
+      "software",
+      "drop",
+      "1"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: There are no pending edits."
+  },
+  {
+    "name": "software-drop-not-a-number",
+    "args": [
+      "software",
+      "drop",
+      "x"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": null
+  },
+  {
+    "name": "software-drop-missing",
+    "args": [
+      "software",
+      "drop"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": null
+  },
+  {
+    "name": "software-clear",
+    "args": [
+      "software",
+      "clear"
+    ],
+    "exitCode": 0,
+    "stdout": "Dropped 2 pending edits.\n",
+    "error": null
+  },
+  {
+    "name": "software-clear-one",
+    "args": [
+      "software",
+      "clear"
+    ],
+    "exitCode": 0,
+    "stdout": "Dropped 1 pending edit.\n",
+    "error": null
+  },
+  {
+    "name": "software-clear-empty",
+    "args": [
+      "software",
+      "clear"
+    ],
+    "exitCode": 0,
+    "stdout": "No pending edits.\n",
+    "error": null
+  },
+  {
+    "name": "software-clear-json",
+    "args": [
+      "software",
+      "clear",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\"changes\":[]}\n",
+    "error": null
+  },
+  {
+    "name": "software-prepare-none",
+    "args": [
+      "software",
+      "prepare"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: There are no pending edits."
+  },
+  {
+    "name": "software-prepare-none-json",
+    "args": [
+      "software",
+      "prepare",
+      "--json"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: There are no pending edits."
+  },
+  {
+    "name": "software-apply-no-review",
+    "args": [
+      "software",
+      "apply"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: No prepared review matches the pending edits. Run nix-manager software prepare first."
+  },
+  {
+    "name": "software-apply-no-edits",
+    "args": [
+      "software",
+      "apply",
+      "--dry-run"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: No prepared review matches the pending edits. Run nix-manager software prepare first."
+  },
+  {
+    "name": "software-apply-dry-run",
+    "args": [
+      "software",
+      "apply",
+      "--dry-run"
+    ],
+    "exitCode": 0,
+    "stdout": "! Home activates before system. If system activation fails, home remains active.\n! The exact reviewed outputs are activated; the checkout is not evaluated again.\n 1  Write home.nix\n    (performed by Nix Manager)\n 2  Select Home Manager generation\n    nix-env --profile <flake>/state/nix/profiles/home-manager --set /nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-home-manager-generation\n 3  Activate Home Manager\n    /nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-home-manager-generation/activate --driver-version 1\n 4  Activate system\n    /run/wrappers/bin/pkexec /nix/store/216mr46yy8xspaydgapjhf4a21y643ji-bun-1.4.2/bin/bun <repo>/src/main.ts --privileged activate-output switch /nix/store/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-nixos-system-test-machine\n",
+    "error": null
+  },
+  {
+    "name": "software-apply-dry-run-json",
+    "args": [
+      "software",
+      "apply",
+      "--dry-run",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"steps\": [\n    {\n      \"label\": \"Write home.nix\",\n      \"argv\": [],\n      \"cwd\": \"<flake>\",\n      \"internal\": \"write-sources\"\n    },\n    {\n      \"label\": \"Select Home Manager generation\",\n      \"argv\": [\n        \"nix-env\",\n        \"--profile\",\n        \"<flake>/state/nix/profiles/home-manager\",\n        \"--set\",\n        \"/nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-home-manager-generation\"\n      ],\n      \"cwd\": \"<flake>\"\n    },\n    {\n      \"label\": \"Activate Home Manager\",\n      \"argv\": [\n        \"/nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-home-manager-generation/activate\",\n        \"--driver-version\",\n        \"1\"\n      ],\n      \"cwd\": \"<flake>\",\n      \"env\": {\n        \"HOME_MANAGER_BACKUP_EXT\": \"hm-backup\"\n      }\n    },\n    {\n      \"label\": \"Activate system\",\n      \"argv\": [\n        \"/run/wrappers/bin/pkexec\",\n        \"/nix/store/216mr46yy8xspaydgapjhf4a21y643ji-bun-1.4.2/bin/bun\",\n        \"<repo>/src/main.ts\",\n        \"--privileged\",\n        \"activate-output\",\n        \"switch\",\n        \"/nix/store/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-nixos-system-test-machine\"\n      ],\n      \"cwd\": \"<flake>\"\n    }\n  ],\n  \"notes\": [\n    \"Home activates before system. If system activation fails, home remains active.\",\n    \"The exact reviewed outputs are activated; the checkout is not evaluated again.\"\n  ]\n}\n",
+    "error": null
+  },
+  {
+    "name": "software-apply-boot-dry-run-json",
+    "args": [
+      "software",
+      "apply",
+      "--boot",
+      "--dry-run",
+      "--json"
+    ],
+    "exitCode": 0,
+    "stdout": "{\n  \"steps\": [\n    {\n      \"label\": \"Write home.nix\",\n      \"argv\": [],\n      \"cwd\": \"<flake>\",\n      \"internal\": \"write-sources\"\n    },\n    {\n      \"label\": \"Activate system on next boot\",\n      \"argv\": [\n        \"/run/wrappers/bin/pkexec\",\n        \"/nix/store/216mr46yy8xspaydgapjhf4a21y643ji-bun-1.4.2/bin/bun\",\n        \"<repo>/src/main.ts\",\n        \"--privileged\",\n        \"activate-output\",\n        \"boot\",\n        \"/nix/store/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-nixos-system-test-machine\"\n      ],\n      \"cwd\": \"<flake>\"\n    }\n  ],\n  \"notes\": [\n    \"The exact reviewed outputs are activated; the checkout is not evaluated again.\"\n  ]\n}\n",
+    "error": null
+  },
+  {
+    "name": "software-apply-boot-dry-run-home-review",
+    "args": [
+      "software",
+      "apply",
+      "--boot",
+      "--dry-run"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Only a system configuration can be applied on next boot."
+  },
+  {
+    "name": "software-unknown-subcommand",
+    "args": [
+      "software",
+      "install",
+      "fzf"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": null
+  },
+  {
+    "name": "software-add-missing-package",
+    "args": [
+      "software",
+      "add"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": null
+  },
+  {
+    "name": "software-set-missing-value",
+    "args": [
+      "software",
+      "set",
+      "programs.git.enable"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": null
+  },
+  {
+    "name": "software-remove-new-file",
+    "args": [
+      "software",
+      "remove",
+      "--new-file",
+      "x.nix",
+      "pkgs.fzf"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": null
+  },
+  {
+    "name": "software-pending-unknown-option",
+    "args": [
+      "software",
+      "pending",
+      "--bogus"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": null
+  },
+  {
+    "name": "software-add-not-attribute",
+    "args": [
+      "software",
+      "add",
+      "pkgs."
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: pkgs. is not a package attribute."
+  },
+  {
+    "name": "software-search-limit-not-number",
+    "args": [
+      "software",
+      "search",
+      "--limit",
+      "x",
+      "git"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": null
+  }
+]

@@ -79,13 +79,22 @@ public sealed class DashboardTests : IAsyncDisposable
     }
 
     [Test]
-    public async Task A_dry_run_reports_what_this_version_cannot_run()
+    public async Task A_dry_run_reports_why_a_request_cannot_run()
+    {
+        (await _window.Root.ExecuteAsync(vm => vm.PreviewPlanCommand, Wire(Request.Create() with { Action = Actions.Boot, Scope = Scopes.Home }))).EnsureOk();
+
+        var preview = _window.Root.Snapshot().Get(vm => vm.Preview);
+        await Assert.That(preview.GetProperty("plan").ValueKind).IsEqualTo(JsonValueKind.Null);
+        await Assert.That(preview.GetProperty("error").GetString()).IsEqualTo("boot requires system scope.");
+    }
+
+    [Test]
+    public async Task A_dry_run_previews_a_review_build()
     {
         (await _window.Root.ExecuteAsync(vm => vm.PreviewPlanCommand, Wire(Request.Create() with { Action = Actions.ReviewBuild }))).EnsureOk();
 
         var preview = _window.Root.Snapshot().Get(vm => vm.Preview);
-        await Assert.That(preview.GetProperty("plan").ValueKind).IsEqualTo(JsonValueKind.Null);
-        await Assert.That(preview.GetProperty("error").GetString()).IsNotNull();
+        await Assert.That(preview.GetProperty("plan").ValueKind).IsEqualTo(JsonValueKind.Object);
     }
 
     [Test]

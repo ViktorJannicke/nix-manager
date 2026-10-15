@@ -143,6 +143,9 @@
             ];
             NIX_MANAGER_WEBUI_LIBRARY = "${self.packages.${system}.default.webui}/lib/libwebui-2.so";
             NIX_MANAGER_NIX_GRAMMAR = "${self.packages.${system}.default.nixGrammar}/parser.wasm";
+            # The Runic port reads Nix files with the same grammar, built as a native library.
+            NIX_MANAGER_NIX_PARSER = "${pkgs.tree-sitter.builtGrammars.tree-sitter-nix}/parser";
+            NIX_MANAGER_TREE_SITTER = "${pkgs.tree-sitter}/lib/libtree-sitter.so";
           };
           # The Runic port's dashboard Window (nix-manager ui) on Runic Desktop: GTK and WebKitGTK on the library
           # path, and Chromium for headless browser checks in serve-only mode.

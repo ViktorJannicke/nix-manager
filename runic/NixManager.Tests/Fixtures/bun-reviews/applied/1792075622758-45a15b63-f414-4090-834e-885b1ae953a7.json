@@ -1,0 +1,60 @@
+{
+  "id": "1792075622758-45a15b63-f414-4090-834e-885b1ae953a7",
+  "pid": 522745,
+  "flake": "/home/user/my-flakes",
+  "request": {
+    "action": "review-apply",
+    "scope": "home",
+    "host": "",
+    "update": false,
+    "cleanup": false,
+    "force": false,
+    "dryRun": false,
+    "extra": [],
+    "retention": 3,
+    "reviewId": "e0e0e0e0-0000-4000-8000-000000000001"
+  },
+  "status": "succeeded",
+  "startedAt": "2026-10-15T14:47:02.758Z",
+  "step": "Complete",
+  "steps": [
+    {
+      "id": "1-write-modules-apps-nix",
+      "label": "Write modules/apps.nix",
+      "status": "succeeded",
+      "startedAt": "2026-10-15T14:47:02.760Z",
+      "finishedAt": "2026-10-15T14:47:02.760Z"
+    },
+    {
+      "id": "2-select-home-manager-generation",
+      "label": "Select Home Manager generation",
+      "status": "succeeded",
+      "startedAt": "2026-10-15T14:47:02.760Z",
+      "finishedAt": "2026-10-15T14:47:02.761Z"
+    },
+    {
+      "id": "3-activate-home-manager",
+      "label": "Activate Home Manager",
+      "status": "succeeded",
+      "startedAt": "2026-10-15T14:47:02.761Z",
+      "finishedAt": "2026-10-15T14:47:02.761Z"
+    }
+  ],
+  "undo": {
+    "changes": [
+      "Install btop",
+      "programs.git.enable on"
+    ],
+    "generations": {
+      "home": 5
+    },
+    "files": [
+      {
+        "path": "modules/apps.nix",
+        "created": false,
+        "written": "904cba551523ecb4b7ef526d219908ffd71b764489f8e342b950a7563b12b425"
+      }
+    ]
+  },
+  "finishedAt": "2026-10-15T14:47:02.762Z"
+}

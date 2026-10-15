@@ -1,0 +1,16 @@
+{
+  "id": "c0c0c0c0-0000-4000-8000-000000000003",
+  "host": "test",
+  "scope": "home",
+  "createdAt": "2026-10-15T14:47:02.771Z",
+  "fingerprint": "041c24fe18beb844d3c7df0177cded5b0f6b1a3835a8f0c264c0e592eae7d319",
+  "source": "generation",
+  "generation": 5,
+  "home": {
+    "path": "/home/user/my-flakes/home-output",
+    "changes": [],
+    "compared": false,
+    "closureSize": 123456789
+  },
+  "operationId": "1792075622768-9ed0390d-7acd-46fb-ac6c-4bb182018d68"
+}

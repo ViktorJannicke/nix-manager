@@ -1,0 +1,71 @@
+{
+  "id": "a0a0a0a0-0000-4000-8000-000000000004",
+  "host": "test",
+  "scope": "all",
+  "createdAt": "2026-10-15T14:47:02.776Z",
+  "fingerprint": "041c24fe18beb844d3c7df0177cded5b0f6b1a3835a8f0c264c0e592eae7d319",
+  "source": "inputs",
+  "inputs": {
+    "names": [
+      "nixpkgs"
+    ],
+    "changes": [
+      {
+        "name": "nixpkgs",
+        "before": {
+          "rev": "a",
+          "lastModified": "1970-01-01T00:00:01.000Z"
+        },
+        "after": {
+          "rev": "b",
+          "lastModified": "1970-01-01T00:00:02.000Z",
+          "source": "NixOS/nixpkgs",
+          "url": "https://github.com/NixOS/nixpkgs/commit/b"
+        }
+      }
+    ],
+    "baseLockHash": "9bf1322e051d96e068a72f089c16928e3ee513c5abcdca8dffec0335c0c04f2d"
+  },
+  "home": {
+    "path": "/home/user/my-flakes/home-output",
+    "changes": [],
+    "compared": false,
+    "closureSize": 123456789
+  },
+  "system": {
+    "path": "/home/user/my-flakes/system-output",
+    "changes": [
+      {
+        "name": "btop",
+        "before": [],
+        "after": [
+          "1"
+        ],
+        "sizeDelta": 1572864,
+        "kind": "added"
+      },
+      {
+        "name": "git",
+        "before": [
+          "2.50"
+        ],
+        "after": [
+          "2.51"
+        ],
+        "sizeDelta": -12288,
+        "kind": "changed"
+      }
+    ],
+    "compared": true,
+    "closureSize": 123456789,
+    "version": {
+      "before": "26.11.20261011.7fd4004",
+      "after": "26.11.20261014.55bfb4d"
+    },
+    "kernel": {
+      "before": "7.2.9",
+      "after": "7.2.10"
+    }
+  },
+  "operationId": "1792075622772-d33b37ba-eb4f-41be-a05f-113a8a63c10d"
+}

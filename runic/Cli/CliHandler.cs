@@ -17,7 +17,7 @@ internal static class CliHandler
             throw new ManagerException("The dashboard takes only --flake, --host and --no-open.");
         if (cli.Mode is CliMode.Tray)
             throw new ManagerException("The tray is not part of the Runic port yet (W300-031); run it with the Bun version.");
-        AllowFlakes(session.Environment);
+        Setup.SetupAssistant.AllowFlakes(session.Environment);
         var config = await new ConfigLoader(session.Runner, session.Environment)
             .LoadAsync(cli.Flake, cli.Host, CliSession.PrivilegedPrefix).ConfigureAwait(false);
         var client = session.CreateClient(config, session.Runner);
@@ -43,20 +43,8 @@ internal static class CliHandler
         catch (IOException) { return 0; }
     }
 
-    /// <summary>
-    /// Asks Nix for flakes in this process's commands; a computer the setup assistant just set up turns them on
-    /// with its first apply, and asking again where they are on is harmless (<c>allowFlakes</c>).
-    /// </summary>
-    internal static void AllowFlakes(ManagerEnvironment environment)
-    {
-        const string flakes = "extra-experimental-features = nix-command flakes";
-        var current = environment.Variable("NIX_CONFIG");
-        if (current?.Contains(flakes, StringComparison.Ordinal) == true) return;
-        Environment.SetEnvironmentVariable("NIX_CONFIG", string.IsNullOrEmpty(current) ? flakes : $"{current}\n{flakes}");
-    }
-
     /// <summary>Runs one operation in the terminal and sets the exit code from its result (<c>execute</c>).</summary>
-    private static async Task<CommandOutcome<string>> RunAsync(CliInvocation cli, Config config, IOperationClient client, CliSession session,
+    internal static async Task<CommandOutcome<string>> RunAsync(CliInvocation cli, Config config, IOperationClient client, CliSession session,
         CommandExecutionContext context, CancellationToken cancellationToken)
     {
         var r = cli.Request with { Host = cli.Request.Host is { Length: > 0 } ? cli.Request.Host : config.HostKey };
