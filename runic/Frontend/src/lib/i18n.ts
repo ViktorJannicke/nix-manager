@@ -1,0 +1,87 @@
+// Interface text through Runic Translations: components call the typed message functions of `m`. The backend
+// stores English, as the Bun version does: step labels, errors and failure explanations, often with values filled
+// in. `stored` translates such text through the stored catalogue (translations/stored), which the import script
+// made from the Bun version's labels and messages.
+
+import { m } from "virtual:runic-translations/dashboard";
+import { configureLocaleResolver, resolveLocale, type Locale } from "virtual:runic-translations/dashboard/runtime";
+import { storedMessages } from "./stored-catalog";
+
+export { m };
+export type { Locale };
+
+let current: Locale = "en";
+configureLocaleResolver(() => current);
+
+/** The language every message without an explicit locale uses. */
+export const getLocale = () => current;
+
+/** Switches the language; the caller re-renders (App keys the page on it). */
+export function setLocale(locale: string) {
+  current = resolveLocale(locale);
+  document.documentElement.lang = current;
+}
+
+type Pattern = { key: string; pattern: RegExp; names: string[]; literal: number };
+let exact: Map<string, string> | undefined;
+let patterns: Pattern[] | undefined;
+const call = (key: string, values?: Record<string, string>) =>
+  (m as unknown as Record<string, (inputs?: Record<string, string>) => string>)[key](values);
+
+function index() {
+  exact = new Map();
+  patterns = [];
+  for (const [key, english] of storedMessages) {
+    const names = [...english.matchAll(/\{(\w+)\}/g)].map((match) => match[1]);
+    if (!names.length) {
+      exact.set(english, key);
+      continue;
+    }
+    const source = english
+      .split(/\{\w+\}/)
+      .map((piece) => piece.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("([\\s\\S]+?)");
+    patterns.push({ key, pattern: new RegExp(`^${source}$`), names, literal: english.replace(/\{\w+\}/g, "").length });
+  }
+  // The most specific key wins, so "{label} failed" does not take "Building {name} failed".
+  patterns.sort((a, b) => b.literal - a.literal);
+}
+
+/**
+ * Text that the backend stored in English, in the current language. A value filled into it can be stored text
+ * itself, like the step label in "{label} failed". Text without a translation stays English.
+ */
+export function stored(text: string | null | undefined): string {
+  if (!text) return "";
+  if (!exact) index();
+  const key = exact!.get(text);
+  if (key) return call(key);
+  if (current === "en") return text;
+  for (const { key, pattern, names } of patterns!) {
+    const match = pattern.exec(text);
+    if (match) return call(key, Object.fromEntries(names.map((name, i) => [name, stored(match[i + 1])])));
+  }
+  return text;
+}
+
+/** English action labels as the backend stores them (`actionLabels`). */
+const actionLabels: Record<string, string> = {
+  build: "Build configuration",
+  switch: "Build and switch",
+  boot: "Apply on next boot",
+  rollback: "Go back to the previous version",
+  gc: "Remove old restore points",
+  check: "Check for updates",
+  "t3code-update": "Update T3 Code",
+  "opencode-update": "Update OpenCode",
+  "pince-update": "Update PINCE",
+  "review-build": "Prepare changes",
+  "review-apply": "Apply changes",
+};
+
+/** The name of an action, such as "Check for updates". */
+export const actionLabel = (action: string) => stored(actionLabels[action] ?? action);
+
+/** "a, b and c" in the current language; English without the serial comma. */
+export const list = (items: readonly string[]) =>
+  new Intl.ListFormat(current === "en" ? "en-GB" : current, { type: "conjunction" }).format(items);

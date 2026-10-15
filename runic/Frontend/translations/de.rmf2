@@ -1,0 +1,251 @@
+
+common {
+  and_more = und {$count :integer} weitere
+  cancel = Abbrechen
+  close = Schließen
+  loading = Wird geladen…
+  something_went_wrong = Etwas ist schiefgelaufen
+}
+
+nav {
+  activity = Aktivität
+  not_connected = Das Dashboard konnte keine Verbindung zu Nix Manager herstellen.
+  overview = Übersicht
+  reading_state = Zustand dieses Computers wird gelesen
+  reconnecting = Verbindung wird wiederhergestellt
+  restore_points = Wiederherstellungspunkte
+  running = , läuft
+  sections = Bereiche
+  settings = Einstellungen
+  show = Anzeigen
+  skip_to_content = Zum Inhalt springen
+  targeting = Ziel: {$host}
+  updates = Aktualisierungen
+}
+
+scope {
+  all = Ihr Benutzer und das System
+  all_text = Ihr Benutzer und das System
+  home = Ihr Benutzer
+  home_text = Ihr Benutzer
+  system = System
+  system_text = System
+}
+
+status {
+  cancelled = Abgebrochen
+  done = Fertig
+  failed = Fehlgeschlagen
+  interrupted = Unterbrochen
+  running = Läuft
+  skipped = Übersprungen
+  waiting = Wartet
+}
+
+format {
+  seconds = {$seconds} s
+  minutes_seconds = {$minutes :integer} min {$seconds :integer} s
+  hours_minutes = {$hours :integer} h {$minutes :integer} min
+  just_now = gerade eben
+  never = nie
+  unknown = unbekannt
+  less_than_a_minute = weniger als eine Minute
+  about_minutes =
+    .input {$count :integer}
+    .match $count
+    one {{etwa {$count} Minute}}
+    * {{etwa {$count} Minuten}}
+  about_hours =
+    .input {$count :number}
+    .match $count
+    one {{etwa {$count} Stunde}}
+    * {{etwa {$count} Stunden}}
+  longer_than_usual = Dauert länger als üblich
+  time_left = noch {$time}
+}
+
+progress {
+  built =
+    .input {$done :integer}
+    .input {$count :integer}
+    .match $count
+    one {{{$done} von {$count} Paket gebaut}}
+    * {{{$done} von {$count} Paketen gebaut}}
+  bytes = {$done} von {$expected}
+  downloaded = {$done :integer} von {$expected :integer} heruntergeladen
+  evaluating = Konfiguration wird ausgewertet…
+  failed = {$count :integer} fehlgeschlagen
+  label = Build-Fortschritt
+  nothing_to_build = Alles ist bereits gebaut
+  starting = Wird gestartet…
+}
+
+toast {
+  cancelled = {$label} abgebrochen
+  could_not_cancel = Das Abbrechen ist nicht gelungen
+  could_not_refresh = Das Neuladen ist nicht gelungen
+  could_not_start = {$action} konnte nicht gestartet werden
+  dismiss = Schließen
+  error = Fehler:
+  failed = Fehlgeschlagen: {$label}
+  failed_because = Fehlgeschlagen: {$label} – {$reason}
+  finished = {$label} abgeschlossen
+  notifications = Benachrichtigungen
+  view_log = Protokoll ansehen
+}
+
+confirm {
+  commands = Befehle
+  commands_that_will_run = Befehle, die ausgeführt werden
+  performed_by_nix_manager = (von Nix Manager ausgeführt)
+  starting = Wird gestartet…
+}
+
+overview {
+  all_activity = Gesamte Aktivität
+  configuration = Konfiguration
+  nothing_yet = Bisher wurde nichts ausgeführt. Vorbereitete Builds und Aktualisierungen erscheinen hier.
+  recent_activity = Letzte Aktivität
+  show_output = Ausgabe anzeigen
+  step_so_far = {$step}, bisher {$duration}
+  this_computer = Dieser Computer
+}
+
+activity {
+  all = Alle
+  applies_on_next_boot = Wird beim nächsten Start angewendet
+  details = {$scope} auf {$host}, gestartet {$started}, Dauer {$duration}
+  filter = Filter
+  finishing = Wird abgeschlossen…
+  none_yet = Noch keine Aktivität
+  none_yet_body = Vorgänge, die Sie starten, erscheinen hier mit ihren Schritten und ihrer Ausgabe.
+  nothing = Nichts anzuzeigen.
+  problems = Probleme
+  scope_when = {$scope}, {$when}
+  steps = Schritte
+  try_again = Erneut versuchen
+  updates_all_inputs = Aktualisiert alle Flake-Eingaben
+  updates_inputs = Aktualisiert {$inputs}
+  what_nix_reported = Was Nix gemeldet hat
+}
+
+log {
+  copied = Protokoll kopiert
+  copy = Protokoll kopieren
+  copy_failed = Das Protokoll konnte nicht kopiert werden
+  empty = Noch keine Ausgabe.
+  errors_only = Nur Fehler
+  filter = Protokoll filtern
+  follow = Ausgabe verfolgen
+  load_failed = Das Protokoll konnte nicht geladen werden
+  matches =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Treffer}}
+    * {{{$count} Treffer}}
+  output = Ausgabe des Vorgangs
+  truncated = Frühere Ausgaben werden hier ausgelassen.
+  wrap = Zeilen umbrechen
+}
+
+updates {
+  available =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Aktualisierung verfügbar}}
+    * {{{$count} Aktualisierungen verfügbar}}
+  behind = Rückstand
+  check_now = Jetzt prüfen
+  checking = Wird geprüft…
+  current = Aktuell
+  days =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Tag}}
+    * {{{$count} Tage}}
+  last_checked = Zuletzt geprüft {$time}
+  latest = Neueste
+  less_than_a_day = < 1 Tag
+  no_check = Noch keine Prüfung auf Aktualisierungen
+  no_check_body = Sucht nach neueren Versionen Ihrer Softwarequellen und festgelegten Apps, ohne etwas zu ändern.
+  none_found = Keine Aktualisierungen gefunden
+  none_found_body = Alles, was geprüft werden konnte, ist aktuell. Beheben Sie die Probleme mit den Quellen oben und prüfen Sie erneut.
+  not_checked = Noch nicht geprüft
+  pinned = Festgelegte Pakete
+  pinned_body = Pakete, die aus den in Ihrer Konfiguration festgelegten Upstream-Versionen gebaut werden.
+  release_notes = Versionshinweise
+  release_notes_of = Versionshinweise zu {$name}
+  revision_link = {$name}, Commit {$rev}, öffnet sich in einem neuen Fenster
+  some_failed = Einige Quellen konnten nicht geprüft werden
+  source = Quelle
+  sources = Softwarequellen
+  sources_body = Woher Ihre Software kommt. Aktualisierungen werden gebaut und zur Prüfung angezeigt, bevor sich etwas ändert.
+  up_to_date = Alles ist aktuell
+  up_to_date_body = Alle Softwarequellen und festgelegten Apps haben ihre neuesten Versionen.
+}
+
+restore {
+  applied_here = Hier angewendet
+  clean_up = Aufräumen
+  clean_up_ellipsis = Aufräumen…
+  cleanup_description = Gibt Speicherplatz frei, indem ältere Versionen gelöscht werden, zu denen Sie danach nicht mehr zurückkehren können.
+  cleanup_intro = Entfernt alte Wiederherstellungspunkte und Dateien, die nichts verwendet, um Speicherplatz freizugeben.
+  cleanup_keeps =
+    .input {$count :integer}
+    .match $count
+    one {{Behält den neuesten Wiederherstellungspunkt {$scope} sowie den aktuell verwendeten.}}
+    * {{Behält die neuesten {$count} Wiederherstellungspunkte {$scope} sowie den aktuell verwendeten.}}
+  cleanup_no_going_back = Löscht Dateien, die nichts mehr verwendet. Zu entfernten Wiederherstellungspunkten können Sie nicht zurückkehren.
+  cleanup_system_password = Entfernt ältere Wiederherstellungspunkte des Systems und ihre Einträge im Startmenü; Sie werden nach Ihrem Passwort gefragt.
+  cleanup_title = Alte Wiederherstellungspunkte entfernen?
+  go_back = Hierhin zurückkehren…
+  history = Verlauf
+  history_intro = Was sich in der Konfiguration geändert hat, die neueste zuerst.
+  in_use = In Verwendung
+  intro = Jede Änderung, die Sie anwenden, bewahrt die Version davor auf, damit Sie zurückkehren können.
+  keep = Behalten
+  keep_fewer = Weniger behalten
+  keep_more = Mehr behalten
+  list_home = Wiederherstellungspunkte Ihres Benutzers
+  list_system = Wiederherstellungspunkte des Systems
+  newest = neueste
+  no_history = Noch kein Verlauf
+  no_history_body = Ist in den Einstellungen „Verlauf der Änderungen führen“ eingeschaltet, wird hier jede angewendete Änderung aufgeführt.
+  none = Keine Wiederherstellungspunkte
+  none_home = Ihr Benutzer hat noch keine Wiederherstellungspunkte. Sie erscheinen nach der ersten Änderung, die Sie anwenden.
+  none_system = Auf diesem Computer wurden keine Wiederherstellungspunkte des Systems gefunden.
+  profile = Profil
+  running_until_restart = Läuft bis zum Neustart
+  running_until_restart_body = Der Computer wurde mit dieser Version gestartet; sie wechselt beim nächsten Neustart.
+  what_to_clean_up = Was aufgeräumt werden soll
+}
+
+settings {
+  appearance = Erscheinungsbild
+  appearance_body = Wie die Arbeitsumgebung oder ein eigenes Farbschema.
+  dark = Dunkel
+  detected_as = Erkannt als {$host}.
+  foreign_host_warning = Änderungen werden jetzt mit der Konfiguration von {$host} gebaut und angewendet. Die Konfiguration eines anderen Computers hier anzuwenden, kann dieses System beschädigen; nutzen Sie das nur, um Builds zu testen.
+  home_configuration = Benutzerkonfiguration
+  home_profile = Benutzerprofil
+  language = Sprache
+  language_body = Wie die Arbeitsumgebung oder eine eigene Sprache.
+  light = Hell
+  nixos_configuration = NixOS-Konfiguration
+  privileges = Änderungen werden ohne besondere Rechte vorbereitet und zur Prüfung angezeigt. Nur das Anwenden einer geprüften Systemänderung, das Zurückkehren zu einer früheren Systemversion und das Entfernen von Wiederherstellungspunkten des Systems fragen nach Ihrem Passwort.
+  reset = Zurücksetzen
+  save_failed = Die Einstellung konnte nicht gespeichert werden
+  target_host = Zielrechner
+  theme = Farbschema
+  this_computer = {$host} (dieser Computer)
+}
+
+placeholder {
+  history = Der Verlauf der Änderungen an der Konfiguration wird in dieser Version noch nicht angezeigt.
+  history_title = Verlauf noch nicht verfügbar
+  overview = Wiederherstellungspunkte, Speicherplatz und der Zustand des Konfigurationsordners werden in dieser Version noch nicht angezeigt.
+  restore_points = Wiederherstellungspunkte auflisten und zu einem zurückkehren ist in dieser Version noch nicht möglich. Aufräumen funktioniert.
+  restore_points_title = Wiederherstellungspunkte noch nicht verfügbar
+  settings = Vorbereiten im Hintergrund, automatisches Aufräumen, der Verlauf der Änderungen und App-Details werden vorerst in der vorherigen Version von Nix Manager eingestellt.
+  updates = Aktualisierungen zur Prüfung vorbereiten und angeheftete Apps aktualisieren ist in dieser Version noch nicht möglich. Nutzen Sie dafür die vorherige Version von Nix Manager oder aktualisieren und wenden Sie über die Befehlszeile an, zum Beispiel mit nix-manager update switch.
+}

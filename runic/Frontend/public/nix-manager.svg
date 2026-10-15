@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect x="8" y="8" width="112" height="112" rx="26" fill="#3d5a98"/>
+  <g fill="none" stroke="#eef2f7" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <g id="arm">
+      <path d="M64 64V28"/>
+      <path d="M52 32l12 10 12-10"/>
+    </g>
+    <use href="#arm" transform="rotate(60 64 64)"/>
+    <use href="#arm" transform="rotate(120 64 64)"/>
+    <use href="#arm" transform="rotate(180 64 64)"/>
+    <use href="#arm" transform="rotate(240 64 64)"/>
+    <use href="#arm" transform="rotate(300 64 64)"/>
+  </g>
+</svg>

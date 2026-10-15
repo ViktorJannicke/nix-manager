@@ -1,14 +1,24 @@
-# The Runic port (W300-029): the backend and command line, built in the Nix sandbox with the Runic SDK's
-# buildRunicApplication from the committed NuGet lock files, and tested there. It has no Window yet, so no
-# host; packaging for daily use, the NixOS module and the desktop entry follow in W300-032.
+# The Runic port: the backend and command line (W300-029) and the dashboard Window on Runic Desktop (W300-030),
+# built in the Nix sandbox with the Runic SDK's buildRunicApplication from the committed NuGet and Bun lock files,
+# and tested there. Packaging for daily use, the NixOS module and the desktop entry follow in W300-032.
 {
   lib,
+  fetchzip,
   buildRunicApplication,
   coreutils,
   nix,
   homeManager,
   git,
 }:
+let
+  # The version in .config/dotnet-tools.json.
+  translationsTool = fetchzip {
+    url = "https://api.nuget.org/v3-flatcontainer/dotnet-runic-translations/0.7.0-preview.2/dotnet-runic-translations.0.7.0-preview.2.nupkg";
+    extension = "zip";
+    stripRoot = false;
+    hash = "sha256-u8YDxukErTJZHNNPxrEXLA3JzsCa9uXBCIifx7UsHNA=";
+  };
+in
 buildRunicApplication {
   pname = "nix-manager-runic";
   version = "1.0.0";
@@ -32,7 +42,17 @@ buildRunicApplication {
     ./packages.lock.json
     ./NixManager.Tests/packages.lock.json
   ];
-  host = null;
+  frontend = {
+    packageManager = "bun";
+    # The hash of the frontend's node_modules; update it with Frontend/bun.lock.
+    hash = "sha256-wj807VoRtbUwxMknNs3/SyMLMaWhK8kKffIGGQiKCRs=";
+  };
+  host = "desktop";
+  # The frontend's Vite build compiles translations with the project-local .NET tool, which the sandbox cannot
+  # restore; vite.config.ts runs this copy of the same version instead.
+  preBuild = ''
+    export NIX_MANAGER_TRANSLATIONS_TOOL=${translationsTool}/tools/net10.0/any/dotnet-runic-translations.dll
+  '';
   executables = [ "nix-manager" ];
   doCheck = true;
   # Microsoft.Testing.Platform runs the test application itself; dotnet test's VSTest flags do not apply.
@@ -53,7 +73,7 @@ buildRunicApplication {
     ])
   ];
   meta = {
-    description = "Nix Manager's backend and command line on Runic (port in progress)";
+    description = "Nix Manager's backend, command line and dashboard on Runic (port in progress)";
     mainProgram = "nix-manager";
     platforms = [ "x86_64-linux" ];
   };
