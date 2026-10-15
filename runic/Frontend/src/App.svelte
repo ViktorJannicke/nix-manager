@@ -107,9 +107,12 @@
         <SnowflakeIcon class="size-5 text-primary" />
         <span class="font-bold tracking-tight">Nix Manager</span>
       </div>
-      <ul role="list" class="space-y-0.5">
+      <!-- Each item is display: contents, so WebKitGTK exposes it with its button's text rather than an embedded
+           object: an item whose text is only U+FFFC aborts WebKitGTK 2.54's web process when Orca asks for its text
+           attributes (README.md, Desktop and screen-reader VM tests). The list keeps its items; the gap spaces them. -->
+      <ul role="list" class="flex flex-col gap-0.5">
         {#each nav as item (item.id)}
-          <li>
+          <li class="contents">
             <!-- Long labels, such as German compounds, wrap at their soft hyphen instead of being cut off. -->
             <button
               class="focus-ring flex min-h-9 w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-left leading-snug transition-colors
