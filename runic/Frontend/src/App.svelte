@@ -17,7 +17,7 @@
   import { connectDashboard } from "./generated/dashboard.js";
   import { Button } from "$lib/components/ui/button";
   import { app, type Page } from "$lib/app.svelte";
-  import { actionLabel, m, setLocale, stored } from "$lib/i18n";
+  import { actionLabel, m, plain, setLocale, stored } from "$lib/i18n";
   import Toasts from "$lib/components/app/Toasts.svelte";
   import ConfirmDialog from "$lib/components/app/ConfirmDialog.svelte";
   import BuildProgress from "$lib/components/app/BuildProgress.svelte";
@@ -90,7 +90,7 @@
   const title = $derived.by(() => {
     void locale;
     // A soft hyphen lets a long label wrap in the navigation; the Window title has room for the whole word.
-    const page = nav.find((item) => item.id === app.page)?.label.replaceAll("\u00AD", "");
+    const page = plain(nav.find((item) => item.id === app.page)?.label ?? "");
     return `${running ? `${actionLabel(running.request.action)}… ` : ""}${page} – Nix Manager`;
   });
 </script>

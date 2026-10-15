@@ -5,7 +5,7 @@
   import Undo2Icon from "@lucide/svelte/icons/undo-2";
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
-  import { actionLabel, m, stored } from "$lib/i18n";
+  import { actionLabel, m, plain, stored } from "$lib/i18n";
   import { describeChange } from "$lib/changes";
   import { bytes, duration, relative, remaining, scopeText, shortRev } from "$lib/format";
   import BuildProgress from "$lib/components/app/BuildProgress.svelte";
@@ -101,7 +101,7 @@
 
   <section class="panel space-y-5 p-5" aria-labelledby="generations-heading">
     <div class="flex items-baseline justify-between gap-4">
-      <h2 id="generations-heading" class="heading">{m.nav_restore_points()}<TechName name="generations" /></h2>
+      <h2 id="generations-heading" class="heading">{plain(m.nav_restore_points())}<TechName name="generations" /></h2>
       {#if !running && !app.reviews.some((r) => r.host === app.host)}
         <button class="focus-ring rounded text-primary hover:underline disabled:opacity-50" disabled={!app.connected} onclick={() => app.prepare("all")}>
           {m.overview_prepare_both()}

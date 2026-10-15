@@ -113,3 +113,10 @@ export function pieces(text: string): ({ text: string } | { slot: string })[] {
     .map((piece, index) => (index % 2 ? { slot: piece } : { text: piece }))
     .filter((piece) => !("text" in piece) || piece.text);
 }
+
+/**
+ * Text without its soft hyphens (U+00AD), for headings and names that never wrap: German compounds such as
+ * "Wiederherstellungs\u00adpunkte" carry one for the narrow navigation, and a heading would otherwise give a landmark
+ * a name with it.
+ */
+export const plain = (text: string) => text.replaceAll("\u00ad", "");
