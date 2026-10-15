@@ -294,12 +294,13 @@ Tray mode and `--no-open` stay resident until quit or interrupted.
 
 #### The Runic port's daemon
 
-The Runic port in `runic/` runs as one per-user process (decision D025). On
-x86_64-linux the module's `programs.nix-manager.runic.enable` defaults to true:
-the `nix-manager-tray` user service runs `nix-manager tray` from the port,
-windowless with the status icon, and that process owns every operation. Its
+The Runic port in `runic/` runs as one per-user process (decision D025). With
+`programs.nix-manager.runic.enable = true` (x86_64-linux; off by default until
+the port replaces the Bun version), the `nix-manager-tray` user service runs
+`nix-manager tray` from the port, windowless with the status icon, and that
+process owns every operation. Its
 `nix-manager` command comes first on the PATH and its Polkit policy replaces the
-Bun version's. Set `runic.enable = false` to run the Bun version alone.
+Bun version's. Without the option, the Bun version runs alone.
 
 - `nix-manager ui` hands its launch to the daemon over the single-instance
   socket in `XDG_RUNTIME_DIR`. The daemon opens its dashboard Window, or brings

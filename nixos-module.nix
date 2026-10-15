@@ -60,8 +60,7 @@ in
     runic = {
       enable = lib.mkOption {
         type = lib.types.bool;
-        default = runicDefault != null;
-        defaultText = lib.literalMD "`true` where the flake builds the Runic port (x86_64-linux)";
+        default = false;
         description = ''
           Use the Runic port: the tray service runs its daemon, which owns
           every operation, shows the status icon and opens the dashboard
@@ -69,8 +68,9 @@ in
           `nix-manager ui` and command lines reach that daemon; and its
           Polkit policy replaces the Bun version's, which uses the same
           action. The Bun package stays installed with its desktop entry,
-          which starts the selected command. Turn this off to run the Bun
-          version alone until the port replaces it (W300-032).
+          which starts the selected command. Off by default until the port
+          replaces the Bun version (W300-032); the flake builds the port for
+          x86_64-linux.
         '';
       };
       package = lib.mkOption {
