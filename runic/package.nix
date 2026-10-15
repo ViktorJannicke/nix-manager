@@ -51,7 +51,7 @@ buildRunicApplication {
   frontend = {
     packageManager = "bun";
     # The hash of the frontend's node_modules; update it with Frontend/bun.lock.
-    hash = "sha256-wj807VoRtbUwxMknNs3/SyMLMaWhK8kKffIGGQiKCRs=";
+    hash = "sha256-mjzmZr8NYDcoPqaLsMx/RrqKuz2vt05q6whM4lagspo=";
   };
   host = "desktop";
   # The frontend's Vite build compiles translations with the project-local .NET tool, which the sandbox cannot
