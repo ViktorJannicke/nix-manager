@@ -1,0 +1,20 @@
+{
+  "id": "1788787590681-08b41598-2588-4dad-b6c0-eb62b76163e3",
+  "pid": 484124,
+  "flake": "/home/user/my-flakes",
+  "request": {
+    "action": "switch",
+    "scope": "all",
+    "host": "desktop",
+    "update": false,
+    "cleanup": true,
+    "force": false,
+    "dryRun": false,
+    "extra": []
+  },
+  "status": "succeeded",
+  "startedAt": "2026-09-07T13:26:30.682Z",
+  "step": "Complete",
+  "finishingPrivilegedStep": false,
+  "finishedAt": "2026-09-07T13:29:51.178Z"
+}

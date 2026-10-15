@@ -7,6 +7,11 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # The Runic port in runic/: the .NET development shell (and later the application builder).
+    runic-sdk = {
+      url = "github:Runic-Artifex/runic-sdk/v0.8.0-preview.2";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -14,6 +19,7 @@
       self,
       nixpkgs,
       home-manager,
+      runic-sdk,
     }:
     let
       systems = [
@@ -116,10 +122,13 @@
           pkgs = pkgsFor system;
         in
         {
-          default = pkgs.mkShell {
+          # The Bun application's tools, plus the .NET 10 SDK for the Runic port in runic/. No Runic host
+          # yet: the port has no Window (W300-030), and GTK on LD_LIBRARY_PATH would reach the WebUI tests.
+          default = runic-sdk.lib.mkDevShell pkgs {
+            hosts = [ ];
+            packageManagers = [ "bun" ];
+            inherit (pkgs) nodejs;
             packages = with pkgs; [
-              bun
-              nodejs
               dbus
               python3
             ];

@@ -1,0 +1,20 @@
+→ Compare stable release and inherited recipes, discover hashes, then build before atomically replacing the pin.
+→ pince: local pin 0.10.1 | stable release 0.10.2
+→ Fetch release
+  nix-prefetch-url --type sha256 https://github.com/korcankaraokcu/PINCE/releases/download/v0.10.2/PINCE-x86_64.AppImage
+path is '/nix/store/3g0mviv8sx3yi23wwayzidg7y4saylhd-PINCE-x86_64.AppImage'
+1f08156fvmkjicay5x7kv0bsj5cjv6w1m5rqgvd2lkxa1506cm24
+→ Convert source hash
+  nix hash convert --hash-algo sha256 --to sri 1f08156fvmkjicay5x7kv0bsj5cjv6w1m5rqgvd2lkxa1506cm24
+→ Build pince 0.10.2 before saving pin
+  nix build --no-link --impure --print-build-logs --expr 'let
+  flake = builtins.getFlake (builtins.getEnv "NIX_MANAGER_HOME_FLAKE");
+  pkgs = import flake.inputs.nixpkgs { system = builtins.getEnv "NIX_MANAGER_SYSTEM"; config.allowUnfree = true; };
+in pkgs.callPackage (flake.outPath + "/pkgs/pince/package.nix") {
+  pin = builtins.fromJSON (builtins.readFile (builtins.getEnv "NIX_MANAGER_PACKAGE_PIN"));
+}'
+this derivation will be built:
+  /nix/store/8p48py32bzirrydzlwvjhdav523hzkbc-pince.drv
+building '/nix/store/8p48py32bzirrydzlwvjhdav523hzkbc-pince.drv'...
+pince> structuredAttrs is enabled
+→ Updated /home/user/my-flakes/pkgs/pince/source.json. Apply with nix-manager home switch.

@@ -1,0 +1,30 @@
+{
+  "id": "1791890132324-a3d344fb-f8cb-4886-9148-083ee3c68850",
+  "pid": 112002,
+  "flake": "/home/user/my-flakes",
+  "request": {
+    "action": "check",
+    "scope": "all",
+    "host": "desktop",
+    "update": false,
+    "cleanup": false,
+    "force": false,
+    "dryRun": false,
+    "extra": [],
+    "retention": 3
+  },
+  "status": "failed",
+  "startedAt": "2026-10-13T11:15:32.324Z",
+  "step": "Check flake inputs without changing the checkout",
+  "steps": [
+    {
+      "id": "1-check-inputs-and-package-releases",
+      "label": "Check inputs and package releases",
+      "status": "failed",
+      "startedAt": "2026-10-13T11:15:32.325Z",
+      "finishedAt": "2026-10-13T11:15:38.349Z"
+    }
+  ],
+  "error": "Some update checks failed. The report contains the successful results and errors.",
+  "finishedAt": "2026-10-13T11:15:38.349Z"
+}

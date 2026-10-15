@@ -1,0 +1,36 @@
+{
+  "id": "1791887134695-9b8e1959-db27-48a5-b96b-9cc573455e98",
+  "pid": 2848,
+  "flake": "/home/user/my-flakes",
+  "request": {
+    "action": "gc",
+    "scope": "home",
+    "host": "desktop",
+    "update": false,
+    "cleanup": false,
+    "force": false,
+    "dryRun": false,
+    "extra": [],
+    "retention": 5
+  },
+  "status": "succeeded",
+  "startedAt": "2026-10-13T10:25:34.695Z",
+  "step": "Complete",
+  "steps": [
+    {
+      "id": "1-keep-5-home-generations",
+      "label": "Keep 5 home generations",
+      "status": "succeeded",
+      "startedAt": "2026-10-13T10:25:34.697Z",
+      "finishedAt": "2026-10-13T10:25:34.710Z"
+    },
+    {
+      "id": "2-collect-unreferenced-store-paths",
+      "label": "Collect unreferenced store paths",
+      "status": "succeeded",
+      "startedAt": "2026-10-13T10:25:34.711Z",
+      "finishedAt": "2026-10-13T10:26:37.894Z"
+    }
+  ],
+  "finishedAt": "2026-10-13T10:26:37.895Z"
+}

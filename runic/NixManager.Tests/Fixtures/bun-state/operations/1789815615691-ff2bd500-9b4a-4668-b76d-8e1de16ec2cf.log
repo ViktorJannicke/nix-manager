@@ -1,0 +1,5 @@
+→ Resolve inputs in a temporary copy and compare stable package releases. The checkout is unchanged.
+→ Check flake inputs without changing the checkout
+  nix flake update --flake /home/user/my-flakes --output-lock-file /tmp/nix-manager-DAXxDz/flake.lock
+→ pince: 0.10.1 → 0.10.2
+→ 1 updates found.

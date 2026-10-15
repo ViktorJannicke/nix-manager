@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import shlex
 import subprocess
 import shutil
 import tempfile
@@ -56,7 +57,9 @@ class ManagerTests(unittest.TestCase):
                 "XDG_STATE_HOME": str(state), "OUTPUTS": str(root / "outputs"),
             }
             # Test the packaged Bun entry point while keeping native tools mocked.
-            command = ["bun", os.environ.get("NIX_MANAGER_TEST_SCRIPT", str(MANAGER))]
+            # NIX_MANAGER_TEST_COMMAND runs another build instead, such as the Runic port in runic/.
+            command = (shlex.split(os.environ["NIX_MANAGER_TEST_COMMAND"]) if "NIX_MANAGER_TEST_COMMAND" in os.environ
+                       else ["bun", os.environ.get("NIX_MANAGER_TEST_SCRIPT", str(MANAGER))])
             result = subprocess.run([*command, *args],
                                     env=env, text=True, capture_output=True)
             calls = (root / "calls").read_text().splitlines() if (root / "calls").exists() else []
@@ -118,6 +121,8 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(calls, ["home-manager switch --rollback"])
 
+    @unittest.skipIf("NIX_MANAGER_TEST_COMMAND" in os.environ and "NIX_MANAGER_TEST_SOFTWARE" not in os.environ,
+                     "the software commands are not ported to the tested build")
     def test_software_commands_use_the_draft_without_building(self):
         result, calls, *_ = self.invoke(["software", "pending"])
         self.assertEqual(result.returncode, 0, result.stderr)

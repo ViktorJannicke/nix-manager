@@ -1,0 +1,52 @@
+{
+  "id": "1790100349410-9c781dc3-f535-4a93-9428-8662b5f1a0aa",
+  "pid": 3327853,
+  "flake": "/home/user/my-flakes",
+  "request": {
+    "action": "switch",
+    "scope": "all",
+    "host": "desktop",
+    "update": true,
+    "cleanup": false,
+    "force": false,
+    "dryRun": false,
+    "extra": [],
+    "retention": 3
+  },
+  "status": "failed",
+  "startedAt": "2026-09-22T18:05:49.410Z",
+  "step": "Build home configuration",
+  "steps": [
+    {
+      "id": "1-update-flake-inputs",
+      "label": "Update flake inputs",
+      "status": "succeeded",
+      "startedAt": "2026-09-22T18:05:49.411Z",
+      "finishedAt": "2026-09-22T18:05:51.150Z"
+    },
+    {
+      "id": "2-build-home-configuration",
+      "label": "Build home configuration",
+      "status": "failed",
+      "startedAt": "2026-09-22T18:05:51.150Z",
+      "finishedAt": "2026-09-22T18:07:01.511Z"
+    },
+    {
+      "id": "3-build-system-configuration",
+      "label": "Build system configuration",
+      "status": "skipped"
+    },
+    {
+      "id": "4-activate-home-configuration",
+      "label": "Activate home configuration",
+      "status": "skipped"
+    },
+    {
+      "id": "5-activate-system-configuration",
+      "label": "Activate system configuration",
+      "status": "skipped"
+    }
+  ],
+  "error": "Build home configuration failed (exit 1). /store/lksdb0riixr0j5slys59cm48bzcn3nvg-disable-bun-splitting.patch\n       > patching file packages/opencode/script/build.ts\n       > substituteStream() in derivation opencode-1.18.31: ERROR: pattern splitting:\\ true\\, doesn't match anything in file 'packages/opencode/script/build.ts'\n       For full logs, run:\n         nix log /nix/store/nmrl1bqavi8qbx48dbkkp5x2zbnzzblk-opencode-1.18.31.drv\nerror: Cannot build '/nix/store/ncmmqlswgfgvwnxchf79jzzwg6158z5h-home-manager-path.drv'.\n       Reason: 1 dependency failed.\n       Output paths:\n         /nix/store/2wyscgwq73kgba4l8qnshb6s5h310rnx-home-manager-path\nerror: Cannot build '/nix/store/fm1xwrk4wqp8da7ha79kci1aa22y9h98-man-paths.drv'.\n       Reason: 1 dependency failed.\n       Output paths:\n         /nix/store/q3wb40wn55wzvccglvq4gb51imgxj044-man-paths\nerror: Cannot build '/nix/store/6hj59n2i6wf37i9r36h018yg3imwvmwf-opencode-1.18.31-fish-completions.drv'.\n       Reason: 1 dependency failed.\n       Output paths:\n         /nix/store/429czx6kxz13l57sr54mrm29n2x6sl6m-opencode-1.18.31-fish-completions\nerror: Cannot build '/nix/store/rl3w5jqdqwd70n43nbv4977rxk99q0ih-t3code-0.0.42.drv'.\n       Reason: 1 dependency failed.\n       Output paths:\n         /nix/store/vfbrprg92sj2iy40vhjas6dkakmp2qyv-t3code-0.0.42\nerror: Cannot build '/nix/store/jfnb99ybrnw36zvk43hv78m6b0lfxllm-home-manager-generation.drv'.\n       Reason: 1 dependency failed.\n       Output paths:\n         /nix/store/gbysw0im3kl7b6hdmib6pznll4bnbjir-home-manager-generation",
+  "finishedAt": "2026-09-22T18:07:01.512Z"
+}

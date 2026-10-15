@@ -1,0 +1,45 @@
+{
+  "id": "1791000000000-7d6a2b1e-9c3f-4e8a-b5d2-1f0e3c4a5b6c",
+  "pid": 4194300,
+  "flake": "/home/user/my-flakes",
+  "request": {
+    "action": "switch",
+    "scope": "all",
+    "host": "desktop",
+    "update": false,
+    "cleanup": false,
+    "force": false,
+    "dryRun": false,
+    "extra": [],
+    "retention": 3
+  },
+  "status": "running",
+  "startedAt": "2026-09-22T18:26:20.086Z",
+  "step": "Build system configuration",
+  "steps": [
+    {
+      "id": "1-build-home-configuration",
+      "label": "Build home configuration",
+      "status": "succeeded",
+      "startedAt": "2026-09-22T18:26:20.087Z",
+      "finishedAt": "2026-09-22T18:26:22.647Z"
+    },
+    {
+      "id": "2-build-system-configuration",
+      "label": "Build system configuration",
+      "status": "running",
+      "startedAt": "2026-09-22T18:26:22.647Z"
+    },
+    {
+      "id": "3-activate-home-configuration",
+      "label": "Activate home configuration",
+      "status": "pending"
+    },
+    {
+      "id": "4-activate-system-configuration",
+      "label": "Activate system configuration",
+      "status": "pending"
+    }
+  ],
+  "finishingPrivilegedStep": false
+}
