@@ -77,14 +77,31 @@ buildRunicApplication {
   };
   projectFile = "runic/NixManager.csproj";
   testProjectFile = "runic/NixManager.Tests/NixManager.Tests.csproj";
-  nugetLockFiles = [
-    ./packages.lock.json
-    ./NixManager.Tests/packages.lock.json
-  ];
+  # One lock file per runtime and project; see NixManager.csproj.
+  nugetLockFiles =
+    {
+      linux-x64 = [
+        ./packages.lock.json
+        ./NixManager.Tests/packages.lock.json
+      ];
+      linux-arm64 = [
+        ./packages.linux-arm64.lock.json
+        ./NixManager.Tests/packages.linux-arm64.lock.json
+      ];
+    }
+    .${runtimeId};
   frontend = {
     packageManager = "bun";
-    # The hash of the frontend's node_modules; update it with Frontend/bun.lock.
-    hash = "sha256-mjzmZr8NYDcoPqaLsMx/RrqKuz2vt05q6whM4lagspo=";
+    # The hash of the frontend's node_modules; update both with Frontend/bun.lock. Bun installs only the
+    # system's optional packages, so they differ. The aarch64-linux one was computed on x86_64-linux with
+    # `bun install --frozen-lockfile --ignore-scripts --backend=copyfile --os=linux --cpu=arm64` (the same
+    # command with --cpu=x64 reproduces the x86_64-linux hash), not yet by a build on aarch64-linux.
+    hash =
+      {
+        x86_64-linux = "sha256-mjzmZr8NYDcoPqaLsMx/RrqKuz2vt05q6whM4lagspo=";
+        aarch64-linux = "sha256-Ah34iATxYcCK9qhJP6zdQv+IanTTUdmpZETKFppAQ1k=";
+      }
+      .${stdenv.hostPlatform.system};
   };
   host = "desktop";
   # The frontend's Vite build compiles translations with the project-local .NET tool, which the sandbox cannot
@@ -145,6 +162,9 @@ buildRunicApplication {
   meta = {
     description = "Nix Manager's backend, command line, dashboard and tray on Runic";
     mainProgram = "nix-manager";
-    platforms = [ "x86_64-linux" ];
+    platforms = [
+      "x86_64-linux"
+      "aarch64-linux"
+    ];
   };
 }
