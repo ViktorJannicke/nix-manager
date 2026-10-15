@@ -84,10 +84,10 @@ let
     }).config;
   trayStart = config: config.systemd.user.services.nix-manager-tray.serviceConfig.ExecStart;
   # The Runic port's program without its wrapper, whose PATH prefix would put the real nix before the mocked one,
-  # as the Bun check runs main.js without its wrapper.
+  # as the Bun check runs main.js without its wrapper. It is the NativeAOT executable; without the wrapper's
+  # library path it finds no ICU.
   runicCommand = lib.escapeShellArgs [
     "env"
-    "DOTNET_ROOT=${pkgs.dotnetCorePackages.sdk_10_0.aspnetcore}/share/dotnet"
     "DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1"
     "${self.packages.${system}.runic}/lib/nix-manager-runic/nix-manager"
   ];

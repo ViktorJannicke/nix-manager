@@ -87,6 +87,7 @@ print()
 print("Largest pieces of each closure (NAR size):")
 print()
 for name, sizes in (("Runic", runic_pieces), ("Bun", bun_pieces)):
-    print(f"- {name}: " + ", ".join(f"{label} {mib(size)}" for label, size in sizes.items()))
+    # A piece the closure lacks, such as the .NET runtime of a NativeAOT build, is left out.
+    print(f"- {name}: " + ", ".join(f"{label} {mib(size)}" for label, size in sizes.items() if size))
 for name, r in results.items():
     print(f"- {name} processes with the Window open: {', '.join(r['window_open']['processes'])}; window class {r.get('window_class')}")
