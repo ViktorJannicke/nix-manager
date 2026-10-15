@@ -130,7 +130,12 @@ pkgs.testers.runNixOSTest {
             print("Tab order:", stops)
             order = names(stops)
             assert order[0] == "Skip to content", f"the first stop is {stops[0]!r}"
-            sections = ["Overview", "Updates", "Restore points", "Activity", "Settings"]
+            # The navigation's buttons, in the order the page lists them; Tab visits them one after another.
+            sections = re.findall(r"button '([^']*)'", machine.succeed(
+                "lab-user lab-atspi nix-manager | sed -n \"/landmark 'Sections'/,/landmark '[^S]/p\""
+            ))
+            print("Sections:", sections)
+            assert sections[:1] == ["Overview"] and "Settings" in sections, f"unexpected sections: {sections}"
             start = order.index("Overview")
             assert order[start:start + len(sections)] == sections, f"the sections are not in order: {order}"
             # G-17: Runic Desktop may add one stop outside the web view, with no name.
@@ -162,6 +167,52 @@ pkgs.testers.runNixOSTest {
             machine.screenshot("settings")
             tree("nix-manager", "tree-settings.txt")
             assert cores() == before, "WebKitWebProcess aborted on the Settings page"
+
+        # The ACCESSIBILITY.md checklist on the Settings page. What Orca says is
+        # recorded in checklist.txt; only a crash fails these subtests, so page
+        # changes do not.
+        checklist = []
+
+        def note(label, text):
+            checklist.append(f"## {label}\n{text.strip()}\n")
+            print(f"{label}: {text.strip()!r}")
+
+        def heading_size(name):
+            line = machine.succeed(f"lab-user env LAB_ATSPI_EXTENTS=1 lab-atspi nix-manager | grep -m1 \"heading '{name}'\"")
+            size = re.search(r"@(\d+x\d+)", line)
+            return size.group(1) if size else "unknown"
+
+        with subtest("Orca's browse mode: headings, lists and radio buttons"):
+            for key, label in [("h", "H: next heading"), ("h", "H again"), ("l", "L: next list"), ("shift-l", "Shift+L: previous list")]:
+                machine.succeed("truncate -s 0 /run/lab/spoken.txt")
+                machine.send_key(key)
+                machine.sleep(3)
+                note(label, speech())
+            machine.succeed("truncate -s 0 /run/lab/spoken.txt")
+            tab_to("System")
+            machine.sleep(2)
+            note("Tab to the theme's radio group", speech())
+            machine.succeed("truncate -s 0 /run/lab/spoken.txt")
+            machine.send_key("right")
+            machine.sleep(3)
+            note("Right arrow in the radio group", speech())
+            assert cores() == before, "WebKitWebProcess aborted in browse mode"
+
+        with subtest("Zoom and large text"):
+            normal = heading_size("Settings")
+            machine.send_key("ctrl-equal")
+            machine.sleep(2)
+            note("Ctrl and + (G-18)", f"heading 'Settings' {normal} before, {heading_size('Settings')} after")
+            machine.send_key("ctrl-0")
+            machine.succeed("lab-user gsettings set org.gnome.desktop.interface text-scaling-factor 1.5")
+            machine.sleep(4)
+            machine.screenshot("large-text")
+            note("GNOME Large Text (1.5)", f"heading 'Settings' {normal} before, {heading_size('Settings')} after")
+            machine.succeed("lab-user gsettings reset org.gnome.desktop.interface text-scaling-factor")
+            machine.succeed("cat > /run/lab/checklist.txt <<'CHECKLIST'\n" + "\n".join(checklist).replace("'", "") + "\nCHECKLIST")
+            machine.copy_from_machine("/run/lab/checklist.txt")
+            machine.copy_from_machine("/run/lab/orca-debug.out")
+            assert cores() == before, "WebKitWebProcess aborted"
       ''
     else
       ''
