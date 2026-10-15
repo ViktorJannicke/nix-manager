@@ -3,27 +3,85 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NixManager.Domain;
 using NixManager.Edits;
+using NixManager.Operations;
 using NixManager.Software;
+using Runic.Application.Views;
 using Runic.Navigation;
 
 namespace NixManager.ViewModels;
 
+/// <summary>Why a Software page command could not do what it was asked, in English as the backend stores it.</summary>
+public sealed record SoftwareFailure(string Message);
+
+/// <summary>Options of one configuration: those to describe or read the values of.</summary>
+/// <param name="Scope"><c>home</c> or <c>system</c>; anything else is <c>home</c>, as in the Bun version.</param>
+/// <param name="Options">Option paths, such as <c>programs.git.enable</c>.</param>
+public sealed record OptionsRequest(string Scope, IReadOnlyList<string> Options);
+
+/// <summary>A search of a configuration's documented options.</summary>
+/// <param name="Scope"><c>home</c> or <c>system</c>.</param>
+/// <param name="Query">Words that the option's name or description contain.</param>
+public sealed record OptionQuery(string Scope, string Query);
+
+/// <summary>Catalog entries by attribute, with the attributes they answer (<c>software/lookup</c>).</summary>
+/// <param name="Attrs">The attributes asked for.</param>
+/// <param name="Entries">The catalog entries found among them, by attribute; unknown attributes are left out.</param>
+public sealed record PackageLookup(IReadOnlyList<string> Attrs, IReadOnlyDictionary<string, AppEntry> Entries);
+
+/// <summary>Documented options matching a query, best first, with the search they answer (<c>software/options</c>).</summary>
+public sealed record OptionSearch(string Scope, string Query, IReadOnlyList<OptionDoc> Options);
+
+/// <summary>Current values and definition files of options, with the request they answer (<c>software/values</c>).</summary>
+public sealed record OptionValues(string Scope, IReadOnlyList<string> Options, IReadOnlyDictionary<string, OptionValue> Values);
+
 /// <summary>
-/// The Software page of one checkout: the pending draft, what the selected host installs, the package catalog with
-/// its search, and commands to change the draft. A view of <see cref="ISoftwareService"/>, which caches evaluations
-/// by the checkout state; the page passes the fingerprint and lock hash it observed (W300-030 binds it).
+/// The Software and Computer pages of one checkout: the pending draft, what the selected host installs, the package
+/// catalog with Flathub's app details and its search, option documentation and values, and commands to change the
+/// draft. A view of <see cref="ISoftwareService"/>, which caches evaluations by the checkout state; the page passes
+/// the fingerprint and lock hash it observed (W300-030 binds it).
 /// </summary>
+/// <remarks>
+/// Questions with parameters, such as <see cref="LookupPackagesCommand"/>, answer in a state property together with the
+/// request they answer, since a CommunityToolkit command returns no value to the page; awaiting the command
+/// resolves to the state that holds the answer. Failures that the page reports are declared as
+/// <see cref="SoftwareFailure"/>. The app list and the icons, the large and the often-changing parts, are child Views
+/// (<see cref="Apps"/>, <see cref="Icons"/>) with snapshots of their own.
+/// </remarks>
 public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
 {
+    /// <summary>Documentation kept for the page, by <c>scope:name</c>; older entries go first beyond this.</summary>
+    public const int MaxDocs = 2000;
+
     private readonly ISoftwareService _service;
     private readonly IRunicModelContext _context;
+    private readonly List<string> _docOrder = [];
+    private string? _appsKey;
 
-    public SoftwareViewModel(ISoftwareService service, IRunicModelContext context)
+    /// <param name="hardware">This computer's hardware; <see cref="Operations.Hardware.Current"/> unless a test says otherwise.</param>
+    /// <param name="user">The user running the dashboard; <see cref="Environment.UserName"/> by default.</param>
+    public SoftwareViewModel(ISoftwareService service, IRunicModelContext context, HardwareFeatures? hardware = null, string? user = null)
     {
         _service = service;
         _context = context;
+        Hardware = hardware ?? Operations.Hardware.Current;
+        User = user ?? Environment.UserName;
+        Apps = new AppListViewModel();
+        Icons = new AppIconsViewModel(service);
+        AppsStatus = service.AppsStatus(service.AppDetails);
         _service.Changed += OnChanged;
     }
+
+    /// <summary>The user running the dashboard, as the Computer page names them (<c>config.user</c>).</summary>
+    public string User { get; }
+
+    /// <summary>This computer's hardware, read once per process, for the suggestions that need it (<c>config.hardware</c>).</summary>
+    public HardwareFeatures Hardware { get; }
+
+    /// <summary>Every package Flathub describes as an app, once <c>loadApps</c> asked for them.</summary>
+    public AppListViewModel Apps { get; }
+
+    /// <summary>App icons the page asked for, as <c>data:</c> URLs.</summary>
+    public AppIconsViewModel Icons { get; }
 
     /// <summary>The host whose configurations are shown; empty for this computer's.</summary>
     [ObservableProperty]
@@ -40,11 +98,20 @@ public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial RenderedDraft? Draft { get; private set; }
 
+    /// <summary>What the host's home and system configurations install, with the options the pages show.</summary>
     [ObservableProperty]
     public partial SoftwareInventory? Inventory { get; private set; }
 
+    /// <summary>The inventory is being read.</summary>
+    [ObservableProperty]
+    public partial bool Loading { get; private set; }
+
     [ObservableProperty]
     public partial CatalogStatus Catalog { get; private set; } = new() { State = "missing" };
+
+    /// <summary>Flathub's app catalogue: <c>off</c> when the <c>appDetails</c> preference turned it off.</summary>
+    [ObservableProperty]
+    public partial AppsStatus AppsStatus { get; private set; }
 
     [ObservableProperty]
     public partial string Query { get; set; } = "";
@@ -55,10 +122,31 @@ public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial bool WorkingOnly { get; set; }
 
+    /// <summary>The best 60 catalog entries for <see cref="Searched"/>, with their app details.</summary>
     [ObservableProperty]
     public partial IReadOnlyList<AppEntry> Results { get; private set; } = [];
 
-    /// <summary>Why the last read or change failed.</summary>
+    /// <summary>The query <see cref="Results"/> answer, so the page can tell a finished search from a pending one.</summary>
+    [ObservableProperty]
+    public partial string Searched { get; private set; } = "";
+
+    /// <summary>The last <see cref="LookupPackagesCommand"/>'s answer.</summary>
+    [ObservableProperty]
+    public partial PackageLookup? Lookup { get; private set; }
+
+    /// <summary>The last <see cref="SearchOptionsCommand"/>'s answer.</summary>
+    [ObservableProperty]
+    public partial OptionSearch? OptionResults { get; private set; }
+
+    /// <summary>Option documentation that <see cref="DescribeCommand"/> loaded, by <c>scope:name</c>, for the selected host.</summary>
+    [ObservableProperty]
+    public partial IReadOnlyDictionary<string, OptionDoc> Docs { get; private set; } = new Dictionary<string, OptionDoc>();
+
+    /// <summary>The last <see cref="ReadValuesCommand"/>'s answer.</summary>
+    [ObservableProperty]
+    public partial OptionValues? Values { get; private set; }
+
+    /// <summary>Why the last read of the draft or the inventory failed.</summary>
     [ObservableProperty]
     public partial string? Error { get; private set; }
 
@@ -68,14 +156,28 @@ public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
 
     partial void OnWorkingOnlyChanged(bool value) => Search();
 
-    /// <summary>Reads the draft, the catalog status and the host's inventory for the current checkout state.</summary>
+    partial void OnLockHashChanged(string? value) => ReadCatalog();
+
+    partial void OnHostChanged(string value)
+    {
+        // Option documentation belongs to a host's configurations.
+        _docOrder.Clear();
+        Docs = new Dictionary<string, OptionDoc>();
+    }
+
+    private static string ScopeOf(string scope) => scope == Targets.System ? Targets.System : Targets.Home;
+
+    private static RunicFailureException Failure(Exception error) => new(new SoftwareFailure(error.Message));
+
+    /// <summary>Reads the draft, the catalog and app status and the host's inventory for the current checkout state.</summary>
     [RelayCommand]
     private async Task RefreshAsync()
     {
+        Loading = true;
         try
         {
             Error = null;
-            Catalog = _service.CatalogStatus(LockHash);
+            ReadCatalog();
             Draft = await _service.DraftAsync(Fingerprint);
             Inventory = await _service.InventoryAsync(Host, Fingerprint);
         }
@@ -83,44 +185,232 @@ public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
         {
             Error = error.Message;
         }
+        finally
+        {
+            Loading = false;
+        }
     }
 
     /// <summary>Builds the package catalog of the current lock file, or again with <paramref name="rebuild"/>.</summary>
-    [RelayCommand]
+    [RelayCommand, RunicFailure(typeof(SoftwareFailure))]
     private void BuildCatalog(bool rebuild)
     {
-        if (LockHash is not { Length: > 0 } hash)
-        {
-            Error = "The checkout has not been read yet.";
-            return;
-        }
+        if (LockHash is not { Length: > 0 } hash) throw new RunicFailureException(new SoftwareFailure("The checkout has not been read yet."));
         _service.BuildCatalog(hash, rebuild);
         Catalog = _service.CatalogStatus(hash);
     }
 
+    /// <summary>Searches the catalog for <see cref="Query"/> with the filters; setting them searches as well.</summary>
     [RelayCommand]
-    private void Search() => Results = _service.Search(LockHash, Query, new CatalogFilter(FreeOnly, WorkingOnly));
+    private void Search()
+    {
+        var query = Query.Length > 200 ? Query[..200] : Query;
+        Results = query.Trim().Length == 0 ? [] : _service.Search(LockHash, query, new CatalogFilter(FreeOnly, WorkingOnly));
+        Searched = Query;
+    }
 
-    /// <summary>Replaces the draft with the page's edits.</summary>
+    /// <summary>
+    /// Lists the apps of the catalog in <see cref="Apps"/>, starting the download of Flathub's catalogue when there is
+    /// none or it is a week old; <paramref name="refresh"/> downloads it again (<c>software/apps</c>). The list follows
+    /// later changes of the catalog or the catalogue by itself.
+    /// </summary>
     [RelayCommand]
+    private void LoadApps(bool refresh)
+    {
+        _appsKey = null;
+        if (_service.AppDetails) _service.FetchApps(refresh);
+        UpdateApps(wanted: true);
+    }
+
+    /// <summary>Looks up catalog entries by attribute with their app details; the answer is in <see cref="Lookup"/>.</summary>
+    [RelayCommand]
+    private void LookupPackages(IReadOnlyList<string> attrs)
+    {
+        var asked = attrs.Take(500).ToList();
+        Lookup = new PackageLookup(asked, _service.Lookup(LockHash, asked));
+    }
+
+    /// <summary>Searches the documented options of a configuration; the answer is in <see cref="OptionResults"/>.</summary>
+    [RelayCommand(AllowConcurrentExecutions = true), RunicFailure(typeof(SoftwareFailure))]
+    private async Task SearchOptionsAsync(OptionQuery query)
+    {
+        var scope = ScopeOf(query.Scope);
+        var text = query.Query.Length > 200 ? query.Query[..200] : query.Query;
+        try
+        {
+            OptionResults = new OptionSearch(scope, query.Query, await _service.SearchOptionsAsync(Host, scope, text, Fingerprint));
+        }
+        catch (ManagerException error)
+        {
+            throw Failure(error);
+        }
+    }
+
+    /// <summary>Adds the documentation of these options to <see cref="Docs"/>; known ones are not read again.</summary>
+    [RelayCommand(AllowConcurrentExecutions = true), RunicFailure(typeof(SoftwareFailure))]
+    private async Task DescribeAsync(OptionsRequest request)
+    {
+        var scope = ScopeOf(request.Scope);
+        var missing = request.Options.Where(name => !Docs.ContainsKey($"{scope}:{name}")).Distinct().ToList();
+        if (missing.Count == 0) return;
+        var host = Host;
+        IReadOnlyList<OptionDoc> docs;
+        try
+        {
+            docs = await _service.DescribeAsync(host, scope, missing, Fingerprint);
+        }
+        catch (ManagerException error)
+        {
+            throw Failure(error);
+        }
+        if (host != Host) return;
+        var next = new Dictionary<string, OptionDoc>(Docs);
+        foreach (var doc in docs)
+        {
+            var key = $"{scope}:{doc.N}";
+            if (next.TryAdd(key, doc)) _docOrder.Add(key);
+            else next[key] = doc;
+        }
+        while (_docOrder.Count > MaxDocs)
+        {
+            next.Remove(_docOrder[0]);
+            _docOrder.RemoveAt(0);
+        }
+        Docs = next;
+    }
+
+    /// <summary>Reads current values and definition files of up to 200 options; the answer is in <see cref="Values"/>.</summary>
+    [RelayCommand(AllowConcurrentExecutions = true), RunicFailure(typeof(SoftwareFailure))]
+    private async Task ReadValuesAsync(OptionsRequest request)
+    {
+        var scope = ScopeOf(request.Scope);
+        try
+        {
+            Values = new OptionValues(scope, request.Options, await _service.ValuesAsync(Host, scope, request.Options));
+        }
+        catch (ManagerException error)
+        {
+            throw Failure(error);
+        }
+    }
+
+    /// <summary>Replaces the draft with the page's edits (<c>/api/draft</c>).</summary>
+    [RelayCommand, RunicFailure(typeof(SoftwareFailure))]
     private async Task SetDraftAsync(IReadOnlyList<Change> changes)
     {
         try
         {
-            Error = null;
             Draft = await _service.SetDraftAsync(new JsonArray([.. changes.Select(change => (JsonNode)change.ToJson())]));
         }
-        catch (ManagerException error)
+        catch (Exception error) when (error is ManagerException or IOException or UnauthorizedAccessException)
         {
-            Error = error.Message;
+            throw Failure(error);
         }
     }
 
-    private void OnChanged() => _context.TryPost(() =>
+    private void ReadCatalog()
     {
         Catalog = _service.CatalogStatus(LockHash);
+        AppsStatus = _service.AppsStatus(_service.AppDetails);
         Search();
-    });
+        UpdateApps(wanted: false);
+    }
 
-    public void Dispose() => _service.Changed -= OnChanged;
+    /// <summary>Lists the apps again when the catalog or Flathub's catalogue changed since the list was made.</summary>
+    private void UpdateApps(bool wanted)
+    {
+        if (!wanted && _appsKey is null && Apps.Entries.Count == 0) return;
+        var key = $"{LockHash}\0{Catalog.State}\0{Catalog.BuiltAt}\0{AppsStatus.State}\0{AppsStatus.FetchedAt}";
+        if (key == _appsKey) return;
+        _appsKey = key;
+        Apps.Entries = AppsStatus.State == "off" ? [] : _service.AppList(LockHash);
+    }
+
+    private void OnChanged() => _context.TryPost(ReadCatalog);
+
+    public void Dispose()
+    {
+        _service.Changed -= OnChanged;
+        Icons.Dispose();
+    }
+}
+
+/// <summary>
+/// Every package of the catalog that Flathub describes as an app, for browsing by category (<c>software/apps</c>).
+/// A View of its own, because the list holds a few thousand entries and changes only with the catalog.
+/// </summary>
+public sealed partial class AppListViewModel : ObservableObject
+{
+    /// <summary>The apps in catalog order, with their app details.</summary>
+    [ObservableProperty]
+    public partial IReadOnlyList<AppEntry> Entries { get; internal set; } = [];
+}
+
+/// <summary>
+/// App icons for the page (<c>/api/app-icon/&lt;id&gt;</c> in the Bun version), as <c>data:image/png;base64</c> URLs:
+/// the Window serves only its page, and the icons are downloaded once from Flathub's media server and kept in the
+/// state directory. A View of its own, so a batch of icons does not resend the Software page's state.
+/// </summary>
+/// <remarks>
+/// The page keeps the icons it has seen; this holds only the latest <see cref="MaxIcons"/>, and an id answered with
+/// an empty string has no icon.
+/// </remarks>
+public sealed partial class AppIconsViewModel(ISoftwareService service) : ObservableObject, IDisposable
+{
+    /// <summary>Icons kept in the state; older ones go first.</summary>
+    public const int MaxIcons = 120;
+
+    /// <summary>Icons loaded by one command.</summary>
+    public const int MaxBatch = 60;
+
+    /// <summary>A larger file is not an app icon of Flathub's; it is not sent to the page.</summary>
+    public const int MaxBytes = 256 * 1024;
+
+    private readonly List<string> _order = [];
+    private readonly SemaphoreSlim _downloads = new(6);
+
+    /// <summary>Icons by AppStream id; an empty string when the app has none.</summary>
+    [ObservableProperty]
+    public partial IReadOnlyDictionary<string, string> Icons { get; private set; } = new Dictionary<string, string>();
+
+    /// <summary>Loads the icons of these apps, up to <see cref="MaxBatch"/> not loaded yet; nothing while app details are off.</summary>
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private async Task LoadAsync(IReadOnlyList<string> ids)
+    {
+        if (!service.AppDetails) return;
+        var wanted = ids.Where(Software.Apps.ValidAppId).Distinct().Where(id => !Icons.ContainsKey(id)).Take(MaxBatch).ToList();
+        if (wanted.Count == 0) return;
+        var loaded = await Task.WhenAll(wanted.Select(async id => (Id: id, Url: await UrlAsync(id))));
+        var next = new Dictionary<string, string>(Icons);
+        foreach (var (id, url) in loaded)
+        {
+            if (next.TryAdd(id, url)) _order.Add(id);
+        }
+        while (_order.Count > MaxIcons)
+        {
+            next.Remove(_order[0]);
+            _order.RemoveAt(0);
+        }
+        Icons = next;
+    }
+
+    private async Task<string> UrlAsync(string id)
+    {
+        await _downloads.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var png = await service.IconAsync(id).ConfigureAwait(false);
+            return png is { Length: > 0 and <= MaxBytes } ? $"data:image/png;base64,{Convert.ToBase64String(png)}" : "";
+        }
+        catch (Exception error) when (error is ManagerException or IOException or UnauthorizedAccessException or OperationCanceledException)
+        {
+            return "";
+        }
+        finally
+        {
+            _downloads.Release();
+        }
+    }
+
+    public void Dispose() => _downloads.Dispose();
 }

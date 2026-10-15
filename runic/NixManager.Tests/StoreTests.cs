@@ -6,6 +6,9 @@ using NixManager.Domain;
 using NixManager.Operations;
 using NixManager.Software;
 using NixManager.Updates;
+using NixManager.ViewModels;
+using Runic.Application.Views;
+using Runic.Navigation;
 
 namespace NixManager.Tests;
 
@@ -44,7 +47,7 @@ internal sealed class ManualClock(DateTimeOffset now) : TimeProvider
 /// <summary>
 /// The software store's parts beyond the catalog (<c>src/apps.ts</c>, <c>src/hardware.ts</c>, the apps and curated
 /// options of <c>src/store.ts</c>), compared with the Bun version's results in <c>Fixtures/bun-store.json</c>, which
-/// <c>record-bun-store.ts</c> records.
+/// <c>record-bun-store.ts</c> records, and the Software page's ViewModel over them.
 /// </summary>
 public sealed class StoreTests : IDisposable
 {
@@ -207,6 +210,73 @@ public sealed class StoreTests : IDisposable
         await Assert.That(await service.IconAsync("art.darkly.Darkly")).IsNull();
         await Assert.That(await service.IconAsync("org.example.Unknown")).IsNull();
         await Assert.That(await service.IconAsync("../org.mozilla.firefox")).IsNull();
+    }
+
+    [Test]
+    public async Task The_Software_page_reads_hardware_apps_options_and_icons_through_its_ViewModel()
+    {
+        var service = await ReadyService();
+        var firefoxIcon = "https://dl.flathub.org/media/org/mozilla/firefox/icons/128x128/org.mozilla.firefox.png";
+        _network.Answers[firefoxIcon] = new NetworkResponse(200, "OK", "image/png", [137, 80, 78, 71]);
+        var hardware = new HardwareFeatures(Laptop: true, Nvidia: false, Bluetooth: true, Printer: false, Fingerprint: false);
+        await using var context = new RunicModelContext();
+        using var viewModel = await context.InvokeAsync(() => new SoftwareViewModel(service, context, hardware, "alice"));
+        await Assert.That(viewModel.User).IsEqualTo("alice");
+        await Assert.That(viewModel.Hardware).IsEqualTo(hardware);
+
+        await context.InvokeAsync(() => viewModel.LockHash = Hash);
+        await Assert.That(await context.InvokeAsync(() => viewModel.Catalog.State)).IsEqualTo("ready");
+        await Assert.That(await context.InvokeAsync(() => viewModel.AppsStatus.State)).IsEqualTo("ready");
+        await context.InvokeAsync(() => viewModel.Query = "firefox");
+        await Assert.That(await context.InvokeAsync(() => viewModel.Results[0].App?.Id)).IsEqualTo("org.mozilla.firefox");
+        await Assert.That(await context.InvokeAsync(() => viewModel.Searched)).IsEqualTo("firefox");
+
+        await context.InvokeAsync(() => viewModel.LoadAppsCommand.Execute(false));
+        await Assert.That(await context.InvokeAsync(() => viewModel.Apps.Entries.Count)).IsEqualTo(6);
+        await context.InvokeAsync(() => viewModel.LookupPackagesCommand.Execute(new[] { "gimp", "nope" }));
+        var lookup = await context.InvokeAsync(() => viewModel.Lookup);
+        await Assert.That(lookup!.Attrs).IsEquivalentTo(["gimp", "nope"]);
+        await Assert.That(lookup.Entries["gimp"].App!.Name).IsEqualTo("GNU Image Manipulation Program");
+
+        await await context.InvokeAsync(() => viewModel.Icons.LoadCommand.ExecuteAsync(new[] { "org.mozilla.firefox", "art.darkly.Darkly", "../x" }));
+        var icons = await context.InvokeAsync(() => viewModel.Icons.Icons);
+        await Assert.That(icons["org.mozilla.firefox"]).IsEqualTo("data:image/png;base64,iVBORw==");
+        await Assert.That(icons["art.darkly.Darkly"]).IsEqualTo("");
+        await Assert.That(icons.ContainsKey("../x")).IsFalse();
+
+        // Without a lock hash there is no catalog to build; the page hears why.
+        await context.InvokeAsync(() => viewModel.LockHash = null);
+        var refused = await context.InvokeAsync(() =>
+        {
+            try
+            {
+                viewModel.BuildCatalogCommand.Execute(false);
+                return null;
+            }
+            catch (RunicFailureException failure)
+            {
+                return failure.Failure;
+            }
+        });
+        await Assert.That(refused).IsEqualTo(new SoftwareFailure("The checkout has not been read yet."));
+    }
+
+    [Test]
+    public async Task Turning_app_details_off_hides_them_from_the_page()
+    {
+        var service = await ReadyService();
+        Directory.CreateDirectory(Config.StateDir);
+        File.WriteAllText(Path.Combine(Config.StateDir, "preferences.json"), """{"detail":"simple","appDetails":false}""");
+        await Assert.That(service.AppDetails).IsFalse();
+        await using var context = new RunicModelContext();
+        using var viewModel = await context.InvokeAsync(() => new SoftwareViewModel(service, context, new HardwareFeatures(false, false, false, false, false), "alice"));
+        await context.InvokeAsync(() => viewModel.LockHash = Hash);
+        await context.InvokeAsync(() => viewModel.LoadAppsCommand.Execute(false));
+        await Assert.That(await context.InvokeAsync(() => viewModel.AppsStatus.State)).IsEqualTo("off");
+        await Assert.That(await context.InvokeAsync(() => viewModel.Apps.Entries.Count)).IsEqualTo(0);
+        await await context.InvokeAsync(() => viewModel.Icons.LoadCommand.ExecuteAsync(new[] { "org.mozilla.firefox" }));
+        await Assert.That(await context.InvokeAsync(() => viewModel.Icons.Icons.Count)).IsEqualTo(0);
+        await Assert.That(_network.Requests).IsEmpty();
     }
 
     /// <summary>A service with the recorded catalog loaded for <see cref="Hash"/> and the sample catalogue saved.</summary>
