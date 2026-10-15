@@ -389,6 +389,27 @@ public sealed class DaemonTests : IDisposable
     }
 
     [Test]
+    [Arguments("tray")]
+    [Arguments("stored")]
+    public async Task The_daemon_reads_every_message_it_needs_in_both_languages(string group)
+    {
+        // Each file reads within the subset TrayCatalog knows; German has every English message with the same inputs.
+        var english = TrayCatalog.Load(group, "en");
+        var german = TrayCatalog.Load(group, "de");
+        if (group == "tray") await Assert.That(TrayMessages.Keys.Except(english.Messages.Keys)).IsEmpty();
+        static IEnumerable<string> Inputs(TrayCatalog.Message message) =>
+            message.Variants.SelectMany(variant => variant.Parts.OfType<TrayCatalog.Placeholder>().Select(part => part.Name)).Distinct().Order();
+        foreach (var (key, message) in english.Messages)
+        {
+            await Assert.That(german.Messages.ContainsKey(key)).IsTrue().Because($"{group}/{key} has German");
+            await Assert.That(Inputs(german.Messages[key]).Except(Inputs(message))).IsEmpty().Because($"{group}/{key} keeps its inputs");
+        }
+        await Assert.That(TrayText.For("de").Messages.tray_updates_available(1234)).IsEqualTo("1.234 Aktualisierungen verfügbar");
+        await Assert.That(TrayText.English.Messages.tray_updates_available(1)).IsEqualTo("1 update available");
+        await Assert.That(() => TrayCatalog.Parse("x =\n  .match $n\n  one {{a}}\n", "test")).Throws<InvalidDataException>();
+    }
+
+    [Test]
     public async Task The_command_line_hands_operations_to_the_daemon_except_privileged_ones_over_SSH()
     {
         var local = new LocalOperationClient(_service);

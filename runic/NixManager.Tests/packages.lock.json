@@ -265,11 +265,6 @@
           "Runic.Platform.Runtime": "[0.8.0-preview.3]"
         }
       },
-      "Runic.Translations": {
-        "type": "Transitive",
-        "resolved": "0.7.0-preview.2",
-        "contentHash": "gBaDMfcdXxTIqDR1ka/+gcWS/UEAeeVh7SVHJzChvaXtBtUqpd07Q6aV4Q3rQCdajzwBU5VoFONdSnDBPEQSrg=="
-      },
       "Tmds.DBus.Protocol": {
         "type": "Transitive",
         "resolved": "0.95.1",
@@ -304,8 +299,7 @@
           "Runic.Application.Views.Desktop": "[0.8.0-preview.3, )",
           "Runic.CommandLine": "[0.7.0-preview.1, )",
           "Runic.CommandLine.Processes": "[0.7.0-preview.1, )",
-          "Runic.Platform.Linux.Polkit": "[0.8.0-preview.3, )",
-          "Runic.Translations": "[0.7.0-preview.2, )"
+          "Runic.Platform.Linux.Polkit": "[0.8.0-preview.3, )"
         }
       }
     },
