@@ -84,7 +84,8 @@
   const runningStep = $derived(running?.steps?.find((step) => step.status === "running"));
   const title = $derived.by(() => {
     void locale;
-    const page = nav.find((item) => item.id === app.page)?.label;
+    // A soft hyphen lets a long label wrap in the navigation; the Window title has room for the whole word.
+    const page = nav.find((item) => item.id === app.page)?.label.replaceAll("\u00AD", "");
     return `${running ? `${actionLabel(running.request.action)}… ` : ""}${page} – Nix Manager`;
   });
 </script>
@@ -104,14 +105,15 @@
       <ul role="list" class="space-y-0.5">
         {#each nav as item (item.id)}
           <li>
+            <!-- Long labels, such as German compounds, wrap at their soft hyphen instead of being cut off. -->
             <button
-              class="focus-ring flex h-9 w-full items-center gap-3 rounded-lg px-2.5 text-left transition-colors
+              class="focus-ring flex min-h-9 w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-left leading-snug transition-colors
                 {app.page === item.id ? 'bg-card font-semibold text-foreground' : 'text-muted-foreground hover:bg-card/60 hover:text-foreground'}"
               aria-current={app.page === item.id ? "page" : undefined}
               onclick={() => app.navigate(item.id)}
             >
               <item.icon class="size-4 shrink-0 {app.page === item.id ? 'text-primary' : ''}" />
-              <span class="flex-1">{item.label}</span>
+              <span class="min-w-0 flex-1 hyphens-manual break-words">{item.label}</span>
               {#if item.id === "activity" && running}
                 <LoaderIcon class="size-3.5 shrink-0 animate-spin text-primary" /><span class="sr-only">{m.nav_running()}</span>
               {:else if item.count}

@@ -17,7 +17,7 @@ nav {
   overview = Übersicht
   reading_state = Zustand dieses Computers wird gelesen
   reconnecting = Verbindung wird wiederhergestellt
-  restore_points = Wiederherstellungspunkte
+  restore_points = Wiederherstellungs­punkte
   running = , läuft
   sections = Bereiche
   settings = Einstellungen
@@ -371,8 +371,8 @@ rail {
   count =
     .input {$count :integer}
     .match $count
-    one {{{$count} Wiederherstellungspunkt}}
-    * {{{$count} Wiederherstellungspunkte}}
+    one {{{$count} Wiederherstellungs­punkt}}
+    * {{{$count} Wiederherstellungs­punkte}}
   first_build = Erster Build dieses Profils
   in_use_since = In Verwendung seit {$when}
   label = Wiederherstellungspunkte: {$title}

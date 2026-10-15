@@ -21,9 +21,10 @@
 </script>
 
 <div class="grid grid-cols-[7.5rem_1fr] items-center gap-4">
-  <div>
+  <!-- A long count, such as German "Wiederherstellungspunkte", wraps at its soft hyphen. -->
+  <div class="min-w-0">
     <p class="font-semibold">{title}</p>
-    <p class="label">{m.rail_count({ count: all.length })}</p>
+    <p class="label hyphens-manual break-words">{m.rail_count({ count: all.length })}</p>
   </div>
   <!-- Tailwind removes the list style, which makes WebKitGTK drop the list role (G-19): name it as a list. -->
   <ol role="list" class="relative flex min-w-0 items-stretch gap-2" aria-label={m.rail_label({ title })}>
