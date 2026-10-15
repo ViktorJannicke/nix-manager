@@ -11,10 +11,13 @@
     <!-- The dashboard Window (Dashboard/) and its frontend in Frontend/, opened by `nix-manager ui`. -->
     <RunicApplicationFrontendWindowProject>true</RunicApplicationFrontendWindowProject>
     <Version>1.0.0</Version>
-    <!-- dotnet restore writes packages.lock.json for the Nix build (W300-032), which restores in locked mode
-         for linux-x64. -->
+    <!-- dotnet restore writes packages.lock.json for the Nix build (W300-032). Nix restores in locked mode for the
+         system's runtime identifier alone (dotnet restore with the runtime option), so each runtime has its own lock
+         file: a forced evaluation writes the linux-x64 one, and the same restore for linux-arm64 the other (see
+         README.md). -->
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RuntimeIdentifiers>linux-x64</RuntimeIdentifiers>
+    <NuGetLockFilePath Condition="'$(RuntimeIdentifiers)' == 'linux-arm64'">packages.linux-arm64.lock.json</NuGetLockFilePath>
     <!-- The test project has its own sources and build output. -->
     <DefaultItemExcludes>$(DefaultItemExcludes);NixManager.Tests/**</DefaultItemExcludes>
     <!-- The policy keeps the Bun version's file name and action ID (nixos-module.nix). -->

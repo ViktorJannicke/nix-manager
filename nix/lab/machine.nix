@@ -1,14 +1,58 @@
 # The lab machine: GNOME on Wayland with alice logged in, Orca ready, Nix
 # Manager installed and an /etc/nixos configuration to start from. Orca's
 # speech is written to /run/lab/spoken.txt instead of the sound card, so tests
-# can read exactly what a screen-reader user hears.
-{ self, userAccount }:
+# can read exactly what a screen-reader user hears. With runic = true, the
+# module installs the Runic port instead of the Bun version.
+{
+  self,
+  userAccount,
+  runic ? false,
+}:
+let
+  seededCheckout =
+    { pkgs, ... }:
+    {
+      # The port has no setup assistant yet (W300-032 adds it), so alice starts
+      # with a checkout in the default place, ~/my-flakes, and a registered host:
+      # the dashboard opens on it instead of on setup. Its configurations do not
+      # evaluate offline; the tests look at the page, not at the results.
+      programs.nix-manager.hosts.machine = {
+        system = pkgs.stdenv.hostPlatform.system;
+        nixosConfiguration = "machine";
+        nixosHostName = "machine";
+        homeConfiguration = "alice";
+      };
+      # The test runs the privileged helper through pkexec without a
+      # password dialog, as system.nix lets the apply tests do.
+      security.polkit.extraConfig = ''
+        polkit.addRule(function (action, subject) {
+          if (action.id == "org.nixos.nix-manager" && subject.user == "alice") {
+            return polkit.Result.YES;
+          }
+        });
+      '';
+      systemd.tmpfiles.settings."10-lab-checkout" = {
+        "/home/alice/my-flakes".d = {
+          user = "alice";
+          group = "users";
+          mode = "0755";
+        };
+        "/home/alice/my-flakes/flake.nix".f = {
+          user = "alice";
+          group = "users";
+          mode = "0644";
+          argument = "{ outputs = _: { }; }";
+        };
+      };
+    };
+in
 { pkgs, ... }:
 {
   imports = [
     userAccount
     self.nixosModules.default
-  ];
+  ]
+  ++ (if runic then [ seededCheckout ] else [ ]);
 
   virtualisation = {
     memorySize = 4096;
@@ -101,6 +145,7 @@
   };
 
   programs.nix-manager.enable = true;
+  programs.nix-manager.runic.enable = runic;
   environment.systemPackages = [
     # The VM has no GPU Chromium accepts; render in software as nixpkgs'
     # Chromium test does, and expose web content to AT-SPI from the start.

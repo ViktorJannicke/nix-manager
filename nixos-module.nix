@@ -10,9 +10,11 @@ let
   hasHosts = cfg.hosts != { };
   # The Runic port (runic/), built where its NuGet lock files apply.
   runicDefault = self.packages.${pkgs.stdenv.hostPlatform.system}.runic or null;
+  # `true` here removes the Bun version from the module (README.md, Trying the Runic port).
   useRunic = cfg.runic.enable;
-  # The tray service runs the daemon of whichever version is selected.
-  trayPackage = if useRunic then cfg.runic.package else cfg.package;
+  # The one version installed: its command, desktop entry, icon and completions, and the tray service's daemon.
+  # The Runic package brings its own Polkit policy; the Bun version's comes from this module.
+  selected = if useRunic then cfg.runic.package else cfg.package;
   registryPath = "/etc/nix-manager/hosts.json";
   polkitPolicy = pkgs.writeTextFile {
     name = "org.nixos.nix-manager.policy";
@@ -62,15 +64,12 @@ in
         type = lib.types.bool;
         default = false;
         description = ''
-          Use the Runic port: the tray service runs its daemon, which owns
-          every operation, shows the status icon and opens the dashboard
-          window; its `nix-manager` command comes first on the PATH, so
-          `nix-manager ui` and command lines reach that daemon; and its
-          Polkit policy replaces the Bun version's, which uses the same
-          action. The Bun package stays installed with its desktop entry,
-          which starts the selected command. Off by default until the port
-          replaces the Bun version (W300-032); the flake builds the port for
-          x86_64-linux.
+          Install the Runic port instead of the Bun version: its
+          `nix-manager` command, desktop entry, icon, shell completions and
+          Polkit policy (the same action), and a tray service that runs its
+          daemon, which owns every operation, shows the status icon and
+          opens the dashboard window. The Bun package is then not installed.
+          Off by default until the port replaces the Bun version (W300-032).
         '';
       };
       package = lib.mkOption {
@@ -104,16 +103,15 @@ in
     assertions = [
       {
         assertion = !useRunic || cfg.runic.package != null;
-        message = "programs.nix-manager.runic.enable needs programs.nix-manager.runic.package; the flake builds it for x86_64-linux.";
+        message = "programs.nix-manager.runic.enable needs programs.nix-manager.runic.package; the flake builds it for ${
+          lib.concatStringsSep " and " (builtins.attrNames (lib.filterAttrs (_: p: p ? runic) self.packages))
+        }.";
       }
     ];
     security.polkit.enable = true;
     security.wrappers.pkexec.enable = lib.mkForce true;
-    # One policy per action: the Runic package brings its own, for its own program.
-    environment.systemPackages = [
-      cfg.package
-    ]
-    ++ (if useRunic then [ (lib.hiPrio cfg.runic.package) ] else [ polkitPolicy ]);
+    # One policy per action, for the installed program.
+    environment.systemPackages = [ selected ] ++ lib.optional (!useRunic) polkitPolicy;
     environment.etc."nix-manager/hosts.json" = lib.mkIf hasHosts {
       text = builtins.toJSON cfg.hosts;
     };
@@ -130,7 +128,7 @@ in
       environment = lib.optionalAttrs hasHosts { NIX_MANAGER_HOSTS = registryPath; };
       serviceConfig = {
         ExecStart = lib.concatStringsSep " " (
-          [ (lib.getExe trayPackage) ]
+          [ (lib.getExe selected) ]
           ++ lib.optionals (cfg.tray.flakePath != null) [
             "--flake"
             (lib.escapeShellArg cfg.tray.flakePath)

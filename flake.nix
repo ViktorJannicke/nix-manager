@@ -43,19 +43,31 @@
           default = manager;
           nix-manager = manager;
           npm-deps = manager.npmDeps;
-        }
-        # The Runic port in runic/; its NuGet lock files cover linux-x64.
-        // nixpkgs.lib.optionalAttrs (system == "x86_64-linux") {
+          # The Runic port in runic/; its NuGet lock files cover linux-x64 and linux-arm64.
           runic = pkgs.callPackage ./runic/package.nix {
             buildRunicApplication = runic-sdk.lib.buildRunicApplication pkgs;
             homeManager = home-manager.packages.${system}.home-manager;
           };
-        }
-        // {
           # Slow VM test, kept out of `nix flake check`; see nix/lab.
           desktop-a11y = import ./nix/lab/desktop-a11y.nix { inherit pkgs self; };
           speech-audio = import ./nix/lab/speech-audio.nix { inherit pkgs self; };
+          # The same with the Runic port installed (programs.nix-manager.runic.enable).
+          desktop-a11y-runic = import ./nix/lab/desktop-a11y.nix {
+            inherit pkgs self;
+            runic = true;
+          };
+          speech-audio-runic = import ./nix/lab/speech-audio.nix {
+            inherit pkgs self;
+            runic = true;
+          };
           hyprland-sandbox = import ./nix/hyprland-sandbox { inherit pkgs; };
+          # Runic against Bun: start-up, memory and size, in the sandbox; see runic/COMPARISON.md.
+          compare = import ./nix/compare {
+            inherit pkgs;
+            runic = self.packages.${system}.runic;
+            bun = self.packages.${system}.default;
+            sandbox = self.packages.${system}.hyprland-sandbox;
+          };
           desktop-apply = import ./nix/lab/desktop-apply.nix {
             inherit
               pkgs
@@ -68,6 +80,11 @@
             inherit pkgs;
             name = "nix-manager-lab";
             test = self.packages.${system}.desktop-a11y;
+          };
+          lab-runic = import ./nix/lab/lab.nix {
+            inherit pkgs;
+            name = "nix-manager-lab-runic";
+            test = self.packages.${system}.desktop-a11y-runic;
           };
           lab-apply = import ./nix/lab/lab.nix {
             inherit pkgs;
@@ -95,10 +112,20 @@
             program = nixpkgs.lib.getExe self.packages.${system}.lab;
             meta.description = "Drive a GNOME and Orca test VM with Nix Manager installed";
           };
+          lab-runic = {
+            type = "app";
+            program = nixpkgs.lib.getExe self.packages.${system}.lab-runic;
+            meta.description = "Drive the GNOME and Orca test VM with the Runic port installed";
+          };
           lab-apply = {
             type = "app";
             program = nixpkgs.lib.getExe self.packages.${system}.lab-apply;
             meta.description = "Drive the test VM with a configuration checkout that can apply for real";
+          };
+          compare = {
+            type = "app";
+            program = nixpkgs.lib.getExe self.packages.${system}.compare;
+            meta.description = "Measure the Runic port against the Bun version in the headless sandbox";
           };
           hyprland-sandbox = {
             type = "app";
