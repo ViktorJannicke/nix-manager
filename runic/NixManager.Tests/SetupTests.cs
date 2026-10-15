@@ -345,6 +345,9 @@ public sealed class SetupTests : IDisposable
         var checkout = SetupLaunch.Checkout(null, notGit, Environment());
         await Assert.That(checkout).IsEqualTo((Path.Combine(Home, "my-flakes"), false));
         await Assert.That(SetupLaunch.NeedsSetup(null, notGit, Environment())).IsTrue();
+        // Nor is there one without Git, as on a computer the assistant has not set up yet.
+        var noGit = new FakeRunner((_, _, _) => throw new ManagerException("Cannot start git: No such file or directory"));
+        await Assert.That(SetupLaunch.NeedsSetup(null, noGit, Environment())).IsTrue();
         // One asked for is used, whether it exists or not: loading it says what is wrong.
         await Assert.That(SetupLaunch.NeedsSetup("/nowhere", notGit, Environment())).IsFalse();
         await Assert.That(SetupLaunch.NeedsSetup(null, notGit, Environment(new() { ["NIX_MANAGER_FLAKE"] = "/nowhere" }))).IsFalse();

@@ -437,6 +437,7 @@ class SetupTests(unittest.TestCase):
                 setup.close_window()
                 # Closed before it created anything, as the Bun version's assistant ends.
                 self.assertEqual(setup.process.wait(TIMEOUT), 0, setup.lines)
+                setup.close()
                 self.assertFalse((self.sandbox.root / "home" / "nixos-config").exists())
                 self.assertFalse((self.sandbox.root / "state" / "nix-manager" / "checkout").exists())
 
@@ -448,6 +449,7 @@ class SetupTests(unittest.TestCase):
         problem.wait_for("stderr", "Error: Resolve flake directory:")
         problem.close_window()
         self.assertEqual(problem.process.wait(TIMEOUT), 1)
+        problem.close()
         # In a terminal, and with --no-open, the error is enough.
         primary, secondary = pty.openpty()
         try:
