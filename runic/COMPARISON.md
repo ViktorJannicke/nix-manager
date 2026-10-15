@@ -1,8 +1,8 @@
 # Runic port against the Bun version
 
-**Preliminary.** These numbers come from the build at `runic-port` ce62fd8 plus the W300-032 packaging. The
-dashboard pages and the setup assistant were still being ported then. Phase 2 of W300-032 measures again
-against the finished port.
+These numbers come from the finished port of W300-032: `w300-032-packaging` with `w300-032-finish` b218650 merged
+(all dashboard pages, the setup assistant, tray translations). An earlier run against the unfinished port (ce62fd8)
+is kept at the end for comparison.
 
 ## Method
 
@@ -41,25 +41,25 @@ and writes `DIRECTORY/report.md` with the raw JSON beside it:
 
 `COMPARE_REPEAT`, `COMPARE_IDLE_SECONDS` and `COMPARE_LOAD_SECONDS` change the counts and waits.
 
-## Results (preliminary, 2026-10-15)
+## Results (2026-10-15)
 
-Host: x86_64-linux, AMD Radeon RX 6950 XT (radeonsi), 24 threads, 62 GiB RAM, NixOS. These are two consecutive
-runs, and the second run agreed with the first within about 10 per cent. The table shows the second run.
+Host: x86_64-linux, AMD Radeon RX 6950 XT (radeonsi), 24 threads, 62 GiB RAM, NixOS. The table shows the first of
+two consecutive runs. The second run agreed within 10 % on everything except the idle daemon (see below).
 
 | Measure | Runic | Bun |
 | --- | --- | --- |
-| `--help`, first run | 75 ms | 137 ms |
-| `--help`, median warm run | 75 ms | 128 ms |
-| `status --json`, fixture checkout, first run | 217 ms | 120 ms |
-| `status --json`, fixture checkout, median warm run | 204 ms | 121 ms |
-| `tray` start to status icon registered | 246 ms | 152 ms |
-| `ui` to Window mapped (tray running) | 298 ms | 457 ms |
-| background process after 30 s idle, RSS (all its processes) | 80.7 MiB | 102.7 MiB |
-| background process after 30 s idle, PSS | 65.5 MiB | 80.4 MiB |
-| with the Window open after 10 s, RSS (all its processes) | 589.0 MiB | 1278.8 MiB |
-| with the Window open after 10 s, PSS | 328.2 MiB | 519.9 MiB |
-| package (NAR size) | 6.9 MiB | 91 MiB |
-| closure | 1173 MiB | 894 MiB |
+| `--help`, first run | 70 ms | 133 ms |
+| `--help`, median warm run | 71 ms | 125 ms |
+| `status --json`, fixture checkout, first run | 196 ms | 120 ms |
+| `status --json`, fixture checkout, median warm run | 195 ms | 118 ms |
+| `tray` start to status icon registered | 508 ms | 149 ms |
+| `ui` to Window mapped (tray running) | 293 ms | 446 ms |
+| background process after 30 s idle, RSS (all its processes) | 132 MiB (255 MiB in the second run) | 103 MiB |
+| background process after 30 s idle, PSS | 117 MiB (240 MiB) | 81 MiB |
+| with the Window open after 10 s, RSS (all its processes) | 726 MiB (853 MiB) | 1277 MiB |
+| with the Window open after 10 s, PSS | 464 MiB (590 MiB) | 520 MiB |
+| package (NAR size) | 12 MiB | 91 MiB |
+| closure | 1208 MiB | 894 MiB |
 | browser outside the closure | none: WebKitGTK is in the closure | Chromium: 1332 MiB beyond the Bun closure |
 
 The largest pieces of each closure (NAR size):
@@ -69,7 +69,7 @@ The largest pieces of each closure (NAR size):
   - the .NET 10 ASP.NET Core runtime, 101 MiB;
   - flite, 60 MiB (WebKitGTK's speech synthesis, which the dashboard does not use);
   - GTK 3, 42 MiB;
-  - the package itself, 6.9 MiB.
+  - the package itself, 12 MiB.
 - **Bun:**
   - the package itself, 91 MiB (`main.js` and `node_modules`);
   - Node.js, 102 MiB, which the `node_modules` scripts' interpreters pull in;
@@ -77,14 +77,37 @@ The largest pieces of each closure (NAR size):
   - the WebUI library, 0.3 MiB.
 - **Both:** Nix, Home Manager and Git, 76 MiB.
 
+**The idle daemon is bimodal.** Sampled separately, its RSS is either about 128 MiB or about 254 MiB from its
+fifth second on, and then stays flat for at least two minutes. The extra part is anonymous memory
+(`RssAnon` 186 MiB in a 254 MiB run). Which one a run gets does not follow `DOTNET_gcConcurrent=0`,
+`DOTNET_GCgen0size` or `DOTNET_GCConserveMemory`. The unfinished port idled at 81 MiB, and its icon appeared
+after 246 ms. Something that the final pages or services load at daemon start doubles both. That is worth a
+`dotnet-gcdump` before the port replaces the Bun version.
+
 ## Reading the numbers
 
 - **Command line.** The port starts faster for `--help`. It is slower for `status --json`, which loads the
   configuration with the .NET JIT. ReadyToRun or a trimmed start-up path are the obvious levers. They are not
   tried here.
-- **Memory.** Idle, the daemon uses about a fifth less than the Bun tray. With the Window open, the port uses
-  about 0.6× the PSS and less than half the RSS. WebKitGTK's two processes cost far less than the Chromium
+- **Memory.** Idle, the daemon now uses more than the Bun tray (see above). With the Window open, the port uses
+  less than 0.6× the RSS and slightly less PSS. WebKitGTK's two processes cost far less than the Chromium
   process tree that WebUI starts.
+- **Start-up of the background process.** The Bun tray registers its icon in 150 ms; the daemon takes 0.5 s, double
+  what the unfinished port needed.
 - **Size.** The port's own closure is larger, because WebKitGTK and the .NET runtime are in it. The Bun version
   relies on a browser outside its closure, and Chromium adds 1.3 GiB when it is not installed already. On a
   desktop that has GTK and WebKitGTK already, much of the port's closure is shared.
+
+## Earlier run: the unfinished port (ce62fd8)
+
+The same harness, before the final pages, the setup assistant and the tray translations:
+
+| Measure | Runic | Bun |
+| --- | --- | --- |
+| `--help`, median warm run | 75 ms | 128 ms |
+| `status --json`, median warm run | 204 ms | 121 ms |
+| `tray` start to status icon registered | 246 ms | 152 ms |
+| `ui` to Window mapped | 298 ms | 457 ms |
+| background process after 30 s idle, RSS / PSS | 80.7 / 65.5 MiB | 102.7 / 80.4 MiB |
+| with the Window open, RSS / PSS | 589 / 328 MiB | 1279 / 520 MiB |
+| package / closure | 6.9 / 1173 MiB | 91 / 894 MiB |

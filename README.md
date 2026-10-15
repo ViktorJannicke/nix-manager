@@ -568,27 +568,33 @@ nix build .#speech-audio-runic   # Orca's speech, and a Tab stop in the port's d
 ```
 
 The `-runic` tests install the port through `programs.nix-manager.runic.enable`
-(`machine.nix` takes `runic = true`). Until the port has its setup assistant,
-alice starts with a seeded `~/my-flakes` and a registered host, so the
-dashboard opens on its Overview. `desktop-a11y-runic` checks the installed
+(`machine.nix` takes `runic = true`). `desktop-a11y-runic` checks the installed
 command, the policy (pkexec maps the program to the action and runs the
-privileged helper as root), the desktop entry and the completions; then it
-walks the dashboard's Tab cycle without Orca and with it. Its expectations are
-about structure, so page changes keep it valid: the skip link comes first, the
-sections follow in order, at most one stop has no name (G-17, the stop
-outside the web view; not seen with SDK 0.8.0-preview.3), Orca's walk has the
-same stops and says their names, and the keyboard opens Settings. The AT-SPI
-application is `nix-manager` (Chromium's is `chrom…`), and its window class is
-`nix-manager`.
+privileged helper as root), the desktop entry and the completions. It opens the
+setup assistant without a checkout: Tab reaches the folder entry and "Create my
+configuration", Orca names them, and typing reaches the entry. Then, with a
+seeded `~/my-flakes` and a registered host, it walks the dashboard's Tab cycle
+without Orca and with it. The expectations are about structure, so page
+changes keep the test valid: the skip link comes first, the navigation's
+buttons (read from the page) follow in order, at most one stop has no name
+(G-17, the stop outside the web view; not seen with SDK 0.8.0-preview.3), and
+Orca's walk has the same stops and says their names. The test then opens
+Settings by keyboard. In `checklist.txt` it records what Orca says for headings
+(H), lists (L), the theme radio group and its arrow keys, and how a heading's
+size changes with Ctrl and + (G-18) and with GNOME's large text. Only a web
+process crash fails those steps. The AT-SPI application is `nix-manager`
+(Chromium's is `chrom…`), and its window class is `nix-manager`.
 
-As of W300-032 the walk with Orca fails: WebKitGTK 2.54.1's web process aborts
-(SIGABRT from `WTF::CrashOnOverflow` in
-`WebCore::AccessibilityObjectAtspi::textAttributesWithUTF8Offset`, called from
-Orca's AT-SPI text-attribute request) after two or three Tab presses, and the
-Window stays frozen on its last frame. WebKitGTK's MiniBrowser shows the same
-crash on the dashboard page served with `nix-manager ui --no-open`, but not on
-a plain page with the same buttons, so something in the dashboard's markup or
-styles triggers it. The test counts the web process's core dumps after every
+WebKitGTK 2.54.1 aborts its web process when Orca asks for the text attributes
+of a list item whose text is only the U+FFFC of an embedded button. A
+`CrashOnOverflow` in `textAttributesWithUTF8Offset` indexes its UTF-16-to-UTF-8
+offset table out of bounds, and the Window freezes. WebKit main still has the
+unchecked index. The dashboard's navigation used such list items. Its items
+are now `display: contents`, so each one's text is its button's label
+(`runic/Frontend/src/App.svelte`). The side effect is that Orca no longer says
+"list with 8 items" when Tab enters the navigation, but it still says "leaving
+list". `nix/lab/webkit-attribute-run` has the minimal page and AT-SPI calls for
+an upstream report. The VM test counts the web process's core dumps after every
 Tab and names the press. `nix run .#lab-runic` drives the port's VM like
 `.#lab`.
 
