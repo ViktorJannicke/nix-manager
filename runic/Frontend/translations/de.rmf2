@@ -354,10 +354,6 @@ settings {
   simple = Einfach
 }
 
-placeholder {
-  page = Diese Seite folgt im nächsten Teil dieser Version. Verwenden Sie dafür bis dahin die vorherige Version von Nix Manager.
-  page_title = Noch nicht verfügbar
-}
 
 rail {
   building_next = Nächste Version wird gebaut
@@ -388,6 +384,25 @@ rail {
 pending {
   apply = Änderungen anwenden
   review_and_apply = Prüfen und anwenden
+  clear = Leeren
+  count =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} vorgemerkte Änderung}}
+    * {{{$count} vorgemerkte Änderungen}}
+  hide_lines =
+    .input {$count :integer}
+    .match $count
+    one {{Geänderte Zeilen in {$count} Datei ausblenden}}
+    * {{Geänderte Zeilen in {$count} Dateien ausblenden}}
+  not_written = Noch nicht geschrieben. „Vorbereiten“ baut sie aus einer Kopie und zeigt, was sie ändern; Ihre Dateien ändern sich erst beim Anwenden.
+  nothing_changes = Auf Ihrem Computer ändert sich nichts, bis Sie sie anwenden.
+  remove = {$name} entfernen
+  show_lines =
+    .input {$count :integer}
+    .match $count
+    one {{Geänderte Zeilen in {$count} Datei anzeigen}}
+    * {{Geänderte Zeilen in {$count} Dateien anzeigen}}
 }
 
 changes {
@@ -621,4 +636,260 @@ setup {
   opening = Nix Manager wird geöffnet…
   how = So funktionieren Änderungen
   how_text = Alles, was Sie ändern, von Apps bis zu Einstellungen, wird in diese Dateien geschrieben und wartet als vorgemerkte Änderung. „Vorbereiten“ baut die neue Version im Hintergrund, während Sie weiterarbeiten, und zeigt, was sich ändern wird. „Anwenden“ stellt den Computer darauf um, und jede angewendete Version bleibt als Wiederherstellungspunkt erhalten, zu dem Sie zurückkehren können.
+}
+
+package {
+  will_be_installed = {$name} wird installiert
+  non_free_software_will_be_allowed = Unfreie Software wird ebenfalls erlaubt. Bereiten Sie Ihre vorgemerkten Änderungen vor, um es zu bauen.
+  prepare_your_pending_edits_to_build = Bereiten Sie Ihre vorgemerkten Änderungen vor, um es zu bauen.
+  installing = {$name} wird installiert
+  is_installed = {$name} ist installiert
+  removing = {$name} wird entfernt
+  is_removed = {$name} ist entfernt
+  will_be_removed = {$name} wird entfernt
+  prepare_your_pending_edits_to_build_2 = Bereiten Sie Ihre vorgemerkten Änderungen vor, um ohne es zu bauen.
+  no_description = Keine Beschreibung.
+  category = Kategorie
+  attribute = Attribut
+  command = Befehl
+  license = Lizenz
+  not_free = {$licenses} (nicht frei)
+  website = Website
+  marked_as_broken_in_nixpkgs_building = In nixpkgs als defekt markiert; der Build schlägt wahrscheinlich fehl.
+  waiting_to_be_installed_in_your = Wartet in Ihren vorgemerkten Änderungen auf die Installation ({$file}).
+  waiting_to_be_removed_in_your = Wartet in Ihren vorgemerkten Änderungen auf die Entfernung ({$file}).
+  installed_for_every_user = Für alle Benutzer installiert
+  listed_in = Aufgeführt in {$file}
+  added_by = Hinzugefügt von {$origin}
+  install_for = Installieren für
+  just_you = Nur Sie
+  every_user = Alle Benutzer
+  add_it_to = Hinzufügen zu
+  not_used_by_this_host = {$category}: {$file} (von diesem Rechner nicht verwendet)
+  new_file = Neue Datei…
+  the_package_is_added_to_this = Das Paket wird in die Paketliste dieser Datei eingetragen, neben die anderen.
+  is_not_free_software = {$name} ist keine freie Software
+  your_user_only_installs_software_with = Ihr Benutzer installiert nur Software mit freier Lizenz. Beim Hinzufügen wird unfreie Software auch für Sie erlaubt, in {$file}.
+  this_computer_only_installs_software_with = Dieser Computer installiert nur Software mit freier Lizenz. Beim Hinzufügen wird auch unfreie Software erlaubt, in {$file}.
+  your_user_only_installs_software_with_2 = Ihr Benutzer installiert nur Software mit freier Lizenz. Erlauben Sie zuerst unfreie Software und fügen Sie es dann hinzu.
+  this_computer_only_installs_software_with_2 = Dieser Computer installiert nur Software mit freier Lizenz. Erlauben Sie zuerst unfreie Software und fügen Sie es dann hinzu.
+  allow_non_free_software = Unfreie Software erlauben…
+  add_to_pending_edits = Zu vorgemerkten Änderungen hinzufügen
+  remove_now = Jetzt entfernen
+  remove = Entfernen
+  install_now = Jetzt installieren
+}
+
+feature {
+  edit_pending = {$title}: Änderung vorgemerkt
+  edits_pending = {$title}: {$count :integer} Änderungen vorgemerkt
+  non_free_software_will_be_allowed = Unfreie Software wird ebenfalls erlaubt. Bereiten Sie Ihre vorgemerkten Änderungen vor, um sie zu bauen.
+  prepare_your_pending_edits_to_build = Bereiten Sie Ihre vorgemerkten Änderungen vor, um sie zu bauen.
+  turned_on = Eingeschaltet
+  turned_off = Ausgeschaltet
+  system_setting_for_every_user_of = Systemeinstellung für alle Benutzer dieses Computers.
+  setting_for_your_user = Einstellung für Ihren Benutzer.
+  set_in = Festgelegt in {$file}.
+  turn_on = {$title} einschalten
+  pending = vorgemerkt
+  set_in_2 = {$option}, festgelegt in {$files}
+  write_new_settings_to = Neue Einstellungen schreiben nach
+  used_by = Von {$host} verwendet
+  not_used_by = Nicht von {$host} verwendet
+  does_not_import_this_file_so = {$host} bindet diese Datei nicht ein, daher haben hier geschriebene Einstellungen keine Wirkung darauf. Beim Vorbereiten werden sie abgelehnt.
+  prepare_checks_that_every_setting_takes = Beim Vorbereiten wird geprüft, dass jede Einstellung wirkt, bevor etwas gebaut wird.
+  is_not_free_software = {$title} ist keine freie Software
+  this_computer_only_installs_software_with = Dieser Computer installiert nur Software mit freier Lizenz. Beim Einschalten wird auch unfreie Software erlaubt, in {$file}.
+  this_computer_only_installs_software_with_2 = Dieser Computer installiert nur Software mit freier Lizenz. Erlauben Sie zuerst unfreie Software und schalten Sie es dann ein.
+  no_changes = Keine Änderungen
+  turning_off_writes = Beim Ausschalten wird {$value} in {$file} geschrieben.
+}
+
+bundle {
+  item_pending =
+    .input {$count :integer}
+    .match $count
+    one {{{$title}: {$count} Element vorgemerkt}}
+    * {{{$title}: {$count} Elemente vorgemerkt}}
+  include = {$name} einschließen
+  untick_what_you_do_not_want = Entfernen Sie das Häkchen bei allem, was Sie nicht möchten; der Rest wird zu einer vorgemerkten Änderung.
+  the_package_index_could_not_be = Der Paketindex konnte nicht erstellt werden. {$error}
+  reading_the_package_index = Paketindex wird gelesen…
+  features = Funktionen
+  apps_installed_for_you = Apps, für Sie installiert
+  pending = Vorgemerkt
+  is_not_free_software_allowing_non =
+    .input {$count :integer}
+    .match $count
+    one {{{$names} ist keine freie Software; das Erlauben unfreier Software gehört zur Änderung.}}
+    * {{{$names} sind keine freie Software; das Erlauben unfreier Software gehört zur Änderung.}}
+  needs_a_file_chosen_by_hand =
+    .input {$count :integer}
+    .match $count
+    one {{{$names} braucht eine von Hand gewählte Datei. Fügen Sie es einzeln über „Entdecken“ hinzu.}}
+    * {{{$names} brauchen eine von Hand gewählte Datei. Fügen Sie sie einzeln über „Entdecken“ hinzu.}}
+  add_item_to_pending_edits =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Element zu den vorgemerkten Änderungen hinzufügen}}
+    * {{{$count} Elemente zu den vorgemerkten Änderungen hinzufügen}}
+  everything_is_there = Alles ist bereits vorhanden
+}
+
+software {
+  games = Spiele
+  development = Entwicklung
+  internet = Internet
+  media = Medien
+  productivity = Büro
+  will_be_installed = Wird installiert
+  will_be_removed = Wird entfernt
+  broken = Defekt
+  not_free = Unfrei
+  install_packages_and_turn_on_features = Installieren Sie Pakete und schalten Sie Funktionen für {$host} ein. Ihre Änderungen warten hier, bis Sie sie vorbereiten.
+  view = Ansicht
+  discover = Entdecken
+  could_not_read_s_configuration = Die Konfiguration von {$host} konnte nicht gelesen werden.
+  search_apps_and_packages = Apps und Pakete suchen
+  search_apps_and_over_a_hundred = Apps und über hunderttausend Pakete suchen
+  press_to_search = Zum Suchen / drücken
+  building_the_package_index = Paketindex wird erstellt
+  result =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Ergebnis}}
+    * {{{$count} Ergebnisse}}
+  no_packages_match = Keine passenden Pakete
+  free_software_only = Nur freie Software
+  hide_packages_marked_as_broken = Als defekt markierte Pakete ausblenden
+  apps = Apps
+  other_software = Weitere Software
+  command_line_tools_libraries_and_parts = Kommandozeilenwerkzeuge, Bibliotheken und Teile, die andere Software verwendet.
+  no_packages_match_2 = Keine Pakete passen zu „{$query}“
+  try_the_program_s_name_or = Versuchen Sie den Namen des Programms oder ein Wort aus seiner Beschreibung.
+  index_of_packages_from_your_locked = Index von {$count :integer} Paketen aus Ihrem festgelegten nixpkgs und Ihren Overlays, erstellt {$when}.
+  rebuild = Neu erstellen
+  the_package_index_could_not_be = Der Paketindex konnte nicht erstellt werden
+  nix_manager_reads_every_package_in = Nix Manager liest einmalig jedes Paket Ihres festgelegten nixpkgs, das dauert etwa eine halbe Minute. Nach Aktualisierungen von nixpkgs wird er neu erstellt.
+  reading_s_configuration = Konfiguration von {$host} wird gelesen
+  evaluating_what_the_home_and_system = Der Inhalt der Benutzer- und der Systemkonfiguration wird ausgewertet. Das dauert einige Sekunden.
+  starting_points = Startpunkte
+  apps_with_details_from_flathub = {$count :integer} Apps mit Details von Flathub
+  app_categories = App-Kategorien
+  popular = Beliebt
+  show_fewer = Weniger anzeigen
+  show_all_apps = Alle {$count :integer} Apps anzeigen
+  searching_still_finds_every_package = Die Suche findet weiterhin jedes Paket.
+  the_app_list_needs_the_package = Die App-Liste braucht den Paketindex, der nicht erstellt werden konnte.
+  downloading_app_details_from_flathub = App-Details werden von Flathub geladen…
+  reading_every_package_in_your_nixpkgs = Jedes Paket Ihres nixpkgs wird einmalig gelesen. Das dauert etwa eine halbe Minute.
+  compared_with_the_version_in_use = Verglichen mit der Version, die jetzt in Gebrauch ist. Wenden Sie Ihre Konfiguration an, um sie zu erhalten.
+  package_changes_on_the_next_apply =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Paket ändert sich beim nächsten Anwenden}}
+    * {{{$count} Pakete ändern sich beim nächsten Anwenden}}
+  filter_installed_packages = Installierte Pakete filtern
+  filter = Filtern (/)
+  not_read_yet = Noch nicht gelesen
+  installed_by = Installiert durch
+  actions = Aktionen
+  the_version_in_use_has_your = In Gebrauch ist {$previous}; Ihre Konfiguration baut {$version}.
+  this_item_is_computed_edit_it = Dieser Eintrag wird berechnet; bearbeiten Sie ihn in der Datei.
+  computed = Berechnet
+  no_installed_packages_match = Keine installierten Pakete passen.
+  nothing_installed_here_yet = Hier ist noch nichts installiert.
+  hide_package_added_by_settings_and =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} durch Einstellungen und Module hinzugefügtes Paket ausblenden}}
+    * {{{$count} durch Einstellungen und Module hinzugefügte Pakete ausblenden}}
+  show_package_added_by_settings_and =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} durch Einstellungen und Module hinzugefügtes Paket anzeigen}}
+    * {{{$count} durch Einstellungen und Module hinzugefügte Pakete anzeigen}}
+  could_not_build_index = Der Paketindex konnte nicht erstellt werden
+  could_not_read = Die Konfiguration von {$host} konnte nicht gelesen werden.
+  could_not_read_apps = Die App-Liste konnte nicht gelesen werden
+  could_not_read_docs = Die Dokumentation der Optionen konnte nicht gelesen werden
+  could_not_save = Die Änderung konnte nicht gespeichert werden
+  new = neu
+  search_failed = Die Suche ist fehlgeschlagen
+}
+
+computer {
+  you_cannot_remove_the_user_you = Sie können den Benutzer, als der Sie angemeldet sind, nicht entfernen.
+  make_another_user_an_administrator_first = Machen Sie zuerst einen anderen Benutzer zum Administrator.
+  set_up_in_remove_it_in = Eingerichtet in {$files}. Entfernen Sie ihn in diesen Dateien.
+  user = Benutzer {$name}
+  edit_pending =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Änderung vorgemerkt}}
+    * {{{$count} Änderungen vorgemerkt}}
+  settings_for_everyone_who_uses_changes = Einstellungen für alle, die {$host} benutzen. Änderungen warten in Ihren vorgemerkten Änderungen, bis Sie sie vorbereiten und anwenden.
+  reading_s_settings = Einstellungen von {$host} werden gelesen
+  suggested_for_this_computer = Empfohlen für diesen Computer
+  nix_manager_found_this_hardware_these = Nix Manager hat diese Hardware gefunden. Mit diesen Funktionen arbeitet sie vollständig.
+  not_now = Jetzt nicht
+  set_up = Einrichten…
+  changed = geändert
+  set_directly_in_flake_nix_change = Direkt in flake.nix festgelegt. Ändern Sie es dort.
+  set_in_which_nix_manager_cannot = In {$file} festgelegt. Nix Manager kann diese Datei nicht bearbeiten; ändern Sie es dort.
+  set_in = Festgelegt in {$files}
+  users = Benutzer
+  people_who_can_log_in_administrators = Personen, die sich anmelden können. Administratoren können Software installieren und diese Einstellungen ändern.
+  add_user = Benutzer hinzufügen
+  set_in_2 = festgelegt in {$file}
+  you = Sie
+  will_be_removed = wird entfernt
+  administrator = Administrator
+  is_an_administrator = {$name} ist Administrator
+  full_name = Vollständiger Name
+  user_name = Benutzername
+  you_set_the_password_after_applying = Das Passwort legen Sie nach dem Anwenden fest, damit es nie in Ihre Konfiguration geschrieben wird.
+  this_configuration_manages_passwords_itself_so = Diese Konfiguration verwaltet Passwörter selbst. Fügen Sie daher vor dem Anwenden in ihrer Datei ein Passwort für den neuen Benutzer hinzu.
+  add = Hinzufügen
+  removing_a_user_keeps_their_files = Wird ein Benutzer entfernt, bleiben die Dateien in /home erhalten.
+  s_configuration_has_none_of_these = Die Konfiguration von {$host} enthält keine dieser Einstellungen.
+  change_not_added_yet =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Änderung noch nicht hinzugefügt}}
+    * {{{$count} Änderungen noch nicht hinzugefügt}}
+  write_to = {$settings} schreiben nach
+  more_than_one_place = mehreren Stellen
+  password_after_apply = Geben Sie {$user} nach dem Anwenden in den Benutzereinstellungen Ihrer Arbeitsumgebung ein Passwort oder führen Sie {$command} aus. Bis dahin kann sich {$user} nicht anmelden.
+  keep_user = {$name} behalten
+}
+
+field {
+  choose_user = Benutzer wählen
+  mixed = Gemischt, in der Datei festgelegt
+  not_set = Nicht festgelegt
+  one_per_line = Eine pro Zeile
+  ports_invalid = Geben Sie Portnummern von 1 bis 65535 ein.
+  ports_placeholder = Keine, zum Beispiel 22, 8080
+  same_as_language = Wie die Sprache
+}
+
+newfile {
+  imported_from = Importiert von
+  new_file = Neue Datei
+  no_importer = Keine von {$host} importierte Datei hat eine imports-Liste, zu der Nix Manager etwas hinzufügen kann.
+  starts_empty = Die Datei beginnt als leeres Modul; ihr Pfad wird zu den imports der obigen Datei hinzugefügt.
+}
+
+apps {
+  audio_video = Audio und Video
+  development = Entwicklung
+  education = Bildung
+  games = Spiele
+  graphics = Grafik
+  internet = Internet
+  office = Büro
+  science = Wissenschaft
+  system = System
+  utilities = Dienstprogramme
 }

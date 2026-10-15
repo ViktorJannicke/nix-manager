@@ -25,7 +25,8 @@
   import Overview from "./pages/Overview.svelte";
   import Updates from "./pages/Updates.svelte";
   import Changes from "./pages/Changes.svelte";
-  import Upcoming from "./pages/Upcoming.svelte";
+  import Software from "./pages/Software.svelte";
+  import Computer from "./pages/Computer.svelte";
   import Generations from "./pages/Generations.svelte";
   import Activity from "./pages/Activity.svelte";
   import Settings from "./pages/Settings.svelte";
@@ -35,11 +36,15 @@
   const reviews = useView(() => dashboard.state?.reviews);
   const system = useView(() => dashboard.state?.system);
   const software = useView(() => dashboard.state?.software);
+  const appList = useView(() => software.state?.apps);
+  const icons = useView(() => software.state?.icons);
   app.dashboardView = dashboard;
   app.operationsView = operations;
   app.reviewsView = reviews;
   app.systemView = system;
   app.softwareView = software;
+  app.appListView = appList;
+  app.iconsView = icons;
 
   onMount(() => app.start());
 
@@ -155,8 +160,8 @@
               {/if}
             </div>
           {:else if app.page === "overview"}<Overview />
-          {:else if app.page === "software"}<Upcoming title={m.nav_software()} />
-          {:else if app.page === "computer"}<Upcoming title={m.nav_computer()} />
+          {:else if app.page === "software"}<Software />
+          {:else if app.page === "computer"}<Computer />
           {:else if app.page === "updates"}<Updates />
           {:else if app.page === "changes"}<Changes />
           {:else if app.page === "generations"}<Generations />

@@ -183,8 +183,10 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     public partial bool AppDetails { get; private set; }
 
     /// <summary>
-    /// The pending edits, rendered against the observed checkout, or null before they are read. The Overview, the
-    /// navigation and the Changes page show them; the Software page edits them.
+    /// The pending edits, rendered against the observed checkout, or null before they are read. Every page shows
+    /// these, so the navigation's count and the Overview need no inventory evaluation; the Software and Computer
+    /// pages edit them through <see cref="SoftwareViewModel.SetDraftCommand"/>, which <see cref="ISoftwareService.Changed"/>
+    /// brings back here.
     /// </summary>
     [ObservableProperty]
     public partial RenderedDraft? Draft { get; private set; }
