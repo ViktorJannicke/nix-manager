@@ -1,13 +1,14 @@
 # The Runic port: the backend and command line (W300-029), the dashboard Window on Runic Desktop (W300-030) and
 # the daemon with its status icon (W300-031), built in the Nix sandbox with the Runic SDK's buildRunicApplication
 # from the committed NuGet and Bun lock files, and tested there. The package is complete for the NixOS module
-# (W300-032): the program, its Polkit policy, a desktop entry with its icon, and shell completions.
+# (W300-032): the program, its Polkit policy, a desktop entry with its icon, and shell completions. The program
+# is published with NativeAOT: the tray shows its icon and the command line answers without starting a runtime or
+# compiling (runic/COMPARISON.md).
 {
   lib,
   stdenv,
   fetchzip,
   makeDesktopItem,
-  dotnetCorePackages,
   buildRunicApplication,
   coreutils,
   diffutils,
@@ -80,19 +81,23 @@ buildRunicApplication {
   };
   projectFile = "runic/NixManager.csproj";
   testProjectFile = "runic/NixManager.Tests/NixManager.Tests.csproj";
-  # One lock file per runtime and project; see NixManager.csproj.
+  # One lock file per runtime and project; see NixManager.csproj. The application restores with PublishAot, the
+  # tests without.
   nugetLockFiles =
     {
       linux-x64 = [
-        ./packages.lock.json
+        ./packages.aot.lock.json
         ./NixManager.Tests/packages.lock.json
       ];
       linux-arm64 = [
-        ./packages.linux-arm64.lock.json
+        ./packages.linux-arm64.aot.lock.json
         ./NixManager.Tests/packages.linux-arm64.lock.json
       ];
     }
     .${runtimeId};
+  # One native executable without the .NET runtime: no JIT at start-up, and the ASP.NET Core runtime leaves the
+  # closure. The tests still run under the JIT.
+  nativeAot = true;
   frontend = {
     packageManager = "bun";
     # The hash of the frontend's node_modules; update both with Frontend/bun.lock. Bun installs only the
@@ -117,12 +122,12 @@ buildRunicApplication {
   icons.scalable = ./Frontend/public/nix-manager.svg;
   iconName = "nix-manager";
   # The completion scripts the command line generates for its own catalog, in the folders NixOS links from
-  # installed packages (share/bash-completion, share/zsh, share/fish). The program runs without its wrapper: it
-  # needs only DOTNET_ROOT (the builder's default runtime) for this, and no state or display.
+  # installed packages (share/bash-completion, share/zsh, share/fish). The program runs without its wrapper, so
+  # without ICU on its library path, and needs no state or display for this.
   postInstall = ''
     completions=$(mktemp -d)
     for shell in bash zsh fish; do
-      HOME=$completions XDG_STATE_HOME=$completions XDG_CONFIG_HOME=$completions DOTNET_ROOT=${dotnetCorePackages.sdk_10_0.aspnetcore}/share/dotnet \
+      HOME=$completions XDG_STATE_HOME=$completions XDG_CONFIG_HOME=$completions \
         DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 NIX_MANAGER_DAEMON=0 \
         "$out/lib/$pname/nix-manager" --completions "$shell" > "$completions/nix-manager.$shell"
       [[ -s $completions/nix-manager.$shell ]]

@@ -90,9 +90,20 @@ in locked mode, and its Bun frontend hash comes from `bun install
 on x86_64-linux, which reproduces the x86_64 hash with `--cpu=x64`. Each
 runtime needs its own lock file because nixpkgs restores with `--runtime` for
 the system's runtime identifier alone, and NuGet's locked mode rejects a lock
-file that records other runtimes. Regenerate both lock files after changing
-package references: `dotnet restore NixManager.slnx --force-evaluate` and the
-`-r linux-arm64` restore above.
+file that records other runtimes. The package is published with NativeAOT,
+whose restore adds the compiler packages, so the application also has an AOT
+lock file per runtime (`packages.aot.lock.json`,
+`packages.linux-arm64.aot.lock.json`); the tests run under the JIT and keep
+theirs. Regenerate all of them after changing package references, in
+`runic/`:
+
+```sh
+dotnet restore NixManager.slnx --force-evaluate
+dotnet restore NixManager.slnx --force-evaluate -p:PublishAot=true
+dotnet restore NixManager.slnx --force-evaluate -r linux-arm64
+dotnet restore NixManager.slnx --force-evaluate -r linux-arm64 -p:PublishAot=true
+```
+
 It writes the host registry to `/etc/nix-manager/hosts.json` and sets
 `NIX_MANAGER_HOSTS` for login sessions and the tray. An empty `hosts` option uses
 `data/hosts.nix` from the selected configuration checkout when it exists, and

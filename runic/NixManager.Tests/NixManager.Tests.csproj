@@ -1,10 +1,13 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<!-- The Nix build publishes the application with NativeAOT (-p:PublishAot=true for every project); the tests run
+     under the JIT, so they keep their own restore and lock files. -->
+<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="PublishAot">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
+    <PublishAot>false</PublishAot>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RuntimeIdentifiers>linux-x64</RuntimeIdentifiers>
     <!-- As in NixManager.csproj: a lock file per runtime for the Nix build. -->
