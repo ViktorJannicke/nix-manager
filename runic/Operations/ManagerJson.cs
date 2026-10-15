@@ -80,4 +80,6 @@ public sealed record CheckDocument(Operation? Operation, UpdateReport? Updates);
 [JsonSerializable(typeof(string))]
 [JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
+[JsonSerializable(typeof(Daemon.DaemonRequest))]
+[JsonSerializable(typeof(Daemon.DaemonMessage))]
 public sealed partial class ManagerJsonContext : JsonSerializerContext;

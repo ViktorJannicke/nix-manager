@@ -1,4 +1,5 @@
 using NixManager.Cli;
+using NixManager.Daemon;
 using NixManager.Dashboard;
 using NixManager.Privileged;
 
@@ -6,8 +7,9 @@ using NixManager.Privileged;
 // processes start (PolkitHelper.Match resets the state pkexec inherited).
 if (args.Length > 0 && args[0] == PrivilegedHelper.Verb) return await PrivilegedHelper.RunAsync(args);
 
-// The dashboard (ui) starts the Desktop host, which must happen before any await.
+// The daemon (tray) and the dashboard (ui) start the Desktop host, which must happen before any await.
+if (DaemonCommand.TryParse(args, out var daemon)) return DaemonCommand.Run(daemon);
 if (DashboardCommand.TryParse(args, out var dashboard)) return DashboardCommand.Run(dashboard);
 
-// The tray follows in W300-031; the command line runs here.
+// The command line runs here; its operations go to the daemon when one runs (D025.4).
 return await NixManagerCli.RunAsync(args);

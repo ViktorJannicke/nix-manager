@@ -292,6 +292,37 @@ reload grace period. An active operation finishes before the backend exits.
 Hidden or minimized dashboards remain connected without relying on UI polling.
 Tray mode and `--no-open` stay resident until quit or interrupted.
 
+#### The Runic port's daemon
+
+The Runic port in `runic/` runs as one per-user process (decision D025). On
+x86_64-linux the module's `programs.nix-manager.runic.enable` defaults to true:
+the `nix-manager-tray` user service runs `nix-manager tray` from the port,
+windowless with the status icon, and that process owns every operation. Its
+`nix-manager` command comes first on the PATH and its Polkit policy replaces the
+Bun version's. Set `runic.enable = false` to run the Bun version alone.
+
+- `nix-manager ui` hands its launch to the daemon over the single-instance
+  socket in `XDG_RUNTIME_DIR`. The daemon opens its dashboard Window, or brings
+  the open one forward. Closing the Window leaves a running operation running.
+  Without a daemon, `ui` becomes that process for as long as its Window is open
+  or an operation runs. Command lines reach it in the same way, and a tray that
+  starts meanwhile waits for it to end.
+- Operation commands hand their request to the daemon when it runs for the same
+  checkout, host and state directory. The daemon streams the operation back, so
+  the terminal shows the same output, `--json` included, and the command exits
+  with the same status. Ctrl+C cancels the operation in the daemon. A second
+  operation is refused with the operation lock's message. Status, history,
+  previews (`--dry-run`), help and completions run in the command's own process.
+  Without a daemon, with `NIX_MANAGER_DAEMON=0`, or without `XDG_RUNTIME_DIR`,
+  commands run in their own process as before. Over SSH, operations with a
+  privileged step also run there, so that Polkit asks on the terminal and not
+  on the desktop.
+- The daemon checks for updates, prepares them and cleans up weekly on the same
+  schedule as the Bun tray. It applies the home part of an update applied on
+  the next boot, and observes the system after every operation. When an
+  operation that neither a Window nor a terminal shows ends, it sends a
+  notification.
+
 ### Translations
 
 The dashboard, the setup assistant and the tray speak English or German. They

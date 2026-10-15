@@ -209,7 +209,8 @@ public sealed partial class OperationStore(Config config)
         return stream;
     }
 
-    private static ManagerException Busy() => new("Another nix-manager operation is running. Wait for it to finish.");
+    /// <summary>Why an operation cannot start while another runs, in any manager process (the Bun lock's message).</summary>
+    internal static ManagerException Busy() => new("Another nix-manager operation is running. Wait for it to finish.");
 }
 
 public static partial class Native

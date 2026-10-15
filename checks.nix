@@ -45,6 +45,31 @@ let
       nixosHostName = "another-machine";
     };
   };
+  # The tray service and command of the Bun version, with the Runic port turned off.
+  bunOnly =
+    (self.inputs.nixpkgs.lib.nixosSystem {
+      inherit system;
+      modules = [
+        self.nixosModules.default
+        {
+          system.stateVersion = "26.05";
+          programs.nix-manager = {
+            enable = true;
+            runic.enable = false;
+            tray.enable = true;
+          };
+        }
+      ];
+    }).config;
+  trayStart = config: config.systemd.user.services.nix-manager-tray.serviceConfig.ExecStart;
+  # The Runic port's program without its wrapper, whose PATH prefix would put the real nix before the mocked one,
+  # as the Bun check runs main.js without its wrapper.
+  runicCommand = lib.escapeShellArgs [
+    "env"
+    "DOTNET_ROOT=${pkgs.dotnetCorePackages.sdk_10_0.aspnetcore}/share/dotnet"
+    "DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1"
+    "${self.packages.${system}.runic}/lib/nix-manager-runic/nix-manager"
+  ];
 in
 {
   nix-manager = manager;
@@ -61,19 +86,28 @@ in
           bash
           coreutils
         ];
-        # The program without its wrapper, whose PATH prefix would put the real nix before the mocked one,
-        # as the Bun check runs main.js without its wrapper.
-        NIX_MANAGER_TEST_COMMAND = lib.escapeShellArgs [
-          "env"
-          "DOTNET_ROOT=${pkgs.dotnetCorePackages.sdk_10_0.aspnetcore}/share/dotnet"
-          "DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1"
-          "${self.packages.${system}.runic}/lib/nix-manager-runic/nix-manager"
-        ];
+        NIX_MANAGER_TEST_COMMAND = runicCommand;
         # The software commands are ported (W300-033); their draft needs the edit engine of the same merge.
         NIX_MANAGER_TEST_SOFTWARE = "1";
       }
       ''
         python3 ${./test/test-manager.py}
+        touch $out
+      '';
+  # The daemon of D025 (W300-031) as processes: a daemon or a dashboard, and command lines that hand it their
+  # operations, with mocked build tools and the dashboard served instead of shown.
+  daemon-runic =
+    pkgs.runCommand "nix-manager-runic-daemon-tests"
+      {
+        nativeBuildInputs = with pkgs; [
+          python3
+          bash
+          coreutils
+        ];
+        NIX_MANAGER_TEST_COMMAND = runicCommand;
+      }
+      ''
+        python3 ${./test/test-daemon.py}
         touch $out
       '';
 }
@@ -106,6 +140,14 @@ in
     assert first.security.wrappers.pkexec.enable;
     assert
       !(lib.hasInfix "--flake" first.systemd.user.services.nix-manager-tray.serviceConfig.ExecStart);
+    # The tray service runs the Runic daemon where the port is built, and the Bun tray when it is turned off.
+    assert
+      (self.packages.${system} ? runic)
+      -> lib.hasPrefix "${lib.getExe self.packages.${system}.runic} tray --interval 360" (
+        trayStart first
+      );
+    assert lib.hasPrefix "${lib.getExe manager} tray --interval 360" (trayStart bunOnly);
+    assert builtins.elem manager bunOnly.environment.systemPackages;
     pkgs.runCommand "nix-manager-module-tests" { } "touch $out";
   formatting =
     pkgs.runCommand "nix-manager-nix-formatting"

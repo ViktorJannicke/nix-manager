@@ -29,7 +29,10 @@ public sealed class CliSession
     public IReadOnlyList<string> Extra { get; init; } = [];
     public ManagerEnvironment Environment { get; init; } = ManagerEnvironment.Current;
     public ICommandRunner Runner { get; init; } = new ProcessCommandRunner();
-    /// <summary>Creates the client for a loaded configuration; by default an operation service in this process.</summary>
+    /// <summary>
+    /// Creates the client for a loaded configuration; by default the running daemon's, or an operation service in this
+    /// process when none runs.
+    /// </summary>
     public Func<Config, ICommandRunner, IOperationClient> CreateClient { get; init; } = DefaultClient;
     public TimeProvider Clock { get; init; } = TimeProvider.System;
     public TimeSpan HeartbeatInterval { get; init; } = TimeSpan.FromSeconds(15);
@@ -44,7 +47,9 @@ public sealed class CliSession
     {
         var privileged = new PrivilegedCommandRunner(config,
             PolkitPrivilegedActions.Create(PrivilegedActions.All), PrivilegedActions.Privileged, runner);
-        return new LocalOperationClient(new OperationService(config, privileged, new UpdateChecker(new HttpNetwork())));
+        // The operation goes to the daemon when one runs for this configuration (D025.4), and runs here otherwise.
+        return new Daemon.RoutingOperationClient(
+            new LocalOperationClient(new OperationService(config, privileged, new UpdateChecker(new HttpNetwork()))));
     }
 }
 
