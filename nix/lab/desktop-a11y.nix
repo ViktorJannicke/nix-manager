@@ -196,9 +196,38 @@ pkgs.testers.runNixOSTest {
             spoken = speech()
             for phrase in ["Skip to content", "Sections", "Overview", "Settings", "button"]:
                 assert phrase in spoken, f"Orca did not say {phrase!r}"
+            # The navigation is a list Orca counts, as in the Bun version, without the WebKitGTK abort (README.md).
+            assert f"List with {len(sections)} items" in spoken, f"Orca did not say 'List with {len(sections)} items'"
+
+        with subtest("Orca reads the new number of restore points to keep"):
+            # The Bun version announced it through a live region, which WebKitGTK never reports; the port's field is a
+            # spin button, whose value Orca reads as it changes (RetentionField.svelte).
+            tab_to("Restore points")
+            machine.send_key("ret")
+            machine.wait_until_succeeds("lab-user lab-atspi nix-manager | grep -q \"spin button 'Keep newest'\"", timeout=timedelta(seconds=30))
+            tab_to("Keep newest", limit=40)
+            machine.sleep(2)
+            def kept():
+                line = machine.succeed("lab-user lab-atspi nix-manager | grep -m1 \"spin button 'Keep newest'\"")
+                found = re.search(r"value=(\d+)", line)
+                assert found, f"the spin button has no value: {line!r}"
+                return int(found.group(1))
+            before_value = kept()
+            machine.succeed("truncate -s 0 /run/lab/spoken.txt")
+            machine.send_key("up")
+            machine.wait_until_succeeds(f"grep -qx '{before_value + 1}' /run/lab/spoken.txt", timeout=timedelta(seconds=20))
+            # Orca finishes saying it before the next key, as a listener would wait.
+            settle()
+            print(f"Up in the restore points to keep: {speech()!r}")
+            machine.succeed("truncate -s 0 /run/lab/spoken.txt")
+            machine.send_key("down")
+            machine.wait_until_succeeds(f"grep -qx '{before_value}' /run/lab/spoken.txt", timeout=timedelta(seconds=20))
+            print(f"Down in the restore points to keep: {speech()!r}")
+            assert kept() == before_value
+            assert cores() == before, "WebKitWebProcess aborted on the Restore points page"
 
         with subtest("The keyboard opens Settings"):
-            tab_to("Settings")
+            tab_to("Settings", limit=80)
             machine.send_key("ret")
             machine.wait_until_succeeds("lab-user lab-atspi nix-manager | grep -q \"heading 'Settings'\"", timeout=timedelta(seconds=30))
             machine.screenshot("settings")

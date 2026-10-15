@@ -107,12 +107,14 @@
         <SnowflakeIcon class="size-5 text-primary" />
         <span class="font-bold tracking-tight">Nix Manager</span>
       </div>
-      <!-- Each item is display: contents, so WebKitGTK exposes it with its button's text rather than an embedded
-           object: an item whose text is only U+FFFC aborts WebKitGTK 2.54's web process when Orca asks for its text
-           attributes (README.md, Desktop and screen-reader VM tests). The list keeps its items; the gap spaces them. -->
+      <!-- Each item is display: contents. WebKitGTK 2.54 aborts its web process when Orca asks for the text
+           attributes of a list item whose text is its button's U+FFFC and whose last node has no box, such as the
+           anchors Svelte leaves for the icon, the count and the spinner (nix/lab/webkit-attribute-run/REPORT.md). An
+           item without a box answers without that computation. Orca then cannot count the items itself, so each says
+           how many there are, and Orca announces "list with 8 items" again. The gap spaces them. -->
       <ul role="list" class="flex flex-col gap-0.5">
-        {#each nav as item (item.id)}
-          <li class="contents">
+        {#each nav as item, index (item.id)}
+          <li class="contents" aria-setsize={nav.length} aria-posinset={index + 1}>
             <!-- Long labels, such as German compounds, wrap at their soft hyphen instead of being cut off. -->
             <button
               class="focus-ring flex min-h-9 w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-left leading-snug transition-colors
