@@ -5,6 +5,10 @@ common {
   close = Schließen
   loading = Wird geladen…
   something_went_wrong = Etwas ist schiefgelaufen
+  done = Fertig
+  prepare = Vorbereiten
+  preparing = Wird vorbereitet…
+  undo = Rückgängig
 }
 
 nav {
@@ -13,7 +17,7 @@ nav {
   overview = Übersicht
   reading_state = Zustand dieses Computers wird gelesen
   reconnecting = Verbindung wird wiederhergestellt
-  restore_points = Wiederherstellungspunkte
+  restore_points = Wiederherstellungs­punkte
   running = , läuft
   sections = Bereiche
   settings = Einstellungen
@@ -21,6 +25,9 @@ nav {
   skip_to_content = Zum Inhalt springen
   targeting = Ziel: {$host}
   updates = Aktualisierungen
+  changes = Änderungen
+  computer = Computer
+  software = Software
 }
 
 scope {
@@ -62,6 +69,7 @@ format {
     * {{etwa {$count} Stunden}}
   longer_than_usual = Dauert länger als üblich
   time_left = noch {$time}
+  unversioned = ohne Version
 }
 
 progress {
@@ -92,6 +100,14 @@ toast {
   finished = {$label} abgeschlossen
   notifications = Benachrichtigungen
   view_log = Protokoll ansehen
+  active_after_restart = Das neue System wird nach einem Neustart aktiv.
+  allow_non_free = Unfreie Software erlauben
+  changes_applied = Änderungen angewendet
+  nothing_changed_yet = Auf dem Computer hat sich noch nichts geändert.
+  pin_saved = {$label}: Pin gespeichert
+  pin_saved_body = Bereiten Sie die Änderungen Ihres Benutzers vor, um die neue Version zu bauen und anzuwenden.
+  ready_to_review = Änderungen sind bereit zur Prüfung
+  will_apply_on_next_boot = Wird beim nächsten Start angewendet
 }
 
 confirm {
@@ -109,6 +125,41 @@ overview {
   show_output = Ausgabe anzeigen
   step_so_far = {$step}, bisher {$duration}
   this_computer = Dieser Computer
+  detached = Losgelöst
+  disk_space = Speicherplatz für Software
+  disk_used = Belegter Speicherplatz
+  edits_cannot_apply =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Änderung lässt sich auf Ihre Konfiguration in ihrem jetzigen Zustand nicht anwenden.}}
+    * {{{$count} Änderungen lassen sich auf Ihre Konfiguration in ihrem jetzigen Zustand nicht anwenden.}}
+  everything_saved = Alles ist gespeichert
+  free = {$size} frei
+  free_space = Speicherplatz durch Entfernen alter Wiederherstellungspunkte freigeben
+  last_change = Letzte Änderung, {$when}
+  of_total = von {$total}
+  pending_edits =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} vorgemerkte Änderung an Ihrer Konfiguration}}
+    * {{{$count} vorgemerkte Änderungen an Ihrer Konfiguration}}
+  prepare_both = Ihren Benutzer und das System gemeinsam vorbereiten
+  reading = Wird gelesen…
+  restart_kernel = Das System läuft noch mit Kernel {$booted}; die aktive Konfiguration verwendet {$current}.
+  restart_to_finish = Starten Sie neu, um die Aktualisierung abzuschließen.
+  show_edits = Änderungen anzeigen
+  sources_edited = , Quellversionen bearbeitet
+  state = Zustand dieses Computers
+  undo_explanation = „Rückgängig“ stellt den Zustand {$what} von vorher wieder her{$files}. Sie sehen, was sich ändert, bevor etwas angewendet wird.
+  undo_files_included = , einschließlich der Konfigurationsdateien
+  undo_this_computer = dieses Computers
+  undo_your_setup = Ihres Benutzers
+  unknown = Unbekannt
+  unsaved_changes =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} nicht gespeicherte Änderung im Ordner}}
+    * {{{$count} nicht gespeicherte Änderungen im Ordner}}
 }
 
 activity {
@@ -182,6 +233,23 @@ updates {
   sources_body = Woher Ihre Software kommt. Aktualisierungen werden gebaut und zur Prüfung angezeigt, bevor sich etwas ändert.
   up_to_date = Alles ist aktuell
   up_to_date_body = Alle Softwarequellen und festgelegten Apps haben ihre neuesten Versionen.
+  both = Beides
+  pin_description = Lädt die Version herunter und schreibt sie dann in Ihre Konfiguration.
+  pin_point_configuration = Ihre Konfiguration wird geändert; Git zeigt genau, was sich geändert hat.
+  pin_point_nothing_yet = Auf dem Computer ändert sich noch nichts. Bereiten Sie die Änderungen Ihres Benutzers vor, um die neue Version zu bauen und anzuwenden.
+  pin_title = {$name} auf {$version} aktualisieren?
+  prepare = Aktualisierungen vorbereiten
+  prepare_count =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Aktualisierung vorbereiten}}
+    * {{{$count} Aktualisierungen vorbereiten}}
+  select = {$name} auswählen
+  select_all = Alle Quellen auswählen
+  update = Aktualisieren
+  update_name = {$name} aktualisieren
+  update_pin = Festgelegte Version aktualisieren
+  what_to_prepare = Was vorbereitet wird
 }
 
 restore {
@@ -196,7 +264,6 @@ restore {
     one {{Behält den neuesten Wiederherstellungspunkt {$scope} sowie den aktuell verwendeten.}}
     * {{Behält die neuesten {$count} Wiederherstellungspunkte {$scope} sowie den aktuell verwendeten.}}
   cleanup_no_going_back = Löscht Dateien, die nichts mehr verwendet. Zu entfernten Wiederherstellungspunkten können Sie nicht zurückkehren.
-  cleanup_system_password = Entfernt ältere Wiederherstellungspunkte des Systems und ihre Einträge im Startmenü; Sie werden nach Ihrem Passwort gefragt.
   cleanup_title = Alte Wiederherstellungspunkte entfernen?
   go_back = Hierhin zurückkehren…
   history = Verlauf
@@ -218,6 +285,37 @@ restore {
   running_until_restart = Läuft bis zum Neustart
   running_until_restart_body = Der Computer wurde mit dieser Version gestartet; sie wechselt beim nächsten Neustart.
   what_to_clean_up = Was aufgeräumt werden soll
+  cleanup_automatic = In den Einstellungen können alte Wiederherstellungspunkte Ihres Benutzers automatisch entfernt werden.
+  cleanup_freeing =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Wiederherstellungspunkt wird entfernt und gibt etwa {$size} frei{$note}.}}
+    * {{{$count} Wiederherstellungspunkte werden entfernt und geben etwa {$size} frei{$note}.}}
+  cleanup_frees = Gibt etwa {$size} frei, mehr, wenn weitere ungenutzte Dateien gefunden werden.
+  cleanup_measuring =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Wiederherstellungspunkt wird entfernt. Der dadurch frei werdende Speicherplatz wird gemessen…}}
+    * {{{$count} Wiederherstellungspunkte werden entfernt. Der dadurch frei werdende Speicherplatz wird gemessen…}}
+  cleanup_removes_home =
+    .input {$count :integer}
+    .match $count
+    one {{Entfernt {$count} Wiederherstellungspunkt Ihres Benutzers.}}
+    * {{Entfernt {$count} Wiederherstellungspunkte Ihres Benutzers.}}
+  cleanup_removes_none = Es werden keine Wiederherstellungspunkte entfernt; Dateien, die nichts verwendet, werden trotzdem gelöscht.
+  cleanup_removes_system =
+    .input {$count :integer}
+    .match $count
+    one {{Entfernt {$count} Wiederherstellungspunkt des Systems und die zugehörigen Einträge im Startmenü; Sie werden nach Ihrem Passwort gefragt.}}
+    * {{Entfernt {$count} Wiederherstellungspunkte des Systems und die zugehörigen Einträge im Startmenü; Sie werden nach Ihrem Passwort gefragt.}}
+  cleanup_shared = (andere Wiederherstellungspunkte verwenden ihre Dateien weiter)
+  could_not_read = Die Wiederherstellungspunkte konnten nicht gelesen werden.
+  go_back_builds = Baut diesen Wiederherstellungspunkt erneut und zeigt, was sich gegenüber jetzt ändert.
+  go_back_description = Erstellt am {$date}. Das Zurückkehren wird zuerst zur Überprüfung vorbereitet.
+  go_back_home_title = Zum Wiederherstellungspunkt {$generation} Ihres Benutzers zurückkehren
+  go_back_nothing_yet = Am Computer ändert sich nichts, bis Sie es auf der Seite „Änderungen“ anwenden.
+  go_back_system_title = Zum Wiederherstellungspunkt {$generation} des Systems zurückkehren
+  scope_user_and_system = Ihres Benutzers und des Systems
 }
 
 settings {
@@ -238,14 +336,289 @@ settings {
   target_host = Zielrechner
   theme = Farbschema
   this_computer = {$host} (dieser Computer)
+  app_details = App-Details von Flathub anzeigen
+  app_details_body = Namen, Beschreibungen, Kategorien und Symbole der Apps kommen aus dem öffentlichen Katalog von Flathub, der etwa einmal pro Woche heruntergeladen wird. Die Apps selbst werden weiterhin aus Ihrem nixpkgs installiert.
+  backup = Nach jeder Änderung sichern
+  backup_body = Der Verlauf wird nach jeder angewendeten Änderung an {$upstream} gesendet.
+  backup_no_remote = Der Konfigurationsordner hat noch keine entfernte Kopie, in die gesichert werden kann.
+  clean_up = Automatisch aufräumen
+  clean_up_body = Einmal pro Woche, während der Computer am Strom hängt und nicht ausgelastet ist, werden ältere Wiederherstellungspunkte Ihrer Apps entfernt und Dateien gelöscht, die nichts mehr verwendet. Die neuesten fünf bleiben. Wiederherstellungspunkte des Systems werden nur entfernt, wenn Sie es wählen.
+  detail = Wie viel angezeigt wird
+  detail_detailed_body = Jeder Schritt: vorbereiten, dann den vollständigen Vergleich prüfen, dann anwenden.
+  detail_simple_body = Ein Knopf wendet Ihre Änderungen an, mit einer kurzen Zusammenfassung vorab, wenn sie einen Blick brauchen.
+  detailed = Ausführlich
+  history = Verlauf der Änderungen führen
+  history_body = Jede angewendete Änderung wird mit einer kurzen Beschreibung gespeichert, damit die Seite „Wiederherstellungspunkte“ zeigt, was sich wann geändert hat. Der Verlauf liegt mit Git im Konfigurationsordner.
+  prepare_updates = Aktualisierungen im Hintergrund vorbereiten
+  prepare_updates_body = Findet das Symbol in der Kontrollleiste Aktualisierungen, werden sie heruntergeladen und gebaut, während der Computer am Strom hängt und nicht ausgelastet ist. Eine Benachrichtigung meldet, wenn sie bereit sind. Angewendet wird nichts, bevor Sie es entscheiden.
+  simple = Einfach
 }
 
 placeholder {
-  history = Der Verlauf der Änderungen an der Konfiguration wird in dieser Version noch nicht angezeigt.
-  history_title = Verlauf noch nicht verfügbar
-  overview = Wiederherstellungspunkte, Speicherplatz und der Zustand des Konfigurationsordners werden in dieser Version noch nicht angezeigt.
-  restore_points = Wiederherstellungspunkte auflisten und zu einem zurückkehren ist in dieser Version noch nicht möglich. Aufräumen funktioniert.
-  restore_points_title = Wiederherstellungspunkte noch nicht verfügbar
-  settings = Vorbereiten im Hintergrund, automatisches Aufräumen, der Verlauf der Änderungen und App-Details werden vorerst in der vorherigen Version von Nix Manager eingestellt.
-  updates = Aktualisierungen zur Prüfung vorbereiten und angeheftete Apps aktualisieren ist in dieser Version noch nicht möglich. Nutzen Sie dafür die vorherige Version von Nix Manager oder aktualisieren und wenden Sie über die Befehlszeile an, zum Beispiel mit nix-manager update switch.
+  page = Diese Seite folgt im nächsten Teil dieser Version. Verwenden Sie dafür bis dahin die vorherige Version von Nix Manager.
+  page_title = Noch nicht verfügbar
+}
+
+rail {
+  building_next = Nächste Version wird gebaut
+  changes =
+    .input {$count :integer}
+    .input {$added :integer}
+    .input {$removed :integer}
+    .match $count
+    one {{{$count} Aktualisierung, {$added} neu, {$removed} entfernt}}
+    * {{{$count} Aktualisierungen, {$added} neu, {$removed} entfernt}}
+  count =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Wiederherstellungs­punkt}}
+    * {{{$count} Wiederherstellungs­punkte}}
+  first_build = Erster Build dieses Profils
+  in_use_since = In Verwendung seit {$when}
+  label = Wiederherstellungspunkte: {$title}
+  next_ready = Nächste Version, bereit zum Anwenden
+  none = Noch keine Wiederherstellungspunkte
+  not_active_until_applied = Erst aktiv, wenn Sie sie anwenden
+  point = Wiederherstellungspunkt {$number}, {$when}
+  prepare_home = Nächste Version Ihres Benutzers vorbereiten
+  prepare_system = Nächste Systemversion vorbereiten
+  running = läuft
+}
+
+pending {
+  apply = Änderungen anwenden
+  review_and_apply = Prüfen und anwenden
+}
+
+changes {
+  adds = Fügt hinzu:
+  after_boot = Die Systemaktualisierung wird nach dem nächsten Neustart verwendet. Ihre Apps werden dann ebenfalls aktualisiert, oder wenden Sie jetzt an, um sie sofort zu aktualisieren.
+  apply_now = Jetzt anwenden
+  apply_now_title = Diese Änderungen jetzt anwenden?
+  apply_on_boot = Beim nächsten Start anwenden
+  apply_on_boot_title = Beim nächsten Start anwenden?
+  boot_default = Macht das geprüfte System zum Standard-Starteintrag. Das laufende System bleibt bis zum Neustart unverändert.
+  checkout_changed = Ihre Konfiguration hat sich geändert, seit dies vorbereitet wurde. Beim Anwenden wird genau das verwendet, was hier gebaut wurde; bereiten Sie erneut vor, um neuere Änderungen einzubeziehen.
+  compared_to_now = {$size} im Vergleich zu jetzt
+  could_not_discard = Die Änderungen konnten nicht verworfen werden
+  could_not_hold = Es konnte nicht angehalten werden
+  count =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Änderung}}
+    * {{{$count} Änderungen}}
+  counts = {$changed :integer} aktualisiert, {$added :integer} neu, {$removed :integer} entfernt
+  creates_files =
+    .input {$count :integer}
+    .match $count
+    one {{Erstellt {$files} und fügt die Datei zu Git hinzu, damit Nix sie lesen kann.}}
+    * {{Erstellt {$files} und fügt die Dateien zu Git hinzu, damit Nix sie lesen kann.}}
+  deletes = Löscht {$files} (von dieser Änderung erstellt).
+  discard = Verwerfen
+  discarded = Vorbereitete Änderungen verworfen
+  draft_moved = Ihre vorgemerkten Änderungen haben sich geändert, seit dies vorbereitet wurde. Beim Anwenden werden die unten gezeigten Änderungen geschrieben; bereiten Sie erneut vor, um die übrigen einzubeziehen.
+  edits_checked = Geprüft, indem die Konfiguration von {$host} mit und ohne diese Änderungen ausgewertet wurde. Sie werden beim Anwenden in Ihre Konfiguration geschrieben.
+  edits_in_review =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Änderung in dieser Prüfung}}
+    * {{{$count} Änderungen in dieser Prüfung}}
+  everything_differs = Alles, was vom laufenden Stand abweicht
+  from_version = von {$version}
+  hide_details = Details ausblenden
+  home_after_restart = Ihre Apps werden nach dem Neustart aktualisiert, sobald der Computer das neue System ausführt.
+  home_apps = Apps Ihres Benutzers
+  home_disk = Speicherplatzbedarf Ihres Benutzers
+  intro = Vorbereitete Builds, die auf Ihre Entscheidung warten. Noch ist nichts davon aktiv.
+  kernel_restart = Der Kernel ändert sich; starten Sie danach neu, um ihn zu verwenden.
+  lock_changed = Die Quellversionen haben sich geändert, seit diese Aktualisierungen vorbereitet wurden. Verwerfen Sie sie und bereiten Sie sie erneut vor.
+  new_kernel = Neuer Kernel {$version}; zur Verwendung ist ein Neustart nötig.
+  no_home_to_compare = Es gibt keine aktive Benutzerkonfiguration zum Vergleichen, daher ist alles in diesem Build neu.
+  no_system_to_compare = Es gibt keine aktive Systemkonfiguration zum Vergleichen, daher ist alles in diesem Build neu.
+  none = Keine vorbereiteten Änderungen
+  none_body = Bereiten Sie Änderungen vor, um Ihre Konfiguration zu bauen und mit dem laufenden Stand zu vergleichen.
+  nothing_to_compare = Nichts Aktives zum Vergleichen
+  option = {$host}, {$scope}, vorbereitet {$time}
+  other_host = Für {$host} gebaut, dieser Computer ist aber {$current}.
+  packages = Pakete
+  packages_home = Paketänderungen Ihres Benutzers
+  packages_system = Paketänderungen des Systems
+  prepare_all = Ihren Benutzer und das System vorbereiten
+  prepare_home = Ihren Benutzer vorbereiten
+  prepared_changes = Vorbereitete Änderungen
+  prepared_for = Vorbereitet {$time} für {$host}.
+  prepared_not_active = Vorbereitet {$time} für {$host}, noch nicht aktiv
+  preparing = Änderungen werden vorbereitet…
+  preparing_body = Der Build läuft; seine Änderungen erscheinen hier, sobald er fertig ist.
+  puts_back =
+    .input {$count :integer}
+    .match $count
+    one {{Stellt {$files} so wieder her, wie die Datei vor dieser Änderung war.}}
+    * {{Stellt {$files} so wieder her, wie die Dateien vor dieser Änderung waren.}}
+  removes = Entfernt:
+  restore_point_kept = Die aktuelle Version bleibt als Wiederherstellungspunkt erhalten, zu dem Sie zurückkehren können.
+  saves_lock = Speichert die geprüften Quellversionen (flake.lock) in Ihrer Konfiguration.
+  show_details = Alle Details anzeigen
+  show_progress = Fortschritt anzeigen
+  switches_home = Stellt die Apps und Einstellungen Ihres Benutzers auf die geprüfte Version um.
+  switches_system = Stellt das laufende System auf die geprüfte Version um. Sie werden nach Ihrem Passwort gefragt.
+  system_apps = Apps des Systems
+  system_disk = Speicherplatzbedarf des Systems
+  undo_before = Kehrt zum Stand vor dem {$date} zurück und macht rückgängig:
+  undo_restores = Beim Anwenden wird außerdem {$files} wiederhergestellt.
+  updates = Aktualisiert: {$name}
+  writes_file = Schreibt Ihre Änderungen in {$path} in Ihrer Konfiguration.
+  writes_files = Schreibt Ihre Änderungen in {$count :integer} Dateien in Ihrer Konfiguration.
+  your_edits = Ihre Änderungen
+}
+
+review {
+  title_all_sources = Alle Softwarequellen aktualisieren {$scope}
+  title_configuration = Ihre Konfiguration anwenden {$scope}
+  title_generation = Zum Wiederherstellungspunkt {$generation} zurückkehren {$scope}
+  title_names = {$names} aktualisieren {$scope}
+  title_sources = {$count :integer} Softwarequellen aktualisieren {$scope}
+  title_undo = Änderung vom {$date} rückgängig machen {$scope}
+}
+
+packages {
+  all = Alle
+  change = Änderung
+  change_type = Art der Änderung
+  new = Neu
+  no_match = Keine passenden Pakete.
+  none = Keine Paketänderungen.
+  package = Paket
+  rebuilt = Neu gebaut
+  removed = Entfernt
+  same_version = gleiche Version
+  search = Pakete suchen
+  show_more = {$count :integer} weitere von {$remaining :integer} verbleibenden anzeigen
+  shown =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Paket angezeigt}}
+    * {{{$count} Pakete angezeigt}}
+  size = Größe
+  updated = Aktualisiert
+  version = Version
+}
+
+diff {
+  added = hinzugefügt
+  file_changes = Änderungen an {$path}
+  new_file = neue Datei
+  removed = entfernt
+}
+
+onestep {
+  applied = Ihre Änderungen sind angewendet
+  applied_when_ready = Es ändern sich nur Ihre Apps, daher wird es angewendet, sobald es bereit ist.
+  applying = Ihre Änderungen werden angewendet
+  details = Details
+  download_and_check = Herunterladen und prüfen
+  downloaded_and_checked = Heruntergeladen und geprüft
+  downloading_and_checking = Wird heruntergeladen und geprüft
+  failed_before_change = Es konnte nicht angewendet werden, bevor sich etwas geändert hat. Ihre Änderung ist weiterhin in Ihren vorgemerkten Änderungen.
+  failed_not_undone = Es konnte nicht angewendet werden, und das Zurückkehren hat nicht funktioniert. Auf der Seite „Wiederherstellungspunkte“ können Sie zurückkehren.
+  failed_partly_undone = Es konnte nicht angewendet werden, und nur ein Teil ließ sich rückgängig machen. Ihre Änderung ist weiterhin in Ihren vorgemerkten Änderungen.
+  failed_to_prepare = Es konnte nicht vorbereitet werden, daher hat sich nichts geändert. Ihre Änderung ist weiterhin in Ihren vorgemerkten Änderungen.
+  failed_went_back = Es konnte nicht angewendet werden, daher ist alles wieder wie zuvor. Ihre Änderung ist weiterhin in Ihren vorgemerkten Änderungen.
+  full_log = Vollständiges Protokoll anzeigen
+  held = Es wurde vorbereitet, aber nicht angewendet. {$reason}
+  hide = Ausblenden
+  install = Installieren
+  installed = Installiert
+  installing = Wird installiert
+  menu_delay = Gerade installierte Apps können einen Moment brauchen, bis sie in Ihrem Menü erscheinen.
+  only_apps_changed = Es haben sich nur Ihre Apps geändert. Sie können es rückgängig machen, bis Sie alte Versionen aufräumen.
+  open_review = Prüfung öffnen
+  ready_for_review = Bereit zur Prüfung
+  review_first = Erst prüfen
+  stages = Fortschritt
+  stop = Anhalten
+  waits_for_review = Es wartet auf Ihre Prüfung, sobald es bereit ist.
+}
+
+summary {
+  adds = fügt {$count :integer} hinzu
+  adds_packages =
+    .input {$count :integer}
+    .match $count
+    one {{fügt {$count} Paket hinzu}}
+    * {{fügt {$count} Pakete hinzu}}
+  changes_settings =
+    .input {$count :integer}
+    .match $count
+    one {{ändert {$count} Einstellung}}
+    * {{ändert {$count} Einstellungen}}
+  downloaded = Zur Vorbereitung wurden {$size} heruntergeladen.
+  everything_new = baut alles neu, da nichts Aktives zum Vergleichen da ist
+  first_home = richtet die Apps und Einstellungen Ihres Benutzers zum ersten Mal ein
+  first_system = baut das System neu, da kein aktives System zum Vergleichen da ist
+  frees_space = Es werden etwa {$size} Speicherplatz frei.
+  installs = installiert {$names}
+  more = {$count :integer} weitere
+  needs_space = Es wird etwa {$size} mehr Speicherplatz benötigt.
+  nothing_changes = An dem, was Sie benutzen, ändert sich nichts.
+  removes = entfernt {$names}
+  removes_count = entfernt {$count :integer}
+  removes_packages =
+    .input {$count :integer}
+    .match $count
+    one {{entfernt {$count} Paket}}
+    * {{entfernt {$count} Pakete}}
+  restart_for_kernel = Starten Sie danach neu, um den neuen Kernel zu verwenden.
+  updates_packages =
+    .input {$count :integer}
+    .match $count
+    one {{aktualisiert {$count} Paket}}
+    * {{aktualisiert {$count} Pakete}}
+  updates_sources =
+    .input {$count :integer}
+    .match $count
+    one {{Aktualisiert {$count} Softwarequelle.}}
+    * {{Aktualisiert {$count} Softwarequellen.}}
+}
+
+setup {
+  could_not_start = Nix Manager konnte nicht gestartet werden
+  problem_hint = Nix Manager liest die Konfiguration in {$flake}. Beheben Sie das Problem dort und öffnen Sie Nix Manager erneut, oder führen Sie {$command} in einem Terminal aus, um eine andere Konfiguration zu wählen.
+  not_connected = Das Dashboard konnte keine Verbindung zu Nix Manager herstellen.
+  title = Diesen Computer einrichten
+  intro = Nix Manager hält die Konfiguration dieses Computers in einem Ordner, der Ihnen gehört, damit es sie für Sie ändern und jede Version aufbewahren kann. Dabei wird Ihre Konfiguration einmalig aus /etc/nixos in diesen Ordner kopiert; am laufenden System ändert sich nichts.
+  looking = Dieser Computer wird untersucht…
+  what_is_here = Was vorhanden ist
+  computer = Computer
+  you = Sie
+  configuration = Konfiguration
+  files =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} Datei in /etc/nixos}}
+    * {{{$count} Dateien in /etc/nixos}}
+  none_found = Keine gefunden
+  flakes = Flakes
+  flakes_on = An
+  flakes_off = Vorerst aus; die neue Konfiguration schaltet sie ein
+  unreadable =
+    .input {$count :integer}
+    .match $count
+    one {{Nur ein Administrator kann {$files} lesen, daher bleibt die Datei zurück. Wenn die Konfiguration sie braucht, kopieren Sie sie anschließend in den neuen Ordner.}}
+    * {{Nur ein Administrator kann {$files} lesen, daher bleiben diese Dateien zurück. Wenn die Konfiguration sie braucht, kopieren Sie sie anschließend in den neuen Ordner.}}
+  channel_imports = Die Konfiguration importiert {$imports} aus Channels. Ein Flake kann keine Channels sehen, deshalb schlägt die Prüfung unten fehl, bis diese Importe zu Flake-Eingaben werden.
+  where = Wo Ihre Konfiguration liegt
+  folder = Ordner
+  folder_help = Ein neuer, leerer Ordner in Ihrem Home-Ordner. Er wird zu einem Git-Repository, damit jede Ihrer Änderungen aufbewahrt wird.
+  try_again = Erneut versuchen
+  create = Meine Konfiguration erstellen
+  setting_up = Einrichtung läuft
+  step_running = läuft
+  step_done = fertig
+  step_failed = fehlgeschlagen
+  step_waiting = wartet
+  removed = Der Ordner wurde wieder entfernt, sodass Sie es noch einmal versuchen können.
+  opening = Nix Manager wird geöffnet…
+  how = So funktionieren Änderungen
+  how_text = Alles, was Sie ändern, von Apps bis zu Einstellungen, wird in diese Dateien geschrieben und wartet als vorgemerkte Änderung. „Vorbereiten“ baut die neue Version im Hintergrund, während Sie weiterarbeiten, und zeigt, was sich ändern wird. „Anwenden“ stellt den Computer darauf um, und jede angewendete Version bleibt als Wiederherstellungspunkt erhalten, zu dem Sie zurückkehren können.
 }

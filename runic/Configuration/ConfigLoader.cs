@@ -185,7 +185,16 @@ public sealed partial class ConfigLoader(ICommandRunner runner, ManagerEnvironme
     {
         var asked = flake is { Length: > 0 } ? flake : _env.Variable("NIX_MANAGER_FLAKE");
         if (asked is { Length: > 0 }) return (asked, true);
-        var repo = await Quiet("Find checkout", ["git", "rev-parse", "--show-toplevel"], allowFailure: true).ConfigureAwait(false);
+        CommandResult repo;
+        try
+        {
+            repo = await Quiet("Find checkout", ["git", "rev-parse", "--show-toplevel"], allowFailure: true).ConfigureAwait(false);
+        }
+        catch (ManagerException)
+        {
+            // Without Git, as on a NixOS installation the setup assistant has not set up yet, this is no checkout.
+            repo = new CommandResult(127, "", "");
+        }
         var path = repo.Stdout.Trim();
         if (repo.Code == 0 && await IsConfiguration(path).ConfigureAwait(false)) return (path, false);
         var remembered = File.Exists(RememberedCheckout) ? (await File.ReadAllTextAsync(RememberedCheckout).ConfigureAwait(false)).Trim() : "";

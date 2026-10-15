@@ -1,13 +1,16 @@
 <script lang="ts">
   import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
-  import InfoIcon from "@lucide/svelte/icons/info";
   import { Button } from "$lib/components/ui/button";
-  import { app, type Theme } from "$lib/app.svelte";
+  import { Switch } from "$lib/components/ui/switch";
+  import { app, type Detail, type Language, type Theme } from "$lib/app.svelte";
   import Segmented from "$lib/components/app/Segmented.svelte";
-  import { m } from "$lib/i18n";
+  import Markup from "$lib/components/app/Markup.svelte";
+  import { m, slot } from "$lib/i18n";
 
-  const theme = $derived((app.dashboard?.theme ?? "system") as Theme);
-  const language = $derived(app.dashboard?.language ?? "system");
+  const dashboard = $derived(app.dashboard);
+  const theme = $derived((dashboard?.theme ?? "system") as Theme);
+  const language = $derived(dashboard?.language ?? "system");
+  const upstream = $derived(app.system?.repository.upstream ?? undefined);
   const hosts = $derived(app.config?.hosts ?? []);
   const host = $derived(hosts.find((item) => item.name === app.host));
 </script>
@@ -45,21 +48,49 @@
         aria-labelledby="language-heading"
         value={language}
         disabled={!app.connected}
-        onchange={(event) => app.setLanguage(event.currentTarget.value as "system" | "en" | "de")}
+        onchange={(event) => app.setLanguage(event.currentTarget.value as Language)}
       >
         <option value="system">{m.scope_system()}</option>
         <option value="en" lang="en">English</option>
         <option value="de" lang="de">Deutsch</option>
       </select>
     </div>
+
+    <div class="flex items-center justify-between gap-4 p-4">
+      <div>
+        <h2 class="font-medium">{m.settings_detail()}</h2>
+        <p class="text-xs text-muted-foreground">{app.detail === "simple" ? m.settings_detail_simple_body() : m.settings_detail_detailed_body()}</p>
+      </div>
+      <Segmented
+        label={m.settings_detail()}
+        bind:value={() => app.detail, (next) => app.setDetail(next)}
+        options={[
+          { value: "simple" as Detail, label: m.settings_simple() },
+          { value: "detailed" as Detail, label: m.settings_detailed() },
+        ]}
+      />
+    </div>
+
+    {@render toggle("prepare-updates", m.settings_prepare_updates(), m.settings_prepare_updates_body(), dashboard?.prepareUpdates ?? false, false,
+      (prepareUpdates) => app.savePreferences({ prepareUpdates }))}
+    {@render toggle("clean-up", m.settings_clean_up(), m.settings_clean_up_body(), dashboard?.cleanUp ?? false, false,
+      (cleanUp) => app.savePreferences({ cleanUp }))}
+    {@render toggle("history", m.settings_history(), m.settings_history_body(), dashboard?.history ?? false, false,
+      (history) => app.savePreferences({ history }))}
+    {@render toggle("backup", m.settings_backup(), upstream ? m.settings_backup_body({ upstream }) : m.settings_backup_no_remote(),
+      (dashboard?.backup ?? false) && Boolean(upstream), !upstream || !dashboard?.history, (backup) => app.savePreferences({ backup }))}
+    {@render toggle("app-details", m.settings_app_details(), m.settings_app_details_body(), dashboard?.appDetails ?? true, false,
+      (appDetails) => app.savePreferences({ appDetails }))}
   </section>
 
-  {#if hosts.length > 1}
+  {#if hosts.length}
     <section class="panel space-y-3 p-4" aria-labelledby="host-heading">
       <div class="flex items-center justify-between gap-4">
         <div>
           <h2 id="host-heading" class="font-medium">{m.settings_target_host()}</h2>
-          <p class="text-xs text-muted-foreground">{m.settings_detected_as({ host: app.config?.hostKey ?? "" })}</p>
+          <p class="text-xs text-muted-foreground">
+            <Markup text={m.settings_detected_as({ host: slot("host") })}>{#snippet children()}<span class="font-medium text-foreground">{app.config?.hostKey}</span>{/snippet}</Markup>
+          </p>
         </div>
         <div class="flex items-center gap-2">
           <select
@@ -101,8 +132,20 @@
     <p class="mt-4 text-xs text-muted-foreground">{m.settings_privileges()}</p>
   </section>
 
-  <div class="flex gap-2 rounded-lg bg-muted/60 p-3 text-[0.83rem] text-muted-foreground">
-    <InfoIcon class="mt-0.5 size-4 shrink-0" />
-    <p>{m.placeholder_settings()}</p>
-  </div>
 </div>
+
+{#snippet toggle(id: string, title: string, body: string, checked: boolean, unavailable: boolean, save: (value: boolean) => void)}
+  <div class="flex items-center justify-between gap-4 p-4">
+    <div>
+      <h2 id="{id}-title" class="font-medium">{title}</h2>
+      <p id="{id}-body" class="text-xs text-muted-foreground">{body}</p>
+    </div>
+    <Switch
+      aria-labelledby="{id}-title"
+      aria-describedby="{id}-body"
+      {checked}
+      disabled={!app.connected || unavailable}
+      onCheckedChange={save}
+    />
+  </div>
+{/snippet}

@@ -7,6 +7,10 @@ common {
   close = Close
   loading = Loading…
   something_went_wrong = Something went wrong
+  done = Done
+  prepare = Prepare
+  preparing = Preparing…
+  undo = Undo
 }
 
 nav {
@@ -23,6 +27,9 @@ nav {
   skip_to_content = Skip to content
   targeting = Targeting {$host}
   updates = Updates
+  changes = Changes
+  computer = Computer
+  software = Software
 }
 
 scope {
@@ -66,6 +73,7 @@ format {
   longer_than_usual = Taking longer than usual
   @param $time - Such as "about 3 minutes"
   time_left = {$time} left
+  unversioned = unversioned
 }
 
 progress {
@@ -99,6 +107,15 @@ toast {
   finished = {$label} finished
   notifications = Notifications
   view_log = View log
+  active_after_restart = The new system becomes active after a restart.
+  allow_non_free = Allow non-free software
+  changes_applied = Changes applied
+  nothing_changed_yet = Nothing on the computer has changed yet.
+  @param $label - An action, such as "Update T3 Code"
+  pin_saved = {$label}: pin saved
+  pin_saved_body = Prepare your user's changes to build and apply the new version.
+  ready_to_review = Changes are ready to review
+  will_apply_on_next_boot = Will apply on next boot
 }
 
 confirm {
@@ -116,6 +133,46 @@ overview {
   show_output = Show output
   step_so_far = {$step}, {$duration} so far
   this_computer = This computer
+  detached = Detached
+  disk_space = Disk space for software
+  disk_used = Disk used
+  edits_cannot_apply =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} edit cannot be applied to your configuration as it is now.}}
+    * {{{$count} edits cannot be applied to your configuration as it is now.}}
+  everything_saved = Everything is saved
+  @param $size - A size, such as 12.3 GiB
+  free = {$size} free
+  free_space = Free space by removing old restore points
+  @param $when - Such as "3 hours ago"
+  last_change = Last change, {$when}
+  of_total = of {$total}
+  pending_edits =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} pending edit to your configuration}}
+    * {{{$count} pending edits to your configuration}}
+  prepare_both = Prepare your user and system together
+  reading = Reading…
+  @param $booted - A kernel version, or "unknown"
+  restart_kernel = The system is still running kernel {$booted}; the active configuration uses {$current}.
+  restart_to_finish = Restart to finish the update.
+  show_edits = Show edits
+  sources_edited = , source versions edited
+  state = State of this computer
+  @param $what - "your user's setup" or "this computer"
+  @param $files - ", configuration files included" or nothing
+  undo_explanation = Undo goes back to how {$what} was before{$files}. You see what changes before anything is applied.
+  undo_files_included = , configuration files included
+  undo_this_computer = this computer
+  undo_your_setup = your user's setup
+  unknown = Unknown
+  unsaved_changes =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} unsaved change in the folder}}
+    * {{{$count} unsaved changes in the folder}}
 }
 
 activity {
@@ -189,6 +246,23 @@ updates {
   sources_body = Where your software comes from. Updates are built and shown for review before anything changes.
   up_to_date = Everything is up to date
   up_to_date_body = All software sources and pinned apps are at their latest versions.
+  both = Both
+  pin_description = Downloads the release, then writes its version into your configuration.
+  pin_point_configuration = Your configuration is changed; Git shows exactly what changed.
+  pin_point_nothing_yet = Nothing changes on the computer yet. Prepare your user's changes to build and apply the new version.
+  pin_title = Update {$name} to {$version}?
+  prepare = Prepare updates
+  prepare_count =
+    .input {$count :integer}
+    .match $count
+    one {{Prepare {$count} update}}
+    * {{Prepare {$count} updates}}
+  select = Select {$name}
+  select_all = Select all sources
+  update = Update
+  update_name = Update {$name}
+  update_pin = Update pin
+  what_to_prepare = What to prepare
 }
 
 restore {
@@ -204,7 +278,6 @@ restore {
     one {{Keeps the newest {$count} restore point of {$scope}, and the one in use.}}
     * {{Keeps the newest {$count} restore points of {$scope}, and the one in use.}}
   cleanup_no_going_back = Deletes files nothing uses any more. You can't go back to removed restore points.
-  cleanup_system_password = Removes older system restore points and their boot menu entries; you'll be asked for your password.
   cleanup_title = Remove old restore points?
   go_back = Go back to this…
   history = History
@@ -226,6 +299,40 @@ restore {
   running_until_restart = Running until restart
   running_until_restart_body = The computer started with this version; it changes at the next restart.
   what_to_clean_up = What to clean up
+  cleanup_automatic = Settings can remove your user's old restore points automatically.
+  @param $size - Markup: the size, such as 1.2 GiB
+  @param $note - "(other restore points still use their files)" with a space before it, or nothing
+  cleanup_freeing =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} restore point will be removed, freeing about {$size}{$note}.}}
+    * {{{$count} restore points will be removed, freeing about {$size}{$note}.}}
+  cleanup_frees = Frees about {$size}, and more if other unused files are found.
+  cleanup_measuring =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} restore point will be removed. Measuring the space this frees…}}
+    * {{{$count} restore points will be removed. Measuring the space this frees…}}
+  cleanup_removes_home =
+    .input {$count :integer}
+    .match $count
+    one {{Removes {$count} restore point of your user.}}
+    * {{Removes {$count} restore points of your user.}}
+  cleanup_removes_none = No restore points will be removed; files nothing uses are still deleted.
+  cleanup_removes_system =
+    .input {$count :integer}
+    .match $count
+    one {{Removes {$count} system restore point and their boot menu entries; you'll be asked for your password.}}
+    * {{Removes {$count} system restore points and their boot menu entries; you'll be asked for your password.}}
+  cleanup_shared = (other restore points still use their files)
+  could_not_read = The restore points could not be read.
+  go_back_builds = Builds that restore point again and shows what changes compared to now.
+  @param $date - When the restore point was made
+  go_back_description = Made {$date}. Going back is prepared for your review first.
+  go_back_home_title = Go back to restore point {$generation} of your user
+  go_back_nothing_yet = Nothing on the computer changes until you apply it on the Changes page.
+  go_back_system_title = Go back to restore point {$generation} of the system
+  scope_user_and_system = your user and the system
 }
 
 settings {
@@ -246,15 +353,307 @@ settings {
   target_host = Target host
   theme = Theme
   this_computer = {$host} (this computer)
+  app_details = Show app details from Flathub
+  app_details_body = Names, descriptions, categories and icons of apps come from Flathub's public catalogue, downloaded about once a week. The apps themselves are still installed from your nixpkgs.
+  backup = Back up after each change
+  @param $upstream - The remote branch, such as origin/main
+  backup_body = The history is sent to {$upstream} after each change you apply.
+  backup_no_remote = The configuration folder has no remote copy to back up to yet.
+  clean_up = Clean up automatically
+  clean_up_body = Once a week, while the computer is plugged in and not busy, older restore points of your apps are removed and files nothing uses are deleted. The newest five are kept. System restore points are only removed when you choose.
+  detail = How much to show
+  detail_detailed_body = Every step: prepare, then review the full comparison, then apply.
+  detail_simple_body = One button applies your changes, with a short summary first when they need a look.
+  detailed = Detailed
+  history = Keep a history of changes
+  history_body = Every change you apply is saved with a short description, so the Restore points page shows what changed and when. It is kept with Git in the configuration folder.
+  prepare_updates = Prepare updates in the background
+  prepare_updates_body = When the tray finds updates, they are downloaded and built while the computer is plugged in and not busy. A notification says when they are ready. Nothing is applied until you choose.
+  simple = Simple
 }
 
-# What this version of the dashboard does not show yet: its backend is still being ported to Runic.
+# Pages whose backend follows in the second part of W300-032.
 placeholder {
-  history = The configuration's history of changes is not shown in this version yet.
-  history_title = History not available yet
-  overview = Restore points, disk space and the state of the configuration folder are not shown in this version yet.
-  restore_points = Listing restore points and going back to one are not available in this version yet. Cleaning up works.
-  restore_points_title = Restore points not available yet
-  settings = Background preparation, automatic clean-up, the history of changes and app details are set in the previous version of Nix Manager for now.
-  updates = Preparing updates for review and updating pinned apps are not available in this version yet. Run them in the previous version of Nix Manager, or update and apply from the command line, for example nix-manager update switch.
+  page = This page follows in the next part of this version. Until then, use the previous version of Nix Manager for it.
+  page_title = Not available yet
+}
+
+rail {
+  building_next = Building next
+  changes =
+    .input {$count :integer}
+    .input {$added :integer}
+    .input {$removed :integer}
+    .match $count
+    one {{{$count} update, {$added} new, {$removed} removed}}
+    * {{{$count} updates, {$added} new, {$removed} removed}}
+  count =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} restore point}}
+    * {{{$count} restore points}}
+  first_build = First build of this profile
+  in_use_since = In use since {$when}
+  @param $title - "Your user" or "System"
+  label = {$title} restore points
+  next_ready = Next, ready to apply
+  none = No restore points yet
+  not_active_until_applied = Not active until you apply it
+  @param $number - The restore point's number
+  @param $when - Its date, or since when it is in use
+  point = Restore point {$number}, {$when}
+  prepare_home = Prepare the next version of your user
+  prepare_system = Prepare the next system version
+  running = running
+}
+
+pending {
+  apply = Apply changes
+  review_and_apply = Review and apply
+}
+
+changes {
+  adds = Adds
+  after_boot = The system update is used after the next restart. Your apps are updated then too, or apply now to update them right away.
+  apply_now = Apply now
+  apply_now_title = Apply these changes now?
+  apply_on_boot = Apply on next boot
+  apply_on_boot_title = Apply on next boot?
+  boot_default = Makes the reviewed system the default boot entry. The running system is unchanged until you restart.
+  checkout_changed = Your configuration changed since this was prepared. Applying uses exactly what was built here; prepare again to include newer edits.
+  @param $size - A signed size, such as +1.2 MiB
+  compared_to_now = {$size} compared to now
+  could_not_discard = Could not discard the changes
+  could_not_hold = Could not stop it
+  count =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} change}}
+    * {{{$count} changes}}
+  counts = {$changed :integer} updated, {$added :integer} new, {$removed :integer} removed
+  @param $files - File paths
+  creates_files =
+    .input {$count :integer}
+    .match $count
+    one {{Creates {$files} and adds it to Git, so Nix can read it.}}
+    * {{Creates {$files} and adds them to Git, so Nix can read them.}}
+  deletes = Deletes {$files}, which that change created.
+  discard = Discard
+  discarded = Prepared changes discarded
+  draft_moved = Your pending edits changed since this was prepared. Applying writes the edits shown below; prepare again to include the others.
+  edits_checked = Checked by evaluating {$host}'s configuration with and without them. They are written to your configuration when you apply.
+  edits_in_review =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} edit in this review}}
+    * {{{$count} edits in this review}}
+  everything_differs = Everything that differs from what's running
+  from_version = from {$version}
+  hide_details = Hide the details
+  home_after_restart = Your apps are updated after the restart, once the computer runs the new system.
+  home_apps = Your user's apps
+  home_disk = Your user's disk use
+  intro = Prepared builds waiting for your decision. Nothing here is active yet.
+  kernel_restart = The kernel changes; restart afterwards to use it.
+  lock_changed = The source versions changed since these updates were prepared. Discard and prepare them again.
+  new_kernel = New kernel {$version}; a restart is needed to use it.
+  no_home_to_compare = There's no active home configuration to compare with, so everything in this build is new.
+  no_system_to_compare = There's no active system configuration to compare with, so everything in this build is new.
+  none = No prepared changes
+  none_body = Prepare changes to build your configuration and compare it with what's running.
+  nothing_to_compare = Nothing active to compare with
+  option = {$host}, {$scope}, prepared {$time}
+  other_host = Built for {$host}, but this computer is {$current}.
+  packages = Packages
+  packages_home = Package changes of your user
+  packages_system = Package changes of the system
+  prepare_all = Prepare your user and system
+  prepare_home = Prepare your user
+  prepared_changes = Prepared changes
+  prepared_for = Prepared {$time} for {$host}.
+  prepared_not_active = Prepared {$time} for {$host}, not active yet
+  preparing = Preparing changes…
+  preparing_body = The build is running; its changes will appear here when it finishes.
+  puts_back =
+    .input {$count :integer}
+    .match $count
+    one {{Puts back {$files} as it was before that change.}}
+    * {{Puts back {$files} as they were before that change.}}
+  removes = Removes
+  restore_point_kept = The current version stays as a restore point you can go back to.
+  saves_lock = Saves the reviewed source versions (flake.lock) in your configuration.
+  show_details = Show all details
+  show_progress = Show progress
+  switches_home = Switches your user's apps and settings to the reviewed version.
+  switches_system = Switches the running system to the reviewed version. You'll be asked for your password.
+  system_apps = System apps
+  system_disk = System disk use
+  @param $date - A date and time
+  undo_before = Goes back to how it was before {$date}, undoing:
+  undo_restores = Applying also restores {$files}.
+  updates = Updates {$name}
+  writes_file = Writes your edits to {$path} in your configuration.
+  writes_files = Writes your edits to {$count :integer} files in your configuration.
+  your_edits = Your edits
+}
+
+review {
+  @param $scope - Markup: the scope, such as "(your user)", where the language puts it
+  title_all_sources = Update all software sources {$scope}
+  title_configuration = Apply your configuration {$scope}
+  title_generation = Go back to restore point {$generation} {$scope}
+  title_names = Update {$names} {$scope}
+  title_sources = Update {$count :integer} software sources {$scope}
+  title_undo = Undo the change from {$date} {$scope}
+}
+
+packages {
+  all = All
+  change = Change
+  change_type = Change type
+  new = New
+  no_match = No packages match.
+  none = No package changes.
+  package = Package
+  rebuilt = Rebuilt
+  removed = Removed
+  same_version = same version
+  search = Search packages
+  show_more = Show {$count :integer} more of {$remaining :integer} remaining
+  shown =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} package shown}}
+    * {{{$count} packages shown}}
+  size = Size
+  updated = Updated
+  version = Version
+}
+
+diff {
+  added = added
+  @param $path - The file's path in the configuration
+  file_changes = Changes to {$path}
+  new_file = new file
+  removed = removed
+}
+
+onestep {
+  applied = Your changes are applied
+  applied_when_ready = Only your apps change, so it is applied as soon as it is ready.
+  applying = Applying your changes
+  details = Details
+  download_and_check = Download and check
+  downloaded_and_checked = Downloaded and checked
+  downloading_and_checking = Downloading and checking
+  failed_before_change = It could not be applied before anything changed. Your change is still in your pending edits.
+  failed_not_undone = It could not be applied, and going back did not work. The Restore points page can take you back.
+  failed_partly_undone = It could not be applied, and only part of it could be undone. Your change is still in your pending edits.
+  failed_to_prepare = It could not be prepared, so nothing changed. Your change is still in your pending edits.
+  failed_went_back = It could not be applied, so everything went back to how it was. Your change is still in your pending edits.
+  full_log = Show the full log
+  @param $reason - Why it was not applied, translated
+  held = It was prepared but not applied. {$reason}
+  hide = Hide
+  install = Install
+  installed = Installed
+  installing = Installing
+  menu_delay = Apps you just installed can take a moment to appear in your menu.
+  only_apps_changed = Only your apps changed. You can undo it until you clean up old versions.
+  open_review = Open the review
+  ready_for_review = Ready for your review
+  review_first = Review it first
+  stages = Progress
+  stop = Stop
+  waits_for_review = It waits for your review when it is ready.
+}
+
+summary {
+  adds = adds {$count :integer}
+  adds_packages =
+    .input {$count :integer}
+    .match $count
+    one {{adds {$count} package}}
+    * {{adds {$count} packages}}
+  changes_settings =
+    .input {$count :integer}
+    .match $count
+    one {{changes {$count} setting}}
+    * {{changes {$count} settings}}
+  @param $size - A size, such as 1.2 GiB
+  downloaded = {$size} were downloaded to prepare it.
+  everything_new = builds everything new, as nothing is active to compare with
+  first_home = sets up your user's apps and settings for the first time
+  first_system = builds the system new, as no system is active to compare with
+  frees_space = It frees about {$size} of disk space.
+  @param $names - Package names, such as "firefox, git and 2 more"
+  installs = installs {$names}
+  more = {$count :integer} more
+  needs_space = It needs about {$size} more disk space.
+  nothing_changes = Nothing you use changes.
+  removes = removes {$names}
+  removes_count = removes {$count :integer}
+  removes_packages =
+    .input {$count :integer}
+    .match $count
+    one {{removes {$count} package}}
+    * {{removes {$count} packages}}
+  restart_for_kernel = Restart afterwards to use the new kernel.
+  updates_packages =
+    .input {$count :integer}
+    .match $count
+    one {{updates {$count} package}}
+    * {{updates {$count} packages}}
+  updates_sources =
+    .input {$count :integer}
+    .match $count
+    one {{Updates {$count} software source.}}
+    * {{Updates {$count} software sources.}}
+}
+
+# The setup assistant's Window (Setup.svelte), before there is a checkout.
+setup {
+  could_not_start = Nix Manager could not start
+  @param $flake - The checkout's folder, shown as code
+  @param $command - A command line, shown as code
+  problem_hint = It reads the configuration in {$flake}. Fix the problem there and open Nix Manager again, or run {$command} in a terminal to choose another configuration.
+  not_connected = The dashboard could not connect to Nix Manager.
+  title = Set up this computer
+  intro = Nix Manager keeps this computer's configuration in a folder you own, so it can change it for you and keep every version. This copies your configuration from /etc/nixos into that folder once; nothing on the running system changes.
+  looking = Looking at this computer…
+  what_is_here = What is here
+  computer = Computer
+  you = You
+  configuration = Configuration
+  files =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} file in /etc/nixos}}
+    * {{{$count} files in /etc/nixos}}
+  none_found = None found
+  flakes = Flakes
+  flakes_on = On
+  flakes_off = Off for now; the new configuration turns them on
+  @param $files - File names separated by commas
+  unreadable =
+    .input {$count :integer}
+    .match $count
+    one {{Only an administrator can read {$files}, so it stays behind. If the configuration needs it, copy it into the new folder afterwards.}}
+    * {{Only an administrator can read {$files}, so they stay behind. If the configuration needs them, copy them into the new folder afterwards.}}
+  @param $imports - Search paths such as <home-manager/nixos>, separated by commas
+  channel_imports = The configuration imports {$imports} from channels. A flake cannot see channels, so the check below will fail until those imports become flake inputs.
+  where = Where your configuration lives
+  folder = Folder
+  folder_help = A new, empty folder in your home folder. It becomes a Git repository, so every change you make is kept.
+  try_again = Try again
+  create = Create my configuration
+  setting_up = Setting up
+  step_running = running
+  step_done = done
+  step_failed = failed
+  step_waiting = waiting
+  removed = The folder was removed again, so you can try once more.
+  opening = Opening Nix Manager…
+  how = How changes work
+  how_text = Everything you change, from apps to settings, is written into those files and waits as a pending edit. Prepare builds the new version in the background while you keep working, and shows what will change. Apply switches the computer to it, and every version you applied stays as a restore point you can go back to.
 }

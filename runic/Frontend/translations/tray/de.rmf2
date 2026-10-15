@@ -1,0 +1,65 @@
+# German for en.rmf2, from the Bun version's catalogue (src/locales/de).
+
+open = Nix Manager öffnen
+check = Nach Aktualisierungen suchen
+prepare = Alle Aktualisierungen zur Prüfung vorbereiten…
+quit = Nix Manager beenden
+checks_failed = Einige Suchen nach Aktualisierungen sind fehlgeschlagen
+no_updates = Keine Aktualisierungen gemeldet
+updates_available =
+  .input {$count :integer}
+  .match $count
+  one {{{$count} Aktualisierung verfügbar}}
+  * {{{$count} Aktualisierungen verfügbar}}
+needs_attention = Nix Manager braucht Ihre Aufmerksamkeit
+operation_failed = Ein Vorgang ist fehlgeschlagen. Öffnen Sie Nix Manager, um seine Ausgabe zu sehen.
+updates_ready = Aktualisierungen sind bereit
+nothing_changes = {$summary} Es ändert sich nichts, bis Sie sie anwenden.
+apply_now = Jetzt anwenden
+apply_on_boot = Beim nächsten Start anwenden
+space_freed = Speicherplatz freigegeben
+freed = {$size} wurden freigegeben.
+older_removed = Ältere Wiederherstellungspunkte wurden entfernt.
+newest_kept = Die neuesten {$count :integer} Wiederherstellungspunkte Ihrer Apps bleiben erhalten.
+ready_to_review = Änderungen sind bereit zur Prüfung
+build_finished = Der Build ist fertig. Öffnen Sie Nix Manager, um zu sehen, was sich ändert, und es anzuwenden.
+finished = Nix Manager ist fertig
+completed_for = {$action} für {$host} abgeschlossen.
+more = {$count :integer} weitere
+installs = installiert {$names}
+removes = entfernt {$names}
+changes_settings =
+  .input {$count :integer}
+  .match $count
+  one {{ändert {$count} Einstellung}}
+  * {{ändert {$count} Einstellungen}}
+updates_packages =
+  .input {$count :integer}
+  .match $count
+  one {{aktualisiert {$count} Paket}}
+  * {{aktualisiert {$count} Pakete}}
+adds = fügt {$count :integer} hinzu
+adds_packages =
+  .input {$count :integer}
+  .match $count
+  one {{fügt {$count} Paket hinzu}}
+  * {{fügt {$count} Pakete hinzu}}
+removes_count = entfernt {$count :integer}
+removes_packages =
+  .input {$count :integer}
+  .match $count
+  one {{entfernt {$count} Paket}}
+  * {{entfernt {$count} Pakete}}
+home_first_time = richtet die Apps und Einstellungen Ihres Benutzers zum ersten Mal ein
+system_new = baut das System neu, da kein aktives System zum Vergleichen da ist
+everything_new = baut alles neu, da nichts Aktives zum Vergleichen da ist
+nothing_you_use = An dem, was Sie benutzen, ändert sich nichts.
+sources =
+  .input {$count :integer}
+  .match $count
+  one {{Aktualisiert {$count} Softwarequelle.}}
+  * {{Aktualisiert {$count} Softwarequellen.}}
+needs_space = Es wird etwa {$size} mehr Speicherplatz benötigt.
+frees_space = Es werden etwa {$size} Speicherplatz frei.
+downloaded = Zur Vorbereitung wurden {$size} heruntergeladen.
+restart_kernel = Starten Sie danach neu, um den neuen Kernel zu verwenden.

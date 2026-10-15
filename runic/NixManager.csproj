@@ -34,6 +34,16 @@
     <PackageReference Include="Runic.CommandLine" Version="0.7.0-preview.1" />
     <PackageReference Include="Runic.CommandLine.Processes" Version="0.7.0-preview.1" />
     <PackageReference Include="Runic.Platform.Linux.Polkit" Version="0.8.0-preview.3" />
+    <PackageReference Include="Runic.Translations" Version="0.7.0-preview.2" />
+    <PackageReference Include="Runic.Translations.Build" Version="0.7.0-preview.2" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The dashboard's catalogue, compiled into C# as NixManager.Dashboard.DashboardText for the text the daemon shows
+         itself: the status icon, its menu and the notifications (Frontend/translations/tray). -->
+    <TranslationProject Include="Frontend/translations/runic.json" />
+    <!-- The English of the stored messages, by which the daemon finds the translation of text the backend stored
+         (Daemon/TrayText.cs). -->
+    <EmbeddedResource Include="Frontend/translations/stored/en.rmf2" LogicalName="NixManager.StoredEnglish.rmf2" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="NixManager.Tests" />

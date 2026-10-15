@@ -85,6 +85,9 @@ internal sealed class FakeNetwork(Dictionary<string, string> answers) : INetwork
 {
     public Task<string> TextAsync(string url, CancellationToken cancellationToken) =>
         answers.TryGetValue(url, out var text) ? Task.FromResult(text) : throw new ManagerException($"Fetch failed: HTTP 404 from {url}");
+
+    public Task<NetworkResponse> GetAsync(string url, bool followRedirects, CancellationToken cancellationToken) =>
+        throw new NotSupportedException(url);
 }
 
 /// <summary>Update checks (<c>test/updates.test.ts</c>): inputs from a proposed lock, package releases by channel.</summary>

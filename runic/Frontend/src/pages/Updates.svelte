@@ -3,18 +3,44 @@
   import ExternalLinkIcon from "@lucide/svelte/icons/external-link";
   import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
-  import InfoIcon from "@lucide/svelte/icons/info";
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
   import { actionLabel, m, stored } from "$lib/i18n";
   import { day, daysBetween, relative, shortRev } from "$lib/format";
+  import type { Action, Scope } from "$lib/requests";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
+  import Segmented from "$lib/components/app/Segmented.svelte";
+  import TechName from "$lib/components/app/TechName.svelte";
 
+  let selected = $state<string[]>([]);
+  let scope = $state<Scope>("all");
   const checking = $derived(app.active?.request.action === "check");
+  const names = $derived(app.inputUpdates.map((item) => item.name));
+  const all = $derived(names.length > 0 && names.every((name) => selected.includes(name)));
+
+  // Drop selections for inputs that are no longer outdated.
+  $effect(() => {
+    const keep = selected.filter((name) => names.includes(name));
+    if (keep.length !== selected.length) selected = keep;
+  });
+
   const check = () => app.run(app.request("check"));
+  const prepare = () => app.prepare(scope, all ? { update: true } : { inputs: [...selected] });
+
   // The apps whose pins the configuration updates; names are not translated.
   const pins: Record<string, string> = { t3code: "T3 Code", opencode: "OpenCode", pince: "PINCE" };
   const pinName = (name: string) => pins[name] ?? name;
+  const pinAction = (name: string) => `${name}-update` as Action;
+
+  function updatePin(name: string, latest: string) {
+    void app.confirm({
+      title: m.updates_pin_title({ name: pinName(name), version: latest }),
+      description: m.updates_pin_description(),
+      request: app.request(pinAction(name), { scope: "home" }),
+      confirmLabel: m.updates_update_pin(),
+      points: [m.updates_pin_point_configuration(), m.updates_pin_point_nothing_yet()],
+    });
+  }
 </script>
 
 <div class="space-y-6">
@@ -55,23 +81,36 @@
     </section>
   {/if}
 
-  {#if app.inputUpdates.length || app.packageUpdates.length}
-    <div class="flex gap-2 rounded-lg bg-muted/60 p-3 text-[0.83rem] text-muted-foreground">
-      <InfoIcon class="mt-0.5 size-4 shrink-0" />
-      <p>{m.placeholder_updates()}</p>
-    </div>
-  {/if}
-
   {#if app.inputUpdates.length}
     <section class="panel overflow-hidden" aria-labelledby="sources-heading">
-      <div class="border-b px-4 py-3">
-        <h2 id="sources-heading" class="heading">{m.updates_sources()}</h2>
-        <p class="text-xs text-muted-foreground">{m.updates_sources_body()}</p>
+      <div class="flex flex-wrap items-center gap-3 border-b px-4 py-3">
+        <div class="flex-1">
+          <h2 id="sources-heading" class="heading">{m.updates_sources()}<TechName name="flake inputs" /></h2>
+          <p class="text-xs text-muted-foreground">{m.updates_sources_body()}</p>
+        </div>
+        <Segmented
+          label={m.updates_what_to_prepare()}
+          bind:value={scope}
+          options={[{ value: "home", label: m.scope_home() }, { value: "system", label: m.scope_system() }, { value: "all", label: m.updates_both() }]}
+        />
+        <Button disabled={!selected.length || app.busy || !app.connected} onclick={prepare}>
+          {selected.length ? m.updates_prepare_count({ count: selected.length }) : m.updates_prepare()}
+        </Button>
       </div>
       <table class="w-full text-left" aria-labelledby="sources-heading">
         <thead class="text-xs text-muted-foreground">
           <tr class="border-b">
-            <th class="py-2 pl-4 font-medium">{m.updates_source()}</th>
+            <th class="w-10 py-2 pl-4">
+              <input
+                type="checkbox"
+                aria-label={m.updates_select_all()}
+                class="accent-primary"
+                checked={all}
+                indeterminate={selected.length > 0 && !all}
+                onchange={() => (selected = all ? [] : [...names])}
+              />
+            </th>
+            <th class="py-2 font-medium">{m.updates_source()}</th>
             <th class="py-2 font-medium">{m.updates_current()}</th>
             <th class="py-2 font-medium">{m.updates_latest()}</th>
             <th class="py-2 pr-4 text-right font-medium">{m.updates_behind()}</th>
@@ -80,8 +119,9 @@
         <tbody class="divide-y">
           {#each app.inputUpdates as item (item.name)}
             {@const behind = daysBetween(item.currentDate, item.latestDate)}
-            <tr>
-              <td class="py-2.5 pl-4">
+            <tr class="hover:bg-muted/30">
+              <td class="py-2.5 pl-4"><input type="checkbox" class="accent-primary" aria-label={m.updates_select({ name: item.name })} bind:group={selected} value={item.name} /></td>
+              <td class="py-2.5">
                 <p class="font-medium">{item.name}</p>
                 {#if item.source}<p class="text-xs text-muted-foreground">{item.source}</p>{/if}
               </td>
@@ -124,8 +164,9 @@
               </p>
             </div>
             {#if item.url}
-              <Button variant="ghost" size="sm" href={item.url} target="_blank" rel="noreferrer" aria-label={m.updates_release_notes_of({ name: item.name })}>{m.updates_release_notes()} <ExternalLinkIcon /></Button>
+              <Button variant="ghost" size="sm" href={item.url} target="_blank" rel="noreferrer" aria-label={m.updates_release_notes_of({ name: pinName(item.name) })}>{m.updates_release_notes()} <ExternalLinkIcon /></Button>
             {/if}
+            <Button variant="outline" size="sm" aria-label={m.updates_update_name({ name: pinName(item.name) })} disabled={app.busy || !app.connected} onclick={() => updatePin(item.name, item.latest)}>{m.updates_update()}</Button>
           </li>
         {/each}
       </ul>

@@ -343,6 +343,52 @@ public sealed class DaemonTests : IDisposable
     }
 
     [Test]
+    public async Task The_icon_and_the_notifications_speak_the_dashboards_language()
+    {
+        var german = TrayText.For("de");
+        var report = new UpdateReport
+        {
+            CheckedAt = "",
+            Items = [new UpdateItem { Name = "nixpkgs", Current = "a", Latest = "b", Kind = "input" }, new UpdateItem { Name = "home-manager", Current = "a", Latest = "b", Kind = "input" }],
+        };
+        var idle = TrayPresentation.Icon(null, report, german);
+        await Assert.That(idle.Tooltip).IsEqualTo("2 Aktualisierungen verfügbar");
+        await Assert.That(idle.Menu.OfType<DesktopMenuCommand>().Select(item => item.Label))
+            .IsEquivalentTo(["Nix Manager öffnen", "Nach Aktualisierungen suchen", "Alle Aktualisierungen zur Prüfung vorbereiten…", "Nix Manager beenden"]);
+        await Assert.That(TrayPresentation.Key(idle)).IsNotEqualTo(TrayPresentation.Key(TrayPresentation.Icon(null, report)));
+        // Step labels and errors are stored in English and translated where they are shown, values included.
+        var busy = TrayPresentation.Icon(new Operation { Id = "1", Flake = "", Request = Build, Status = "running", StartedAt = "", Step = "Build home configuration" }, null, german);
+        await Assert.That(busy.Tooltip).IsEqualTo("Benutzerkonfiguration bauen");
+        await Assert.That(german.Stored("Building firefox failed")).IsEqualTo("firefox konnte nicht gebaut werden");
+        await Assert.That(german.Stored("Build home configuration failed")).IsEqualTo("Fehlgeschlagen: Benutzerkonfiguration bauen");
+        await Assert.That(german.Stored("Text nobody translated")).IsEqualTo("Text nobody translated");
+        await Assert.That(TrayText.English.Stored("Building firefox failed")).IsEqualTo("Building firefox failed");
+        var announced = "";
+        await Assert.That(TrayPresentation.Updates(report, ref announced, german)?.Body).IsEqualTo("nixpkgs und home-manager");
+
+        Operation Ended(string action, string status, string? error = null) => new()
+        {
+            Id = "1", Flake = _flake, Status = status, StartedAt = "", Error = error,
+            Request = Request.Create() with { Action = action, Host = "test", Scope = Scopes.Home },
+        };
+        TrayNotice? Notice(Operation operation) => TrayPresentation.Finished(operation, Config, _ => null, () => null, german);
+        await Assert.That(Notice(Ended(Actions.Switch, OperationStatuses.Succeeded))!.Notification.Body).IsEqualTo("Bauen und anwenden für test abgeschlossen.");
+        await Assert.That(Notice(Ended(Actions.Switch, OperationStatuses.Failed, "Building firefox failed"))!.Notification)
+            .Satisfies(notification => notification.Title == "Nix Manager braucht Ihre Aufmerksamkeit" && notification.Body == "firefox konnte nicht gebaut werden", "German failure");
+        await Assert.That(Notice(Ended(Actions.ReviewBuild, OperationStatuses.Succeeded))!.Notification.Title).IsEqualTo("Änderungen sind bereit zur Prüfung");
+
+        var review = new BuildReview
+        {
+            Id = "r", Scope = Scopes.All, CreatedAt = "", Source = "update",
+            Inputs = new ReviewInputs { BaseLockHash = "", Changes = [new LockChange { Name = "nixpkgs" }, new LockChange { Name = "home-manager" }] },
+            Home = new ReviewOutput { Path = "/h", Compared = true, Changes = [new PackageChange { Name = "a", Kind = "changed" }, new PackageChange { Name = "b", Kind = "added" }], ClosureSize = 3L << 30, CurrentClosureSize = 1L << 30 },
+            Downloaded = 5L << 20,
+        };
+        await Assert.That(ReviewSummary.Of(review, german)).IsEqualTo(
+            "Aktualisiert 2 Softwarequellen. Aktualisiert 1 Paket und fügt 1 hinzu. Es wird etwa 2,0 GiB mehr Speicherplatz benötigt. Zur Vorbereitung wurden 5,0 MiB heruntergeladen.");
+    }
+
+    [Test]
     public async Task The_command_line_hands_operations_to_the_daemon_except_privileged_ones_over_SSH()
     {
         var local = new LocalOperationClient(_service);

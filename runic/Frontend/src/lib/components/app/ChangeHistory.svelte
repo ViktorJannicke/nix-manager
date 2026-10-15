@@ -1,7 +1,7 @@
 <script lang="ts">
   import { dateTime, relative } from "$lib/format";
   import { m } from "$lib/i18n";
-  import type { HistoryEntry } from "$lib/restore-points";
+  import type { HistoryEntry } from "../../../generated/types.js";
 
   let { entries, labelledby, now }: {
     entries: readonly HistoryEntry[];

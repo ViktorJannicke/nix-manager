@@ -336,4 +336,35 @@ public sealed class SetupTests : IDisposable
         await context.InvokeAsync(() => viewModel.CreateCommand.Execute(null));
         await Assert.That(await context.InvokeAsync(() => viewModel.RequestError)).IsEqualTo("Use a full path, such as ~/nixos-config.");
     }
+
+    [Test]
+    public async Task Ui_starts_with_the_assistant_only_without_any_checkout()
+    {
+        // Not in a configuration's Git checkout, nothing remembered: ~/my-flakes, which has no flake.nix yet.
+        var notGit = new FakeRunner((_, _, _) => Task.FromResult(new CommandResult(128, "", "fatal: not a git repository")));
+        var checkout = SetupLaunch.Checkout(null, notGit, Environment());
+        await Assert.That(checkout).IsEqualTo((Path.Combine(Home, "my-flakes"), false));
+        await Assert.That(SetupLaunch.NeedsSetup(null, notGit, Environment())).IsTrue();
+        // Nor is there one without Git, as on a computer the assistant has not set up yet.
+        var noGit = new FakeRunner((_, _, _) => throw new ManagerException("Cannot start git: No such file or directory"));
+        await Assert.That(SetupLaunch.NeedsSetup(null, noGit, Environment())).IsTrue();
+        // One asked for is used, whether it exists or not: loading it says what is wrong.
+        await Assert.That(SetupLaunch.NeedsSetup("/nowhere", notGit, Environment())).IsFalse();
+        await Assert.That(SetupLaunch.NeedsSetup(null, notGit, Environment(new() { ["NIX_MANAGER_FLAKE"] = "/nowhere" }))).IsFalse();
+        // The checkout the assistant created and remembered.
+        var created = Path.Combine(_root, "created");
+        Directory.CreateDirectory(created);
+        File.WriteAllText(Path.Combine(created, "flake.nix"), "{}");
+        Directory.CreateDirectory(Path.Combine(_root, "state"));
+        File.WriteAllText(Path.Combine(_root, "state", "checkout"), created + "\n");
+        await Assert.That(SetupLaunch.NeedsSetup(null, notGit, Environment())).IsFalse();
+    }
+
+    [Test]
+    public async Task A_configuration_that_does_not_load_is_shown_in_a_Window_only_when_started_from_the_menu()
+    {
+        await Assert.That(SetupLaunch.ShowsProblem(noOpen: false, outputRedirected: true)).IsTrue();
+        await Assert.That(SetupLaunch.ShowsProblem(noOpen: false, outputRedirected: false)).IsFalse();
+        await Assert.That(SetupLaunch.ShowsProblem(noOpen: true, outputRedirected: true)).IsFalse();
+    }
 }
