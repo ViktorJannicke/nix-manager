@@ -108,6 +108,43 @@ pkgs.testers.runNixOSTest {
             machine.succeed("grep -qx 'StartupNotify=true' /run/current-system/sw/share/applications/nix-manager.desktop")
             machine.succeed("test -e /run/current-system/sw/share/bash-completion/completions/nix-manager")
 
+        with subtest("The setup assistant under Orca"):
+            # Without a checkout, `nix-manager ui` opens the setup assistant, as the Bun version does.
+            machine.succeed("lab-user mv /home/alice/my-flakes /home/alice/seeded-flakes")
+            before = cores()
+            settle()
+            machine.succeed("truncate -s 0 /run/lab/spoken.txt")
+            machine.succeed("lab-user systemd-run --user --unit nix-manager-setup nix-manager ui")
+            machine.wait_until_succeeds("lab-user lab-atspi nix-manager | grep -q \"entry 'Folder'\"", timeout=timedelta(seconds=180))
+            machine.screenshot("setup")
+            tree("nix-manager", "tree-setup.txt")
+            settle()
+            machine.succeed("truncate -s 0 /run/lab/spoken.txt")
+            setup_stops = []
+            for press in range(4):
+                machine.send_key("tab")
+                machine.sleep(2)
+                setup_stops.append(focused())
+                assert cores() == before, f"WebKitWebProcess aborted after Tab {press + 1} in the setup assistant"
+            print("Setup Tab order:", setup_stops)
+            for want in ["entry 'Folder'", "button 'Create my configuration'"]:
+                assert any(want in stop for stop in setup_stops), f"Tab never reached {want}: {setup_stops}"
+            spoken = speech()
+            print(spoken)
+            for phrase in ["Folder", "Create my configuration", "button"]:
+                assert phrase in spoken, f"Orca did not say {phrase!r} in the setup assistant"
+            tab_to("Folder")
+            # Orca switches to focus mode; before that it takes letters as commands.
+            machine.sleep(2)
+            machine.send_key("ctrl-a")
+            machine.send_chars("~/lab-config")
+            machine.wait_until_succeeds(
+                "lab-user lab-atspi nix-manager | grep -F \"entry 'Folder' value='~/lab-config'\"",
+                timeout=timedelta(seconds=30),
+            )
+            machine.succeed("lab-user systemctl --user stop nix-manager-setup")
+            machine.succeed("lab-user mv /home/alice/seeded-flakes /home/alice/my-flakes")
+
         with subtest("Nix Manager opens in Runic Desktop"):
             machine.succeed("lab-user gsettings set org.gnome.desktop.a11y.applications screen-reader-enabled false")
             machine.succeed("truncate -s 0 /run/lab/spoken.txt")
