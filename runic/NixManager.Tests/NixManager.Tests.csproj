@@ -14,7 +14,8 @@
     <PackageReference Include="Runic.CommandLine.Testing" Version="0.7.0-preview.1" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../NixManager.csproj" />
+    <!-- The tests need the application's assembly, not its built frontend. -->
+    <ProjectReference Include="../NixManager.csproj" AdditionalProperties="RunicApplicationFrontendBuildEnabled=false" />
   </ItemGroup>
   <ItemGroup>
     <!-- Records and outputs of the Bun version, and the Bun version's own Nix error fixtures. -->

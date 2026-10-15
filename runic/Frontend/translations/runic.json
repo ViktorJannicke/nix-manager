@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "catalog": "dashboard",
+  "code": { "namespace": "NixManager.Dashboard", "className": "DashboardText" },
+  "baseLocale": "en",
+  "locales": ["en", "de"]
+}

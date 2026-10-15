@@ -144,6 +144,14 @@
             NIX_MANAGER_WEBUI_LIBRARY = "${self.packages.${system}.default.webui}/lib/libwebui-2.so";
             NIX_MANAGER_NIX_GRAMMAR = "${self.packages.${system}.default.nixGrammar}/parser.wasm";
           };
+          # The Runic port's dashboard Window (nix-manager ui) on Runic Desktop: GTK and WebKitGTK on the library
+          # path, and Chromium for headless browser checks in serve-only mode.
+          runic = runic-sdk.lib.mkDevShell pkgs {
+            hosts = [ "desktop" ];
+            browserTests = true;
+            packageManagers = [ "bun" ];
+            inherit (pkgs) nodejs;
+          };
         }
       );
 

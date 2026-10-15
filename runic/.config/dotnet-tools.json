@@ -4,7 +4,17 @@
   "tools": {
     "dotnet-runic": {
       "version": "0.8.0-preview.2",
-      "commands": ["dotnet-runic"]
+      "commands": [
+        "dotnet-runic"
+      ],
+      "rollForward": false
+    },
+    "dotnet-runic-translations": {
+      "version": "0.7.0-preview.2",
+      "commands": [
+        "runic-translations"
+      ],
+      "rollForward": false
     }
   }
 }

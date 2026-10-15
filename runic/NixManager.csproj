@@ -8,6 +8,8 @@
     <!-- The command and the Polkit helper keep the Bun version's name. -->
     <AssemblyName>nix-manager</AssemblyName>
     <RootNamespace>NixManager</RootNamespace>
+    <!-- The dashboard Window (Dashboard/) and its frontend in Frontend/, opened by `nix-manager ui`. -->
+    <RunicApplicationFrontendWindowProject>true</RunicApplicationFrontendWindowProject>
     <Version>1.0.0</Version>
     <!-- dotnet restore writes packages.lock.json for the Nix build (W300-032), which restores in locked mode
          for linux-x64. -->
@@ -25,7 +27,7 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
-    <PackageReference Include="Runic.Application.Views" Version="0.8.0-preview.2" />
+    <PackageReference Include="Runic.Application.Views.Desktop" Version="0.8.0-preview.2" />
     <PackageReference Include="Runic.CommandLine" Version="0.7.0-preview.1" />
     <PackageReference Include="Runic.CommandLine.Processes" Version="0.7.0-preview.1" />
     <PackageReference Include="Runic.Platform.Linux.Polkit" Version="0.8.0-preview.2" />

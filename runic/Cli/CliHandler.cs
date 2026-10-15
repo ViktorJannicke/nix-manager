@@ -12,8 +12,11 @@ internal static class CliHandler
 
     public static async Task<CommandOutcome<string>> ExecuteAsync(CliInvocation cli, CliSession session, CommandExecutionContext context, CancellationToken cancellationToken)
     {
-        if (cli.Mode is CliMode.Ui or CliMode.Tray)
-            throw new ManagerException("The dashboard and the tray are not part of the Runic port yet (W300-030, W300-031); run them with the Bun version.");
+        // A valid ui invocation never gets here: Program.cs runs the dashboard first (DashboardCommand).
+        if (cli.Mode is CliMode.Ui)
+            throw new ManagerException("The dashboard takes only --flake, --host and --no-open.");
+        if (cli.Mode is CliMode.Tray)
+            throw new ManagerException("The tray is not part of the Runic port yet (W300-031); run it with the Bun version.");
         AllowFlakes(session.Environment);
         var config = await new ConfigLoader(session.Runner, session.Environment)
             .LoadAsync(cli.Flake, cli.Host, CliSession.PrivilegedPrefix).ConfigureAwait(false);
@@ -44,7 +47,7 @@ internal static class CliHandler
     /// Asks Nix for flakes in this process's commands; a computer the setup assistant just set up turns them on
     /// with its first apply, and asking again where they are on is harmless (<c>allowFlakes</c>).
     /// </summary>
-    private static void AllowFlakes(ManagerEnvironment environment)
+    internal static void AllowFlakes(ManagerEnvironment environment)
     {
         const string flakes = "extra-experimental-features = nix-command flakes";
         var current = environment.Variable("NIX_CONFIG");

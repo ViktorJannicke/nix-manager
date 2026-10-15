@@ -1,0 +1,260 @@
+# The dashboard's English text. German is in de.rmf2; scripts/import-bun-catalog.py fills in German for new
+# messages from the Bun version's catalogue (src/locales/de). Text the backend stores is in stored/.
+
+common {
+  and_more = and {$count :integer} more
+  cancel = Cancel
+  close = Close
+  loading = Loading…
+  something_went_wrong = Something went wrong
+}
+
+nav {
+  activity = Activity
+  not_connected = The dashboard could not connect to Nix Manager.
+  overview = Overview
+  reading_state = Reading this computer's state
+  reconnecting = Reconnecting
+  restore_points = Restore points
+  running = , running
+  sections = Sections
+  settings = Settings
+  show = Show
+  skip_to_content = Skip to content
+  targeting = Targeting {$host}
+  updates = Updates
+}
+
+scope {
+  all = Your user and system
+  all_text = your user and system
+  home = Your user
+  home_text = your user
+  system = System
+  system_text = system
+}
+
+status {
+  cancelled = Cancelled
+  done = Done
+  failed = Failed
+  interrupted = Interrupted
+  running = Running
+  skipped = Skipped
+  waiting = Waiting
+}
+
+format {
+  @param $seconds - Seconds, already formatted, such as 4.5
+  seconds = {$seconds}s
+  minutes_seconds = {$minutes :integer}m {$seconds :integer}s
+  hours_minutes = {$hours :integer}h {$minutes :integer}m
+  just_now = just now
+  never = never
+  unknown = unknown
+  less_than_a_minute = less than a minute
+  about_minutes =
+    .input {$count :integer}
+    .match $count
+    one {{about {$count} minute}}
+    * {{about {$count} minutes}}
+  about_hours =
+    .input {$count :number}
+    .match $count
+    one {{about {$count} hour}}
+    * {{about {$count} hours}}
+  longer_than_usual = Taking longer than usual
+  @param $time - Such as "about 3 minutes"
+  time_left = {$time} left
+}
+
+progress {
+  built =
+    .input {$done :integer}
+    .input {$count :integer}
+    .match $count
+    one {{Built {$done} of {$count} package}}
+    * {{Built {$done} of {$count} packages}}
+  @param $done - A size, such as 1.2 GiB
+  @param $expected - A size, such as 3.4 GiB
+  bytes = {$done} of {$expected}
+  downloaded = downloaded {$done :integer} of {$expected :integer}
+  evaluating = Evaluating the configuration…
+  failed = {$count :integer} failed
+  label = Build progress
+  nothing_to_build = Everything is already built
+  starting = Starting…
+}
+
+toast {
+  @param $label - An action, such as "Check for updates"
+  cancelled = {$label} cancelled
+  could_not_cancel = Could not cancel
+  could_not_refresh = Could not refresh
+  could_not_start = Could not start: {$action}
+  dismiss = Dismiss
+  error = Error:
+  failed = {$label} failed
+  failed_because = {$label} failed: {$reason}
+  finished = {$label} finished
+  notifications = Notifications
+  view_log = View log
+}
+
+confirm {
+  commands = Commands
+  commands_that_will_run = Commands that will run
+  performed_by_nix_manager = (performed by Nix Manager)
+  starting = Starting…
+}
+
+overview {
+  all_activity = All activity
+  configuration = Configuration
+  nothing_yet = Nothing has run yet. Prepared builds and updates appear here.
+  recent_activity = Recent activity
+  show_output = Show output
+  step_so_far = {$step}, {$duration} so far
+  this_computer = This computer
+}
+
+activity {
+  all = All
+  applies_on_next_boot = Applies on next boot
+  details = {$scope} on {$host}, started {$started}, took {$duration}
+  filter = Filter
+  finishing = Finishing…
+  none_yet = No activity yet
+  none_yet_body = Operations you start appear here with their steps and output.
+  nothing = Nothing to show.
+  problems = Problems
+  scope_when = {$scope}, {$when}
+  steps = Steps
+  try_again = Try again
+  updates_all_inputs = Updates all flake inputs
+  updates_inputs = Updates {$inputs}
+  what_nix_reported = What Nix reported
+}
+
+log {
+  copied = Log copied
+  copy = Copy log
+  copy_failed = Could not copy the log
+  empty = No output yet.
+  errors_only = Errors only
+  filter = Filter log
+  follow = Follow output
+  load_failed = Could not load the log
+  matches =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} match}}
+    * {{{$count} matches}}
+  output = Operation output
+  truncated = Earlier output is omitted here.
+  wrap = Wrap lines
+}
+
+updates {
+  available =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} update available}}
+    * {{{$count} updates available}}
+  behind = Behind
+  check_now = Check now
+  checking = Checking…
+  current = Current
+  days =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} day}}
+    * {{{$count} days}}
+  last_checked = Last checked {$time}
+  latest = Latest
+  less_than_a_day = < 1 day
+  no_check = No update check yet
+  no_check_body = Looks for newer versions of your software sources and pinned apps without changing anything.
+  none_found = No updates found
+  none_found_body = Everything that could be checked is current. Fix the sources above and check again.
+  not_checked = Not checked yet
+  pinned = Pinned packages
+  pinned_body = Packages built from upstream releases pinned in your configuration.
+  release_notes = Release notes
+  release_notes_of = Release notes of {$name}
+  revision_link = {$name} at {$rev}, opens in a new window
+  some_failed = Some sources could not be checked
+  source = Source
+  sources = Software sources
+  sources_body = Where your software comes from. Updates are built and shown for review before anything changes.
+  up_to_date = Everything is up to date
+  up_to_date_body = All software sources and pinned apps are at their latest versions.
+}
+
+restore {
+  applied_here = Applied here
+  clean_up = Clean up
+  clean_up_ellipsis = Clean up…
+  cleanup_description = Frees disk space by deleting older versions you then can't go back to.
+  cleanup_intro = Remove old restore points and files nothing uses to free disk space.
+  @param $scope - "your user" or "your user and the system"
+  cleanup_keeps =
+    .input {$count :integer}
+    .match $count
+    one {{Keeps the newest {$count} restore point of {$scope}, and the one in use.}}
+    * {{Keeps the newest {$count} restore points of {$scope}, and the one in use.}}
+  cleanup_no_going_back = Deletes files nothing uses any more. You can't go back to removed restore points.
+  cleanup_system_password = Removes older system restore points and their boot menu entries; you'll be asked for your password.
+  cleanup_title = Remove old restore points?
+  go_back = Go back to this…
+  history = History
+  history_intro = What changed in the configuration, newest first.
+  in_use = In use
+  intro = Every change you apply keeps the version before it, so you can go back.
+  keep = Keep
+  keep_fewer = Keep fewer
+  keep_more = Keep more
+  list_home = Restore points of your user
+  list_system = Restore points of the system
+  newest = newest
+  no_history = No history yet
+  no_history_body = With “Keep a history of changes” on in Settings, every change you apply is listed here.
+  none = No restore points
+  none_home = Your user has no restore points yet. They appear after the first change you apply.
+  none_system = No system restore points were found on this computer.
+  profile = Profile
+  running_until_restart = Running until restart
+  running_until_restart_body = The computer started with this version; it changes at the next restart.
+  what_to_clean_up = What to clean up
+}
+
+settings {
+  appearance = Appearance
+  appearance_body = Follow the desktop or choose a theme.
+  dark = Dark
+  detected_as = Detected as {$host}.
+  foreign_host_warning = Changes are now built and applied with the {$host} configuration. Applying another computer's configuration here can break this system; use this only to test builds.
+  home_configuration = Home configuration
+  home_profile = Home profile
+  language = Language
+  language_body = Follow the desktop or choose a language.
+  light = Light
+  nixos_configuration = NixOS configuration
+  privileges = Changes are prepared without special rights and shown for review. Only applying a reviewed system change, going back to an earlier system version and removing system restore points ask for your password.
+  reset = Reset
+  save_failed = Could not save the setting
+  target_host = Target host
+  theme = Theme
+  this_computer = {$host} (this computer)
+}
+
+# What this version of the dashboard does not show yet: its backend is still being ported to Runic.
+placeholder {
+  history = The configuration's history of changes is not shown in this version yet.
+  history_title = History not available yet
+  overview = Restore points, disk space and the state of the configuration folder are not shown in this version yet.
+  restore_points = Listing restore points and going back to one are not available in this version yet. Cleaning up works.
+  restore_points_title = Restore points not available yet
+  settings = Background preparation, automatic clean-up, the history of changes and app details are set in the previous version of Nix Manager for now.
+  updates = Preparing updates for review and updating pinned apps are not available in this version yet. Run them in the previous version of Nix Manager, or update and apply from the command line, for example nix-manager update switch.
+}
