@@ -64,8 +64,9 @@ public static class SetupApplication
     /// Call it before any <see langword="await"/>, since the Desktop host's event loop may need the main thread.
     /// </summary>
     /// <param name="named">The checkout or host was named, so a running instance is used only for the same configuration.</param>
-    public static int Run(DashboardCommand.Invocation invocation, bool named) =>
-        DesktopEventLoop.Run(DashboardApplication.HostOptions(), desktop => RunAsync(invocation, named, desktop));
+    /// <param name="opened">Called with the assistant's Window once it opened, such as to open it in a browser.</param>
+    public static int Run(DashboardCommand.Invocation invocation, bool named, Action<IRunicWindow>? opened = null) =>
+        DesktopEventLoop.Run(DashboardApplication.HostOptions(), desktop => RunAsync(invocation, named, desktop, opened));
 
     /// <summary>Shows why the dashboard could not start until the Window is closed, then ends with 1.</summary>
     public static int ShowProblem(SetupProblem problem) =>
@@ -76,14 +77,15 @@ public static class SetupApplication
             return 1;
         });
 
-    private static async Task<int> RunAsync(DashboardCommand.Invocation invocation, bool named, DesktopHost desktop)
+    private static async Task<int> RunAsync(DashboardCommand.Invocation invocation, bool named, DesktopHost desktop, Action<IRunicWindow>? opened)
     {
         await using var session = await SetupSession.OpenAsync(desktop, null, desktop.ShutdownRequested);
+        if (session.Window is { } window) opened?.Invoke(window);
         if (await session.CheckoutAsync() is null) return 0;
         // The assistant remembered the new checkout, where the configuration is now read from.
         var (config, _) = await DaemonApplication.LoadAsync(invocation.Flake, invocation.Host);
         if (config is null) return 1;
-        if (invocation.NoOpen) return await DashboardApplication.RunAsync(config, desktop, session.HandOver);
+        if (invocation.Served) return await DashboardApplication.RunAsync(config, desktop, session.HandOver);
         var claim = await DaemonProtocol.ClaimAsync(new DaemonRequest(DaemonRequestKinds.Ui, named ? DaemonIdentity.Of(config) : null));
         switch (claim)
         {
@@ -138,6 +140,9 @@ internal sealed class SetupSession : IAsyncDisposable
             throw;
         }
     }
+
+    /// <summary>The assistant's Window while it is open.</summary>
+    public IRunicWindow? Window => _window;
 
     /// <summary>Completes when the Window closed, by the user, a signal, or after handing over.</summary>
     public Task Closed => _closed ?? Task.CompletedTask;

@@ -15,7 +15,7 @@ internal static class CliHandler
         // Valid ui and tray invocations never get here: Program.cs runs the dashboard and the daemon first
         // (DashboardCommand, Daemon.DaemonCommand).
         if (cli.Mode is CliMode.Ui)
-            throw new ManagerException("The dashboard takes only --flake, --host and --no-open.");
+            throw new ManagerException("The dashboard takes only --flake, --host, --no-open and --browser.");
         if (cli.Mode is CliMode.Tray)
             throw new ManagerException("The tray takes only --flake, --host and --interval.");
         Setup.SetupAssistant.AllowFlakes(session.Environment);

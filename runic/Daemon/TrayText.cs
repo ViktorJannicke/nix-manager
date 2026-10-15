@@ -25,13 +25,15 @@ public sealed class TrayText
     private static readonly ConcurrentDictionary<string, TrayText> Cache = new(StringComparer.Ordinal);
     private static readonly Lazy<StoredIndex> Index = new(StoredIndex.Load);
     private readonly ITranslationManager _manager;
-    private readonly CultureInfo _culture;
+    private readonly NumberFormatInfo _numbers;
 
     private TrayText(string locale)
     {
         Locale = locale;
         _manager = DashboardTextCatalog.CreateManager(locale);
-        _culture = CultureInfo.GetCultureInfo(locale == "en" ? "en-GB" : locale);
+        // Only the decimal separator differs, and the runtime may have no culture data (invariant globalization).
+        _numbers = (NumberFormatInfo)NumberFormatInfo.InvariantInfo.Clone();
+        _numbers.NumberDecimalSeparator = locale == "de" ? "," : ".";
         Messages = new DashboardText(_manager).Messages;
     }
 
@@ -58,7 +60,7 @@ public sealed class TrayText
 
     /// <summary>A size in binary units with the language's decimal separator (<c>bytes</c> in <c>src/summary.ts</c>).</summary>
     public string Bytes(double? value, bool signed = false) =>
-        Reviews.ReviewSummary.Bytes(value, signed, _culture);
+        Reviews.ReviewSummary.Bytes(value, signed, _numbers);
 
     /// <summary>
     /// Text the backend stored in English, such as a step label or an error, in this language; text without a

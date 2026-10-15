@@ -211,6 +211,9 @@ TIMESTAMP = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z")
 PID = re.compile(r'"pid": \d+')
 
 
+MOCKED_WARNING = "evaluation warning: a mocked warning\n"
+
+
 def normal(text):
     """The output without what differs between two runs: operation IDs, times and the process that ran it."""
     return PID.sub('"pid": 0', TIMESTAMP.sub("TIME", OPERATION_ID.sub("ID", text)))
@@ -243,7 +246,10 @@ class DaemonTests(unittest.TestCase):
     def assertSameRun(self, standalone, forwarded):
         self.assertEqual(forwarded.returncode, standalone.returncode, (standalone.stderr, forwarded.stderr))
         self.assertEqual(normal(forwarded.stdout), normal(standalone.stdout))
-        self.assertEqual(normal(forwarded.stderr), normal(standalone.stderr))
+        # The mocked nix writes one line to each of its streams; which of the two the runner reads first is up to the
+        # scheduler, in a standalone run as much as in the daemon, so that line is compared by count, not by place.
+        self.assertEqual(forwarded.stderr.count(MOCKED_WARNING), standalone.stderr.count(MOCKED_WARNING))
+        self.assertEqual(normal(forwarded.stderr.replace(MOCKED_WARNING, "")), normal(standalone.stderr.replace(MOCKED_WARNING, "")))
 
     def test_forwarded_output_and_exit_status_equal_a_standalone_run(self):
         # The daemon runs operations with its own environment, so a failing step is set there.
@@ -463,6 +469,29 @@ class SetupTests(unittest.TestCase):
         no_open = self.sandbox.run(["ui", "--no-open"], broken)
         self.assertEqual(no_open.returncode, 1)
         self.assertNotIn("RUNIC_APPLICATION_URL=", no_open.stdout)
+
+    def test_ui_with_browser_serves_the_page_and_opens_it_in_the_default_browser(self):
+        opened = self.sandbox.root / "opened"
+        browser = self.sandbox.root / "bin" / "xdg-open"
+        browser.write_text(f'#!{shutil.which("bash")}\nprintf "%s\\n" "$*" >> {opened}\n')
+        browser.chmod(0o755)
+        try:
+            for env, page in (({}, "index.html"), (self.sandbox.without_checkout(), "setup.html")):
+                with self.subTest(page=page):
+                    opened.unlink(missing_ok=True)
+                    served = self.served(["ui", "--browser"], env)
+                    self.assertEqual(served.page(), page)
+                    with served.changed:
+                        address = next(line for line in served.lines["stdout"] if line.startswith("RUNIC_APPLICATION_URL="))
+                    deadline = time.monotonic() + TIMEOUT
+                    while not opened.exists() and time.monotonic() < deadline:
+                        time.sleep(0.05)
+                    self.assertEqual(opened.read_text().strip(), address.split("=", 1)[1])
+                    served.close_window()
+                    self.assertEqual(served.process.wait(TIMEOUT), 0, served.lines)
+                    served.close()
+        finally:
+            browser.unlink()
 
 
 if __name__ == "__main__":
