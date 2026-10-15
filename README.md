@@ -345,6 +345,17 @@ the interface. `test/i18n.test.ts` fails when a text has no German, a
 placeholder is lost, a text is translated two ways, or a translation is no
 longer used.
 
+The Runic port keeps one Runic Translations catalogue for both sides, in
+`runic/Frontend/translations`: keyed messages (`en.rmf2`, `de.rmf2`), the text
+the backend stores in English (`stored/`, imported from the Bun catalogue by
+`runic/Frontend/scripts/import-bun-catalog.py`), and the daemon's status icon,
+menu and notifications (`tray/`). The page reads it through the Vite plugin as
+`m.*()`. The C# build compiles the same catalogue into
+`NixManager.Dashboard.DashboardText` (`TranslationProject` in
+`runic/NixManager.csproj`), which `runic/Daemon/TrayText.cs` uses for the tray:
+its typed `tray_*` messages, and stored text found by its English as the page's
+`stored()` does. The tray follows the dashboard's language setting while it runs.
+
 German uses the formal "Sie", „these quotes“ and the same word for the same
 thing everywhere:
 

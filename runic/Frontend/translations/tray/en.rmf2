@@ -1,0 +1,75 @@
+# The status icon, its menu and the notifications of the daemon (runic/Daemon/TrayPresentation.cs), and the review
+# summaries they show (runic/Reviews/ReviewSummary.cs). The C# side reads this catalogue through the generated
+# DashboardText class; German is in de.rmf2, taken from the Bun version's catalogue (src/locales/de).
+
+open = Open Nix Manager
+check = Check for updates
+prepare = Prepare all updates for review…
+quit = Quit Nix Manager
+checks_failed = Some update checks failed
+no_updates = No updates reported
+updates_available =
+  .input {$count :integer}
+  .match $count
+  one {{{$count} update available}}
+  * {{{$count} updates available}}
+needs_attention = Nix Manager needs attention
+operation_failed = An operation failed. Open the dashboard for its log.
+updates_ready = Updates are ready
+@param $summary - What applying the updates does, in a few sentences
+nothing_changes = {$summary} Nothing changes until you apply them.
+apply_now = Apply now
+apply_on_boot = Apply on next boot
+space_freed = Space freed
+@param $size - A size, such as 1.2 GiB
+freed = {$size} were freed.
+older_removed = Older restore points were removed.
+newest_kept = The newest {$count :integer} restore points of your apps are kept.
+ready_to_review = Changes are ready to review
+build_finished = The build finished. Open Nix Manager to see what changes and apply it.
+finished = Nix Manager finished
+@param $action - An action, such as "Check for updates"
+@param $host - A host name
+completed_for = {$action} completed for {$host}.
+more = {$count :integer} more
+@param $names - A list of package names, such as "firefox and git"
+installs = installs {$names}
+removes = removes {$names}
+changes_settings =
+  .input {$count :integer}
+  .match $count
+  one {{changes {$count} setting}}
+  * {{changes {$count} settings}}
+updates_packages =
+  .input {$count :integer}
+  .match $count
+  one {{updates {$count} package}}
+  * {{updates {$count} packages}}
+adds = adds {$count :integer}
+adds_packages =
+  .input {$count :integer}
+  .match $count
+  one {{adds {$count} package}}
+  * {{adds {$count} packages}}
+removes_count = removes {$count :integer}
+removes_packages =
+  .input {$count :integer}
+  .match $count
+  one {{removes {$count} package}}
+  * {{removes {$count} packages}}
+home_first_time = sets up your user's apps and settings for the first time
+system_new = builds the system new, as no system is active to compare with
+everything_new = builds everything new, as nothing is active to compare with
+nothing_you_use = Nothing you use changes.
+sources =
+  .input {$count :integer}
+  .match $count
+  one {{Updates {$count} software source.}}
+  * {{Updates {$count} software sources.}}
+@param $size - A size, such as 1.2 GiB
+needs_space = It needs about {$size} more disk space.
+@param $size - A size, such as 1.2 GiB
+frees_space = It frees about {$size} of disk space.
+@param $size - A size, such as 1.2 GiB
+downloaded = {$size} were downloaded to prepare it.
+restart_kernel = Restart afterwards to use the new kernel.

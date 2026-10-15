@@ -118,6 +118,10 @@ internal sealed class DesktopDashboardWindows(IRunicWindowHost host) : IDashboar
         var window = await DashboardApplication.OpenAsync(host);
         _window = window;
         _closed = WatchAsync(window, closed);
+        // A Window the daemon opens for a launch or a click gets focus only with that launch's activation token (KWin,
+        // and Wayland compositors generally). OpenWindowAsync takes none, so the new Window is presented with it.
+        if (context is not null && window.Host is DesktopBridgeWindow<DashboardViewModel> opened && Owner(opened) is { } created)
+            await PlatformServices.PresentAsync(created, context);
         return true;
     }
 
