@@ -4,7 +4,7 @@
   import { Button } from "$lib/components/ui/button";
   import type { Generation } from "../generated/types.js";
   import { app } from "$lib/app.svelte";
-  import { m, slot } from "$lib/i18n";
+  import { m, plain, slot } from "$lib/i18n";
   import { bytes, dateTime, removedGenerations } from "$lib/format";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
   import Segmented from "$lib/components/app/Segmented.svelte";
@@ -88,7 +88,7 @@
 <div class="space-y-6">
   <header class="flex flex-wrap items-end justify-between gap-4">
     <div>
-      <h1 class="title">{m.nav_restore_points()}<TechName name="generations" /></h1>
+      <h1 class="title">{plain(m.nav_restore_points())}<TechName name="generations" /></h1>
       <p class="mt-1 text-muted-foreground">{m.restore_intro()}</p>
     </div>
     <Segmented

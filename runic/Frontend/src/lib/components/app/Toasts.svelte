@@ -29,7 +29,7 @@
       {:else if toast.tone === "error"}<CircleAlertIcon class="mt-0.5 size-4 shrink-0 text-destructive" />
       {:else}<InfoIcon class="mt-0.5 size-4 shrink-0 text-primary" />{/if}
       <div class="min-w-0 flex-1">
-        <p class="font-medium">{#if toast.tone === "error"}<span class="sr-only">{m.toast_error()} </span>{/if}{toast.title}</p>
+        <p class="font-medium">{#if toast.tone === "error"}<span class="sr-only">{`${m.toast_error()} `}</span>{/if}{toast.title}</p>
         {#if toast.body}<p class="mt-0.5 line-clamp-4 text-xs break-words text-muted-foreground">{toast.body}</p>{/if}
         {#if toast.action}
           <button
