@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text;
 using System.Threading.Channels;
+using NixManager.Dashboard;
 using NixManager.Domain;
 using NixManager.Observation;
 using NixManager.Operations;
@@ -86,6 +87,7 @@ public sealed class DaemonCore
     private string _announced = "";
     private string _iconKey = "";
     private bool _iconShown;
+    private (DateTime Written, TrayText Text)? _text;
 
     private sealed record Show(DesktopActivationContext? Context)
     {
@@ -116,6 +118,25 @@ public sealed class DaemonCore
     }
 
     private Config Config => _service.Config;
+
+    /// <summary>
+    /// The dashboard's language for the icon and the notifications: the one chosen in Settings, or the desktop's
+    /// (<c>resolveLocale</c>). Read again when <c>preferences.json</c> changes, so a new choice reaches the menu with the
+    /// next refresh.
+    /// </summary>
+    private TrayText Text
+    {
+        get
+        {
+            var path = DashboardPreferences.PathOf(Config);
+            var written = File.Exists(path) ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
+            if (_text is { } cached && cached.Written == written) return cached.Text;
+            var locale = DashboardPreferences.ResolveLocale(DashboardPreferences.Read(Config).Language, Environment.GetEnvironmentVariable);
+            var text = TrayText.For(locale);
+            _text = (written, text);
+            return text;
+        }
+    }
 
     /// <summary>
     /// Handles a later launch; subscribe it to <c>IApplicationInstance.Launched</c> right after claiming. It returns at
@@ -267,6 +288,8 @@ public sealed class DaemonCore
         using var stop = shutdown.Register(() => _inbox.Writer.TryComplete());
         using var timers = new CancellationTokenSource();
         var tray = _settings.Mode == DaemonMode.Tray;
+        // A language chosen in Settings reaches the menu and the tooltip at once.
+        using var preferences = tray ? WatchPreferences() : null;
         _notified = _service.History().FirstOrDefault()?.Id ?? "";
         try
         {
@@ -297,6 +320,31 @@ public sealed class DaemonCore
             _ending = true;
             await timers.CancelAsync();
             await EndAsync();
+        }
+    }
+
+    /// <summary>Posts <c>Changed</c> when <c>preferences.json</c> is written, which the dashboard does by renaming a new file over it.</summary>
+    private FileSystemWatcher? WatchPreferences()
+    {
+        try
+        {
+            OperationStore.CreatePrivateDirectory(Config.StateDir);
+            var name = Path.GetFileName(DashboardPreferences.PathOf(Config));
+            var watcher = new FileSystemWatcher(Config.StateDir) { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite };
+            void Post(string? changed)
+            {
+                if (changed == name) _inbox.Writer.TryWrite(new Changed());
+            }
+            watcher.Changed += (_, e) => Post(e.Name);
+            watcher.Created += (_, e) => Post(e.Name);
+            watcher.Renamed += (_, e) => Post(e.Name);
+            watcher.EnableRaisingEvents = true;
+            return watcher;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            _log.WriteLine($"Not following the language setting: {error.Message}");
+            return null;
         }
     }
 
@@ -387,7 +435,7 @@ public sealed class DaemonCore
     private void Start(Request request)
     {
         try { _service.Start(request); }
-        catch (ManagerException error) { _ = NotifyAsync(new DesktopNotification(TrayPresentation.OperationNotice, "Nix Manager needs attention", error.Message)); }
+        catch (ManagerException error) { _ = NotifyAsync(NeedsAttention(error.Message)); }
     }
 
     /// <summary>Observes the computer again: at start, when the dashboard opens and after each operation.</summary>
@@ -399,7 +447,8 @@ public sealed class DaemonCore
     {
         if (_settings.Mode != DaemonMode.Tray) return;
         var report = _service.Updates();
-        var state = TrayPresentation.Icon(_service.Active, report);
+        var text = Text;
+        var state = TrayPresentation.Icon(_service.Active, report, text);
         var key = TrayPresentation.Key(state);
         if (key != _iconKey || !_iconShown)
         {
@@ -409,7 +458,7 @@ public sealed class DaemonCore
                 _log.WriteLine("No status area shows the icon yet; it appears once one starts.");
             _iconShown = true;
         }
-        if (TrayPresentation.Updates(report, ref _announced) is { } updates) await NotifyAsync(updates);
+        if (TrayPresentation.Updates(report, ref _announced, text) is { } updates) await NotifyAsync(updates);
     }
 
     /// <summary>
@@ -426,10 +475,16 @@ public sealed class DaemonCore
             try { return ReviewStore.Get(Config, id); }
             catch (ManagerException) { return null; }
         }
-        if (TrayPresentation.Finished(operation, Config, Review, _freeSpace) is not { } notice) return;
+        if (TrayPresentation.Finished(operation, Config, Review, _freeSpace, Text) is not { } notice) return;
         if (notice.Review is { } review) _noticeReviews[notice.Notification.Id] = review;
         else _noticeReviews.TryRemove(notice.Notification.Id, out _);
         await NotifyAsync(notice.Notification);
+    }
+
+    private DesktopNotification NeedsAttention(string error)
+    {
+        var text = Text;
+        return new DesktopNotification(TrayPresentation.OperationNotice, text.Messages.tray_needs_attention, text.Stored(error));
     }
 
     private async Task NotifyAsync(DesktopNotification notification)
@@ -475,7 +530,7 @@ public sealed class DaemonCore
         catch (ManagerException error) when (_service.Busy) { _log.WriteLine($"Not checking now: {error.Message}"); }
         catch (ManagerException error)
         {
-            await NotifyAsync(new DesktopNotification(TrayPresentation.OperationNotice, "Nix Manager needs attention", error.Message)).ConfigureAwait(false);
+            await NotifyAsync(NeedsAttention(error.Message)).ConfigureAwait(false);
         }
     }
 

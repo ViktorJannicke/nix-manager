@@ -33,6 +33,12 @@
     <PackageReference Include="Runic.Platform.Linux.Polkit" Version="0.8.0-preview.3" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The daemon's own text and the stored English text from the dashboard's catalogue, which the daemon reads in
+         the dashboard's language (Daemon/TrayText.cs). -->
+    <EmbeddedResource Include="Frontend/translations/tray/*.rmf2" LogicalName="NixManager.Translations.tray.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Frontend/translations/stored/*.rmf2" LogicalName="NixManager.Translations.stored.%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
     <InternalsVisibleTo Include="NixManager.Tests" />
   </ItemGroup>
   <ItemGroup>

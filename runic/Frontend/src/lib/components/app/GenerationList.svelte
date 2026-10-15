@@ -2,7 +2,7 @@
   import { Button } from "$lib/components/ui/button";
   import { dateTime, relative } from "$lib/format";
   import { m } from "$lib/i18n";
-  import type { Generation } from "$lib/restore-points";
+  import type { Generation } from "../../../generated/types.js";
 
   let { generations, profile, label, now, disabled, onGoBack }: {
     generations: readonly Generation[];

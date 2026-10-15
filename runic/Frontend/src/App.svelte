@@ -5,6 +5,9 @@
   import { useView } from "@runic-artifex/svelte/views";
   import LayoutIcon from "@lucide/svelte/icons/layout-dashboard";
   import CloudDownloadIcon from "@lucide/svelte/icons/cloud-download";
+  import GitCompareIcon from "@lucide/svelte/icons/git-compare";
+  import PackageIcon from "@lucide/svelte/icons/package";
+  import MonitorIcon from "@lucide/svelte/icons/monitor";
   import HistoryIcon from "@lucide/svelte/icons/history";
   import ListIcon from "@lucide/svelte/icons/list";
   import SettingsIcon from "@lucide/svelte/icons/settings";
@@ -14,20 +17,34 @@
   import { connectDashboard } from "./generated/dashboard.js";
   import { Button } from "$lib/components/ui/button";
   import { app, type Page } from "$lib/app.svelte";
-  import { actionLabel, m, setLocale, stored } from "$lib/i18n";
+  import { actionLabel, m, plain, setLocale, stored } from "$lib/i18n";
   import Toasts from "$lib/components/app/Toasts.svelte";
   import ConfirmDialog from "$lib/components/app/ConfirmDialog.svelte";
   import BuildProgress from "$lib/components/app/BuildProgress.svelte";
+  import OneStepDialog from "$lib/components/app/OneStepDialog.svelte";
   import Overview from "./pages/Overview.svelte";
   import Updates from "./pages/Updates.svelte";
+  import Changes from "./pages/Changes.svelte";
+  import Software from "./pages/Software.svelte";
+  import Computer from "./pages/Computer.svelte";
   import Generations from "./pages/Generations.svelte";
   import Activity from "./pages/Activity.svelte";
   import Settings from "./pages/Settings.svelte";
 
   const dashboard = useView(() => ({ connect: connectDashboard }));
   const operations = useView(() => dashboard.state?.operations);
+  const reviews = useView(() => dashboard.state?.reviews);
+  const system = useView(() => dashboard.state?.system);
+  const software = useView(() => dashboard.state?.software);
+  const appList = useView(() => software.state?.apps);
+  const icons = useView(() => software.state?.icons);
   app.dashboardView = dashboard;
   app.operationsView = operations;
+  app.reviewsView = reviews;
+  app.systemView = system;
+  app.softwareView = software;
+  app.appListView = appList;
+  app.iconsView = icons;
 
   onMount(() => app.start());
 
@@ -48,21 +65,32 @@
 
   $effect(() => app.settle(app.history));
 
+  // The configuration's history is read again whenever its last commit changes, not with every observation.
+  const revision = $derived(app.system ? (app.system.repository.revision ?? "") : undefined);
+  $effect(() => {
+    const client = reviews.client;
+    if (client && revision !== undefined) void client.refreshHistory().catch(() => {});
+  });
+
   const nav = $derived.by(() => {
     void locale;
     return [
-      { id: "overview" as Page, label: m.nav_overview(), icon: LayoutIcon, count: undefined },
-      { id: "updates" as Page, label: m.nav_updates(), icon: CloudDownloadIcon, count: app.inputUpdates.length + app.packageUpdates.length || undefined },
-      { id: "generations" as Page, label: m.nav_restore_points(), icon: HistoryIcon, count: undefined },
-      { id: "activity" as Page, label: m.nav_activity(), icon: ListIcon, count: undefined },
-      { id: "settings" as Page, label: m.nav_settings(), icon: SettingsIcon, count: undefined },
+      { id: "overview" as Page, label: m.nav_overview(), icon: LayoutIcon, count: undefined, prepared: false },
+      { id: "software" as Page, label: m.nav_software(), icon: PackageIcon, count: app.pendingChanges.length || undefined, prepared: true },
+      { id: "computer" as Page, label: m.nav_computer(), icon: MonitorIcon, count: undefined, prepared: false },
+      { id: "changes" as Page, label: m.nav_changes(), icon: GitCompareIcon, count: app.reviews.length || undefined, prepared: true },
+      { id: "updates" as Page, label: m.nav_updates(), icon: CloudDownloadIcon, count: app.inputUpdates.length + app.packageUpdates.length || undefined, prepared: false },
+      { id: "generations" as Page, label: m.nav_restore_points(), icon: HistoryIcon, count: undefined, prepared: false },
+      { id: "activity" as Page, label: m.nav_activity(), icon: ListIcon, count: undefined, prepared: false },
+      { id: "settings" as Page, label: m.nav_settings(), icon: SettingsIcon, count: undefined, prepared: false },
     ];
   });
   const running = $derived(app.active);
   const runningStep = $derived(running?.steps?.find((step) => step.status === "running"));
   const title = $derived.by(() => {
     void locale;
-    const page = nav.find((item) => item.id === app.page)?.label;
+    // A soft hyphen lets a long label wrap in the navigation; the Window title has room for the whole word.
+    const page = plain(nav.find((item) => item.id === app.page)?.label ?? "");
     return `${running ? `${actionLabel(running.request.action)}… ` : ""}${page} – Nix Manager`;
   });
 </script>
@@ -79,21 +107,25 @@
         <SnowflakeIcon class="size-5 text-primary" />
         <span class="font-bold tracking-tight">Nix Manager</span>
       </div>
-      <ul role="list" class="space-y-0.5">
+      <!-- Each item is display: contents, so WebKitGTK exposes it with its button's text rather than an embedded
+           object: an item whose text is only U+FFFC aborts WebKitGTK 2.54's web process when Orca asks for its text
+           attributes (README.md, Desktop and screen-reader VM tests). The list keeps its items; the gap spaces them. -->
+      <ul role="list" class="flex flex-col gap-0.5">
         {#each nav as item (item.id)}
-          <li>
+          <li class="contents">
+            <!-- Long labels, such as German compounds, wrap at their soft hyphen instead of being cut off. -->
             <button
-              class="focus-ring flex h-9 w-full items-center gap-3 rounded-lg px-2.5 text-left transition-colors
+              class="focus-ring flex min-h-9 w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-left leading-snug transition-colors
                 {app.page === item.id ? 'bg-card font-semibold text-foreground' : 'text-muted-foreground hover:bg-card/60 hover:text-foreground'}"
               aria-current={app.page === item.id ? "page" : undefined}
               onclick={() => app.navigate(item.id)}
             >
               <item.icon class="size-4 shrink-0 {app.page === item.id ? 'text-primary' : ''}" />
-              <span class="flex-1">{item.label}</span>
+              <span class="min-w-0 flex-1 hyphens-manual break-words">{item.label}</span>
               {#if item.id === "activity" && running}
-                <LoaderIcon class="size-3.5 animate-spin text-primary" /><span class="sr-only">{m.nav_running()}</span>
+                <LoaderIcon class="size-3.5 shrink-0 animate-spin text-primary" /><span class="sr-only">{m.nav_running()}</span>
               {:else if item.count}
-                <span class="numeric text-[0.8rem]">{item.count}</span>
+                <span class="numeric shrink-0 text-[0.8rem] {item.prepared ? 'font-semibold text-prepared-foreground' : ''}">{item.count}</span>
               {/if}
             </button>
           </li>
@@ -131,7 +163,10 @@
               {/if}
             </div>
           {:else if app.page === "overview"}<Overview />
+          {:else if app.page === "software"}<Software />
+          {:else if app.page === "computer"}<Computer />
           {:else if app.page === "updates"}<Updates />
+          {:else if app.page === "changes"}<Changes />
           {:else if app.page === "generations"}<Generations />
           {:else if app.page === "activity"}<Activity />
           {:else}<Settings />{/if}
@@ -140,5 +175,6 @@
     </div>
   </div>
   <ConfirmDialog />
+  <OneStepDialog />
   <Toasts />
 {/key}

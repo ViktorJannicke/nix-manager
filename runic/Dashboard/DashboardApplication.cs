@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using NixManager.Configuration;
 using NixManager.Domain;
 using NixManager.Operations;
+using NixManager.Setup;
 using Runic.Application.Views;
 using Runic.Application.Views.Desktop;
 using Runic.Desktop;
@@ -57,32 +58,36 @@ public static class DashboardApplication
     /// started from it. Ctrl+C or SIGTERM closes the Window and cancels that operation. Call it before any
     /// <see langword="await"/>, since the Desktop host's event loop may need the main thread.
     /// </summary>
-    public static int Run(Config config)
+    /// <param name="opened">Called with the dashboard Window once it opened, such as to open it in a browser.</param>
+    public static int Run(Config config, Action<IRunicWindow>? opened = null) =>
+        DesktopEventLoop.Run(HostOptions(), desktop => RunAsync(config, desktop, opened));
+
+    /// <summary>
+    /// Runs the dashboard on its own on a Desktop host that runs already, as after the setup assistant created the
+    /// checkout (<see cref="Setup.SetupApplication"/>).
+    /// </summary>
+    /// <param name="opened">Called with the dashboard Window once it opened.</param>
+    public static async Task<int> RunAsync(Config config, DesktopHost desktop, Action<IRunicWindow>? opened = null)
     {
-        var provider = new ServiceCollection()
+        await using var provider = new ServiceCollection()
             .AddNixManagerBackend(config)
             .AddNixManagerDashboard()
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
-        try
+        var host = new RunicDesktopHost(provider, desktop);
+        var service = provider.GetRequiredService<IOperationService>();
+        var shutdown = desktop.ShutdownRequested;
+        await using (var window = await OpenAsync(host, shutdown))
         {
-            return RunicDesktopHost.Run(provider, HostOptions(), async host =>
-            {
-                var service = provider.GetRequiredService<IOperationService>();
-                var shutdown = host.Desktop.ShutdownRequested;
-                await ShowAsync(host, shutdown);
-                if (service.Busy)
-                {
-                    Console.Error.WriteLine("The dashboard closed; waiting for the running operation to finish. Press Ctrl+C to cancel it.");
-                    using (shutdown.Register(service.Cancel))
-                        await service.WaitAsync();
-                }
-                return 0;
-            });
+            opened?.Invoke(window);
+            await window.WaitForCloseAsync();
         }
-        finally
+        if (service.Busy)
         {
-            provider.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            Console.Error.WriteLine("The dashboard closed; waiting for the running operation to finish. Press Ctrl+C to cancel it.");
+            using (shutdown.Register(service.Cancel))
+                await service.WaitAsync();
         }
+        return 0;
     }
 }
 
@@ -96,7 +101,12 @@ public static class DashboardCommand
     /// <param name="Flake">The checkout, from <c>--flake</c>.</param>
     /// <param name="Host">The host, from <c>--host</c>.</param>
     /// <param name="NoOpen">Serve the page without a window (<c>--no-open</c>): Runic's serve-only mode.</param>
-    public sealed record Invocation(string? Flake, string? Host, bool NoOpen);
+    /// <param name="Browser">Serve the page and open it in the default browser (<c>--browser</c>).</param>
+    public sealed record Invocation(string? Flake, string? Host, bool NoOpen, bool Browser = false)
+    {
+        /// <summary>The page is served, not shown in a Window of this application.</summary>
+        public bool Served => NoOpen || Browser;
+    }
 
     public static bool TryParse(IReadOnlyList<string> args, out Invocation invocation)
     {
@@ -107,6 +117,7 @@ public static class DashboardCommand
             var arg = args[i];
             if (string.Equals(arg, "ui", StringComparison.OrdinalIgnoreCase) && !ui) ui = true;
             else if (arg is "--no-open") invocation = invocation with { NoOpen = true };
+            else if (arg is "--browser") invocation = invocation with { Browser = true };
             else if (arg is "--plain" or "--verbose") { }
             else if (Value(args, ref i, "--flake") is { } flake) invocation = invocation with { Flake = flake };
             else if (Value(args, ref i, "--host") is { } host) invocation = invocation with { Host = host };
@@ -129,21 +140,35 @@ public static class DashboardCommand
     /// the tray takes over the instance after that. Without a per-user runtime directory, with
     /// <c>NIX_MANAGER_DAEMON=0</c>, <c>--no-open</c>, or while an instance runs another checkout, it runs on its own.
     /// </summary>
+    /// <remarks>
+    /// Without any checkout it starts with the setup assistant, which hands over to the dashboard once it created one;
+    /// a dashboard started from the menu (standard output is not a terminal) whose configuration does not load shows
+    /// why in the assistant's Window (<c>setUp</c> and <c>main</c> in <c>src/main.ts</c>, <see cref="SetupLaunch"/>).
+    /// </remarks>
     public static int Run(Invocation invocation)
     {
         Setup.SetupAssistant.AllowFlakes(ManagerEnvironment.Current);
-        if (invocation.NoOpen)
+        if (invocation.Served)
         {
-            if (Daemon.DaemonApplication.Load(invocation.Flake, invocation.Host) is not { } served) return 1;
+            // The setup assistant, and the dashboard after it, are served the same way; with --browser, the first page
+            // opens in the default browser, as the Bun version's did, and the assistant's page moves on by itself.
             Environment.SetEnvironmentVariable("RUNIC_APPLICATION_SERVE_ONLY", "1");
-            return DashboardApplication.Run(served);
+            Action<IRunicWindow>? browse = invocation.Browser ? DashboardBrowser.Open : null;
+            if (SetupLaunch.NeedsSetup(invocation.Flake)) return SetupApplication.Run(invocation, named: false, browse);
+            if (Daemon.DaemonApplication.Load(invocation.Flake, invocation.Host) is not { } served) return 1;
+            return DashboardApplication.Run(served, browse);
         }
         // A dashboard for a checkout or host named here goes to the running instance only if that runs the same one.
         var environment = ManagerEnvironment.Current;
         var named = invocation.Flake is not null || invocation.Host is not null
             || environment.Variable("NIX_MANAGER_FLAKE") is { Length: > 0 } || environment.Variable("NIX_MANAGER_HOST") is { Length: > 0 };
         Config? config = null;
-        if (named && (config = Daemon.DaemonApplication.Load(invocation.Flake, invocation.Host)) is null) return 1;
+        string? error = null;
+        if (named)
+        {
+            if (SetupLaunch.NeedsSetup(invocation.Flake)) return SetupApplication.Run(invocation, named);
+            if ((config = Daemon.DaemonApplication.Load(invocation.Flake, invocation.Host, out error)) is null) return Failed(invocation, error);
+        }
         // No event loop runs yet: waiting here keeps the main thread for the Desktop host.
         var claim = Daemon.DaemonProtocol.ClaimAsync(new Daemon.DaemonRequest(Daemon.DaemonRequestKinds.Ui,
             config is null ? null : Daemon.DaemonIdentity.Of(config))).GetAwaiter().GetResult();
@@ -153,15 +178,59 @@ public static class DashboardCommand
                 if (Daemon.DaemonApplication.Follow(reply) is { } code) return code;
                 break;
             case Runic.Platform.ApplicationInstanceClaim.Primary primary:
-                config ??= Daemon.DaemonApplication.Load(invocation.Flake, invocation.Host);
-                if (config is null)
+                // Before the checkout exists, the assistant runs without the instance; it claims one when it hands over.
+                var setup = config is null && SetupLaunch.NeedsSetup(invocation.Flake);
+                if (!setup) config ??= Daemon.DaemonApplication.Load(invocation.Flake, invocation.Host, out error);
+                if (setup || config is null)
                 {
                     primary.Instance.DisposeAsync().AsTask().GetAwaiter().GetResult();
-                    return 1;
+                    return setup ? SetupApplication.Run(invocation, named) : Failed(invocation, error);
                 }
                 return Daemon.DaemonApplication.Run(config, primary.Instance, new Daemon.DaemonSettings { Mode = Daemon.DaemonMode.Ui });
         }
-        config ??= Daemon.DaemonApplication.Load(invocation.Flake, invocation.Host);
-        return config is null ? 1 : DashboardApplication.Run(config);
+        if (config is null && SetupLaunch.NeedsSetup(invocation.Flake)) return SetupApplication.Run(invocation, named);
+        config ??= Daemon.DaemonApplication.Load(invocation.Flake, invocation.Host, out error);
+        return config is null ? Failed(invocation, error) : DashboardApplication.Run(config);
+    }
+
+    /// <summary>
+    /// The configuration did not load, which loading reported on standard error. Started from the menu, that would go
+    /// unseen, so the assistant's Window says why until it is closed.
+    /// </summary>
+    private static int Failed(Invocation invocation, string? error)
+    {
+        if (error is not null && SetupLaunch.ShowsProblem(invocation.Served, Console.IsOutputRedirected))
+            SetupApplication.ShowProblem(new SetupProblem(error, SetupLaunch.Checkout(invocation.Flake).Path));
+        return 1;
+    }
+}
+
+/// <summary>
+/// <c>ui --browser</c>: opens a served page in the desktop's default browser with <c>xdg-open</c>, as the Bun version
+/// did. The page stays served until Ctrl+C, SIGTERM or a stop line on standard input, as with <c>--no-open</c>.
+/// </summary>
+public static class DashboardBrowser
+{
+    public static void Open(IRunicWindow window)
+    {
+        var address = window.Host switch
+        {
+            DesktopBridgeWindow<DashboardViewModel> dashboard => dashboard.Surface.Url.ToString(),
+            DesktopBridgeWindow<ViewModels.SetupViewModel> setup => setup.Surface.Url.ToString(),
+            _ => null,
+        };
+        if (address is null) return;
+        try
+        {
+            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("xdg-open", [address])
+            {
+                // The served page's stop line arrives on this process's standard input; the browser must not read it.
+                RedirectStandardInput = true,
+            });
+        }
+        catch (Exception error) when (error is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            Console.Error.WriteLine($"Could not open a browser ({error.Message}); open the address above.");
+        }
     }
 }

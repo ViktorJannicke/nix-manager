@@ -22,7 +22,7 @@ export function setLocale(locale: string) {
   document.documentElement.lang = current;
 }
 
-type Pattern = { key: string; pattern: RegExp; names: string[]; literal: number };
+type Pattern = { key: string; english: string; pattern: RegExp; names: string[]; literal: number };
 let exact: Map<string, string> | undefined;
 let patterns: Pattern[] | undefined;
 const call = (key: string, values?: Record<string, string>) =>
@@ -41,7 +41,7 @@ function index() {
       .split(/\{\w+\}/)
       .map((piece) => piece.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
       .join("([\\s\\S]+?)");
-    patterns.push({ key, pattern: new RegExp(`^${source}$`), names, literal: english.replace(/\{\w+\}/g, "").length });
+    patterns.push({ key, english, pattern: new RegExp(`^${source}$`), names, literal: english.replace(/\{\w+\}/g, "").length });
   }
   // The most specific key wins, so "{label} failed" does not take "Building {name} failed".
   patterns.sort((a, b) => b.literal - a.literal);
@@ -62,6 +62,17 @@ export function stored(text: string | null | undefined): string {
     if (match) return call(key, Object.fromEntries(names.map((name, i) => [name, stored(match[i + 1])])));
   }
   return text;
+}
+
+/**
+ * Stored text with placeholders, such as "{label}: {option} on", filled with `values` in the current language.
+ * Unlike matching the filled English with `stored`, the template is known, so a value cannot be mistaken for part
+ * of another message. Values are used as given; translate those that are stored text first.
+ */
+export function storedTemplate(english: string, values: Record<string, string>): string {
+  if (!exact) index();
+  const key = exact!.get(english) ?? patterns!.find((pattern) => pattern.english === english)?.key;
+  return key ? call(key, values) : english.replace(/\{(\w+)\}/g, (_, name: string) => values[name] ?? "");
 }
 
 /** English action labels as the backend stores them (`actionLabels`). */
@@ -85,3 +96,27 @@ export const actionLabel = (action: string) => stored(actionLabels[action] ?? ac
 /** "a, b and c" in the current language; English without the serial comma. */
 export const list = (items: readonly string[]) =>
   new Intl.ListFormat(current === "en" ? "en-GB" : current, { type: "conjunction" }).format(items);
+
+// Markup in translated text, as the Bun version's T component did: a message is called with `slot(name)` for a
+// value that is markup, such as emphasis, and `Markup` renders its pieces with a snippet for each slot. The words
+// around a slot stay in the translation's order.
+const open = "\u{F0000}";
+const close = "\u{F0001}";
+
+/** A placeholder value that `Markup` replaces with markup. */
+export const slot = (name: string) => `${open}${name}${close}`;
+
+/** The pieces of a message called with `slot` values: text, and the names of slots between it. */
+export function pieces(text: string): ({ text: string } | { slot: string })[] {
+  return text
+    .split(new RegExp(`${open}(\\w+)${close}`, "u"))
+    .map((piece, index) => (index % 2 ? { slot: piece } : { text: piece }))
+    .filter((piece) => !("text" in piece) || piece.text);
+}
+
+/**
+ * Text without its soft hyphens (U+00AD), for headings and names that never wrap: German compounds such as
+ * "Wiederherstellungs\u00adpunkte" carry one for the narrow navigation, and a heading would otherwise give a landmark
+ * a name with it.
+ */
+export const plain = (text: string) => text.replaceAll("\u00ad", "");

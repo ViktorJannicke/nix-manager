@@ -4,9 +4,11 @@ Mocked build tools as in test-manager.py; never activates the machine. Every pro
 directory, so the single-instance socket never reaches a real Nix Manager. The daemon runs in Runic's serve-only
 mode: its dashboard Window is served instead of shown, and a line on its standard input closes it.
 """
+import http.client
 import json
 import os
 from pathlib import Path
+import pty
 import re
 import shlex
 import shutil
@@ -114,6 +116,12 @@ class Sandbox:
         return subprocess.Popen([*COMMAND, *args], env=self.env | (env or {}), text=True, stdin=subprocess.DEVNULL,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
+    def without_checkout(self):
+        """No checkout asked for, and none where Nix Manager looks: the setup assistant's case."""
+        home = self.root / "home"
+        home.mkdir(exist_ok=True)
+        return {"NIX_MANAGER_FLAKE": "", "NIX_MANAGER_HOST": "", "HOME": str(home)}
+
     def history(self):
         result = self.run(["history", "--json"])
         assert result.returncode == 0, result.stderr
@@ -124,7 +132,8 @@ class Instance:
     """A daemon (`tray`) or a dashboard (`ui`) process, with its output collected as it arrives."""
 
     def __init__(self, sandbox, args, env=None, ready=None):
-        self.process = subprocess.Popen([*COMMAND, *args], env=sandbox.env | (env or {}), text=True,
+        # Outside any Git checkout, which Nix Manager would otherwise consider managing.
+        self.process = subprocess.Popen([*COMMAND, *args], env=sandbox.env | (env or {}), text=True, cwd=sandbox.root,
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.lines = {"stdout": [], "stderr": []}
         self.changed = threading.Condition()
@@ -157,6 +166,21 @@ class Instance:
             if self.count(stream, text) < count:
                 raise AssertionError(f"the process ended before {text!r} appeared on {stream}: {self.lines}")
 
+    def page(self):
+        """The page the served Window starts with, from the address it printed, without loading it."""
+        with self.changed:
+            line = next(line for line in self.lines["stdout"] if line.startswith("RUNIC_APPLICATION_URL="))
+        address = line.split("=", 1)[1]
+        host, _, path = address.removeprefix("http://").partition("/")
+        connection = http.client.HTTPConnection(host, timeout=TIMEOUT)
+        try:
+            connection.request("GET", "/" + path)
+            response = connection.getresponse()
+            response.read()
+            return (response.getheader("Location") or "").rsplit("/", 1)[-1]
+        finally:
+            connection.close()
+
     def close_window(self):
         self.process.stdin.write("\n")
         self.process.stdin.flush()
@@ -185,6 +209,9 @@ def tray(sandbox, env=None):
 OPERATION_ID = re.compile(r"\d{13}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 TIMESTAMP = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z")
 PID = re.compile(r'"pid": \d+')
+
+
+MOCKED_WARNING = "evaluation warning: a mocked warning\n"
 
 
 def normal(text):
@@ -219,7 +246,10 @@ class DaemonTests(unittest.TestCase):
     def assertSameRun(self, standalone, forwarded):
         self.assertEqual(forwarded.returncode, standalone.returncode, (standalone.stderr, forwarded.stderr))
         self.assertEqual(normal(forwarded.stdout), normal(standalone.stdout))
-        self.assertEqual(normal(forwarded.stderr), normal(standalone.stderr))
+        # The mocked nix writes one line to each of its streams; which of the two the runner reads first is up to the
+        # scheduler, in a standalone run as much as in the daemon, so that line is compared by count, not by place.
+        self.assertEqual(forwarded.stderr.count(MOCKED_WARNING), standalone.stderr.count(MOCKED_WARNING))
+        self.assertEqual(normal(forwarded.stderr.replace(MOCKED_WARNING, "")), normal(standalone.stderr.replace(MOCKED_WARNING, "")))
 
     def test_forwarded_output_and_exit_status_equal_a_standalone_run(self):
         # The daemon runs operations with its own environment, so a failing step is set there.
@@ -382,6 +412,86 @@ class DaemonTests(unittest.TestCase):
         self.assertEqual(second.returncode, 1)
         self.assertIn("Nix Manager is already running in the tray.", second.stderr)
         self.assertEqual(waiting.stop(), 0)
+
+
+class SetupTests(unittest.TestCase):
+    """`ui` before there is a checkout, and with one that does not load (setUp and main in src/main.ts)."""
+
+    def setUp(self):
+        self.sandbox = Sandbox()
+        self.instances = []
+
+    def tearDown(self):
+        for instance in self.instances:
+            if instance.process.poll() is None:
+                instance.process.kill()
+            instance.process.wait(TIMEOUT)
+            instance.close()
+        self.sandbox.close()
+
+    def served(self, args, env):
+        instance = Instance(self.sandbox, args, env, ready=("stdout", "RUNIC_APPLICATION_URL="))
+        self.instances.append(instance)
+        return instance
+
+    def test_ui_without_a_checkout_serves_the_setup_assistant_until_it_is_closed(self):
+        for args in (["ui"], ["ui", "--no-open"]):
+            with self.subTest(args=args):
+                setup = self.served(args, self.sandbox.without_checkout())
+                self.assertEqual(setup.page(), "setup.html")
+                self.assertEqual(setup.process.poll(), None)
+                setup.close_window()
+                # Closed before it created anything, as the Bun version's assistant ends.
+                self.assertEqual(setup.process.wait(TIMEOUT), 0, setup.lines)
+                setup.close()
+                self.assertFalse((self.sandbox.root / "home" / "nixos-config").exists())
+                self.assertFalse((self.sandbox.root / "state" / "nix-manager" / "checkout").exists())
+
+    def test_a_configuration_that_does_not_load_is_shown_in_the_assistant_s_window_from_the_menu(self):
+        broken = {"NIX_MANAGER_FLAKE": str(self.sandbox.root / "missing")}
+        # Started from the menu, standard output is not a terminal: the Window says why until it is closed.
+        problem = self.served(["ui"], broken)
+        self.assertEqual(problem.page(), "setup.html")
+        problem.wait_for("stderr", "Error: Resolve flake directory:")
+        problem.close_window()
+        self.assertEqual(problem.process.wait(TIMEOUT), 1)
+        problem.close()
+        # In a terminal, and with --no-open, the error is enough.
+        primary, secondary = pty.openpty()
+        try:
+            in_terminal = subprocess.run([*COMMAND, "ui"], env=self.sandbox.env | broken, stdin=subprocess.DEVNULL, stdout=secondary,
+                                         stderr=subprocess.PIPE, text=True, timeout=TIMEOUT, cwd=self.sandbox.root)
+        finally:
+            os.close(secondary)
+            os.close(primary)
+        self.assertEqual(in_terminal.returncode, 1)
+        self.assertIn("Error: Resolve flake directory:", in_terminal.stderr)
+        no_open = self.sandbox.run(["ui", "--no-open"], broken)
+        self.assertEqual(no_open.returncode, 1)
+        self.assertNotIn("RUNIC_APPLICATION_URL=", no_open.stdout)
+
+    def test_ui_with_browser_serves_the_page_and_opens_it_in_the_default_browser(self):
+        opened = self.sandbox.root / "opened"
+        browser = self.sandbox.root / "bin" / "xdg-open"
+        browser.write_text(f'#!{shutil.which("bash")}\nprintf "%s\\n" "$*" >> {opened}\n')
+        browser.chmod(0o755)
+        try:
+            for env, page in (({}, "index.html"), (self.sandbox.without_checkout(), "setup.html")):
+                with self.subTest(page=page):
+                    opened.unlink(missing_ok=True)
+                    served = self.served(["ui", "--browser"], env)
+                    self.assertEqual(served.page(), page)
+                    with served.changed:
+                        address = next(line for line in served.lines["stdout"] if line.startswith("RUNIC_APPLICATION_URL="))
+                    deadline = time.monotonic() + TIMEOUT
+                    while not opened.exists() and time.monotonic() < deadline:
+                        time.sleep(0.05)
+                    self.assertEqual(opened.read_text().strip(), address.split("=", 1)[1])
+                    served.close_window()
+                    self.assertEqual(served.process.wait(TIMEOUT), 0, served.lines)
+                    served.close()
+        finally:
+            browser.unlink()
 
 
 if __name__ == "__main__":

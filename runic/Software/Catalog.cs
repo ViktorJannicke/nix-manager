@@ -8,7 +8,7 @@ using Runic.CommandLine.Processes;
 namespace NixManager.Software;
 
 /// <summary>A searchable package of the locked nixpkgs (<c>CatalogEntry</c>), with the Bun version's short member names.</summary>
-public sealed record CatalogEntry
+public record CatalogEntry
 {
     /// <summary>Attribute path below <c>pkgs</c>.</summary>
     [JsonPropertyName("a")] public required string A { get; init; }
