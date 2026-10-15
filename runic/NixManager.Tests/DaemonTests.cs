@@ -71,8 +71,12 @@ internal sealed class FakeWindows : IDashboardWindows
     public int Raised { get; private set; }
     public bool IsOpen { get; private set; }
 
+    /// <summary>Why the dashboard cannot open, or null when it can.</summary>
+    public string? Fails { get; set; }
+
     public Task<bool> ShowAsync(DesktopActivationContext? context, Action closed)
     {
+        if (Fails is { } why) throw new InvalidOperationException(why);
         if (IsOpen)
         {
             Raised++;
@@ -231,6 +235,22 @@ public sealed class DaemonTests : IDisposable
         _gate.SetResult();
         await Assert.That(await running.WaitAsync(TimeSpan.FromSeconds(30))).IsEqualTo(0);
         await Assert.That(_service.History()[0].Status).IsEqualTo(OperationStatuses.Succeeded);
+    }
+
+    [Test]
+    public async Task A_dashboard_that_cannot_open_from_the_icon_is_notified()
+    {
+        var core = Core();
+        using var shutdown = new CancellationTokenSource();
+        var running = core.RunAsync(_windows, shutdown.Token);
+        _gate.SetResult();
+        _windows.Fails = "No display.";
+        _icon.Activate(new DesktopStatusIconActivation(DesktopStatusIconActivationKind.MenuItem, TrayCommands.Open));
+        var notice = await _notifications.Shown.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(30));
+        await Assert.That(notice.Title).IsEqualTo("Nix Manager needs attention");
+        await Assert.That(notice.Body).IsEqualTo("No display.");
+        await shutdown.CancelAsync();
+        await running.WaitAsync(TimeSpan.FromSeconds(30));
     }
 
     [Test]

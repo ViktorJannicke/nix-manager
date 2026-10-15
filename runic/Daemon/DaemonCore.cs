@@ -391,6 +391,9 @@ public sealed class DaemonCore
         {
             _log.WriteLine($"The dashboard could not open: {error.Message}");
             if (show.Reply is { } reply) Track(AnswerAsync(reply, (DaemonMessage.Note($"The dashboard could not open: {error.Message}"), 1)));
+            // A click on the icon or a notification has no terminal to say why; the Bun tray notified it (invoke in
+            // src/tray.ts).
+            else await NotifyAsync(NeedsAttention(error.Message));
         }
     }
 
