@@ -11,10 +11,15 @@ const units: [Intl.RelativeTimeFormatUnit, number][] = [
   ["minute", 60],
 ];
 
-/** "3 hours ago", "yesterday", "just now". */
+/**
+ * "3 hours ago", "yesterday", "just now". `now` is the page's clock, which ticks once a second for re-rendering; a
+ * browser slows that timer down in a hidden or throttled Window, so a record that arrives meanwhile is measured
+ * against the real time rather than shown as being in the future. A time that is later than the real one, such as
+ * from another computer's clock, is still shown as such, as the Bun version does.
+ */
 export function relative(value: string | null | undefined, now = Date.now()) {
   if (!value) return m.format_never();
-  const seconds = (Date.parse(value) - now) / 1000;
+  const seconds = (Date.parse(value) - Math.max(now, Date.now())) / 1000;
   if (Math.abs(seconds) < 45) return m.format_just_now();
   const relativeFormat = new Intl.RelativeTimeFormat(getLocale(), { numeric: "auto" });
   for (const [unit, size] of units)
