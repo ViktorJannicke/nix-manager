@@ -61,6 +61,18 @@
           "Runic.Platform": "[0.8.0-preview.3]"
         }
       },
+      "Runic.Translations": {
+        "type": "Direct",
+        "requested": "[0.7.0-preview.2, )",
+        "resolved": "0.7.0-preview.2",
+        "contentHash": "gBaDMfcdXxTIqDR1ka/+gcWS/UEAeeVh7SVHJzChvaXtBtUqpd07Q6aV4Q3rQCdajzwBU5VoFONdSnDBPEQSrg=="
+      },
+      "Runic.Translations.Build": {
+        "type": "Direct",
+        "requested": "[0.7.0-preview.2, )",
+        "resolved": "0.7.0-preview.2",
+        "contentHash": "qLXPi78J2wRK2wIRqgw5I8JRTnCQxJnlONEyJ0TLZMyXvyy8miNWHvBcgVVCm2V2zsI2sRHgEzSQ5eoSKW9xEA=="
+      },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "Transitive",
         "resolved": "10.0.12",
