@@ -58,7 +58,9 @@ public static class DashboardApplication
     /// started from it. Ctrl+C or SIGTERM closes the Window and cancels that operation. Call it before any
     /// <see langword="await"/>, since the Desktop host's event loop may need the main thread.
     /// </summary>
-    public static int Run(Config config) => DesktopEventLoop.Run(HostOptions(), desktop => RunAsync(config, desktop));
+    /// <param name="opened">Called with the dashboard Window once it opened, such as to open it in a browser.</param>
+    public static int Run(Config config, Action<IRunicWindow>? opened = null) =>
+        DesktopEventLoop.Run(HostOptions(), desktop => RunAsync(config, desktop, opened));
 
     /// <summary>
     /// Runs the dashboard on its own on a Desktop host that runs already, as after the setup assistant created the
@@ -99,7 +101,12 @@ public static class DashboardCommand
     /// <param name="Flake">The checkout, from <c>--flake</c>.</param>
     /// <param name="Host">The host, from <c>--host</c>.</param>
     /// <param name="NoOpen">Serve the page without a window (<c>--no-open</c>): Runic's serve-only mode.</param>
-    public sealed record Invocation(string? Flake, string? Host, bool NoOpen);
+    /// <param name="Browser">Serve the page and open it in the default browser (<c>--browser</c>).</param>
+    public sealed record Invocation(string? Flake, string? Host, bool NoOpen, bool Browser = false)
+    {
+        /// <summary>The page is served, not shown in a Window of this application.</summary>
+        public bool Served => NoOpen || Browser;
+    }
 
     public static bool TryParse(IReadOnlyList<string> args, out Invocation invocation)
     {
@@ -110,6 +117,7 @@ public static class DashboardCommand
             var arg = args[i];
             if (string.Equals(arg, "ui", StringComparison.OrdinalIgnoreCase) && !ui) ui = true;
             else if (arg is "--no-open") invocation = invocation with { NoOpen = true };
+            else if (arg is "--browser") invocation = invocation with { Browser = true };
             else if (arg is "--plain" or "--verbose") { }
             else if (Value(args, ref i, "--flake") is { } flake) invocation = invocation with { Flake = flake };
             else if (Value(args, ref i, "--host") is { } host) invocation = invocation with { Host = host };
@@ -140,13 +148,15 @@ public static class DashboardCommand
     public static int Run(Invocation invocation)
     {
         Setup.SetupAssistant.AllowFlakes(ManagerEnvironment.Current);
-        if (invocation.NoOpen)
+        if (invocation.Served)
         {
-            // The setup assistant, and the dashboard after it, are served the same way.
+            // The setup assistant, and the dashboard after it, are served the same way; with --browser, the first page
+            // opens in the default browser, as the Bun version's did, and the assistant's page moves on by itself.
             Environment.SetEnvironmentVariable("RUNIC_APPLICATION_SERVE_ONLY", "1");
-            if (SetupLaunch.NeedsSetup(invocation.Flake)) return SetupApplication.Run(invocation, named: false);
+            Action<IRunicWindow>? browse = invocation.Browser ? DashboardBrowser.Open : null;
+            if (SetupLaunch.NeedsSetup(invocation.Flake)) return SetupApplication.Run(invocation, named: false, browse);
             if (Daemon.DaemonApplication.Load(invocation.Flake, invocation.Host) is not { } served) return 1;
-            return DashboardApplication.Run(served);
+            return DashboardApplication.Run(served, browse);
         }
         // A dashboard for a checkout or host named here goes to the running instance only if that runs the same one.
         var environment = ManagerEnvironment.Current;
@@ -189,8 +199,38 @@ public static class DashboardCommand
     /// </summary>
     private static int Failed(Invocation invocation, string? error)
     {
-        if (error is not null && SetupLaunch.ShowsProblem(invocation.NoOpen, Console.IsOutputRedirected))
+        if (error is not null && SetupLaunch.ShowsProblem(invocation.Served, Console.IsOutputRedirected))
             SetupApplication.ShowProblem(new SetupProblem(error, SetupLaunch.Checkout(invocation.Flake).Path));
         return 1;
+    }
+}
+
+/// <summary>
+/// <c>ui --browser</c>: opens a served page in the desktop's default browser with <c>xdg-open</c>, as the Bun version
+/// did. The page stays served until Ctrl+C, SIGTERM or a stop line on standard input, as with <c>--no-open</c>.
+/// </summary>
+public static class DashboardBrowser
+{
+    public static void Open(IRunicWindow window)
+    {
+        var address = window.Host switch
+        {
+            DesktopBridgeWindow<DashboardViewModel> dashboard => dashboard.Surface.Url.ToString(),
+            DesktopBridgeWindow<ViewModels.SetupViewModel> setup => setup.Surface.Url.ToString(),
+            _ => null,
+        };
+        if (address is null) return;
+        try
+        {
+            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("xdg-open", [address])
+            {
+                // The served page's stop line arrives on this process's standard input; the browser must not read it.
+                RedirectStandardInput = true,
+            });
+        }
+        catch (Exception error) when (error is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            Console.Error.WriteLine($"Could not open a browser ({error.Message}); open the address above.");
+        }
     }
 }
