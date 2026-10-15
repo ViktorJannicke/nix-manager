@@ -59,15 +59,20 @@ public static class DashboardApplication
     /// <see langword="await"/>, since the Desktop host's event loop may need the main thread.
     /// </summary>
     /// <param name="opened">Called with the dashboard Window once it opened, such as to open it in a browser.</param>
-    public static int Run(Config config, Action<IRunicWindow>? opened = null) =>
-        DesktopEventLoop.Run(HostOptions(), desktop => RunAsync(config, desktop, opened));
+    /// <param name="browser">The page is served for a browser (<c>--browser</c>), and ends with its last tab.</param>
+    public static int Run(Config config, Action<IRunicWindow>? opened = null, bool browser = false) =>
+        DesktopEventLoop.Run(HostOptions(), desktop => RunAsync(config, desktop, opened, browser));
 
     /// <summary>
     /// Runs the dashboard on its own on a Desktop host that runs already, as after the setup assistant created the
     /// checkout (<see cref="Setup.SetupApplication"/>).
     /// </summary>
     /// <param name="opened">Called with the dashboard Window once it opened.</param>
-    public static async Task<int> RunAsync(Config config, DesktopHost desktop, Action<IRunicWindow>? opened = null)
+    /// <param name="browser">
+    /// The page is served for a browser (<c>--browser</c>): it ends once its last tab has been closed and nothing runs
+    /// (<see cref="BrowserLifetime"/>).
+    /// </param>
+    public static async Task<int> RunAsync(Config config, DesktopHost desktop, Action<IRunicWindow>? opened = null, bool browser = false)
     {
         await using var provider = new ServiceCollection()
             .AddNixManagerBackend(config)
@@ -78,8 +83,13 @@ public static class DashboardApplication
         var shutdown = desktop.ShutdownRequested;
         await using (var window = await OpenAsync(host, shutdown))
         {
+            using var served = new CancellationTokenSource();
+            // Watched before the browser opens, so its first connection is seen.
+            var watch = browser ? DashboardBrowser.WatchAsync(window, () => service.Busy, TimeProvider.System, served.Token) : Task.CompletedTask;
             opened?.Invoke(window);
             await window.WaitForCloseAsync();
+            await served.CancelAsync();
+            await watch;
         }
         if (service.Busy)
         {
@@ -156,7 +166,7 @@ public static class DashboardCommand
             Action<IRunicWindow>? browse = invocation.Browser ? DashboardBrowser.Open : null;
             if (SetupLaunch.NeedsSetup(invocation.Flake)) return SetupApplication.Run(invocation, named: false, browse);
             if (Daemon.DaemonApplication.Load(invocation.Flake, invocation.Host) is not { } served) return 1;
-            return DashboardApplication.Run(served, browse);
+            return DashboardApplication.Run(served, browse, invocation.Browser);
         }
         // A dashboard for a checkout or host named here goes to the running instance only if that runs the same one.
         var environment = ManagerEnvironment.Current;
@@ -207,18 +217,17 @@ public static class DashboardCommand
 
 /// <summary>
 /// <c>ui --browser</c>: opens a served page in the desktop's default browser with <c>xdg-open</c>, as the Bun version
-/// did. The page stays served until Ctrl+C, SIGTERM or a stop line on standard input, as with <c>--no-open</c>.
+/// did. The page is served until its last tab has been closed (<see cref="WatchAsync"/>), or until Ctrl+C, SIGTERM or a
+/// stop line on standard input, as with <c>--no-open</c>.
 /// </summary>
 public static class DashboardBrowser
 {
+    /// <summary>How often <see cref="WatchAsync"/> looks at the tabs and the running operation, as the Bun version did.</summary>
+    public static readonly TimeSpan Interval = TimeSpan.FromMilliseconds(250);
+
     public static void Open(IRunicWindow window)
     {
-        var address = window.Host switch
-        {
-            DesktopBridgeWindow<DashboardViewModel> dashboard => dashboard.Surface.Url.ToString(),
-            DesktopBridgeWindow<ViewModels.SetupViewModel> setup => setup.Surface.Url.ToString(),
-            _ => null,
-        };
+        var address = Surface(window)?.Url.ToString();
         if (address is null) return;
         try
         {
@@ -231,6 +240,95 @@ public static class DashboardBrowser
         catch (Exception error) when (error is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
             Console.Error.WriteLine($"Could not open a browser ({error.Message}); open the address above.");
+        }
+    }
+
+    /// <summary>
+    /// Closes the served <paramref name="window"/> once its browser session ended (<see cref="BrowserLifetime"/>): the
+    /// last tab has been gone for a moment, or none connected at all, and <paramref name="busy"/> is false. Returns
+    /// when it closed the Window or <paramref name="cancellationToken"/> is cancelled, such as when the Window closed
+    /// otherwise. A Window that is not served for a browser is left alone.
+    /// </summary>
+    public static async Task WatchAsync(IRunicWindow window, Func<bool> busy, TimeProvider time, CancellationToken cancellationToken)
+    {
+        if (Surface(window) is not { } surface) return;
+        var lifetime = new BrowserLifetime(time.GetUtcNow());
+        using var connections = surface.SubscribeConnectionEvents(invocation =>
+        {
+            if (invocation.Kind == PresentationEventKind.Connected) lifetime.Connected(time.GetUtcNow());
+            else if (invocation.Kind == PresentationEventKind.Disconnected) lifetime.Disconnected(time.GetUtcNow());
+        });
+        try
+        {
+            while (!lifetime.Ended(time.GetUtcNow(), busy()))
+                await Task.Delay(Interval, time, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+        await window.CloseAsync(TimeSpan.Zero, CancellationToken.None).ConfigureAwait(false);
+    }
+
+    /// <summary>The surface that serves <paramref name="window"/>, or null for a Window of another host.</summary>
+    private static DesktopSurface? Surface(IRunicWindow window) => window.Host switch
+    {
+        DesktopBridgeWindow<DashboardViewModel> dashboard => dashboard.Surface,
+        DesktopBridgeWindow<ViewModels.SetupViewModel> setup => setup.Surface,
+        _ => null,
+    };
+}
+
+/// <summary>
+/// When a page served for a browser has ended, as the Bun version's <c>ui</c> decided it (<c>main</c> in
+/// <c>src/main.ts</c>): its last tab closed at least <see cref="ReconnectGrace"/> ago, which a reload reconnects within,
+/// or no tab connected within <see cref="FirstConnection"/>; and nothing runs, so a running operation finishes first.
+/// Thread-safe: the surface reports connections from its own threads.
+/// </summary>
+/// <param name="openedAt">When the page began to be served.</param>
+public sealed class BrowserLifetime(DateTimeOffset openedAt)
+{
+    /// <summary>How long the last tab may be gone before the page ends, such as while it reloads.</summary>
+    public static readonly TimeSpan ReconnectGrace = TimeSpan.FromSeconds(1);
+
+    /// <summary>How long the page waits for its first tab.</summary>
+    public static readonly TimeSpan FirstConnection = TimeSpan.FromMinutes(3);
+
+    private readonly Lock _gate = new();
+    private int _connections;
+    private bool _connected;
+    private DateTimeOffset? _lastDisconnected;
+
+    /// <summary>A tab connected.</summary>
+    public void Connected(DateTimeOffset now)
+    {
+        lock (_gate)
+        {
+            _connections++;
+            _connected = true;
+            // A tab's two events can arrive in either order; one that was gone already leaves no tab connected.
+            _lastDisconnected = _connections > 0 ? null : now;
+        }
+    }
+
+    /// <summary>A tab disconnected, such as by closing or reloading.</summary>
+    public void Disconnected(DateTimeOffset now)
+    {
+        lock (_gate)
+        {
+            _connections--;
+            if (_connections <= 0) _lastDisconnected = now;
+        }
+    }
+
+    /// <summary>Whether the page has ended at <paramref name="now"/>, while an operation runs (<paramref name="busy"/>) or not.</summary>
+    public bool Ended(DateTimeOffset now, bool busy)
+    {
+        lock (_gate)
+        {
+            if (busy) return false;
+            if (_lastDisconnected is { } gone) return now - gone >= ReconnectGrace;
+            return !_connected && now - openedAt > FirstConnection;
         }
     }
 }

@@ -80,12 +80,21 @@ public static class SetupApplication
     private static async Task<int> RunAsync(DashboardCommand.Invocation invocation, bool named, DesktopHost desktop, Action<IRunicWindow>? opened)
     {
         await using var session = await SetupSession.OpenAsync(desktop, null, desktop.ShutdownRequested);
-        if (session.Window is { } window) opened?.Invoke(window);
-        if (await session.CheckoutAsync() is null) return 0;
+        using var served = new CancellationTokenSource();
+        if (session.Window is { } window)
+        {
+            // With --browser, closing the assistant's last tab closes it, as closing its Window does, unless it is
+            // creating the checkout.
+            if (invocation.Browser) _ = DashboardBrowser.WatchAsync(window, () => session.Running, TimeProvider.System, served.Token);
+            opened?.Invoke(window);
+        }
+        var created = await session.CheckoutAsync();
+        await served.CancelAsync();
+        if (created is null) return 0;
         // The assistant remembered the new checkout, where the configuration is now read from.
         var (config, _) = await DaemonApplication.LoadAsync(invocation.Flake, invocation.Host);
         if (config is null) return 1;
-        if (invocation.Served) return await DashboardApplication.RunAsync(config, desktop, session.HandOver);
+        if (invocation.Served) return await DashboardApplication.RunAsync(config, desktop, session.HandOver, invocation.Browser);
         var claim = await DaemonProtocol.ClaimAsync(new DaemonRequest(DaemonRequestKinds.Ui, named ? DaemonIdentity.Of(config) : null));
         switch (claim)
         {
@@ -143,6 +152,9 @@ internal sealed class SetupSession : IAsyncDisposable
 
     /// <summary>The assistant's Window while it is open.</summary>
     public IRunicWindow? Window => _window;
+
+    /// <summary>Whether the assistant is creating the checkout.</summary>
+    public bool Running => _service.State.Running;
 
     /// <summary>Completes when the Window closed, by the user, a signal, or after handing over.</summary>
     public Task Closed => _closed ?? Task.CompletedTask;
