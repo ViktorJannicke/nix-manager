@@ -20,7 +20,7 @@
     generation.current ? m.rail_in_use_since({ when: relative(generation.createdAt, app.now) }) : day(generation.createdAt);
 </script>
 
-<div class="grid grid-cols-[7.5rem_1fr] items-center gap-4">
+<div class="grid grid-cols-[8.5rem_1fr] items-center gap-4">
   <!-- A long count, such as German "Wiederherstellungspunkte", wraps at its soft hyphen. -->
   <div class="min-w-0">
     <p class="font-semibold">{title}</p>
