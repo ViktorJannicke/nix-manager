@@ -7,6 +7,8 @@
     <IsPackable>false</IsPackable>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RuntimeIdentifiers>linux-x64</RuntimeIdentifiers>
+    <!-- As in NixManager.csproj: a lock file per runtime for the Nix build. -->
+    <NuGetLockFilePath Condition="'$(RuntimeIdentifiers)' == 'linux-arm64'">packages.linux-arm64.lock.json</NuGetLockFilePath>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="TUnit" Version="1.73.19" />
