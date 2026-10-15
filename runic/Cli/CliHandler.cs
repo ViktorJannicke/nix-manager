@@ -12,11 +12,12 @@ internal static class CliHandler
 
     public static async Task<CommandOutcome<string>> ExecuteAsync(CliInvocation cli, CliSession session, CommandExecutionContext context, CancellationToken cancellationToken)
     {
-        // A valid ui invocation never gets here: Program.cs runs the dashboard first (DashboardCommand).
+        // Valid ui and tray invocations never get here: Program.cs runs the dashboard and the daemon first
+        // (DashboardCommand, Daemon.DaemonCommand).
         if (cli.Mode is CliMode.Ui)
             throw new ManagerException("The dashboard takes only --flake, --host and --no-open.");
         if (cli.Mode is CliMode.Tray)
-            throw new ManagerException("The tray is not part of the Runic port yet (W300-031); run it with the Bun version.");
+            throw new ManagerException("The tray takes only --flake, --host and --interval.");
         Setup.SetupAssistant.AllowFlakes(session.Environment);
         var config = await new ConfigLoader(session.Runner, session.Environment)
             .LoadAsync(cli.Flake, cli.Host, CliSession.PrivilegedPrefix).ConfigureAwait(false);

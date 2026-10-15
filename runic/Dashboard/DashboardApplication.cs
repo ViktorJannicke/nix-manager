@@ -1,9 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using NixManager.Cli;
 using NixManager.Configuration;
 using NixManager.Domain;
-using NixManager.Execution;
 using NixManager.Operations;
 using Runic.Application.Views;
 using Runic.Application.Views.Desktop;
@@ -12,9 +10,9 @@ using Runic.Desktop;
 namespace NixManager.Dashboard;
 
 /// <summary>
-/// Opens the dashboard Window. <see cref="ShowAsync"/> works from any process that hosts the backend: today
-/// <c>nix-manager ui</c> (<see cref="Run"/>), and later the per-user daemon of D025.2, which opens and raises the
-/// Window in its own process (W300-031).
+/// Opens the dashboard Window. <see cref="OpenAsync"/> works from any process that hosts the backend: the per-user
+/// daemon of D025.2, which opens and raises the Window in its own process (<see cref="Daemon.DaemonApplication"/>), and
+/// <c>nix-manager ui</c> on its own (<see cref="Run"/>) when no running instance can be used.
 /// </summary>
 public static class DashboardApplication
 {
@@ -33,12 +31,29 @@ public static class DashboardApplication
     /// <summary>Opens the dashboard and returns when it closes. A running operation keeps running (D025.1).</summary>
     public static async Task ShowAsync(IRunicWindowHost host, CancellationToken cancellationToken = default)
     {
-        await using var window = await host.OpenWindowAsync<DashboardWindow>(WindowOptions, cancellationToken);
+        await using var window = await OpenAsync(host, cancellationToken);
         await window.WaitForCloseAsync();
     }
 
+    /// <summary>Opens the dashboard and returns its Window, which the daemon brings forward on a later launch.</summary>
+    public static async Task<IRunicWindow> OpenAsync(IRunicWindowHost host, CancellationToken cancellationToken = default) =>
+        await host.OpenWindowAsync<DashboardWindow>(WindowOptions, cancellationToken);
+
+    /// <summary>The Desktop host as the dashboard and the daemon start it.</summary>
+    public static DesktopHostOptions HostOptions() => new()
+    {
+        // WebKitGTK 4.1 through GTK 3; Runic Desktop falls back to an installed browser without it.
+        Linux = new() { EmbeddedBackend = LinuxEmbeddedBackend.Gtk3WebKit41 },
+        DiagnosticSink = diagnostic =>
+            Console.Error.WriteLine($"{diagnostic.Severity} {diagnostic.Code}: {diagnostic.Message} {diagnostic.Remediation}".TrimEnd()),
+        // The process outlives its Window while an operation finishes, or behind the status icon, and a signal then
+        // ends it in order.
+        HandlesShutdownWithoutWindow = true,
+    };
+
     /// <summary>
-    /// Runs <c>nix-manager ui</c>: shows the dashboard in this process until it closes, then waits for an operation
+    /// Runs the dashboard on its own, without the single instance (no per-user runtime directory, <c>--no-open</c>, or a
+    /// running instance for another checkout): shows it in this process until it closes, then waits for an operation
     /// started from it. Ctrl+C or SIGTERM closes the Window and cancels that operation. Call it before any
     /// <see langword="await"/>, since the Desktop host's event loop may need the main thread.
     /// </summary>
@@ -50,16 +65,7 @@ public static class DashboardApplication
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
         try
         {
-            var options = new DesktopHostOptions
-            {
-                // WebKitGTK 4.1 through GTK 3; Runic Desktop falls back to an installed browser without it.
-                Linux = new() { EmbeddedBackend = LinuxEmbeddedBackend.Gtk3WebKit41 },
-                DiagnosticSink = diagnostic =>
-                    Console.Error.WriteLine($"{diagnostic.Severity} {diagnostic.Code}: {diagnostic.Message} {diagnostic.Remediation}".TrimEnd()),
-                // The process outlives its Window while an operation finishes, and a signal then cancels it.
-                HandlesShutdownWithoutWindow = true,
-            };
-            return RunicDesktopHost.Run(provider, options, async host =>
+            return RunicDesktopHost.Run(provider, HostOptions(), async host =>
             {
                 var service = provider.GetRequiredService<IOperationService>();
                 var shutdown = host.Desktop.ShutdownRequested;
@@ -109,30 +115,53 @@ public static class DashboardCommand
         return ui;
     }
 
-    private static string? Value(IReadOnlyList<string> args, ref int i, string name)
+    internal static string? Value(IReadOnlyList<string> args, ref int i, string name)
     {
         if (args[i].StartsWith(name + "=", StringComparison.Ordinal)) return args[i][(name.Length + 1)..];
         if (args[i] != name || i + 1 >= args.Count) return null;
         return args[++i];
     }
 
-    /// <summary>Loads the configuration as the command line does, then runs the dashboard.</summary>
+    /// <summary>
+    /// Opens the dashboard (D025.3): a running instance for this configuration, the daemon or another dashboard, opens
+    /// or raises its Window, which shows the running operation. Otherwise this process becomes the running instance
+    /// with its Window open, serves command lines like the daemon, and ends once the Window is closed and nothing runs;
+    /// the tray takes over the instance after that. Without a per-user runtime directory, with
+    /// <c>NIX_MANAGER_DAEMON=0</c>, <c>--no-open</c>, or while an instance runs another checkout, it runs on its own.
+    /// </summary>
     public static int Run(Invocation invocation)
     {
         Setup.SetupAssistant.AllowFlakes(ManagerEnvironment.Current);
-        Config config;
-        try
+        if (invocation.NoOpen)
         {
-            // No event loop runs yet: waiting here keeps the main thread for the Desktop host.
-            config = new ConfigLoader(new ProcessCommandRunner())
-                .LoadAsync(invocation.Flake, invocation.Host, CliSession.PrivilegedPrefix).GetAwaiter().GetResult();
+            if (Daemon.DaemonApplication.Load(invocation.Flake, invocation.Host) is not { } served) return 1;
+            Environment.SetEnvironmentVariable("RUNIC_APPLICATION_SERVE_ONLY", "1");
+            return DashboardApplication.Run(served);
         }
-        catch (ManagerException error)
+        // A dashboard for a checkout or host named here goes to the running instance only if that runs the same one.
+        var environment = ManagerEnvironment.Current;
+        var named = invocation.Flake is not null || invocation.Host is not null
+            || environment.Variable("NIX_MANAGER_FLAKE") is { Length: > 0 } || environment.Variable("NIX_MANAGER_HOST") is { Length: > 0 };
+        Config? config = null;
+        if (named && (config = Daemon.DaemonApplication.Load(invocation.Flake, invocation.Host)) is null) return 1;
+        // No event loop runs yet: waiting here keeps the main thread for the Desktop host.
+        var claim = Daemon.DaemonProtocol.ClaimAsync(new Daemon.DaemonRequest(Daemon.DaemonRequestKinds.Ui,
+            config is null ? null : Daemon.DaemonIdentity.Of(config))).GetAwaiter().GetResult();
+        switch (claim)
         {
-            Console.Error.WriteLine($"Error: {error.Message}");
-            return 1;
+            case Runic.Platform.ApplicationInstanceClaim.Forwarded { Reply: { } reply }:
+                if (Daemon.DaemonApplication.Follow(reply) is { } code) return code;
+                break;
+            case Runic.Platform.ApplicationInstanceClaim.Primary primary:
+                config ??= Daemon.DaemonApplication.Load(invocation.Flake, invocation.Host);
+                if (config is null)
+                {
+                    primary.Instance.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                    return 1;
+                }
+                return Daemon.DaemonApplication.Run(config, primary.Instance, new Daemon.DaemonSettings { Mode = Daemon.DaemonMode.Ui });
         }
-        if (invocation.NoOpen) Environment.SetEnvironmentVariable("RUNIC_APPLICATION_SERVE_ONLY", "1");
-        return DashboardApplication.Run(config);
+        config ??= Daemon.DaemonApplication.Load(invocation.Flake, invocation.Host);
+        return config is null ? 1 : DashboardApplication.Run(config);
     }
 }

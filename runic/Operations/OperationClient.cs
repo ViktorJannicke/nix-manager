@@ -7,11 +7,11 @@ namespace NixManager.Operations;
 /// What a command line needs from the operation service: run a request and follow its events to the end.
 /// </summary>
 /// <remarks>
-/// This is the seam for D025.4. Today <see cref="LocalOperationClient"/> runs the service in the command line's
-/// own process. W300-031 adds a client that forwards the request to the per-user daemon over the
-/// <c>ApplicationInstance</c> socket (with the replies of W300-028) and feeds the same <see cref="ManagerEvent"/>
-/// sequence, serialized with <see cref="ManagerJson.Compact"/>, to the same callback; cancelling the token there
-/// asks the daemon to cancel. The command line's presentation depends only on this interface.
+/// This is the seam for D025.4: <see cref="LocalOperationClient"/> runs the service in this process, and
+/// <see cref="Daemon.RoutingOperationClient"/> forwards the request to the per-user daemon over the
+/// <c>ApplicationInstance</c> socket and feeds the same <see cref="ManagerEvent"/> sequence, serialized with
+/// <see cref="ManagerJson.Compact"/>, to the same callback; cancelling the token there asks the daemon to cancel. The
+/// command line's presentation depends only on this interface.
 /// </remarks>
 public interface IOperationClient
 {

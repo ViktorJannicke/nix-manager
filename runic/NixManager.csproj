@@ -27,10 +27,10 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
-    <PackageReference Include="Runic.Application.Views.Desktop" Version="0.8.0-preview.2" />
+    <PackageReference Include="Runic.Application.Views.Desktop" Version="0.8.0-preview.3" />
     <PackageReference Include="Runic.CommandLine" Version="0.7.0-preview.1" />
     <PackageReference Include="Runic.CommandLine.Processes" Version="0.7.0-preview.1" />
-    <PackageReference Include="Runic.Platform.Linux.Polkit" Version="0.8.0-preview.2" />
+    <PackageReference Include="Runic.Platform.Linux.Polkit" Version="0.8.0-preview.3" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="NixManager.Tests" />
