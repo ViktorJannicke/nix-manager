@@ -85,3 +85,20 @@ export const actionLabel = (action: string) => stored(actionLabels[action] ?? ac
 /** "a, b and c" in the current language; English without the serial comma. */
 export const list = (items: readonly string[]) =>
   new Intl.ListFormat(current === "en" ? "en-GB" : current, { type: "conjunction" }).format(items);
+
+// Markup in translated text, as the Bun version's T component did: a message is called with `slot(name)` for a
+// value that is markup, such as emphasis, and `Markup` renders its pieces with a snippet for each slot. The words
+// around a slot stay in the translation's order.
+const open = "\u{F0000}";
+const close = "\u{F0001}";
+
+/** A placeholder value that `Markup` replaces with markup. */
+export const slot = (name: string) => `${open}${name}${close}`;
+
+/** The pieces of a message called with `slot` values: text, and the names of slots between it. */
+export function pieces(text: string): ({ text: string } | { slot: string })[] {
+  return text
+    .split(new RegExp(`${open}(\\w+)${close}`, "u"))
+    .map((piece, index) => (index % 2 ? { slot: piece } : { text: piece }))
+    .filter((piece) => !("text" in piece) || piece.text);
+}

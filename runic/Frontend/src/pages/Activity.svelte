@@ -6,7 +6,6 @@
   import { app } from "$lib/app.svelte";
   import { actionLabel, m, stored } from "$lib/i18n";
   import { dateTime, duration, relative, scopeLabel } from "$lib/format";
-  import { unported } from "$lib/requests";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
   import Segmented from "$lib/components/app/Segmented.svelte";
   import StatusBadge from "$lib/components/app/StatusBadge.svelte";
@@ -19,9 +18,15 @@
   const visible = $derived(filter === "all" ? operations : operations.filter(problems));
   const selected = $derived(app.operation(app.operations?.selectedOperationId) ?? operations[0]);
 
-  // Review and pin updates run with the Bun version until their backend is ported.
   const retryable = (operation: Operation) =>
-    operation.status !== "running" && operation.status !== "succeeded" && !unported(operation.request.action);
+    operation.status !== "running" &&
+    operation.status !== "succeeded" &&
+    (operation.request.action !== "review-apply" || app.reviews.some((r) => r.id === operation.request.reviewId));
+
+  // A review is prepared again under a new ID; applying one again needs it to still exist.
+  function retry(operation: Operation) {
+    void app.run(operation.request.action === "review-build" ? { ...operation.request, reviewId: null } : operation.request);
+  }
 </script>
 
 <div class="flex h-full min-h-0 gap-5">
@@ -83,13 +88,17 @@
               {selected.finishingPrivilegedStep ? m.activity_finishing() : m.common_cancel()}
             </Button>
           {:else if retryable(selected)}
-            <Button variant="outline" size="sm" disabled={app.busy || !app.connected} onclick={() => app.run(selected.request)}><RotateCcwIcon /> {m.activity_try_again()}</Button>
+            <Button variant="outline" size="sm" disabled={app.busy || !app.connected} onclick={() => retry(selected)}><RotateCcwIcon /> {m.activity_try_again()}</Button>
           {/if}
         </div>
         {#if selected.explanation}
           <div class="mt-3 rounded-lg bg-destructive/10 px-3 py-2">
             <p class="font-medium text-destructive">{stored(selected.explanation.title)}</p>
             <p class="mt-0.5 text-xs">{stored(selected.explanation.body)}</p>
+            {#if selected.explanation.fix}
+              {@const fix = selected.explanation.fix}
+              <Button size="sm" class="mt-2" disabled={app.busy} onclick={() => app.applyFix(fix, selected.request.scope)}>{m.toast_allow_non_free()}</Button>
+            {/if}
             {#if selected.error}
               <details class="mt-1.5 text-xs text-muted-foreground">
                 <summary class="cursor-pointer select-none">{m.activity_what_nix_reported()}</summary>

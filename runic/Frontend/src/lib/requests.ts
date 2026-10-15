@@ -1,7 +1,18 @@
 import type { Command, Operation, Request } from "../generated/types.js";
 
-/** The actions the C# backend runs; review, software and pin updates follow with the remaining backend. */
-export type Action = "build" | "switch" | "boot" | "rollback" | "gc" | "check";
+/** The actions the backend runs (`Actions` in Domain/Request.cs). */
+export type Action =
+  | "build"
+  | "switch"
+  | "boot"
+  | "rollback"
+  | "gc"
+  | "check"
+  | "t3code-update"
+  | "opencode-update"
+  | "pince-update"
+  | "review-build"
+  | "review-apply";
 export type Scope = "home" | "system" | "all";
 
 /** A request with the defaults of `request()` in `src/domain.ts`; the Bridge sends every member. */
@@ -30,9 +41,6 @@ export const sameRequest = (a: Request, b: Request) => {
   const text = (r: Request) => JSON.stringify(Object.entries(r).sort(([x], [y]) => x.localeCompare(y)));
   return text(a) === text(b);
 };
-
-/** Actions that review edits first, and package pin updates: their backend is not ported yet. */
-export const unported = (action: string) => action.startsWith("review-") || action.endsWith("-update");
 
 /** A command line as a shell would read it, or a note for a step Nix Manager performs itself. */
 export const formatCommand = (command: Command, internal: string) =>
