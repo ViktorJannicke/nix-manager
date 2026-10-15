@@ -122,9 +122,18 @@ class AppState {
     void this.savePreferences({ theme: null, language });
   }
 
+  /** The Bridge sends every member of the change, so the preferences not changed here are null. */
   private async savePreferences(change: { theme: string | null; language: string | null }) {
     try {
-      await this.dashboardView?.client?.savePreferences(change);
+      await this.dashboardView?.client?.savePreferences({
+        ...change,
+        detail: null,
+        prepareUpdates: null,
+        cleanUp: null,
+        history: null,
+        backup: null,
+        appDetails: null,
+      });
     } catch (error) {
       this.fail(error, m.settings_save_failed());
     }

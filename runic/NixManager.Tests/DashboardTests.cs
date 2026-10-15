@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using NixManager.Dashboard;
 using NixManager.Domain;
+using NixManager.Observation;
 using NixManager.Operations;
 using NixManager.ViewModels;
 using Runic.Application.Testing;
@@ -11,8 +12,8 @@ namespace NixManager.Tests;
 
 /// <summary>
 /// The dashboard Window through its generated Bridges, as the frontend drives it, over a copy of the Bun
-/// version's state: history, live log selection, the dry run behind a confirmation, preferences, and refreshing
-/// when another process writes a record.
+/// version's state: history, live log selection, the dry run behind a confirmation, preferences, the pages' Views,
+/// observing the computer, the pending edits, and refreshing when another process writes a record.
 /// </summary>
 public sealed class DashboardTests : IAsyncDisposable
 {
@@ -21,12 +22,18 @@ public sealed class DashboardTests : IAsyncDisposable
     private readonly ServiceProvider _services;
     private readonly AsyncServiceScope _scope;
     private readonly RunicWindowTestHost<DashboardViewModel> _window;
+    private int _observations;
 
     public DashboardTests()
     {
         var config = TestConfig.Create(_fixtures.Root) with { StateDir = _fixtures.StateDir };
         _services = new ServiceCollection()
             .AddSingleton<IOperationService>(new OperationService(config, new FakeRunner(), new FakeUpdates(new UpdateReport { CheckedAt = "" })))
+            .AddSingleton(new Observer(config, _ =>
+            {
+                Interlocked.Increment(ref _observations);
+                return Task.FromResult(Observed);
+            }))
             .AddNixManagerBackend(config)
             .AddNixManagerDashboard()
             .AddSingleton(_watching.Options)
@@ -100,8 +107,7 @@ public sealed class DashboardTests : IAsyncDisposable
     [Test]
     public async Task Preferences_are_saved_with_the_ones_the_Bun_version_keeps()
     {
-        File.WriteAllText(DashboardPreferences.PathOf(TestConfig.Create(_fixtures.Root) with { StateDir = _fixtures.StateDir }),
-            """{"detail":"simple","cleanUp":true}""");
+        File.WriteAllText(PreferencesPath, """{"detail":"simple","cleanUp":true,"later":1}""");
 
         (await _window.Root.ExecuteAsync(vm => vm.SavePreferencesCommand, Wire(new PreferenceChange("dark", "de")))).EnsureOk();
 
@@ -109,8 +115,125 @@ public sealed class DashboardTests : IAsyncDisposable
         await Assert.That(dashboard.Read(vm => vm.Theme)).IsEqualTo("dark");
         await Assert.That(dashboard.Read(vm => vm.Language)).IsEqualTo("de");
         await Assert.That(dashboard.Read(vm => vm.Locale)).IsEqualTo("de");
-        var stored = File.ReadAllText(Path.Combine(_fixtures.StateDir, "preferences.json"));
-        await Assert.That(stored).Contains("\"cleanUp\": true").And.Contains("\"theme\": \"dark\"");
+        await Assert.That(dashboard.Read(vm => vm.CleanUp)).IsTrue();
+        var stored = File.ReadAllText(PreferencesPath);
+        await Assert.That(stored).Contains("\"cleanUp\": true").And.Contains("\"theme\": \"dark\"").And.Contains("\"later\": 1");
+    }
+
+    [Test]
+    public async Task Every_preference_of_the_Bun_version_is_saved_and_read_back()
+    {
+        (await _window.Root.ExecuteAsync(vm => vm.SavePreferencesCommand, Wire(new PreferenceChange(Detail: "simple", PrepareUpdates: true,
+            CleanUp: true, History: true, Backup: true, AppDetails: false)))).EnsureOk();
+
+        var dashboard = _window.Root.Snapshot();
+        await Assert.That(dashboard.Read(vm => vm.Detail)).IsEqualTo("simple");
+        await Assert.That(dashboard.Read(vm => vm.PrepareUpdates)).IsTrue();
+        await Assert.That(dashboard.Read(vm => vm.CleanUp)).IsTrue();
+        await Assert.That(dashboard.Read(vm => vm.History)).IsTrue();
+        await Assert.That(dashboard.Read(vm => vm.Backup)).IsTrue();
+        await Assert.That(dashboard.Read(vm => vm.AppDetails)).IsFalse();
+        // The background tasks and the review workflow read the same members (BackgroundTasks, recordChange).
+        var stored = JsonDocument.Parse(File.ReadAllText(PreferencesPath)).RootElement;
+        foreach (var name in new[] { "prepareUpdates", "cleanUp", "history", "backup" })
+            await Assert.That(stored.GetProperty(name).GetBoolean()).IsTrue();
+        await Assert.That(stored.GetProperty("appDetails").GetBoolean()).IsFalse();
+        await Assert.That(stored.GetProperty("detail").GetString()).IsEqualTo("simple");
+
+        (await _window.Root.ExecuteAsync(vm => vm.SavePreferencesCommand, Wire(new PreferenceChange(PrepareUpdates: false)))).EnsureOk();
+        await Assert.That(_window.Root.Snapshot().Read(vm => vm.PrepareUpdates)).IsFalse();
+        await Assert.That(_window.Root.Snapshot().Read(vm => vm.History)).IsTrue();
+    }
+
+    [Test]
+    public async Task An_unknown_detail_level_is_refused()
+    {
+        var result = await _window.Root.ExecuteAsync(vm => vm.SavePreferencesCommand, Wire(new PreferenceChange(Detail: "everything")));
+
+        await Assert.That(result.Ok).IsFalse();
+        await Assert.That(File.ReadAllText(PreferencesPath)).DoesNotContain("everything");
+    }
+
+    [Test]
+    public async Task Someone_who_ran_operations_before_starts_detailed_with_app_details_on()
+    {
+        // The fixtures hold the Bun version's records, so the first choice written on opening is the detailed view.
+        var dashboard = _window.Root.Snapshot();
+        await Assert.That(dashboard.Read(vm => vm.Detail)).IsEqualTo("detailed");
+        await Assert.That(dashboard.Read(vm => vm.History)).IsFalse();
+        await Assert.That(dashboard.Read(vm => vm.AppDetails)).IsTrue();
+        await Assert.That(dashboard.Read(vm => vm.PrepareUpdates)).IsFalse();
+        await Assert.That(File.ReadAllText(PreferencesPath)).Contains("\"detail\": \"detailed\"");
+    }
+
+    [Test]
+    public async Task Someone_new_starts_simple_with_a_kept_history()
+    {
+        using var fixtures = new BunFixtures();
+        var config = TestConfig.Create(fixtures.Root) with { StateDir = Path.Combine(fixtures.Root, "fresh-state") };
+
+        var preferences = DashboardPreferences.Read(config);
+
+        await Assert.That(preferences.Detail).IsEqualTo("simple");
+        await Assert.That(preferences.History).IsTrue();
+        await Assert.That(preferences.Backup).IsFalse();
+        await Assert.That(preferences.AppDetails).IsTrue();
+        // Written, so it does not change once operations exist.
+        await Assert.That(File.ReadAllText(DashboardPreferences.PathOf(config))).Contains("\"detail\": \"simple\"");
+    }
+
+    [Test]
+    public async Task The_pages_connect_to_the_Windows_reviews_computer_and_software()
+    {
+        var reviews = _window.Root.View<ReviewsViewModel>(vm => vm.Reviews).Snapshot();
+        await Assert.That(reviews.Get(vm => vm.Reviews).GetArrayLength()).IsGreaterThan(0);
+
+        await WaitForAsync(() => _window.Root.View<SystemViewModel>(vm => vm.System).Snapshot().Get(vm => vm.System).ValueKind == JsonValueKind.Object);
+        var system = _window.Root.View<SystemViewModel>(vm => vm.System).Snapshot();
+        await Assert.That(system.Get(vm => vm.HomeGenerations).GetArrayLength()).IsEqualTo(2);
+
+        var software = _window.Root.View<SoftwareViewModel>(vm => vm.Software).Snapshot();
+        await Assert.That(software.Get(vm => vm.Catalog).GetProperty("state").GetString()).IsNotNull();
+    }
+
+    [Test]
+    public async Task Opening_the_Window_observes_the_computer_and_reads_the_pending_edits()
+    {
+        await WaitForAsync(() => _observations > 0);
+        await WaitForAsync(() => _window.Root.Snapshot().Get(vm => vm.Draft).ValueKind == JsonValueKind.Object);
+
+        await Assert.That(_window.Root.Snapshot().Get(vm => vm.Draft).GetProperty("changes").GetArrayLength()).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Pending_edits_another_process_saves_appear_without_a_refresh()
+    {
+        await WaitForAsync(() => _window.Root.Snapshot().Get(vm => vm.Draft).ValueKind == JsonValueKind.Object);
+        var draft = new System.Text.Json.Nodes.JsonObject
+        {
+            ["flake"] = _fixtures.Root,
+            ["changes"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject
+            {
+                ["kind"] = "add-package", ["scope"] = "home", ["file"] = "home.nix", ["attr"] = "pkgs.hello",
+            }),
+        };
+
+        File.WriteAllText(Path.Combine(_fixtures.StateDir, "draft.json"), draft.ToJsonString());
+        await _watching.NextChangeAsync();
+
+        await WaitForAsync(() => _window.Root.Snapshot().Get(vm => vm.Draft).GetProperty("changes").GetArrayLength() == 1);
+    }
+
+    [Test]
+    public async Task An_operation_that_ends_observes_the_computer_again()
+    {
+        await WaitForAsync(() => _observations > 0 && _window.Root.View<SystemViewModel>(vm => vm.System).Snapshot().Get(vm => vm.System).ValueKind == JsonValueKind.Object);
+        var before = _observations;
+        var operations = _window.Root.View<OperationsViewModel>(vm => vm.Operations);
+
+        (await operations.ExecuteAsync(vm => vm.StartCommand, Wire(Request.Create() with { Action = Actions.Gc, Scope = Scopes.Home, Host = "test" }))).EnsureOk();
+
+        await WaitForAsync(() => _observations > before);
     }
 
     [Test]
@@ -145,6 +268,31 @@ public sealed class DashboardTests : IAsyncDisposable
     [Arguments(new[] { "ui", "--json" }, false)]
     public async Task Only_a_dashboard_invocation_starts_the_Window(string[] args, bool dashboard) =>
         await Assert.That(DashboardCommand.TryParse(args, out _)).IsEqualTo(dashboard);
+
+    private string PreferencesPath => DashboardPreferences.PathOf(TestConfig.Create(_fixtures.Root) with { StateDir = _fixtures.StateDir });
+
+    private static readonly SystemState Observed = new()
+    {
+        ObservedAt = "2026-10-15T08:00:00.000Z",
+        Repository = new RepositoryState { Fingerprint = "observed", LockHash = "lock" },
+        Generations = new ProfileGenerations
+        {
+            Home =
+            [
+                new Generation { Number = 2, CreatedAt = "2026-10-14T08:00:00.000Z", Output = "/h2", Current = true },
+                new Generation { Number = 1, CreatedAt = "2026-10-13T08:00:00.000Z", Output = "/h1" },
+            ],
+        },
+        Current = new CurrentOutputs { Home = "/h2" },
+        Kernel = new KernelVersions(),
+    };
+
+    /// <summary>Waits for work the Window posts to its model context, such as an observation or the rendered draft.</summary>
+    private static async Task WaitForAsync(Func<bool> condition)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        while (!condition()) await Task.Delay(20, timeout.Token);
+    }
 
     /// <summary>A command argument as the generated client sends it: camelCase, every member present.</summary>
     private static string Wire<T>(T value) => JsonSerializer.Serialize(value, new JsonSerializerOptions(JsonSerializerDefaults.Web));
