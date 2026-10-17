@@ -45,7 +45,8 @@ let
       nixosHostName = "another-machine";
     };
   };
-  # The Runic port, turned on explicitly, with a registry and the shells whose completions it installs.
+  # The Runic port, turned on explicitly (as the default does), with a registry and the shells whose completions
+  # it installs.
   runicOn =
     (self.inputs.nixpkgs.lib.nixosSystem {
       inherit system;
@@ -66,7 +67,7 @@ let
     }).config;
   hasRunic = self.packages.${system} ? runic;
   runic = self.packages.${system}.runic;
-  # The tray service and command of the Bun version, with the Runic port turned off.
+  # The tray service and command of the Bun version, with the Runic port turned off (runic.enable = false).
   bunOnly =
     (self.inputs.nixpkgs.lib.nixosSystem {
       inherit system;
@@ -147,6 +148,13 @@ in
   module =
     assert first.programs.nix-manager.package.drvPath == second.programs.nix-manager.package.drvPath;
     assert first.programs.nix-manager.package.drvPath == manager.drvPath;
+    # Host metadata is runtime configuration: the default (Runic) application's store path does not change either.
+    assert
+      hasRunic
+      ->
+        first.programs.nix-manager.runic.package.drvPath
+        == second.programs.nix-manager.runic.package.drvPath;
+    assert hasRunic -> first.programs.nix-manager.runic.package.drvPath == runic.drvPath;
     assert
       first.environment.etc."nix-manager/hosts.json".text
       != second.environment.etc."nix-manager/hosts.json".text;
@@ -157,11 +165,20 @@ in
     assert first.security.wrappers.pkexec.enable;
     assert
       !(lib.hasInfix "--flake" first.systemd.user.services.nix-manager-tray.serviceConfig.ExecStart);
-    # The tray service runs the Bun tray by default and the Runic daemon when the port is turned on.
-    assert lib.hasPrefix "${lib.getExe manager} tray --interval 360" (trayStart first);
+    # The tray service runs the Runic daemon by default and the Bun tray when the port is turned off.
+    assert hasRunic -> lib.hasPrefix "${lib.getExe runic} tray --interval 360" (trayStart first);
     assert hasRunic -> lib.hasPrefix "${lib.getExe runic} tray --interval 360" (trayStart runicOn);
     assert lib.hasPrefix "${lib.getExe manager} tray --interval 360" (trayStart bunOnly);
+    # By default only the port is installed, as with runic.enable = true; runic.enable = false installs the Bun
+    # version and the module's policy alone.
+    assert
+      hasRunic
+      -> (
+        builtins.elem runic first.environment.systemPackages
+        && !(builtins.elem manager first.environment.systemPackages)
+      );
     assert builtins.elem manager bunOnly.environment.systemPackages;
+    assert !(builtins.elem runic bunOnly.environment.systemPackages);
     # With the port turned on, only its package is installed, and the registry is the same.
     assert
       hasRunic
@@ -200,6 +217,7 @@ in
           check $bun $bunCommand
         ''
         + lib.optionalString hasRunic ''
+          check ${first.system.path} ${lib.getExe runic}
           check ${runicOn.system.path} ${lib.getExe runic}
           grep -qx 'StartupNotify=true' ${runicOn.system.path}/share/applications/nix-manager.desktop
           grep -qx 'Exec=nix-manager tray' ${runicOn.system.path}/share/applications/nix-manager.desktop
