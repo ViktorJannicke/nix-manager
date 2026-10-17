@@ -13,11 +13,28 @@ namespace NixManager.Tests;
 /// <summary>A launch's reply as the running instance writes it.</summary>
 internal sealed class RecordingReply : IApplicationLaunchReply
 {
+    private readonly CancellationTokenSource _cancelRequested = new();
+    private readonly CancellationTokenSource _disconnected = new();
     private readonly CancellationTokenSource _cancelled = new();
     public List<DaemonMessage> Messages { get; } = [];
     public TaskCompletionSource<int> Exit { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public CancellationToken Cancelled => _cancelled.Token;
-    public void Cancel() => _cancelled.Cancel();
+    public CancellationToken CancelRequested => _cancelRequested.Token;
+    public CancellationToken Disconnected => _disconnected.Token;
+
+    /// <summary>The command line asks to cancel, as on Ctrl+C.</summary>
+    public void Cancel()
+    {
+        _cancelRequested.Cancel();
+        _cancelled.Cancel();
+    }
+
+    /// <summary>The command line went away, such as with a dropped SSH session.</summary>
+    public void Disconnect()
+    {
+        _disconnected.Cancel();
+        _cancelled.Cancel();
+    }
 
     public ValueTask<bool> WriteAsync(string message, CancellationToken cancellationToken = default)
     {
@@ -173,6 +190,23 @@ public sealed class DaemonTests : IDisposable
 
         await Assert.That(await reply.Exit.Task.WaitAsync(TimeSpan.FromSeconds(30))).IsEqualTo(130);
         await Assert.That(reply.Messages[^1].Operation!.Status).IsEqualTo(OperationStatuses.Cancelled);
+    }
+
+    [Test]
+    public async Task An_operation_outlives_a_command_line_that_went_away()
+    {
+        var core = Core();
+        var reply = new RecordingReply();
+        core.OnLaunch(Launch(new DaemonRequest(DaemonRequestKinds.Operation, DaemonIdentity.Of(Config), Build), reply));
+        while (!_service.Busy) await Task.Delay(10);
+
+        reply.Disconnect();
+        await Task.Delay(100);
+        await Assert.That(_service.Busy).IsTrue();
+        _gate.SetResult();
+
+        await Assert.That(await reply.Exit.Task.WaitAsync(TimeSpan.FromSeconds(30))).IsEqualTo(0);
+        await Assert.That(reply.Messages[^1].Operation!.Status).IsEqualTo(OperationStatuses.Succeeded);
     }
 
     [Test]
@@ -409,24 +443,26 @@ public sealed class DaemonTests : IDisposable
     }
 
     [Test]
-    [Arguments("tray")]
-    [Arguments("stored")]
-    public async Task The_daemon_reads_every_message_it_needs_in_both_languages(string group)
+    [Arguments("en")]
+    [Arguments("de")]
+    public async Task The_daemon_finds_every_stored_text_in_the_generated_catalogue(string locale)
     {
-        // Each file reads within the subset TrayCatalog knows; German has every English message with the same inputs.
-        var english = TrayCatalog.Load(group, "en");
-        var german = TrayCatalog.Load(group, "de");
-        if (group == "tray") await Assert.That(TrayMessages.Keys.Except(english.Messages.Keys)).IsEmpty();
-        static IEnumerable<string> Inputs(TrayCatalog.Message message) =>
-            message.Variants.SelectMany(variant => variant.Parts.OfType<TrayCatalog.Placeholder>().Select(part => part.Name)).Distinct().Order();
-        foreach (var (key, message) in english.Messages)
-        {
-            await Assert.That(german.Messages.ContainsKey(key)).IsTrue().Because($"{group}/{key} has German");
-            await Assert.That(Inputs(german.Messages[key]).Except(Inputs(message))).IsEmpty().Because($"{group}/{key} keeps its inputs");
-        }
+        // The importer's base-text index names a message of the catalogue for each English text it stored.
+        var index = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(
+            File.ReadAllText(Path.Combine(TranslationCoverageTests.Root, "Frontend", "translations", "stored", "base-text.json")))!;
+        var snapshot = NixManager.Dashboard.DashboardTextCatalog.CreateManager(locale).Current;
+        await Assert.That(index).IsNotEmpty();
+        foreach (var (text, key) in index) await Assert.That(snapshot.TryGetKey(key, out _)).IsTrue().Because($"{key} ({text})");
+        await Assert.That(TrayText.English.Stored("Remove user {name}".Replace("{name}", "ada"))).IsEqualTo("Remove user ada");
+    }
+
+    [Test]
+    public async Task The_daemon_formats_its_numbers_in_the_dashboards_language()
+    {
         await Assert.That(TrayText.For("de").Messages.tray_updates_available(1234)).IsEqualTo("1.234 Aktualisierungen verfügbar");
+        await Assert.That(TrayText.English.Messages.tray_updates_available(1234)).IsEqualTo("1,234 updates available");
         await Assert.That(TrayText.English.Messages.tray_updates_available(1)).IsEqualTo("1 update available");
-        await Assert.That(() => TrayCatalog.Parse("x =\n  .match $n\n  one {{a}}\n", "test")).Throws<InvalidDataException>();
+        await Assert.That(TrayText.For("de").Messages.tray_updates_available(1)).IsEqualTo("1 Aktualisierung verfügbar");
     }
 
     [Test]

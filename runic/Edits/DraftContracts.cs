@@ -25,7 +25,7 @@ public sealed class DraftFile
     /// <summary>True for a file the edits create; absent otherwise.</summary>
     public bool? Created { get; set; }
     public List<Hunk> Hunks { get; set; } = [];
-    [JsonExtensionData, Runic.Application.Views.RunicIgnore] public Dictionary<string, JsonElement>? Unknown { get; set; }
+    [JsonExtensionData] public Dictionary<string, JsonElement>? Unknown { get; set; }
 }
 
 /// <summary>A file with its content before and after the edits, in memory (<c>EditedFile</c>).</summary>

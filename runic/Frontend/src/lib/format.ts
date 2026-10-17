@@ -88,8 +88,7 @@ const roughly = (seconds: number) => {
   const minutes = Math.round(seconds / 60);
   if (minutes < 1) return m.format_less_than_a_minute();
   if (minutes < 60) return m.format_about_minutes({ count: minutes });
-  // A decimal input takes exact decimal text.
-  return m.format_about_hours({ count: String(Math.round(minutes / 6) / 10) });
+  return m.format_about_hours({ count: Math.round(minutes / 6) / 10 });
 };
 
 /** "About 3 minutes left" for a running operation, judged from earlier runs of the same kind. */

@@ -7,7 +7,7 @@ quit = Nix Manager beenden
 checks_failed = Einige Suchen nach Aktualisierungen sind fehlgeschlagen
 no_updates = Keine Aktualisierungen gemeldet
 updates_available =
-  .input {$count :integer}
+  .input {$count :integer useGrouping=always}
   .match $count
   one {{{$count} Aktualisierung verfügbar}}
   * {{{$count} Aktualisierungen verfügbar}}
@@ -20,33 +20,33 @@ apply_on_boot = Beim nächsten Start anwenden
 space_freed = Speicherplatz freigegeben
 freed = {$size} wurden freigegeben.
 older_removed = Ältere Wiederherstellungspunkte wurden entfernt.
-newest_kept = Die neuesten {$count :integer} Wiederherstellungspunkte Ihrer Apps bleiben erhalten.
+newest_kept = Die neuesten {$count :integer useGrouping=always} Wiederherstellungspunkte Ihrer Apps bleiben erhalten.
 ready_to_review = Änderungen sind bereit zur Prüfung
 build_finished = Der Build ist fertig. Öffnen Sie Nix Manager, um zu sehen, was sich ändert, und es anzuwenden.
 finished = Nix Manager ist fertig
 completed_for = {$action} für {$host} abgeschlossen.
-more = {$count :integer} weitere
+more = {$count :integer useGrouping=always} weitere
 installs = installiert {$names}
 removes = entfernt {$names}
 changes_settings =
-  .input {$count :integer}
+  .input {$count :integer useGrouping=always}
   .match $count
   one {{ändert {$count} Einstellung}}
   * {{ändert {$count} Einstellungen}}
 updates_packages =
-  .input {$count :integer}
+  .input {$count :integer useGrouping=always}
   .match $count
   one {{aktualisiert {$count} Paket}}
   * {{aktualisiert {$count} Pakete}}
-adds = fügt {$count :integer} hinzu
+adds = fügt {$count :integer useGrouping=always} hinzu
 adds_packages =
-  .input {$count :integer}
+  .input {$count :integer useGrouping=always}
   .match $count
   one {{fügt {$count} Paket hinzu}}
   * {{fügt {$count} Pakete hinzu}}
-removes_count = entfernt {$count :integer}
+removes_count = entfernt {$count :integer useGrouping=always}
 removes_packages =
-  .input {$count :integer}
+  .input {$count :integer useGrouping=always}
   .match $count
   one {{entfernt {$count} Paket}}
   * {{entfernt {$count} Pakete}}
@@ -55,7 +55,7 @@ system_new = baut das System neu, da kein aktives System zum Vergleichen da ist
 everything_new = baut alles neu, da nichts Aktives zum Vergleichen da ist
 nothing_you_use = An dem, was Sie benutzen, ändert sich nichts.
 sources =
-  .input {$count :integer}
+  .input {$count :integer useGrouping=always}
   .match $count
   one {{Aktualisiert {$count} Softwarequelle.}}
   * {{Aktualisiert {$count} Softwarequellen.}}

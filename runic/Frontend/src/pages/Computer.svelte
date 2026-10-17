@@ -16,8 +16,8 @@
   import { Switch } from "$lib/components/ui/switch";
   import { app } from "$lib/app.svelte";
   import { parseDefault } from "$lib/fields";
-  import { getLocale, m, slot, stored } from "$lib/i18n";
-  import Markup from "$lib/components/app/Markup.svelte";
+  import { LocalizedInline } from "@runic-artifex/translations-svelte/inline";
+  import { getLocale, inline, m, stored } from "$lib/i18n";
   import { showValue } from "$lib/changes";
   import { local, NEW_FILE, software, type Change } from "$lib/software.svelte";
   import ExperienceDialog from "$lib/components/app/ExperienceDialog.svelte";
@@ -248,7 +248,7 @@
   {#if created && mutable}
     <p class="flex items-start gap-2 rounded-lg bg-muted px-3 py-2 text-xs">
       <UserPlusIcon class="mt-0.5 size-4 shrink-0" />
-      <span class="flex-1"><Markup text={m.computer_password_after_apply({ user: created, command: slot("command") })}>{#snippet children()}<code>sudo passwd {created}</code>{/snippet}</Markup></span>
+      <span class="flex-1"><LocalizedInline nodes={inline.render(m.computer_password_after_apply({ user: created, command: `sudo passwd ${created}` }), { slots: {} })} /></span>
       <button class="focus-ring rounded text-muted-foreground hover:text-foreground" onclick={() => (created = undefined)}>{m.toast_dismiss()}</button>
     </p>
   {/if}

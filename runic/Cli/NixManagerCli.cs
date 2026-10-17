@@ -26,7 +26,6 @@ public sealed class CliOutput
 public sealed class CliSession
 {
     public required CliOutput Output { get; init; }
-    public IReadOnlyList<string> Extra { get; init; } = [];
     public ManagerEnvironment Environment { get; init; } = ManagerEnvironment.Current;
     public ICommandRunner Runner { get; init; } = new ProcessCommandRunner();
     /// <summary>
@@ -38,6 +37,13 @@ public sealed class CliSession
     public TimeSpan HeartbeatInterval { get; init; } = TimeSpan.FromSeconds(15);
     /// <summary>Runs processes whose output goes to a file, such as the package catalog's evaluation.</summary>
     public IProcessRunner Processes { get; init; } = new ProcessRunner(new LocalExecutablePolicy());
+    /// <summary>
+    /// Runs <c>ui</c> on the thread that called <see cref="NixManagerCli.Run"/>, once the command line has returned, and
+    /// returns its exit code; the dashboard's Desktop host must start there before any <see langword="await"/>.
+    /// </summary>
+    public Func<Dashboard.DashboardCommand.Invocation, int> Dashboard { get; init; } = global::NixManager.Dashboard.DashboardCommand.Run;
+    /// <summary>Runs <c>tray</c> like <see cref="Dashboard"/>.</summary>
+    public Func<Daemon.DaemonCommand.Invocation, int> Daemon { get; init; } = global::NixManager.Daemon.DaemonCommand.Run;
 
     /// <summary>The privileged entry point as plans show it: <c>pkexec PROGRAM --privileged</c>.</summary>
     public static IReadOnlyList<string> PrivilegedPrefix =>
@@ -66,36 +72,40 @@ public static class NixManagerCli
         "Manage NixOS and Home Manager together. Modifiers may appear before the action, for example: nix-manager home update cleanup switch.\n\n" +
         "All selected configurations build before activation. Home activates first; system activation uses Polkit. Arguments after -- are forwarded verbatim to native tools.";
 
-    public static CommandCatalog Catalog() => GeneratedCommandCatalog.Create(builder => builder.JsonOutputAlias("--json"));
+    /// <summary>The command catalog: <c>--json</c> as the output alias, and <c>--completions SHELL</c> as the Bun version's
+    /// completion option instead of Runic Command Line's <c>completion</c> command.</summary>
+    public static CommandCatalog Catalog() =>
+        GeneratedCommandCatalog.Create(builder => builder.JsonOutputAlias("--json").CompletionOption("--completions"));
 
-    /// <summary>Runs the command line with the process arguments and returns the exit code.</summary>
+    /// <summary>
+    /// Runs the command line with the process arguments and returns the exit code. Call it from <c>Main</c> before any
+    /// <see langword="await"/>: <c>ui</c> and <c>tray</c> start the Desktop host on this thread once the command line has
+    /// returned (<see cref="CommandExecutionContext.ContinueOnCallingThread"/>).
+    /// </summary>
+    public static int Run(string[] args, CliSession? session = null, ICommandConsole? console = null,
+        bool handleSignals = true, CancellationToken cancellationToken = default)
+    {
+        var (app, arguments) = Create(args, session, console, handleSignals);
+        return app.Run(arguments, cancellationToken);
+    }
+
+    /// <summary>Runs the command line as <see cref="Run"/> does, except <c>ui</c> and <c>tray</c>, which need the calling thread.</summary>
     public static async Task<int> RunAsync(string[] args, CliSession? session = null, ICommandConsole? console = null,
         bool handleSignals = true, CancellationToken cancellationToken = default)
     {
-        string[] arguments, extra;
+        var (app, arguments) = Create(args, session, console, handleSignals);
+        return await app.RunAsync(arguments, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static (CommandApp App, string[] Arguments) Create(string[] args, CliSession? session, ICommandConsole? console, bool handleSignals)
+    {
+        var arguments = args;
         var isSoftware = false;
         // `software ...` has its own grammar: options before `software` or after the arguments, and `--` before
         // positional arguments (src/software-cli.ts).
-        if (SoftwareCli.Arguments(args) is { } software) (arguments, extra, isSoftware) = (SoftwareCli.Normalize(software), [], true);
-        else
-        {
-            (arguments, extra) = CliArguments.Split(args);
-            // The whole grammar is the default command's: the application's help is that command's help.
-            if (arguments is ["--help"] or ["-h"] or ["help"]) arguments = ["run", "--help"];
-        }
-        var output = session?.Output ?? new CliOutput();
-        session ??= new CliSession { Output = output };
-        session = new CliSession
-        {
-            Output = output,
-            Extra = extra,
-            Environment = session.Environment,
-            Runner = session.Runner,
-            CreateClient = session.CreateClient,
-            Clock = session.Clock,
-            HeartbeatInterval = session.HeartbeatInterval,
-            Processes = session.Processes,
-        };
+        if (SoftwareCli.Arguments(args) is { } software) (arguments, isSoftware) = (SoftwareCli.Normalize(software), true);
+        session ??= new CliSession { Output = new CliOutput() };
+        var output = session.Output;
         var app = new CommandApp(Catalog())
         {
             Name = Name,
@@ -106,17 +116,18 @@ public static class NixManagerCli
             ExitCodePolicy = new CliExitCodes(),
             HandleCancelKeyPress = handleSignals,
         };
-        return await app.RunAsync(arguments, cancellationToken).ConfigureAwait(false);
+        return (app, arguments);
     }
 
     [Command("run", Description = Description,
         Examples = ["nix-manager home update cleanup switch", "nix-manager --dry-run update cleanup switch", "nix-manager check --json"])]
-    [DefaultCommand]
+    [RootCommand]
     internal static async Task<CommandOutcome<string>> Run(
         [Argument(Description = "Scope, modifier and action words, in any order",
             ValueName = "WORD", AllowMultipleValues = true, Choices = ["home", "system", "all", "update", "cleanup", "gc", "build", "switch", "boot", "rollback", "check",
                 "t3code-update", "opencode-update", "pince-update", "ui", "tray", "status", "history"])]
         string[]? words,
+        [TrailingArguments(Description = "Arguments forwarded verbatim to native tools", ValueName = "ARG")] string[]? native,
         [FromServices] CliSession session,
         CommandExecutionContext context,
         [Option("--flake", Description = "Use a specific flake checkout", ValueName = "PATH")] string? flake = null,
@@ -133,7 +144,7 @@ public static class NixManagerCli
         var json = context.OutputMode == CommandOutputMode.Json;
         try
         {
-            var cli = CliArguments.Resolve(words ?? [], new CliOptions(flake, host, dryRun, force, json, plain, verbose, browser, noOpen, interval), session.Extra);
+            var cli = CliArguments.Resolve(words ?? [], new CliOptions(flake, host, dryRun, force, json, plain, verbose, browser, noOpen, interval), native ?? []);
             return await CliHandler.ExecuteAsync(cli, session, context, cancellationToken).ConfigureAwait(false);
         }
         catch (ManagerException error)

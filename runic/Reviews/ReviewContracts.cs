@@ -53,7 +53,7 @@ public sealed class ReviewOutput
     public long? CurrentClosureSize { get; set; }
     public VersionPair? Version { get; set; }
     public VersionPair? Kernel { get; set; }
-    [JsonExtensionData, Runic.Application.Views.RunicIgnore] public Dictionary<string, JsonElement>? Unknown { get; set; }
+    [JsonExtensionData] public Dictionary<string, JsonElement>? Unknown { get; set; }
 }
 
 /// <summary>A package an edit added to or removed from a configuration (<c>EditedPackage</c>).</summary>
@@ -70,8 +70,8 @@ public sealed record EditedPackage
 public sealed record OptionEffect
 {
     public required string Option { get; init; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault), Runic.Application.Views.RunicBridgeCodec(typeof(ViewModels.JsonElementBridgeCodec))] public JsonElement Before { get; init; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault), Runic.Application.Views.RunicBridgeCodec(typeof(ViewModels.JsonElementBridgeCodec))] public JsonElement After { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public JsonElement Before { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public JsonElement After { get; init; }
 }
 
 /// <summary>What the edits themselves did to one configuration, by evaluation (<c>EditEffect</c>).</summary>
@@ -92,7 +92,7 @@ public sealed class ReviewEdits
     public required string Hash { get; set; }
     public List<DraftFile> Files { get; set; } = [];
     public List<EditEffect> Effects { get; set; } = [];
-    [JsonExtensionData, Runic.Application.Views.RunicIgnore] public Dictionary<string, JsonElement>? Unknown { get; set; }
+    [JsonExtensionData] public Dictionary<string, JsonElement>? Unknown { get; set; }
 }
 
 public sealed class ReviewInputs
@@ -101,7 +101,7 @@ public sealed class ReviewInputs
     public List<LockChange> Changes { get; set; } = [];
     /// <summary>Hash of the checkout's flake.lock the proposal was resolved from.</summary>
     public required string BaseLockHash { get; set; }
-    [JsonExtensionData, Runic.Application.Views.RunicIgnore] public Dictionary<string, JsonElement>? Unknown { get; set; }
+    [JsonExtensionData] public Dictionary<string, JsonElement>? Unknown { get; set; }
 }
 
 /// <summary>For an undo: the applied change it reverses, from that change's operation.</summary>
@@ -141,7 +141,7 @@ public sealed class BuildReview
     public long? Downloaded { get; set; }
     /// <summary>The system part was applied on next boot; the home part follows once the computer runs that system.</summary>
     public AfterBoot? AfterBoot { get; set; }
-    [JsonExtensionData, Runic.Application.Views.RunicIgnore] public Dictionary<string, JsonElement>? Unknown { get; set; }
+    [JsonExtensionData] public Dictionary<string, JsonElement>? Unknown { get; set; }
 
     public BuildReview Clone() => ManagerJson.Deserialize<BuildReview>(ManagerJson.Serialize(this))!;
 }

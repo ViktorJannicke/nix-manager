@@ -74,5 +74,5 @@ public sealed record SystemState
     /// <summary>The running kernel, initrd or modules differ from the active system.</summary>
     public bool RebootRequired { get; init; }
     public DiskSpace? Disk { get; init; }
-    [JsonExtensionData, Runic.Application.Views.RunicIgnore] public Dictionary<string, JsonElement>? Unknown { get; set; }
+    [JsonExtensionData] public Dictionary<string, JsonElement>? Unknown { get; set; }
 }

@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using NixManager.Domain;
 using NixManager.Execution;
 using NixManager.Privileged;
+using Runic.CommandLine.Processes;
 using Runic.Platform;
 
 namespace NixManager.Tests;
@@ -19,15 +20,18 @@ internal sealed class FakePrivilegedActions(Func<PrivilegedActionRequest, Platfo
     }
 }
 
-/// <summary>Records the helper's commands instead of running them.</summary>
-internal sealed class RecordingTools
+/// <summary>Records the helper's commands instead of running them; each exits with 0.</summary>
+internal sealed class RecordingTools : IProcessRunner
 {
     public List<string[]> Calls { get; } = [];
 
-    public Task Run(string[] argv)
+    public ValueTask<ProcessResult> RunAsync(ProcessRequest request, CancellationToken cancellationToken = default) =>
+        RunAsync(request, null, cancellationToken);
+
+    public ValueTask<ProcessResult> RunAsync(ProcessRequest request, IProcessOutputHandler? outputHandler, CancellationToken cancellationToken = default)
     {
-        Calls.Add(argv);
-        return Task.CompletedTask;
+        Calls.Add([request.FileName, .. request.Arguments]);
+        return ValueTask.FromResult(ProcessResult.Exited(0, null, null, DateTimeOffset.UnixEpoch, TimeSpan.Zero));
     }
 }
 
@@ -52,11 +56,20 @@ public sealed class PrivilegedTests
         await Assert.That(action.AcceptsArguments(["activate-generation", "81"])).IsTrue();
         await Assert.That(action.AcceptsArguments(["rollback"])).IsTrue();
         await Assert.That(action.AcceptsArguments(["gc", "3"])).IsTrue();
-        // No paths outside the store, no options, no shell words, at most three arguments.
+        await Assert.That(action.AcceptsArguments(["gc"])).IsTrue();
+        // No paths outside the store, no options, no shell words, each argument in its position and no more.
         await Assert.That(action.AcceptsArguments(["activate-output", "switch", "/home/user/.local/state/nix-manager/build/system"])).IsFalse();
         await Assert.That(action.AcceptsArguments(["gc", "--max-freed"])).IsFalse();
         await Assert.That(action.AcceptsArguments(["gc", "3; rm -rf /"])).IsFalse();
         await Assert.That(action.AcceptsArguments(["activate-output", "switch", StorePath, "boot"])).IsFalse();
+        await Assert.That(action.AcceptsArguments(["activate-output", "test", StorePath])).IsFalse();
+        await Assert.That(action.AcceptsArguments(["activate-output", StorePath, "switch"])).IsFalse();
+        await Assert.That(action.AcceptsArguments(["activate-generation"])).IsFalse();
+        await Assert.That(action.AcceptsArguments(["gc", "3", "4"])).IsFalse();
+        await Assert.That(action.AcceptsArguments(["rollback", "now"])).IsFalse();
+        await Assert.That(action.AcceptsArguments(["switch"])).IsFalse();
+        await Assert.That(action.AcceptsArguments(["boot", "activate-output", "3"])).IsFalse();
+        await Assert.That(action.Commands.Select(command => command.Name)).IsEquivalentTo(["activate-output", "activate-generation", "rollback", "gc"]);
         var policy = File.ReadAllText(Directory.EnumerateFiles(AppContext.BaseDirectory, "org.nixos.nix-manager.policy", SearchOption.AllDirectories).Single());
         await Assert.That(policy).Contains("<allow_active>auth_admin_keep</allow_active>");
         await Assert.That(policy).Contains("<allow_any>auth_admin</allow_any>");
@@ -111,7 +124,7 @@ public sealed class PrivilegedTests
         var runner = new RecordingTools();
         var present = new HashSet<string> { $"{Paths.SystemProfile}/bin/switch-to-configuration" };
 
-        await PrivilegedHelper.ExecuteAsync(["gc", "5"], runner.Run, present.Contains, _ => StorePath);
+        await PrivilegedHelper.ExecuteAsync(["gc", "5"], runner, present.Contains, _ => StorePath);
 
         await Assert.That(runner.Calls.Select(call => string.Join(' ', call))).IsEquivalentTo([
             $"nix-env --profile {Paths.SystemProfile} --delete-generations +5",
@@ -126,7 +139,7 @@ public sealed class PrivilegedTests
         var runner = new RecordingTools();
         var present = new HashSet<string> { "/home/user/build/system", $"{StorePath}/bin/switch-to-configuration" };
 
-        await PrivilegedHelper.ExecuteAsync(["activate-output", "switch", "/home/user/build/system"], runner.Run, present.Contains, _ => StorePath);
+        await PrivilegedHelper.ExecuteAsync(["activate-output", "switch", "/home/user/build/system"], runner, present.Contains, _ => StorePath);
 
         await Assert.That(runner.Calls[0]).IsEquivalentTo(["nix-env", "--profile", Paths.SystemProfile, "--set", StorePath]);
         await Assert.That(runner.Calls[1]).IsEquivalentTo([$"{StorePath}/bin/switch-to-configuration", "switch"]);
@@ -135,17 +148,15 @@ public sealed class PrivilegedTests
     [Test]
     [Arguments(new[] { "gc", "0" }, "Invalid generation retention.")]
     [Arguments(new[] { "gc", "101" }, "Invalid generation retention.")]
-    [Arguments(new[] { "activate-output", "test", StorePath }, "Invalid activation mode.")]
     [Arguments(new[] { "activate-output", "switch", "/nix/store/0123456789abcdfghijklmnpqrsvwxyz-hello" }, "Invalid NixOS system output.")]
     [Arguments(new[] { "activate-generation", "12" }, "Invalid system generation.")]
-    [Arguments(new[] { "rollback", "now" }, "Unknown privileged operation or unexpected arguments.")]
-    [Arguments(new[] { "switch" }, "Unknown privileged operation or unexpected arguments.")]
+    [Arguments(new[] { "gc", "999" }, "Invalid generation retention.")]
     public async Task The_helper_rejects_what_the_Bun_helper_rejects(string[] arguments, string message)
     {
         var runner = new RecordingTools();
         var present = new HashSet<string> { $"{StorePath}/bin/switch-to-configuration", "/nix/store/0123456789abcdfghijklmnpqrsvwxyz-hello" };
 
-        await Assert.That(() => PrivilegedHelper.ExecuteAsync(arguments, runner.Run, present.Contains, path => path))
+        await Assert.That(() => PrivilegedHelper.ExecuteAsync(arguments, runner, present.Contains, path => path))
             .Throws<ManagerException>().WithMessage(message);
         await Assert.That(runner.Calls).IsEmpty();
     }

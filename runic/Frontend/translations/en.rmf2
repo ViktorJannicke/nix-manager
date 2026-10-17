@@ -300,13 +300,13 @@ restore {
   running_until_restart_body = The computer started with this version; it changes at the next restart.
   what_to_clean_up = What to clean up
   cleanup_automatic = Settings can remove your user's old restore points automatically.
-  @param $size - Markup: the size, such as 1.2 GiB
+  @param $size - The size, such as 1.2 GiB, highlighted
   @param $note - "(other restore points still use their files)" with a space before it, or nothing
   cleanup_freeing =
     .input {$count :integer}
     .match $count
-    one {{{$count} restore point will be removed, freeing about {$size}{$note}.}}
-    * {{{$count} restore points will be removed, freeing about {$size}{$note}.}}
+    one {{{$count} restore point will be removed, freeing about {#highlight}{$size}{/highlight}{$note}.}}
+    * {{{$count} restore points will be removed, freeing about {#highlight}{$size}{/highlight}{$note}.}}
   cleanup_frees = Frees about {$size}, and more if other unused files are found.
   cleanup_measuring =
     .input {$count :integer}
@@ -339,7 +339,7 @@ settings {
   appearance = Appearance
   appearance_body = Follow the desktop or choose a theme.
   dark = Dark
-  detected_as = Detected as {$host}.
+  detected_as = Detected as {#highlight}{$host}{/highlight}.
   foreign_host_warning = Changes are now built and applied with the {$host} configuration. Applying another computer's configuration here can break this system; use this only to test builds.
   home_configuration = Home configuration
   home_profile = Home profile
@@ -512,13 +512,13 @@ changes {
 }
 
 review {
-  @param $scope - Markup: the scope, such as "(your user)", where the language puts it
-  title_all_sources = Update all software sources {$scope}
-  title_configuration = Apply your configuration {$scope}
-  title_generation = Go back to restore point {$generation} {$scope}
-  title_names = Update {$names} {$scope}
-  title_sources = Update {$count :integer} software sources {$scope}
-  title_undo = Undo the change from {$date} {$scope}
+  @param $scope - The scope, such as "your user", in a lighter tone in brackets where the language puts it
+  title_all_sources = Update all software sources {#aside}({$scope}){/aside}
+  title_configuration = Apply your configuration {#aside}({$scope}){/aside}
+  title_generation = Go back to restore point {$generation} {#aside}({$scope}){/aside}
+  title_names = Update {$names} {#aside}({$scope}){/aside}
+  title_sources = Update {$count :integer} software sources {#aside}({$scope}){/aside}
+  title_undo = Undo the change from {$date} {#aside}({$scope}){/aside}
 }
 
 packages {
@@ -628,9 +628,9 @@ summary {
 # The setup assistant's Window (Setup.svelte), before there is a checkout.
 setup {
   could_not_start = Nix Manager could not start
-  @param $flake - The checkout's folder, shown as code
-  @param $command - A command line, shown as code
-  problem_hint = It reads the configuration in {$flake}. Fix the problem there and open Nix Manager again, or run {$command} in a terminal to choose another configuration.
+  @param $flake - The checkout's folder
+  @param $command - A command line
+  problem_hint = It reads the configuration in {#code}{$flake}{/code}. Fix the problem there and open Nix Manager again, or run {#code}{$command}{/code} in a terminal to choose another configuration.
   not_connected = The dashboard could not connect to Nix Manager.
   title = Set up this computer
   intro = Nix Manager keeps this computer's configuration in a folder you own, so it can change it for you and keep every version. This copies your configuration from /etc/nixos into that folder once; nothing on the running system changes.
@@ -736,7 +736,7 @@ feature {
   this_computer_only_installs_software_with = This computer only installs software with a free license. Turning it on also allows non-free software, in {$file}.
   this_computer_only_installs_software_with_2 = This computer only installs software with a free license. Allow non-free software first, then turn it on.
   no_changes = No changes
-  turning_off_writes = Turning it off writes {$value} into {$file}.
+  turning_off_writes = Turning it off writes {#code}{$value}{/code} into {$file}.
 }
 
 bundle {
@@ -895,7 +895,7 @@ computer {
     * {{{$count} changes not added yet}}
   write_to = Write {$settings} to
   more_than_one_place = more than one place
-  password_after_apply = After you apply, give {$user} a password in your desktop's user settings, or run {$command}. Until then {$user} cannot log in.
+  password_after_apply = After you apply, give {$user} a password in your desktop's user settings, or run {#code}{$command}{/code}. Until then {$user} cannot log in.
   keep_user = Keep {$name}
 }
 

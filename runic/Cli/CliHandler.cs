@@ -12,12 +12,22 @@ internal static class CliHandler
 
     public static async Task<CommandOutcome<string>> ExecuteAsync(CliInvocation cli, CliSession session, CommandExecutionContext context, CancellationToken cancellationToken)
     {
-        // Valid ui and tray invocations never get here: Program.cs runs the dashboard and the daemon first
-        // (DashboardCommand, Daemon.DaemonCommand).
+        // The dashboard and the daemon start the Desktop host, which must own the main thread before any await: the
+        // command hands them back to Main (NixManagerCli.Run), which runs them once the command line has returned.
         if (cli.Mode is CliMode.Ui)
-            throw new ManagerException("The dashboard takes only --flake, --host, --no-open and --browser.");
+        {
+            if (cli.Json || cli.Interval != 360) throw new ManagerException("The dashboard takes only --flake, --host, --no-open and --browser.");
+            var dashboard = new Dashboard.DashboardCommand.Invocation(cli.Flake, cli.Host, cli.NoOpen, cli.Browser);
+            context.ContinueOnCallingThread(() => session.Dashboard(dashboard));
+            return Ok();
+        }
         if (cli.Mode is CliMode.Tray)
-            throw new ManagerException("The tray takes only --flake, --host and --interval.");
+        {
+            if (cli.Json || cli.Browser || cli.NoOpen) throw new ManagerException("The tray takes only --flake, --host and --interval.");
+            var daemon = new Daemon.DaemonCommand.Invocation(cli.Flake, cli.Host, cli.Interval);
+            context.ContinueOnCallingThread(() => session.Daemon(daemon));
+            return Ok();
+        }
         Setup.SetupAssistant.AllowFlakes(session.Environment);
         var config = await new ConfigLoader(session.Runner, session.Environment)
             .LoadAsync(cli.Flake, cli.Host, CliSession.PrivilegedPrefix).ConfigureAwait(false);

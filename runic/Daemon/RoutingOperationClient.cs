@@ -37,20 +37,15 @@ public sealed class RoutingOperationClient(IOperationClient local, Func<string, 
     public async Task<Operation> RunAsync(Request request, Func<ManagerEvent, CancellationToken, ValueTask> onEvent, CancellationToken cancellationToken)
     {
         if (!Routes(request)) return await local.RunAsync(request, onEvent, cancellationToken).ConfigureAwait(false);
-        var claim = await DaemonProtocol.ClaimAsync(new DaemonRequest(DaemonRequestKinds.Operation, DaemonIdentity.Of(Config), request), cancellationToken)
+        // Nothing runs (NotRunning), or the instance cannot be used: run here, without having held the instance.
+        var claim = await DaemonProtocol.ForwardAsync(new DaemonRequest(DaemonRequestKinds.Operation, DaemonIdentity.Of(Config), request), cancellationToken)
             .ConfigureAwait(false);
-        switch (claim)
+        if (claim is ApplicationInstanceClaim.Forwarded { Reply: { } reply })
         {
-            case ApplicationInstanceClaim.Primary primary:
-                // Nothing runs: let go at once, so a daemon or dashboard that starts meanwhile can become the instance.
-                await primary.Instance.DisposeAsync().ConfigureAwait(false);
-                break;
-            case ApplicationInstanceClaim.Forwarded { Reply: { } reply }:
-                await using (reply.ConfigureAwait(false))
-                {
-                    if (await FollowAsync(reply, onEvent, cancellationToken).ConfigureAwait(false) is { } result) return result;
-                }
-                break;
+            await using (reply.ConfigureAwait(false))
+            {
+                if (await FollowAsync(reply, onEvent, cancellationToken).ConfigureAwait(false) is { } result) return result;
+            }
         }
         return await local.RunAsync(request, onEvent, cancellationToken).ConfigureAwait(false);
     }

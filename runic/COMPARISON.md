@@ -1,7 +1,9 @@
 # Runic port against the Bun version
 
-These numbers come from the port published with NativeAOT (`perf-startup`, on `runic-port` 3fd242e): one native
-executable instead of the JIT build on the .NET runtime. The JIT build's numbers, from the finished port of W300-032
+These numbers come from the port published with NativeAOT: one native executable instead of the JIT build on the
+.NET runtime. The results table was measured again after the move to Runic SDK 0.8.0-preview.4
+(`runic/sdk-0.8.0-preview.4`); the comparison with the JIT build below is from `perf-startup` (`runic-port`
+3fd242e) on 0.8.0-preview.3. The JIT build's numbers, from the finished port of W300-032
 (`w300-032-packaging` with `w300-032-finish` 7b40bc0 merged: all dashboard pages, the setup assistant, tray
 translations, and the fix for the daemon's start-up memory), are kept as "before", with where its start-up time went.
 An earlier run against the unfinished port (ce62fd8) is kept at the end.
@@ -43,26 +45,33 @@ and writes `DIRECTORY/report.md` with the raw JSON beside it:
 
 `COMPARE_REPEAT`, `COMPARE_IDLE_SECONDS` and `COMPARE_LOAD_SECONDS` change the counts and waits.
 
-## Results (2026-10-15, NativeAOT)
+## Results (2026-10-17, NativeAOT, Runic SDK 0.8.0-preview.4)
 
 Host: x86_64-linux, AMD Radeon RX 6950 XT (radeonsi), 24 threads, 62 GiB RAM, NixOS. The table shows the first of
-two consecutive runs. The second run agreed within 1 ms, except `ui` to Window (154 ms; Bun 472 ms).
+two consecutive runs. The second run agreed within 4 ms, except `ui` to Window (140 ms; Bun 471 ms), and within
+0.5 MiB, except the Bun tray's PSS (78.3 MiB) and the Window's (Runic 623 / 363 MiB).
 
 | Measure | Runic | Bun |
 | --- | --- | --- |
-| `--help`, first run | 11 ms | 136 ms |
-| `--help`, median warm run | 8 ms | 126 ms |
-| `status --json`, fixture checkout, first run | 16 ms | 124 ms |
-| `status --json`, fixture checkout, median warm run | 17 ms | 118 ms |
-| `tray` start to status icon registered | 29 ms | 150 ms |
-| `ui` to Window mapped (tray running) | 145 ms | 458 ms |
-| background process after 30 s idle, RSS (all its processes) | 47.8 MiB | 103.1 MiB |
-| background process after 30 s idle, PSS | 36.7 MiB | 80.8 MiB |
-| with the Window open after 10 s, RSS (all its processes) | 616 MiB | 1286 MiB |
-| with the Window open after 10 s, PSS | 359 MiB | 523 MiB |
-| package (NAR size) | 23 MiB | 91 MiB |
-| closure | 1116 MiB | 894 MiB |
+| `--help`, first run | 12 ms | 132 ms |
+| `--help`, median warm run | 9 ms | 125 ms |
+| `status --json`, fixture checkout, first run | 10 ms | 121 ms |
+| `status --json`, fixture checkout, median warm run | 11 ms | 123 ms |
+| `tray` start to status icon registered | 32 ms | 149 ms |
+| `ui` to Window mapped (tray running) | 145 ms | 550 ms |
+| background process after 30 s idle, RSS (all its processes) | 58.1 MiB | 101.6 MiB |
+| background process after 30 s idle, PSS | 46.5 MiB | 71.7 MiB |
+| with the Window open after 10 s, RSS (all its processes) | 615 MiB | 1274 MiB |
+| with the Window open after 10 s, PSS | 356 MiB | 515 MiB |
+| package (NAR size) | 24 MiB | 91 MiB |
+| closure | 1117 MiB | 894 MiB |
 | browser outside the closure | none: WebKitGTK is in the closure | Chromium: 1332 MiB beyond the Bun closure |
+
+Against the 2026-10-15 run with Runic SDK 0.8.0-preview.3 (the "NativeAOT (after)" column below), only the idle
+daemon changed beyond the noise: 47.8 → 58.1 MiB RSS, 36.7 → 46.5 MiB PSS. The daemon now formats its text
+through the C# that Runic.Translations.Build generates for the whole dashboard catalogue (`DashboardText`, about
+1,300 messages per language) instead of a hand-written reader of the 650 messages of `tray/` and `stored/`; that
+is the likely cause, not measured on its own.
 
 The largest pieces of each closure (NAR size):
 
@@ -70,7 +79,7 @@ The largest pieces of each closure (NAR size):
   - WebKitGTK with JavaScriptCore, 176 MiB;
   - flite, 60 MiB (WebKitGTK's speech synthesis, which the dashboard does not use);
   - GTK 3, 42 MiB;
-  - the package itself, 23 MiB: the native executable (20 MiB) and the frontend.
+  - the package itself, 24 MiB: the native executable (22 MiB) and the frontend.
 - **Bun:**
   - the package itself, 91 MiB (`main.js` and `node_modules`);
   - Node.js, 102 MiB, which the `node_modules` scripts' interpreters pull in;

@@ -23,17 +23,6 @@ public sealed record OptionsRequest(string Scope, IReadOnlyList<string> Options)
 /// <param name="Query">Words that the option's name or description contain.</param>
 public sealed record OptionQuery(string Scope, string Query);
 
-/// <summary>Catalog entries by attribute, with the attributes they answer (<c>software/lookup</c>).</summary>
-/// <param name="Attrs">The attributes asked for.</param>
-/// <param name="Entries">The catalog entries found among them, by attribute; unknown attributes are left out.</param>
-public sealed record PackageLookup(IReadOnlyList<string> Attrs, IReadOnlyDictionary<string, AppEntry> Entries);
-
-/// <summary>Documented options matching a query, best first, with the search they answer (<c>software/options</c>).</summary>
-public sealed record OptionSearch(string Scope, string Query, IReadOnlyList<OptionDoc> Options);
-
-/// <summary>Current values and definition files of options, with the request they answer (<c>software/values</c>).</summary>
-public sealed record OptionValues(string Scope, IReadOnlyList<string> Options, IReadOnlyDictionary<string, OptionValue> Values);
-
 /// <summary>
 /// The Software and Computer pages of one checkout: the pending draft, what the selected host installs, the package
 /// catalog with Flathub's app details and its search, option documentation and values, and commands to change the
@@ -41,11 +30,10 @@ public sealed record OptionValues(string Scope, IReadOnlyList<string> Options, I
 /// the fingerprint and lock hash it observed (W300-030 binds it).
 /// </summary>
 /// <remarks>
-/// Questions with parameters, such as <see cref="LookupPackagesCommand"/>, answer in a state property together with the
-/// request they answer, since a CommunityToolkit command returns no value to the page; awaiting the command
-/// resolves to the state that holds the answer. Failures that the page reports are declared as
-/// <see cref="SoftwareFailure"/>. The app list and the icons, the large and the often-changing parts, are child Views
-/// (<see cref="Apps"/>, <see cref="Icons"/>) with snapshots of their own.
+/// Questions with parameters, such as <see cref="LookupPackagesCommand"/>, answer with their command's result, which the
+/// page reads from the operation (<c>startLookupPackages(attrs).outcome()</c>). Failures that the page reports are declared as
+/// <see cref="SoftwareFailure"/>. The app list, the large part, is a child View (<see cref="Apps"/>) with snapshots of its
+/// own. App icons are files beside the page (<c>Dashboard/AppIconResources.cs</c>).
 /// </remarks>
 public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
 {
@@ -66,7 +54,6 @@ public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
         Hardware = hardware ?? Operations.Hardware.Current;
         User = user ?? Environment.UserName;
         Apps = new AppListViewModel();
-        Icons = new AppIconsViewModel(service);
         AppsStatus = service.AppsStatus(service.AppDetails);
         _service.Changed += OnChanged;
     }
@@ -79,9 +66,6 @@ public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
 
     /// <summary>Every package Flathub describes as an app, once <c>loadApps</c> asked for them.</summary>
     public AppListViewModel Apps { get; }
-
-    /// <summary>App icons the page asked for, as <c>data:</c> URLs.</summary>
-    public AppIconsViewModel Icons { get; }
 
     /// <summary>The host whose configurations are shown; empty for this computer's.</summary>
     [ObservableProperty]
@@ -130,21 +114,9 @@ public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial string Searched { get; private set; } = "";
 
-    /// <summary>The last <see cref="LookupPackagesCommand"/>'s answer.</summary>
-    [ObservableProperty]
-    public partial PackageLookup? Lookup { get; private set; }
-
-    /// <summary>The last <see cref="SearchOptionsCommand"/>'s answer.</summary>
-    [ObservableProperty]
-    public partial OptionSearch? OptionResults { get; private set; }
-
     /// <summary>Option documentation that <see cref="DescribeCommand"/> loaded, by <c>scope:name</c>, for the selected host.</summary>
     [ObservableProperty]
     public partial IReadOnlyDictionary<string, OptionDoc> Docs { get; private set; } = new Dictionary<string, OptionDoc>();
-
-    /// <summary>The last <see cref="ReadValuesCommand"/>'s answer.</summary>
-    [ObservableProperty]
-    public partial OptionValues? Values { get; private set; }
 
     /// <summary>Why the last read of the draft or the inventory failed.</summary>
     [ObservableProperty]
@@ -222,23 +194,23 @@ public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
         UpdateApps(wanted: true);
     }
 
-    /// <summary>Looks up catalog entries by attribute with their app details; the answer is in <see cref="Lookup"/>.</summary>
+    /// <summary>
+    /// Catalog entries among the first 500 <paramref name="attrs"/>, by attribute, with their app details; unknown
+    /// attributes are left out (<c>software/lookup</c>).
+    /// </summary>
     [RelayCommand]
-    private void LookupPackages(IReadOnlyList<string> attrs)
-    {
-        var asked = attrs.Take(500).ToList();
-        Lookup = new PackageLookup(asked, _service.Lookup(LockHash, asked));
-    }
+    internal Task<IReadOnlyDictionary<string, AppEntry>> LookupPackagesAsync(IReadOnlyList<string> attrs) =>
+        Task.FromResult(_service.Lookup(LockHash, attrs.Take(500).ToList()));
 
-    /// <summary>Searches the documented options of a configuration; the answer is in <see cref="OptionResults"/>.</summary>
+    /// <summary>The documented options of a configuration that match a query, best first (<c>software/options</c>).</summary>
     [RelayCommand(AllowConcurrentExecutions = true), RunicFailure(typeof(SoftwareFailure))]
-    private async Task SearchOptionsAsync(OptionQuery query)
+    private async Task<IReadOnlyList<OptionDoc>> SearchOptionsAsync(OptionQuery query)
     {
         var scope = ScopeOf(query.Scope);
         var text = query.Query.Length > 200 ? query.Query[..200] : query.Query;
         try
         {
-            OptionResults = new OptionSearch(scope, query.Query, await _service.SearchOptionsAsync(Host, scope, text, Fingerprint));
+            return await _service.SearchOptionsAsync(Host, scope, text, Fingerprint);
         }
         catch (ManagerException error)
         {
@@ -279,14 +251,14 @@ public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
         Docs = next;
     }
 
-    /// <summary>Reads current values and definition files of up to 200 options; the answer is in <see cref="Values"/>.</summary>
+    /// <summary>Current values and definition files of up to 200 options, by name (<c>software/values</c>).</summary>
     [RelayCommand(AllowConcurrentExecutions = true), RunicFailure(typeof(SoftwareFailure))]
-    private async Task ReadValuesAsync(OptionsRequest request)
+    private async Task<IReadOnlyDictionary<string, OptionValue>> ReadValuesAsync(OptionsRequest request)
     {
         var scope = ScopeOf(request.Scope);
         try
         {
-            Values = new OptionValues(scope, request.Options, await _service.ValuesAsync(Host, scope, request.Options));
+            return await _service.ValuesAsync(Host, scope, request.Options);
         }
         catch (ManagerException error)
         {
@@ -331,7 +303,6 @@ public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _service.Changed -= OnChanged;
-        Icons.Dispose();
     }
 }
 
@@ -344,73 +315,4 @@ public sealed partial class AppListViewModel : ObservableObject
     /// <summary>The apps in catalog order, with their app details.</summary>
     [ObservableProperty]
     public partial IReadOnlyList<AppEntry> Entries { get; internal set; } = [];
-}
-
-/// <summary>
-/// App icons for the page (<c>/api/app-icon/&lt;id&gt;</c> in the Bun version), as <c>data:image/png;base64</c> URLs:
-/// the Window serves only its page, and the icons are downloaded once from Flathub's media server and kept in the
-/// state directory. A View of its own, so a batch of icons does not resend the Software page's state.
-/// </summary>
-/// <remarks>
-/// The page keeps the icons it has seen; this holds only the latest <see cref="MaxIcons"/>, and an id answered with
-/// an empty string has no icon.
-/// </remarks>
-public sealed partial class AppIconsViewModel(ISoftwareService service) : ObservableObject, IDisposable
-{
-    /// <summary>Icons kept in the state; older ones go first.</summary>
-    public const int MaxIcons = 120;
-
-    /// <summary>Icons loaded by one command.</summary>
-    public const int MaxBatch = 60;
-
-    /// <summary>A larger file is not an app icon of Flathub's; it is not sent to the page.</summary>
-    public const int MaxBytes = 256 * 1024;
-
-    private readonly List<string> _order = [];
-    private readonly SemaphoreSlim _downloads = new(6);
-
-    /// <summary>Icons by AppStream id; an empty string when the app has none.</summary>
-    [ObservableProperty]
-    public partial IReadOnlyDictionary<string, string> Icons { get; private set; } = new Dictionary<string, string>();
-
-    /// <summary>Loads the icons of these apps, up to <see cref="MaxBatch"/> not loaded yet; nothing while app details are off.</summary>
-    [RelayCommand(AllowConcurrentExecutions = true)]
-    private async Task LoadAsync(IReadOnlyList<string> ids)
-    {
-        if (!service.AppDetails) return;
-        var wanted = ids.Where(Software.Apps.ValidAppId).Distinct().Where(id => !Icons.ContainsKey(id)).Take(MaxBatch).ToList();
-        if (wanted.Count == 0) return;
-        var loaded = await Task.WhenAll(wanted.Select(async id => (Id: id, Url: await UrlAsync(id))));
-        var next = new Dictionary<string, string>(Icons);
-        foreach (var (id, url) in loaded)
-        {
-            if (next.TryAdd(id, url)) _order.Add(id);
-        }
-        while (_order.Count > MaxIcons)
-        {
-            next.Remove(_order[0]);
-            _order.RemoveAt(0);
-        }
-        Icons = next;
-    }
-
-    private async Task<string> UrlAsync(string id)
-    {
-        await _downloads.WaitAsync().ConfigureAwait(false);
-        try
-        {
-            var png = await service.IconAsync(id).ConfigureAwait(false);
-            return png is { Length: > 0 and <= MaxBytes } ? $"data:image/png;base64,{Convert.ToBase64String(png)}" : "";
-        }
-        catch (Exception error) when (error is ManagerException or IOException or UnauthorizedAccessException or OperationCanceledException)
-        {
-            return "";
-        }
-        finally
-        {
-            _downloads.Release();
-        }
-    }
-
-    public void Dispose() => _downloads.Dispose();
 }

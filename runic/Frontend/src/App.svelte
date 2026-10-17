@@ -1,8 +1,10 @@
 <svelte:options runes={true} />
 
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { useView } from "@runic-artifex/svelte/views";
+  import { useMessageLocale } from "@runic-artifex/translations-svelte/translations";
+  import { configureLocaleResolver, getLocale } from "virtual:runic-translations/dashboard/runtime";
   import LayoutIcon from "@lucide/svelte/icons/layout-dashboard";
   import CloudDownloadIcon from "@lucide/svelte/icons/cloud-download";
   import GitCompareIcon from "@lucide/svelte/icons/git-compare";
@@ -17,7 +19,7 @@
   import { connectDashboard } from "./generated/dashboard.js";
   import { Button } from "$lib/components/ui/button";
   import { app, type Page } from "$lib/app.svelte";
-  import { actionLabel, m, plain, setLocale, stored } from "$lib/i18n";
+  import { actionLabel, m, plain, stored } from "$lib/i18n";
   import Toasts from "$lib/components/app/Toasts.svelte";
   import ConfirmDialog from "$lib/components/app/ConfirmDialog.svelte";
   import BuildProgress from "$lib/components/app/BuildProgress.svelte";
@@ -37,20 +39,20 @@
   const system = useView(() => dashboard.state?.system);
   const software = useView(() => dashboard.state?.software);
   const appList = useView(() => software.state?.apps);
-  const icons = useView(() => software.state?.icons);
   app.dashboardView = dashboard;
   app.operationsView = operations;
   app.reviewsView = reviews;
   app.systemView = system;
   app.softwareView = software;
   app.appListView = appList;
-  app.iconsView = icons;
 
   onMount(() => app.start());
 
   // The ViewModel says which language to speak: the chosen one, or the desktop's.
-  const locale = $derived(dashboard.state?.locale ?? "en");
-  $effect.pre(() => setLocale(locale));
+  useMessageLocale(configureLocaleResolver, () => dashboard.state?.locale ?? "en");
+  $effect(() => {
+    document.documentElement.lang = getLocale();
+  });
 
   // The chosen theme, or the desktop's through the page's colour scheme.
   $effect(() => {
@@ -72,23 +74,25 @@
     if (client && revision !== undefined) void client.refreshHistory().catch(() => {});
   });
 
-  const nav = $derived.by(() => {
-    void locale;
-    return [
-      { id: "overview" as Page, label: m.nav_overview(), icon: LayoutIcon, count: undefined, prepared: false },
-      { id: "software" as Page, label: m.nav_software(), icon: PackageIcon, count: app.pendingChanges.length || undefined, prepared: true },
-      { id: "computer" as Page, label: m.nav_computer(), icon: MonitorIcon, count: undefined, prepared: false },
-      { id: "changes" as Page, label: m.nav_changes(), icon: GitCompareIcon, count: app.reviews.length || undefined, prepared: true },
-      { id: "updates" as Page, label: m.nav_updates(), icon: CloudDownloadIcon, count: app.inputUpdates.length + app.packageUpdates.length || undefined, prepared: false },
-      { id: "generations" as Page, label: m.nav_restore_points(), icon: HistoryIcon, count: undefined, prepared: false },
-      { id: "activity" as Page, label: m.nav_activity(), icon: ListIcon, count: undefined, prepared: false },
-      { id: "settings" as Page, label: m.nav_settings(), icon: SettingsIcon, count: undefined, prepared: false },
-    ];
-  });
+  const nav = $derived([
+    { id: "overview" as Page, label: m.nav_overview(), icon: LayoutIcon, count: undefined, prepared: false },
+    { id: "software" as Page, label: m.nav_software(), icon: PackageIcon, count: app.pendingChanges.length || undefined, prepared: true },
+    { id: "computer" as Page, label: m.nav_computer(), icon: MonitorIcon, count: undefined, prepared: false },
+    { id: "changes" as Page, label: m.nav_changes(), icon: GitCompareIcon, count: app.reviews.length || undefined, prepared: true },
+    { id: "updates" as Page, label: m.nav_updates(), icon: CloudDownloadIcon, count: app.inputUpdates.length + app.packageUpdates.length || undefined, prepared: false },
+    { id: "generations" as Page, label: m.nav_restore_points(), icon: HistoryIcon, count: undefined, prepared: false },
+    { id: "activity" as Page, label: m.nav_activity(), icon: ListIcon, count: undefined, prepared: false },
+    { id: "settings" as Page, label: m.nav_settings(), icon: SettingsIcon, count: undefined, prepared: false },
+  ]);
   const running = $derived(app.active);
   const runningStep = $derived(running?.steps?.find((step) => step.status === "running"));
+  // The running operation's step, which the status line below and the Window announce as it changes.
+  const status = $derived(running ? `${actionLabel(running.request.action)}: ${stored(runningStep?.label ?? running.step)}` : "");
+  $effect(() => {
+    const text = status;
+    untrack(() => app.announce(text));
+  });
   const title = $derived.by(() => {
-    void locale;
     // A soft hyphen lets a long label wrap in the navigation; the Window title has room for the whole word.
     const page = plain(nav.find((item) => item.id === app.page)?.label ?? "");
     return `${running ? `${actionLabel(running.request.action)}… ` : ""}${page} – Nix Manager`;
@@ -97,86 +101,84 @@
 
 <svelte:head><title>{title}</title></svelte:head>
 
-{#key locale}
-  <a href="#main" class="focus-ring fixed top-2 left-2 z-50 -translate-y-16 rounded-lg border bg-card px-3 py-2 font-medium shadow-lg focus:translate-y-0">{m.nav_skip_to_content()}</a>
-  <!-- Announces each step of a running operation; finishing and failing are announced by the toasts. -->
-  <p class="sr-only" role="status">{running ? `${actionLabel(running.request.action)}: ${stored(runningStep?.label ?? running.step)}` : ""}</p>
-  <div class="flex h-screen overflow-hidden">
-    <nav class="flex w-60 shrink-0 flex-col bg-sidebar px-3 py-4" aria-label={m.nav_sections()}>
-      <div class="mb-6 flex items-center gap-2 px-2">
-        <SnowflakeIcon class="size-5 text-primary" />
-        <span class="font-bold tracking-tight">Nix Manager</span>
-      </div>
-      <!-- Each item is display: contents. WebKitGTK 2.54 aborts its web process when Orca asks for the text
-           attributes of a list item whose text is its button's U+FFFC and whose last node has no box, such as the
-           anchors Svelte leaves for the icon, the count and the spinner (nix/lab/webkit-attribute-run/REPORT.md). An
-           item without a box answers without that computation. Orca then cannot count the items itself, so each says
-           how many there are, and Orca announces "list with 8 items" again. The gap spaces them. -->
-      <ul role="list" class="flex flex-col gap-0.5">
-        {#each nav as item, index (item.id)}
-          <li class="contents" aria-setsize={nav.length} aria-posinset={index + 1}>
-            <!-- Long labels, such as German compounds, wrap at their soft hyphen instead of being cut off. -->
-            <button
-              class="focus-ring flex min-h-9 w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-left leading-snug transition-colors
-                {app.page === item.id ? 'bg-card font-semibold text-foreground' : 'text-muted-foreground hover:bg-card/60 hover:text-foreground'}"
-              aria-current={app.page === item.id ? "page" : undefined}
-              onclick={() => app.navigate(item.id)}
-            >
-              <item.icon class="size-4 shrink-0 {app.page === item.id ? 'text-primary' : ''}" />
-              <span class="min-w-0 flex-1 hyphens-manual break-words">{item.label}</span>
-              {#if item.id === "activity" && running}
-                <LoaderIcon class="size-3.5 shrink-0 animate-spin text-primary" /><span class="sr-only">{m.nav_running()}</span>
-              {:else if item.count}
-                <span class="numeric shrink-0 text-[0.8rem] {item.prepared ? 'font-semibold text-prepared-foreground' : ''}">{item.count}</span>
-              {/if}
-            </button>
-          </li>
-        {/each}
-      </ul>
-      <div class="mt-auto space-y-2 px-2 text-[0.8rem]">
-        {#if app.foreignHost}
-          <button class="focus-ring flex w-full items-start gap-1.5 rounded text-left text-warning" onclick={() => app.navigate("settings")}>
-            <TriangleAlertIcon class="mt-0.5 size-3.5 shrink-0" /> {m.nav_targeting({ host: app.host })}
-          </button>
-        {/if}
-        <p class="flex items-center gap-1.5 text-warning" role="status">
-          {#if dashboard.state && (dashboard.error || operations.error)}<LoaderIcon class="size-3.5 animate-spin" /> {m.nav_reconnecting()}{/if}
-        </p>
-      </div>
-    </nav>
-
-    <div class="flex min-w-0 flex-1 flex-col">
-      {#if running && app.page !== "overview" && app.page !== "activity"}
-        <div class="flex items-center gap-4 border-b bg-card px-6 py-2">
-          <span class="font-semibold">{actionLabel(running.request.action)}</span>
-          <span class="min-w-0 flex-1 truncate text-muted-foreground">{stored(runningStep?.label ?? running.step)}</span>
-          {#if runningStep}<div class="w-56"><BuildProgress compact progress={runningStep.progress} /></div>{/if}
-          <Button variant="ghost" size="sm" onclick={() => app.show(running.id)}>{m.nav_show()}</Button>
-        </div>
-      {/if}
-      <main id="main" tabindex="-1" class="outline-none scroll-thin min-h-0 flex-1 {app.page === 'activity' ? 'overflow-hidden' : 'overflow-auto'}">
-        <div class="mx-auto h-full max-w-5xl px-8 py-7">
-          {#if !app.dashboard || !app.operations}
-            <div class="grid h-full place-items-center text-muted-foreground">
-              {#if dashboard.error && !dashboard.state}
-                <p role="alert">{m.nav_not_connected()}</p>
-              {:else}
-                <p class="flex items-center gap-2" role="status"><LoaderIcon class="size-4 animate-spin" /> {m.nav_reading_state()}</p>
-              {/if}
-            </div>
-          {:else if app.page === "overview"}<Overview />
-          {:else if app.page === "software"}<Software />
-          {:else if app.page === "computer"}<Computer />
-          {:else if app.page === "updates"}<Updates />
-          {:else if app.page === "changes"}<Changes />
-          {:else if app.page === "generations"}<Generations />
-          {:else if app.page === "activity"}<Activity />
-          {:else}<Settings />{/if}
-        </div>
-      </main>
+<a href="#main" class="focus-ring fixed top-2 left-2 z-50 -translate-y-16 rounded-lg border bg-card px-3 py-2 font-medium shadow-lg focus:translate-y-0">{m.nav_skip_to_content()}</a>
+<!-- Announces each step of a running operation; finishing and failing are announced by the toasts. -->
+<p class="sr-only" role="status">{status}</p>
+<div class="flex h-screen overflow-hidden">
+  <nav class="flex w-60 shrink-0 flex-col bg-sidebar px-3 py-4" aria-label={m.nav_sections()}>
+    <div class="mb-6 flex items-center gap-2 px-2">
+      <SnowflakeIcon class="size-5 text-primary" />
+      <span class="font-bold tracking-tight">Nix Manager</span>
     </div>
+    <!-- Each item is display: contents. WebKitGTK 2.54 aborts its web process when Orca asks for the text
+         attributes of a list item whose text is its button's U+FFFC and whose last node has no box, such as the
+         anchors Svelte leaves for the icon, the count and the spinner (nix/lab/webkit-attribute-run/REPORT.md). An
+         item without a box answers without that computation. Orca then cannot count the items itself, so each says
+         how many there are, and Orca announces "list with 8 items" again. The gap spaces them. -->
+    <ul role="list" class="flex flex-col gap-0.5">
+      {#each nav as item, index (item.id)}
+        <li class="contents" aria-setsize={nav.length} aria-posinset={index + 1}>
+          <!-- Long labels, such as German compounds, wrap at their soft hyphen instead of being cut off. -->
+          <button
+            class="focus-ring flex min-h-9 w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-left leading-snug transition-colors
+              {app.page === item.id ? 'bg-card font-semibold text-foreground' : 'text-muted-foreground hover:bg-card/60 hover:text-foreground'}"
+            aria-current={app.page === item.id ? "page" : undefined}
+            onclick={() => app.navigate(item.id)}
+          >
+            <item.icon class="size-4 shrink-0 {app.page === item.id ? 'text-primary' : ''}" />
+            <span class="min-w-0 flex-1 hyphens-manual break-words">{item.label}</span>
+            {#if item.id === "activity" && running}
+              <LoaderIcon class="size-3.5 shrink-0 animate-spin text-primary" /><span class="sr-only">{m.nav_running()}</span>
+            {:else if item.count}
+              <span class="numeric shrink-0 text-[0.8rem] {item.prepared ? 'font-semibold text-prepared-foreground' : ''}">{item.count}</span>
+            {/if}
+          </button>
+        </li>
+      {/each}
+    </ul>
+    <div class="mt-auto space-y-2 px-2 text-[0.8rem]">
+      {#if app.foreignHost}
+        <button class="focus-ring flex w-full items-start gap-1.5 rounded text-left text-warning" onclick={() => app.navigate("settings")}>
+          <TriangleAlertIcon class="mt-0.5 size-3.5 shrink-0" /> {m.nav_targeting({ host: app.host })}
+        </button>
+      {/if}
+      <p class="flex items-center gap-1.5 text-warning" role="status">
+        {#if dashboard.state && (dashboard.error || operations.error)}<LoaderIcon class="size-3.5 animate-spin" /> {m.nav_reconnecting()}{/if}
+      </p>
+    </div>
+  </nav>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    {#if running && app.page !== "overview" && app.page !== "activity"}
+      <div class="flex items-center gap-4 border-b bg-card px-6 py-2">
+        <span class="font-semibold">{actionLabel(running.request.action)}</span>
+        <span class="min-w-0 flex-1 truncate text-muted-foreground">{stored(runningStep?.label ?? running.step)}</span>
+        {#if runningStep}<div class="w-56"><BuildProgress compact progress={runningStep.progress} /></div>{/if}
+        <Button variant="ghost" size="sm" onclick={() => app.show(running.id)}>{m.nav_show()}</Button>
+      </div>
+    {/if}
+    <main id="main" tabindex="-1" class="outline-none scroll-thin min-h-0 flex-1 {app.page === 'activity' ? 'overflow-hidden' : 'overflow-auto'}">
+      <div class="mx-auto h-full max-w-5xl px-8 py-7">
+        {#if !app.dashboard || !app.operations}
+          <div class="grid h-full place-items-center text-muted-foreground">
+            {#if dashboard.error && !dashboard.state}
+              <p role="alert">{m.nav_not_connected()}</p>
+            {:else}
+              <p class="flex items-center gap-2" role="status"><LoaderIcon class="size-4 animate-spin" /> {m.nav_reading_state()}</p>
+            {/if}
+          </div>
+        {:else if app.page === "overview"}<Overview />
+        {:else if app.page === "software"}<Software />
+        {:else if app.page === "computer"}<Computer />
+        {:else if app.page === "updates"}<Updates />
+        {:else if app.page === "changes"}<Changes />
+        {:else if app.page === "generations"}<Generations />
+        {:else if app.page === "activity"}<Activity />
+        {:else}<Settings />{/if}
+      </div>
+    </main>
   </div>
-  <ConfirmDialog />
-  <OneStepDialog />
-  <Toasts />
-{/key}
+</div>
+<ConfirmDialog />
+<OneStepDialog />
+<Toasts />

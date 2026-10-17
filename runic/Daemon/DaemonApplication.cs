@@ -49,7 +49,7 @@ public static class DaemonApplication
             // Right after claiming: launches wait for the first handler, and the core queues them until its loop runs.
             if (instance is not null) instance.Launched += (_, launch) => core.OnLaunch(launch);
             if (settings.Mode == DaemonMode.Tray) Console.WriteLine("Nix Manager is running in the tray.");
-            return await core.RunAsync(new DesktopDashboardWindows(new RunicDesktopHost(provider, desktop), opened), desktop.ShutdownRequested);
+            return await core.RunAsync(new DesktopDashboardWindows(DashboardApplication.CreateHost(provider, desktop), opened), desktop.ShutdownRequested);
         }
         finally
         {
@@ -171,8 +171,8 @@ internal sealed class DesktopDashboardWindows(IRunicWindowHost host, Action<IRun
 }
 
 /// <summary>
-/// <c>nix-manager tray</c> with its options, recognised before the command line runs, as <c>ui</c> is: the systemd user
-/// service that runs the daemon of D025.
+/// <c>nix-manager tray</c> with its options, which the command line hands back to <c>Main</c> as it does <c>ui</c>: the
+/// systemd user service that runs the daemon of D025.
 /// </summary>
 public static class DaemonCommand
 {
@@ -180,27 +180,6 @@ public static class DaemonCommand
     /// <param name="Host">The host, from <c>--host</c>.</param>
     /// <param name="Interval">Minutes between update checks, from <c>--interval</c> (5–10080).</param>
     public sealed record Invocation(string? Flake, string? Host, int Interval);
-
-    public static bool TryParse(IReadOnlyList<string> args, out Invocation invocation)
-    {
-        invocation = new Invocation(null, null, 360);
-        var tray = false;
-        for (var i = 0; i < args.Count; i++)
-        {
-            var arg = args[i];
-            if (string.Equals(arg, "tray", StringComparison.OrdinalIgnoreCase) && !tray) tray = true;
-            else if (arg is "--plain" or "--verbose") { }
-            else if (DashboardCommand.Value(args, ref i, "--flake") is { } flake) invocation = invocation with { Flake = flake };
-            else if (DashboardCommand.Value(args, ref i, "--host") is { } host) invocation = invocation with { Host = host };
-            else if (DashboardCommand.Value(args, ref i, "--interval") is { } text
-                && int.TryParse(text, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var minutes)
-                && minutes is >= 5 and <= 10_080)
-                invocation = invocation with { Interval = minutes };
-            // Anything else, such as an invalid interval or --help, goes to the command line, which explains it.
-            else return false;
-        }
-        return tray;
-    }
 
     /// <summary>
     /// Becomes the running instance and runs the daemon until it is stopped. While a dashboard started without the

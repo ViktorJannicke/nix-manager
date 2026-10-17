@@ -50,7 +50,6 @@ public sealed partial class SetupViewModel : ObservableObject, IDisposable
 
     /// <summary>Setup can start: the computer was read, nothing blocks it and nothing runs.</summary>
     /// <remarks>The dashboard sees it as <see cref="CreateCommand"/>'s availability.</remarks>
-    [Runic.Application.Views.RunicIgnore]
     public bool CanCreate => State is { Info.Blocked: null, Running: false, Next: null, Problem: null } && State.Info is not null;
 
     partial void OnStateChanged(SetupState value)

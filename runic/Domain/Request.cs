@@ -88,7 +88,7 @@ public sealed record Request
     public string? Then { get; init; }
 
     /// <summary>Members of a stored request this version does not know, kept as they were.</summary>
-    [JsonExtensionData, Runic.Application.Views.RunicIgnore]
+    [JsonExtensionData]
     public Dictionary<string, System.Text.Json.JsonElement>? Unknown { get; set; }
 
     /// <summary>A request with the Bun version's defaults (<c>request()</c> in <c>src/domain.ts</c>).</summary>

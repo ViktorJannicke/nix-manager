@@ -7,6 +7,8 @@ using NixManager.Operations;
 using NixManager.Software;
 using NixManager.ViewModels;
 using Runic.Application.Views;
+using Runic.Application.Views.Desktop;
+using Runic.Desktop;
 using Runic.Navigation;
 
 namespace NixManager.Dashboard;
@@ -37,6 +39,10 @@ public sealed record DashboardConfiguration(string Flake, string HostKey, string
 public sealed record PreferenceChange(string? Theme = null, string? Language = null, string? Detail = null, bool? PrepareUpdates = null,
     bool? CleanUp = null, bool? History = null, bool? Backup = null, bool? AppDetails = null);
 
+/// <summary>A status for the screen reader to speak (<see cref="DashboardViewModel.AnnounceCommand"/>).</summary>
+/// <param name="Message">The text, as the page shows it.</param>
+public sealed record Announcement(string Message);
+
 /// <summary>What a request would run, without running it: the dry run behind a confirmation.</summary>
 /// <param name="Request">The request this answers.</param>
 /// <param name="Plan">Its steps and notes, or null when it cannot run.</param>
@@ -62,20 +68,19 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     private readonly IOperationService _service;
     private readonly ISoftwareService _software;
     private readonly IRunicModelContext _context;
+    private readonly DesktopWindowPlatformServices? _platform;
     private readonly RunicPathWatcherOptions? _watching;
     private readonly RunicPathWatcher _watcher;
     private readonly RunicWatchTarget _preferences;
     private readonly RunicWatchTarget _draft;
     private readonly RunicWatchTarget _reviews;
     private readonly ITimer _ticker;
-    private RunicPathWatcher? _foreign;
-    private string _foreignKey = "";
     private bool _running;
     private string? _draftFingerprint;
 
     public DashboardViewModel(OperationsViewModel operations, ReviewsViewModel reviews, SystemViewModel system,
         SoftwareViewModel software, IOperationService service, ISoftwareService softwareService, IRunicModelContext context,
-        TimeProvider? clock = null, RunicPathWatcherOptions? watching = null)
+        TimeProvider? clock = null, RunicPathWatcherOptions? watching = null, DesktopWindowPlatformServices? platform = null)
     {
         Operations = operations;
         Reviews = reviews;
@@ -84,19 +89,21 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         _service = service;
         _software = softwareService;
         _context = context;
+        _platform = platform;
         _watching = watching;
         var config = service.Config;
         Configuration = new DashboardConfiguration(config.Flake, config.HostKey, config.HomeProfile,
             [.. config.Hosts.OrderBy(host => host.Key, StringComparer.Ordinal)
                 .Select(host => new DashboardHost(host.Key, host.Value.System, host.Value.NixosConfiguration, host.Value.HomeConfiguration))]);
-        // New records, a new update report, reviews, pending edits and preferences saved by another process. A record
-        // rewritten in place, such as another process's running operation, is followed by its own watcher (WatchForeign).
+        // Records, a new update report, reviews, pending edits and preferences saved by another process. A record is
+        // rewritten by renaming a new file over it (OperationStore.AtomicJson), such as another process's running
+        // operation, which RunicWatchTarget.Files reports for each record.
         _preferences = RunicWatchTarget.File(DashboardPreferences.PathOf(config));
         _draft = RunicWatchTarget.File(Path.Combine(config.StateDir, "draft.json"));
         _reviews = RunicWatchTarget.Directory(Path.Combine(config.StateDir, "reviews"));
         _watcher = RunicPathWatcher.Start(context,
             [
-                RunicWatchTarget.Directory(Paths.Operations(config), "*.json"),
+                RunicWatchTarget.Files(Paths.Operations(config), "*.json"),
                 RunicWatchTarget.File(Path.Combine(config.StateDir, "updates.json")),
                 _preferences,
                 _draft,
@@ -115,7 +122,6 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         Locale = "en";
         Detail = "simple";
         ReadPreferences();
-        WatchForeign();
         _running = Running();
         Operations.PropertyChanged += OnOperationsChanged;
         System.PropertyChanged += OnSystemChanged;
@@ -203,6 +209,21 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         ReadPreferences();
     }
 
+    /// <summary>
+    /// Asks the screen reader to speak a status the page shows, such as a running operation's step or a toast, without
+    /// moving focus. WebKitGTK reports no live region to Orca, so the page's own live regions are silent in the Window;
+    /// a browser speaks them, and there the Window has no embedded window to announce through, so each status is
+    /// spoken once either way. Every status waits for what the screen reader is saying, so an operation's steps and
+    /// its end are heard in order.
+    /// </summary>
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private async Task AnnounceAsync(Announcement announcement)
+    {
+        if (_platform is null || announcement.Message.Trim() is not { Length: > 0 } message) return;
+        // Unavailable in a browser or once the Window closed; the page's live region speaks there.
+        await _platform.AnnounceAsync(message.Length > 500 ? message[..500] : message, DesktopAnnouncementPriority.Polite).ConfigureAwait(false);
+    }
+
     /// <summary>Plans <paramref name="request"/> without running it, for a confirmation to show.</summary>
     [RelayCommand]
     private void PreviewPlan(Request request)
@@ -274,7 +295,6 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 
     private void OnOperationsChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(OperationsViewModel.Operations)) WatchForeign();
         if (e.PropertyName is not (nameof(OperationsViewModel.Operations) or nameof(OperationsViewModel.Active))) return;
         // Generations, the checkout and reviews change when an operation ends, here or in another process.
         var running = Running();
@@ -293,24 +313,6 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 
     private void OnSoftwareChanged() => _context.TryPost(() => ReadDraft(force: true));
 
-    /// <summary>
-    /// Follows the records of operations that another process runs: each change is written by renaming a new
-    /// file over the record, which the directory watch does not report.
-    /// </summary>
-    private void WatchForeign()
-    {
-        var running = Operations.Operations
-            .Where(operation => operation.Status == OperationStatuses.Running && operation.Id != _service.Active?.Id)
-            .Select(operation => Path.Combine(Paths.Operations(_service.Config), $"{operation.Id}.json"))
-            .Order(StringComparer.Ordinal)
-            .ToList();
-        var key = string.Join('\n', running);
-        if (key == _foreignKey) return;
-        _foreignKey = key;
-        _foreign?.Dispose();
-        _foreign = running.Count == 0 ? null : RunicPathWatcher.Start(_context, running.Select(RunicWatchTarget.File), _ => RefreshOperations(), options: _watching);
-    }
-
     public void Dispose()
     {
         _ticker.Dispose();
@@ -318,6 +320,5 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         System.PropertyChanged -= OnSystemChanged;
         _software.Changed -= OnSoftwareChanged;
         _watcher.Dispose();
-        _foreign?.Dispose();
     }
 }

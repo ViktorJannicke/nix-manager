@@ -106,7 +106,7 @@ pkgs.testers.runNixOSTest {
             refused = machine.fail(f"lab-user /run/wrappers/bin/pkexec {program} --privileged activate-generation 999 2>&1")
             assert "Invalid system generation." in refused, refused
             machine.succeed("grep -qx 'StartupNotify=true' /run/current-system/sw/share/applications/nix-manager.desktop")
-            machine.succeed("test -e /run/current-system/sw/share/bash-completion/completions/nix-manager")
+            machine.succeed("test -e /run/current-system/sw/share/bash-completion/completions/nix-manager.bash")
 
         with subtest("The setup assistant under Orca"):
             # Without a checkout, `nix-manager ui` opens the setup assistant, as the Bun version does.
@@ -225,6 +225,29 @@ pkgs.testers.runNixOSTest {
             print(f"Down in the restore points to keep: {speech()!r}")
             assert kept() == before_value
             assert cores() == before, "WebKitWebProcess aborted on the Restore points page"
+
+        with subtest("Orca hears the Window announce an operation"):
+            # WebKitGTK reports no live region to Orca, so the page has the Window announce a running operation's
+            # step and the toast at its end (DashboardViewModel.Announce). Offline, the check ends one way or another.
+            tab_to("Updates", limit=80)
+            machine.send_key("ret")
+            machine.wait_until_succeeds("lab-user lab-atspi nix-manager | grep -q \"button 'Check for updates'\"", timeout=timedelta(seconds=30))
+            tab_to("Check for updates", limit=40)
+            settle()
+            machine.succeed("truncate -s 0 /run/lab/spoken.txt")
+            machine.send_key("ret")
+            machine.wait_until_succeeds(
+                "grep -qE 'Check for updates failed|Everything is up to date|updates? available' /run/lab/spoken.txt",
+                timeout=timedelta(minutes=3),
+            )
+            settle()
+            spoken = speech()
+            print(f"Checking for updates: {spoken!r}")
+            ended = re.search(r"Check for updates failed|Everything is up to date|updates? available", spoken)
+            assert ended, f"Orca did not say how the check ended: {spoken!r}"
+            step = spoken.find("Check for updates: ")
+            assert 0 <= step < ended.start(), "Orca did not say the running step before the operation's end"
+            assert cores() == before, "WebKitWebProcess aborted on the Updates page"
 
         with subtest("The keyboard opens Settings"):
             tab_to("Settings", limit=80)

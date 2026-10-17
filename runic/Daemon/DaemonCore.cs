@@ -203,8 +203,8 @@ public sealed class DaemonCore
     }
 
     /// <summary>
-    /// Runs a command line's operation and streams its events and final record back (D025.4). A cancel request, or a
-    /// command line that went away, cancels the operation, as Ctrl+C or ending the process does in a run of its own.
+    /// Runs a command line's operation and streams its events and final record back (D025.4). A cancel request (Ctrl+C)
+    /// cancels the operation; a command line that went away, such as with a dropped SSH session, leaves it running.
     /// </summary>
     private async Task ServeOperationAsync(DaemonRequest request, IApplicationLaunchReply reply)
     {
@@ -232,7 +232,9 @@ public sealed class DaemonCore
             // client starts the operation before its first await, so the check and the start are one step here.
             run = _service.Busy
                 ? Task.FromException<Operation>(OperationStore.Busy())
-                : client.RunAsync(operationRequest, (e, _) => SendAsync(reply, e), reply.Cancelled);
+                // Only the command line's cancel request (Ctrl+C) stops the operation; one that goes away, such as with a
+                // dropped SSH session, leaves it running to its end.
+                : client.RunAsync(operationRequest, (e, _) => SendAsync(reply, e), reply.CancelRequested);
         }
         Operation result;
         try

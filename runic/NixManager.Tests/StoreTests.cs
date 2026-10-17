@@ -233,16 +233,21 @@ public sealed class StoreTests : IDisposable
 
         await context.InvokeAsync(() => viewModel.LoadAppsCommand.Execute(false));
         await Assert.That(await context.InvokeAsync(() => viewModel.Apps.Entries.Count)).IsEqualTo(6);
-        await context.InvokeAsync(() => viewModel.LookupPackagesCommand.Execute(new[] { "gimp", "nope" }));
-        var lookup = await context.InvokeAsync(() => viewModel.Lookup);
-        await Assert.That(lookup!.Attrs).IsEquivalentTo(["gimp", "nope"]);
-        await Assert.That(lookup.Entries["gimp"].App!.Name).IsEqualTo("GNU Image Manipulation Program");
+        var lookup = await await context.InvokeAsync(() => viewModel.LookupPackagesAsync(["gimp", "nope"]));
+        await Assert.That(lookup.Keys).IsEquivalentTo(["gimp"]);
+        await Assert.That(lookup["gimp"].App!.Name).IsEqualTo("GNU Image Manipulation Program");
 
-        await await context.InvokeAsync(() => viewModel.Icons.LoadCommand.ExecuteAsync(new[] { "org.mozilla.firefox", "art.darkly.Darkly", "../x" }));
-        var icons = await context.InvokeAsync(() => viewModel.Icons.Icons);
-        await Assert.That(icons["org.mozilla.firefox"]).IsEqualTo("data:image/png;base64,iVBORw==");
-        await Assert.That(icons["art.darkly.Darkly"]).IsEqualTo("");
-        await Assert.That(icons.ContainsKey("../x")).IsFalse();
+        // Icons are files beside the dashboard's page; what has none, or names no app, is 404 (null).
+        using var icons = new Dashboard.AppIconResources(service);
+        var firefox = await icons.ServeAsync("GET", "/app-icon/org.mozilla.firefox", CancellationToken.None);
+        await Assert.That(firefox!.ContentType).IsEqualTo("image/png");
+        await Assert.That(Convert.ToBase64String(firefox.Body.Span)).IsEqualTo("iVBORw==");
+        await Assert.That((await icons.ServeAsync("HEAD", "/app-icon/org.mozilla.firefox", CancellationToken.None))!.StatusCode).IsEqualTo(200);
+        await Assert.That(await icons.ServeAsync("GET", "/app-icon/art.darkly.Darkly", CancellationToken.None)).IsNull();
+        await Assert.That(await icons.ServeAsync("GET", "/app-icon/../x", CancellationToken.None)).IsNull();
+        await Assert.That(await icons.ServeAsync("GET", "/app-icon/org.mozilla.firefox/../../x", CancellationToken.None)).IsNull();
+        await Assert.That(await icons.ServeAsync("GET", "/other/org.mozilla.firefox", CancellationToken.None)).IsNull();
+        await Assert.That(await icons.ServeAsync("POST", "/app-icon/org.mozilla.firefox", CancellationToken.None)).IsNull();
 
         // Without a lock hash there is no catalog to build; the page hears why.
         await context.InvokeAsync(() => viewModel.LockHash = null);
@@ -274,8 +279,8 @@ public sealed class StoreTests : IDisposable
         await context.InvokeAsync(() => viewModel.LoadAppsCommand.Execute(false));
         await Assert.That(await context.InvokeAsync(() => viewModel.AppsStatus.State)).IsEqualTo("off");
         await Assert.That(await context.InvokeAsync(() => viewModel.Apps.Entries.Count)).IsEqualTo(0);
-        await await context.InvokeAsync(() => viewModel.Icons.LoadCommand.ExecuteAsync(new[] { "org.mozilla.firefox" }));
-        await Assert.That(await context.InvokeAsync(() => viewModel.Icons.Icons.Count)).IsEqualTo(0);
+        using var icons = new Dashboard.AppIconResources(service);
+        await Assert.That(await icons.ServeAsync("GET", "/app-icon/org.mozilla.firefox", CancellationToken.None)).IsNull();
         await Assert.That(_network.Requests).IsEmpty();
     }
 

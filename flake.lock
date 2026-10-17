@@ -50,16 +50,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1792075945,
-        "narHash": "sha256-/YZzneXV6aDolkVjESEUMAGcq42+N8sgIXPIwuuKCh8=",
+        "lastModified": 1792220757,
+        "narHash": "sha256-wQOcrldV/UtGFHhHBi+eCKWKluD2WBF42w8y3eP5BOg=",
         "owner": "Runic-Artifex",
         "repo": "runic-sdk",
-        "rev": "3c54f34f1013c9d7bb1e8aa4c9b1abc30fd8b30a",
+        "rev": "4ab90a5b5814218fe88caf83434ca396afa24903",
         "type": "github"
       },
       "original": {
         "owner": "Runic-Artifex",
-        "ref": "v0.8.0-preview.3",
+        "ref": "v0.8.0-preview.4",
         "repo": "runic-sdk",
         "type": "github"
       }
