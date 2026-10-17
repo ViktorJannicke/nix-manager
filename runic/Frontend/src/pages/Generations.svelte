@@ -4,12 +4,12 @@
   import { Button } from "$lib/components/ui/button";
   import type { Generation } from "../generated/types.js";
   import { app } from "$lib/app.svelte";
-  import { m, plain, slot } from "$lib/i18n";
+  import { LocalizedInline, type InlineElement } from "@runic-artifex/translations-svelte/inline";
+  import { inline, m, plain } from "$lib/i18n";
   import { bytes, dateTime, removedGenerations } from "$lib/format";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
   import Segmented from "$lib/components/app/Segmented.svelte";
   import TechName from "$lib/components/app/TechName.svelte";
-  import Markup from "$lib/components/app/Markup.svelte";
   import GenerationList from "$lib/components/app/GenerationList.svelte";
   import ChangeHistory from "$lib/components/app/ChangeHistory.svelte";
   import RetentionField from "$lib/components/app/RetentionField.svelte";
@@ -85,6 +85,8 @@
   }
 </script>
 
+{#snippet highlight(node: InlineElement)}<span class="font-medium text-foreground"><LocalizedInline nodes={node.children} /></span>{/snippet}
+
 <div class="space-y-6">
   <header class="flex flex-wrap items-end justify-between gap-4">
     <div>
@@ -149,9 +151,7 @@
       {:else if estimate === undefined}
         {m.restore_cleanup_measuring({ count: removed })}
       {:else}
-        <Markup text={estimate ? m.restore_cleanup_freeing({ count: removed, size: slot("size"), note: "" }) : m.restore_cleanup_freeing({ count: removed, size: slot("size"), note: ` ${m.restore_cleanup_shared()}` })}>
-          {#snippet children()}<span class="font-medium text-foreground">{bytes(estimate)}</span>{/snippet}
-        </Markup>
+        <LocalizedInline nodes={inline.render(m.restore_cleanup_freeing({ count: removed, size: bytes(estimate), note: estimate ? "" : ` ${m.restore_cleanup_shared()}` }), { slots: {} })} custom={{ "nm:highlight": highlight }} />
       {/if}
       {m.restore_cleanup_automatic()}
     </p>

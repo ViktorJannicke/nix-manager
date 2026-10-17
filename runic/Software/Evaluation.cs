@@ -21,13 +21,13 @@ public record PackageInfo
 public sealed record OptionValue
 {
     /// <summary>The value as JSON; undefined (default) when it does not evaluate.</summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault), Runic.Application.Views.RunicBridgeCodec(typeof(ViewModels.JsonElementBridgeCodec))] public JsonElement Value { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public JsonElement Value { get; init; }
     /// <summary>Evaluation failed, or the option does not exist.</summary>
     public bool? Error { get; init; }
     public bool Exists { get; init; }
     public IReadOnlyList<string> Files { get; init; } = [];
     /// <summary>For a <c>nixpkgs.config</c> setting, the value the configuration's package set uses.</summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault), Runic.Application.Views.RunicBridgeCodec(typeof(ViewModels.JsonElementBridgeCodec))] public JsonElement Effective { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public JsonElement Effective { get; init; }
 
     [JsonIgnore] public bool HasValue => Value.ValueKind != JsonValueKind.Undefined;
     [JsonIgnore] public bool HasEffective => Effective.ValueKind != JsonValueKind.Undefined;

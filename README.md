@@ -85,23 +85,24 @@ The port builds for x86_64-linux and aarch64-linux (`packages.runic`). The
 aarch64 build has only been evaluated so far, without an aarch64 builder: its
 NuGet lock files (`packages.linux-arm64.lock.json`, written with `dotnet
 restore NixManager.slnx -r linux-arm64 --force-evaluate` in `runic/`) restore
-in locked mode, and its Bun frontend hash comes from `bun install
---frozen-lockfile --ignore-scripts --backend=copyfile --os=linux --cpu=arm64`
-on x86_64-linux, which reproduces the x86_64 hash with `--cpu=x64`. Each
+in locked mode, and its Bun frontend hash comes from `nix build
+.#runic.frontendNodeModules.fetchedFor.aarch64-linux`, which installs for that
+system on any system. Each
 runtime needs its own lock file because nixpkgs restores with `--runtime` for
 the system's runtime identifier alone, and NuGet's locked mode rejects a lock
 file that records other runtimes. The package is published with NativeAOT,
 whose restore adds the compiler packages, so the application also has an AOT
 lock file per runtime (`packages.aot.lock.json`,
-`packages.linux-arm64.aot.lock.json`); the tests run under the JIT and keep
+`packages.linux-arm64.aot.lock.json`); the Nix build publishes only
+`NixManager.csproj` with NativeAOT, and the tests run under the JIT and keep
 theirs. Regenerate all of them after changing package references, in
 `runic/`:
 
 ```sh
 dotnet restore NixManager.slnx --force-evaluate
-dotnet restore NixManager.slnx --force-evaluate -p:PublishAot=true
+dotnet restore NixManager.csproj --force-evaluate -p:PublishAot=true
 dotnet restore NixManager.slnx --force-evaluate -r linux-arm64
-dotnet restore NixManager.slnx --force-evaluate -r linux-arm64 -p:PublishAot=true
+dotnet restore NixManager.csproj --force-evaluate -r linux-arm64 -p:PublishAot=true
 ```
 
 It writes the host registry to `/etc/nix-manager/hosts.json` and sets
@@ -373,9 +374,11 @@ runs alone.
 - Operation commands hand their request to the daemon when it runs for the same
   checkout, host and state directory. The daemon streams the operation back, so
   the terminal shows the same output, `--json` included, and the command exits
-  with the same status. Ctrl+C cancels the operation in the daemon. A second
-  operation is refused with the operation lock's message. Status, history,
-  previews (`--dry-run`), help and completions run in the command's own process.
+  with the same status. Ctrl+C cancels the operation in the daemon; a command
+  line that goes away, such as with a dropped SSH session, leaves it running
+  to its end. A second operation is refused with the operation lock's message.
+  Status, history, previews (`--dry-run`), help and completions run in the
+  command's own process.
   Without a daemon, with `NIX_MANAGER_DAEMON=0`, or without `XDG_RUNTIME_DIR`,
   commands run in their own process as before. Over SSH, operations with a
   privileged step also run there, so that Polkit asks on the terminal and not
@@ -410,15 +413,18 @@ longer used.
 The Runic port keeps one Runic Translations catalogue for both sides, in
 `runic/Frontend/translations`: keyed messages (`en.rmf2`, `de.rmf2`), the text
 the backend stores in English (`stored/`, imported from the Bun catalogue by
-`runic/Frontend/scripts/import-bun-catalog.py`), and the daemon's status icon,
-menu and notifications (`tray/`). The page reads it through the Vite plugin as
-`m.*()`. The daemon reads `tray/` and `stored/` from the same files, embedded
-in its assembly, with a small reader for the part of RMF2 they use
-(`runic/Daemon/TrayText.cs`): its `tray_*` messages, and stored text found by
-its English as the page's `stored()` does. It does not use the C# that
-Runic.Translations.Build would generate for the whole catalogue, which costs
-the idle daemon about 50 MiB; `TrayMessages` keeps the generated names, so that
-class can replace the reader later. The tray follows the dashboard's language setting while it runs.
+`runic/Frontend/scripts/import-bun-catalog.py` with `runic-translations
+import-text`; `stored/base-text.json` maps each English text to its message
+key), and the daemon's status icon, menu and notifications (`tray/`). The page
+reads it through the Vite plugin as `m.*()`, in the language the ViewModel
+says (`useMessageLocale`). Messages with markup, such as
+`Detected as {#highlight}{$host}{/highlight}.`, render with `LocalizedInline`;
+the page's own tags are declared in `runic.json`. The daemon formats the same
+catalogue through the C# that Runic.Translations.Build generates for it,
+`DashboardText` (`runic/Daemon/TrayText.cs`): its `tray_*` messages, and
+stored text found by its English through `base-text.json`, as the page's
+`stored()` does. The generated catalogue reads a language only when it is
+first used. The tray follows the dashboard's language setting while it runs.
 
 German uses the formal "Sie", „these quotes“ and the same word for the same
 thing everywhere:
@@ -613,11 +619,15 @@ enters the navigation, as with the Bun version (`runic/Frontend/src/App.svelte`)
 `nix/lab/webkit-attribute-run` in both WebKitGTK flavours and records which
 abort; `REPORT.md` there is the upstream report. The VM test counts the web
 process's core dumps after every Tab and names the press. It also checks that
-Orca says the list's size and reads the new number of restore points to keep.
+Orca says the list's size, reads the new number of restore points to keep, and
+hears the Window announce a running operation's step and its end.
 
 WebKitGTK sends no AT-SPI event when the text of a live region changes, so Orca
 announces no live region in the port (Chromium does, with the same page). The
-restore points to keep are therefore a spin button, whose value Orca reads as it
+page therefore has the Window announce what its live regions show, a running
+operation's step and each toast, through Runic Desktop's announcements
+(`Object:Announcement`); in a browser the live region speaks instead. The
+restore points to keep are a spin button, whose value Orca reads as it
 changes; its "Keep more" and "Keep fewer" buttons are for the pointer and leave
 focus on it. `nix run .#lab-runic` drives the port's VM like `.#lab`.
 

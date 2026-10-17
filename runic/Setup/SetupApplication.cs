@@ -171,9 +171,9 @@ internal sealed class SetupSession : IAsyncDisposable
     {
         if (Interlocked.Exchange(ref _handedOver, 1) == 1) return;
         if (Environment.GetEnvironmentVariable("RUNIC_APPLICATION_SERVE_ONLY") == "1"
-            && dashboard.Host is DesktopBridgeWindow<DashboardViewModel> served)
+            && RunicDesktopHost.GetSurface(dashboard) is { } served)
         {
-            _service.HandOver(served.Surface.Url.ToString());
+            _service.HandOver(served.Url.ToString());
             _ = Task.Delay(SetupApplication.HandOverGrace).ContinueWith(_ => CloseAsync(), TaskScheduler.Default);
         }
         else _ = CloseAsync();

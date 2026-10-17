@@ -158,8 +158,9 @@ class SoftwareState {
   /** Catalog entries by attribute, with their app details. */
   async lookup(attrs: readonly string[]): Promise<Readonly<Record<string, AppEntry>> | undefined> {
     try {
-      const state = await this.client?.lookupPackages(attrs);
-      return state?.lookup && same(state.lookup.attrs, attrs.slice(0, 500)) ? state.lookup.entries : undefined;
+      const operation = await this.client?.startLookupPackages(attrs);
+      const outcome = await operation?.outcome();
+      return outcome?.ok ? outcome.value : undefined;
     } catch (error) {
       app.fail(error, m.software_could_not_read_apps());
       return undefined;

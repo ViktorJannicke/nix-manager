@@ -5,8 +5,8 @@
   import LockOpenIcon from "@lucide/svelte/icons/lock-open";
   import { parseDefault } from "$lib/fields";
   import { app } from "$lib/app.svelte";
-  import { m, slot, stored } from "$lib/i18n";
-  import Markup from "./Markup.svelte";
+  import { LocalizedInline } from "@runic-artifex/translations-svelte/inline";
+  import { inline, m, stored } from "$lib/i18n";
   import { local, NEW_FILE, software, type Change } from "$lib/software.svelte";
   import NewModuleFields from "./NewModuleFields.svelte";
   import OptionField from "./OptionField.svelte";
@@ -181,9 +181,7 @@
       {/if}
       {#if !on && initial.on}
         <p class="text-xs text-muted-foreground">
-          <Markup text={m.feature_turning_off_writes({ value: slot("value"), file: software.editableIn(scope, Object.keys(experience.enable)[0]) ?? (creating ? newFile : target) })}>
-            {#snippet children()}<code>false</code>{/snippet}
-          </Markup>
+          <LocalizedInline nodes={inline.render(m.feature_turning_off_writes({ value: "false", file: software.editableIn(scope, Object.keys(experience.enable)[0]) ?? (creating ? newFile : target) }), { slots: {} })} />
         </p>
       {/if}
 

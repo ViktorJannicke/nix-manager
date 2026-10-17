@@ -9,7 +9,7 @@ quit = Quit Nix Manager
 checks_failed = Some update checks failed
 no_updates = No updates reported
 updates_available =
-  .input {$count :integer}
+  .input {$count :integer useGrouping=always}
   .match $count
   one {{{$count} update available}}
   * {{{$count} updates available}}
@@ -24,36 +24,36 @@ space_freed = Space freed
 @param $size - A size, such as 1.2 GiB
 freed = {$size} were freed.
 older_removed = Older restore points were removed.
-newest_kept = The newest {$count :integer} restore points of your apps are kept.
+newest_kept = The newest {$count :integer useGrouping=always} restore points of your apps are kept.
 ready_to_review = Changes are ready to review
 build_finished = The build finished. Open Nix Manager to see what changes and apply it.
 finished = Nix Manager finished
 @param $action - An action, such as "Check for updates"
 @param $host - A host name
 completed_for = {$action} completed for {$host}.
-more = {$count :integer} more
+more = {$count :integer useGrouping=always} more
 @param $names - A list of package names, such as "firefox and git"
 installs = installs {$names}
 removes = removes {$names}
 changes_settings =
-  .input {$count :integer}
+  .input {$count :integer useGrouping=always}
   .match $count
   one {{changes {$count} setting}}
   * {{changes {$count} settings}}
 updates_packages =
-  .input {$count :integer}
+  .input {$count :integer useGrouping=always}
   .match $count
   one {{updates {$count} package}}
   * {{updates {$count} packages}}
-adds = adds {$count :integer}
+adds = adds {$count :integer useGrouping=always}
 adds_packages =
-  .input {$count :integer}
+  .input {$count :integer useGrouping=always}
   .match $count
   one {{adds {$count} package}}
   * {{adds {$count} packages}}
-removes_count = removes {$count :integer}
+removes_count = removes {$count :integer useGrouping=always}
 removes_packages =
-  .input {$count :integer}
+  .input {$count :integer useGrouping=always}
   .match $count
   one {{removes {$count} package}}
   * {{removes {$count} packages}}
@@ -62,7 +62,7 @@ system_new = builds the system new, as no system is active to compare with
 everything_new = builds everything new, as nothing is active to compare with
 nothing_you_use = Nothing you use changes.
 sources =
-  .input {$count :integer}
+  .input {$count :integer useGrouping=always}
   .match $count
   one {{Updates {$count} software source.}}
   * {{Updates {$count} software sources.}}

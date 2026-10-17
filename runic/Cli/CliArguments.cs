@@ -40,19 +40,6 @@ public static class CliArguments
         "t3code-update", "opencode-update", "pince-update", "ui", "tray", "status", "history",
     ];
 
-    /// <summary>
-    /// Splits the process arguments at the first <c>--</c>: what follows goes verbatim to the native tools. An
-    /// option-style <c>--completions SHELL</c> becomes Runic Command Line's <c>completion SHELL</c>.
-    /// </summary>
-    public static (string[] Arguments, string[] Extra) Split(IReadOnlyList<string> args)
-    {
-        var marker = args.ToList().IndexOf("--");
-        var command = marker < 0 ? args.ToArray() : args.Take(marker).ToArray();
-        var extra = marker < 0 ? [] : args.Skip(marker + 1).ToArray();
-        if (command is ["--completions", var shell]) command = ["completion", shell];
-        return (command, extra);
-    }
-
     /// <summary>Resolves the words and options with the Bun version's rules and messages (<c>resolve</c>).</summary>
     public static CliInvocation Resolve(IReadOnlyList<string> tokens, CliOptions options, IReadOnlyList<string> extra)
     {

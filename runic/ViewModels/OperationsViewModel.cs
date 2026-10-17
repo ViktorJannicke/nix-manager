@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NixManager.Domain;
 using NixManager.Operations;
+using Runic.Application.Views;
 using Runic.Navigation;
 
 namespace NixManager.ViewModels;
@@ -61,8 +62,11 @@ public sealed partial class OperationsViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial string? SelectedOperationId { get; set; }
 
-    /// <summary>The end of the selected operation's log, growing while it runs.</summary>
-    [ObservableProperty]
+    /// <summary>
+    /// The end of the selected operation's log, growing while it runs. The page receives only what it appends, and
+    /// how much it drops from its start once it keeps <see cref="LogCharacters"/>.
+    /// </summary>
+    [ObservableProperty, RunicAppendOnlyText]
     public partial string Log { get; private set; } = "";
 
     /// <summary>The stored log is longer than <see cref="Log"/>.</summary>

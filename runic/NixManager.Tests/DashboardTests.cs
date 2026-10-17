@@ -140,7 +140,8 @@ public sealed class DashboardTests : IAsyncDisposable
         await Assert.That(stored.GetProperty("appDetails").GetBoolean()).IsFalse();
         await Assert.That(stored.GetProperty("detail").GetString()).IsEqualTo("simple");
 
-        (await _window.Root.ExecuteAsync(vm => vm.SavePreferencesCommand, Wire(new PreferenceChange(PrepareUpdates: false)))).EnsureOk();
+        // The page sends only the preference it changes; the others stay as they are.
+        (await _window.Root.ExecuteAsync(vm => vm.SavePreferencesCommand, """{"prepareUpdates":false}""")).EnsureOk();
         await Assert.That(_window.Root.Snapshot().Read(vm => vm.PrepareUpdates)).IsFalse();
         await Assert.That(_window.Root.Snapshot().Read(vm => vm.History)).IsTrue();
     }
@@ -237,6 +238,14 @@ public sealed class DashboardTests : IAsyncDisposable
     }
 
     [Test]
+    public async Task An_announcement_without_an_embedded_window_is_left_to_the_pages_live_region()
+    {
+        // The tester's Window has no native window to announce through, as in a browser; the command still succeeds.
+        (await _window.Root.ExecuteAsync(vm => vm.AnnounceCommand, """{"message":"Check for updates failed"}""")).EnsureOk();
+        (await _window.Root.ExecuteAsync(vm => vm.AnnounceCommand, Wire(new Announcement("Saved")))).EnsureOk();
+    }
+
+    [Test]
     public async Task A_record_another_process_writes_appears_without_a_refresh()
     {
         var operations = _window.Root.View<OperationsViewModel>(vm => vm.Operations);
@@ -251,6 +260,27 @@ public sealed class DashboardTests : IAsyncDisposable
     }
 
     [Test]
+    public async Task A_record_another_process_replaces_by_renaming_is_read_again()
+    {
+        var operations = _window.Root.View<OperationsViewModel>(vm => vm.Operations);
+        var source = Directory.GetFiles(_fixtures.Operations, "*.json").Order(StringComparer.Ordinal).Last();
+        var id = Path.GetFileNameWithoutExtension(source);
+        var record = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(source))!;
+        record["step"] = "Replaced by another process";
+        var temporary = $"{source}.{Guid.NewGuid():D}.tmp";
+
+        // As OperationStore.AtomicJson writes it: the name stays, so only a watch of the record itself sees it.
+        File.WriteAllText(temporary, record.ToJsonString());
+        File.Move(temporary, source, overwrite: true);
+        await _watching.NextChangeAsync();
+
+        var summaries = operations.Snapshot().Get(vm => vm.Operations).EnumerateArray()
+            .Where(operation => operation.GetProperty("id").GetString() == id)
+            .Select(operation => operation.GetProperty("step").GetString());
+        await Assert.That(summaries.Single()).IsEqualTo("Replaced by another process");
+    }
+
+    [Test]
     [Arguments("system", "de_DE.UTF-8", "de")]
     [Arguments("system", "C", "en")]
     [Arguments("system", "fr_FR.UTF-8", "en")]
@@ -259,24 +289,69 @@ public sealed class DashboardTests : IAsyncDisposable
     public async Task The_language_is_the_chosen_one_or_the_desktops(string language, string lang, string locale) =>
         await Assert.That(DashboardPreferences.ResolveLocale(language, name => name == "LANG" ? lang : null)).IsEqualTo(locale);
 
+    /// <summary>Runs the command line as <c>Main</c> does, with the dashboard and the daemon recorded instead of started.</summary>
+    private static (int ExitCode, object? Started, string Stderr) Launch(params string[] args)
+    {
+        object? started = null;
+        var console = new Runic.CommandLine.Testing.TestCommandConsole { IsOutputRedirected = true, IsErrorRedirected = true };
+        var session = new Cli.CliSession
+        {
+            Output = new Cli.CliOutput(),
+            Dashboard = invocation => { started = invocation; return 7; },
+            Daemon = invocation => { started = invocation; return 8; },
+        };
+        var code = Cli.NixManagerCli.Run(args, session, console, handleSignals: false);
+        return (code, started, console.StandardError);
+    }
+
     [Test]
-    [Arguments(new[] { "ui" }, true)]
-    [Arguments(new[] { "--flake", "/x", "ui", "--host=laptop" }, true)]
-    [Arguments(new[] { "ui", "--no-open" }, true)]
-    [Arguments(new[] { "ui", "--browser" }, true)]
-    [Arguments(new[] { "ui", "--help" }, false)]
-    [Arguments(new[] { "home", "switch" }, false)]
-    [Arguments(new[] { "ui", "--json" }, false)]
-    public async Task Only_a_dashboard_invocation_starts_the_Window(string[] args, bool dashboard) =>
-        await Assert.That(DashboardCommand.TryParse(args, out _)).IsEqualTo(dashboard);
+    [Arguments(new[] { "ui" }, null, null, false, false)]
+    [Arguments(new[] { "--flake", "/x", "ui", "--host=laptop" }, "/x", "laptop", false, false)]
+    [Arguments(new[] { "ui", "--no-open" }, null, null, true, false)]
+    [Arguments(new[] { "ui", "--browser", "--plain" }, null, null, false, true)]
+    public async Task A_dashboard_invocation_starts_the_Window_once_the_command_line_returned(string[] args, string? flake, string? host,
+        bool noOpen, bool browser)
+    {
+        var (code, started, _) = Launch(args);
+        await Assert.That(code).IsEqualTo(7);
+        await Assert.That(started).IsEqualTo(new DashboardCommand.Invocation(flake, host, noOpen, browser));
+    }
+
+    [Test]
+    public async Task A_tray_invocation_starts_the_daemon_once_the_command_line_returned()
+    {
+        var (code, started, _) = Launch("tray", "--interval", "30", "--flake", "/x");
+        await Assert.That(code).IsEqualTo(8);
+        await Assert.That(started).IsEqualTo(new Daemon.DaemonCommand.Invocation("/x", null, 30));
+    }
+
+    [Test]
+    [Arguments(new[] { "ui", "--json" }, "Error: The dashboard takes only --flake, --host, --no-open and --browser.")]
+    [Arguments(new[] { "ui", "--interval", "30" }, "Error: The dashboard takes only --flake, --host, --no-open and --browser.")]
+    [Arguments(new[] { "tray", "--browser" }, "Error: The tray takes only --flake, --host and --interval.")]
+    [Arguments(new[] { "ui", "home" }, "Error: Action modifiers require a build, activation, maintenance, or package action.")]
+    public async Task Other_options_with_ui_or_tray_start_nothing(string[] args, string error)
+    {
+        var (code, started, stderr) = Launch(args);
+        await Assert.That(code).IsEqualTo(1);
+        await Assert.That(started).IsNull();
+        await Assert.That(stderr).StartsWith(error);
+    }
+
+    [Test]
+    public async Task Help_for_ui_starts_nothing()
+    {
+        var (code, started, _) = Launch("ui", "--help");
+        await Assert.That(code).IsEqualTo(0);
+        await Assert.That(started).IsNull();
+    }
 
     [Test]
     public async Task A_browser_is_served_the_page_as_with_no_open()
     {
-        await Assert.That(DashboardCommand.TryParse(["ui", "--browser"], out var browser)).IsTrue();
-        await Assert.That(browser.Served && browser.Browser && !browser.NoOpen).IsTrue();
-        await Assert.That(DashboardCommand.TryParse(["ui"], out var shown)).IsTrue();
-        await Assert.That(shown.Served).IsFalse();
+        await Assert.That(new DashboardCommand.Invocation(null, null, NoOpen: false, Browser: true).Served).IsTrue();
+        await Assert.That(new DashboardCommand.Invocation(null, null, NoOpen: true).Served).IsTrue();
+        await Assert.That(new DashboardCommand.Invocation(null, null, NoOpen: false).Served).IsFalse();
     }
 
     private string PreferencesPath => DashboardPreferences.PathOf(TestConfig.Create(_fixtures.Root) with { StateDir = _fixtures.StateDir });

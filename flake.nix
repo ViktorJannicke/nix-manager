@@ -9,7 +9,7 @@
     };
     # The Runic port in runic/: the .NET development shell (and later the application builder).
     runic-sdk = {
-      url = "github:Runic-Artifex/runic-sdk/v0.8.0-preview.3";
+      url = "github:Runic-Artifex/runic-sdk/v0.8.0-preview.4";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

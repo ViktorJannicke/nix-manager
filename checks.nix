@@ -84,13 +84,9 @@ let
     }).config;
   trayStart = config: config.systemd.user.services.nix-manager-tray.serviceConfig.ExecStart;
   # The Runic port's program without its wrapper, whose PATH prefix would put the real nix before the mocked one,
-  # as the Bun check runs main.js without its wrapper. It is the NativeAOT executable; without the wrapper's
-  # library path it finds no ICU.
-  runicCommand = lib.escapeShellArgs [
-    "env"
-    "DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1"
-    "${self.packages.${system}.runic}/lib/nix-manager-runic/nix-manager"
-  ];
+  # as the Bun check runs main.js without its wrapper. It is the NativeAOT executable, which loads ICU by its
+  # store path.
+  runicCommand = "${self.packages.${system}.runic}/lib/nix-manager-runic/nix-manager";
 in
 {
   nix-manager = manager;
@@ -207,7 +203,7 @@ in
           check ${runicOn.system.path} ${lib.getExe runic}
           grep -qx 'StartupNotify=true' ${runicOn.system.path}/share/applications/nix-manager.desktop
           grep -qx 'Exec=nix-manager tray' ${runicOn.system.path}/share/applications/nix-manager.desktop
-          grep -q "^complete -F .* 'nix-manager'" ${runicOn.system.path}/share/bash-completion/completions/nix-manager
+          grep -q "^complete -F .* 'nix-manager'" ${runicOn.system.path}/share/bash-completion/completions/nix-manager.bash
           grep -qx '#compdef nix-manager' ${runicOn.system.path}/share/zsh/site-functions/_nix-manager
           grep -q "^complete -c 'nix-manager'" ${runicOn.system.path}/share/fish/vendor_completions.d/nix-manager.fish
         ''

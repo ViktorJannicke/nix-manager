@@ -119,7 +119,7 @@ public sealed partial class TranslationCoverageTests
     }
 
     /// <summary>The application's source folder (runic/), above the test's output.</summary>
-    private static string Root { get; } = FindRoot();
+    internal static string Root { get; } = FindRoot();
 
     private static string FindRoot()
     {

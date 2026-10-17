@@ -18,9 +18,9 @@ namespace NixManager.Privileged;
 /// <item><c>rollback</c>: no arguments.</item>
 /// <item><c>gc [N]</c>: a retention count from 1 to 100.</item>
 /// </list>
-/// The declaration (<c>NixManager.csproj</c>) admits only these words, numbers and store paths;
+/// The declaration (<c>NixManager.csproj</c>) admits only these commands, each with its arguments by position;
 /// <see cref="PolkitHelper.Match"/> checks them and resets the process state pkexec inherited, and this class checks
-/// positions and meaning. Standard input is not watched: a running step finishes when the application cancels or
+/// their meaning: the resolved store path, an existing generation and the retention range. Standard input is not watched: a running step finishes when the application cancels or
 /// exits, as with the Bun version.
 /// </remarks>
 public static partial class PrivilegedHelper
@@ -42,8 +42,7 @@ public static partial class PrivilegedHelper
         }
         try
         {
-            var runner = new ProcessRunner(new LocalExecutablePolicy());
-            await ExecuteAsync([.. arguments], argv => RunToolAsync(runner, argv), File.Exists).ConfigureAwait(false);
+            await ExecuteAsync([.. arguments], new ProcessRunner(new LocalExecutablePolicy()), File.Exists).ConfigureAwait(false);
             return 0;
         }
         catch (ManagerException e)
@@ -64,16 +63,12 @@ public static partial class PrivilegedHelper
         if (result.ExitCode != 0) throw new ManagerException($"Privileged operation failed (exit {result.ExitCode}).");
     }
 
-    /// <summary>
-    /// The commands, after <see cref="PolkitHelper.Match"/>. Tests pass their own tool runner and file checks:
-    /// Runic Command Line's <c>ProcessResult</c> cannot be created outside its package, so an
-    /// <see cref="IProcessRunner"/> cannot be faked.
-    /// </summary>
-    public static async Task ExecuteAsync(IReadOnlyList<string> arguments, Func<string[], Task> runTool, Func<string, bool> exists,
+    /// <summary>The commands, after <see cref="PolkitHelper.Match"/>. Tests pass their own process runner and file checks.</summary>
+    public static async Task ExecuteAsync(IReadOnlyList<string> arguments, IProcessRunner runner, Func<string, bool> exists,
         Func<string, string?>? realPath = null)
     {
         realPath ??= Native.RealPath;
-        Task Run(params string[] argv) => runTool(argv);
+        Task Run(params string[] argv) => RunToolAsync(runner, argv);
         // Like nixos-rebuild, run switch-to-configuration in its own transient unit so a restarting display
         // manager or session cannot interrupt it.
         async Task SwitchTo(string output, string mode)
@@ -95,7 +90,6 @@ public static partial class PrivilegedHelper
                 break;
             case ["activate-output", var mode, var requested]:
             {
-                if (mode is not ("switch" or "boot")) throw new ManagerException("Invalid activation mode.");
                 // Only the resolved store path is trusted, and used from here on.
                 var output = exists(requested) || Directory.Exists(requested) ? realPath(requested) ?? "" : "";
                 if (!SystemOutput().IsMatch(output) || !exists($"{output}/bin/switch-to-configuration"))
@@ -115,7 +109,7 @@ public static partial class PrivilegedHelper
                 await SwitchTo(Resolved(link), "switch").ConfigureAwait(false);
                 break;
             }
-            case ["gc", ..] when arguments.Count <= 2:
+            case ["gc", ..]:
             {
                 var retention = 3;
                 if (arguments.Count == 2 && (!int.TryParse(arguments[1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out retention)
@@ -129,6 +123,7 @@ public static partial class PrivilegedHelper
                 break;
             }
             default:
+                // PolkitHelper.Match admits only the declared commands.
                 throw new ManagerException("Unknown privileged operation or unexpected arguments.");
         }
     }

@@ -1,26 +1,16 @@
-// Interface text through Runic Translations: components call the typed message functions of `m`. The backend
-// stores English, as the Bun version does: step labels, errors and failure explanations, often with values filled
-// in. `stored` translates such text through the stored catalogue (translations/stored), which the import script
-// made from the Bun version's labels and messages.
+// Interface text through Runic Translations: components call the typed message functions of `m`, which follow the
+// ViewModel's language (App and Setup call `useMessageLocale`). The backend stores English, as the Bun version does:
+// step labels, errors and failure explanations, often with values filled in. `stored` translates such text through
+// the stored catalogue (translations/stored), which the import script made from the Bun version's labels and
+// messages with `runic-translations import-text`; its base-text.json maps each English text to its message key.
 
+import { bindMarkup, createInlineRenderer, defineMarkup, getLocale, type Locale } from "virtual:runic-translations/dashboard/runtime";
 import { m } from "virtual:runic-translations/dashboard";
-import { configureLocaleResolver, resolveLocale, type Locale } from "virtual:runic-translations/dashboard/runtime";
-import { storedMessages } from "./stored-catalog";
+import { inlineFactory } from "@runic-artifex/translations-svelte/inline";
+import baseText from "../../translations/stored/base-text.json";
 
-export { m };
+export { getLocale, m };
 export type { Locale };
-
-let current: Locale = "en";
-configureLocaleResolver(() => current);
-
-/** The language every message without an explicit locale uses. */
-export const getLocale = () => current;
-
-/** Switches the language; the caller re-renders (App keys the page on it). */
-export function setLocale(locale: string) {
-  current = resolveLocale(locale);
-  document.documentElement.lang = current;
-}
 
 type Pattern = { key: string; english: string; pattern: RegExp; names: string[]; literal: number };
 let exact: Map<string, string> | undefined;
@@ -31,7 +21,7 @@ const call = (key: string, values?: Record<string, string>) =>
 function index() {
   exact = new Map();
   patterns = [];
-  for (const [key, english] of storedMessages) {
+  for (const [english, key] of Object.entries(baseText)) {
     const names = [...english.matchAll(/\{(\w+)\}/g)].map((match) => match[1]);
     if (!names.length) {
       exact.set(english, key);
@@ -56,7 +46,7 @@ export function stored(text: string | null | undefined): string {
   if (!exact) index();
   const key = exact!.get(text);
   if (key) return call(key);
-  if (current === "en") return text;
+  if (getLocale() === "en") return text;
   for (const { key, pattern, names } of patterns!) {
     const match = pattern.exec(text);
     if (match) return call(key, Object.fromEntries(names.map((name, i) => [name, stored(match[i + 1])])));
@@ -94,25 +84,21 @@ const actionLabels: Record<string, string> = {
 export const actionLabel = (action: string) => stored(actionLabels[action] ?? action);
 
 /** "a, b and c" in the current language; English without the serial comma. */
-export const list = (items: readonly string[]) =>
-  new Intl.ListFormat(current === "en" ? "en-GB" : current, { type: "conjunction" }).format(items);
-
-// Markup in translated text, as the Bun version's T component did: a message is called with `slot(name)` for a
-// value that is markup, such as emphasis, and `Markup` renders its pieces with a snippet for each slot. The words
-// around a slot stay in the translation's order.
-const open = "\u{F0000}";
-const close = "\u{F0001}";
-
-/** A placeholder value that `Markup` replaces with markup. */
-export const slot = (name: string) => `${open}${name}${close}`;
-
-/** The pieces of a message called with `slot` values: text, and the names of slots between it. */
-export function pieces(text: string): ({ text: string } | { slot: string })[] {
-  return text
-    .split(new RegExp(`${open}(\\w+)${close}`, "u"))
-    .map((piece, index) => (index % 2 ? { slot: piece } : { text: piece }))
-    .filter((piece) => !("text" in piece) || piece.text);
+export function list(items: readonly string[]) {
+  const locale = getLocale();
+  return new Intl.ListFormat(locale === "en" ? "en-GB" : locale, { type: "conjunction" }).format(items);
 }
+
+// Messages with markup, such as `Detected as {#highlight}{$host}{/highlight}.`, render through `inline` and
+// `LocalizedInline`. The page's own tags are declared in translations/runic.json; `LocalizedInline` renders them with
+// the snippets its `custom` prop gives by tag name, such as "nm:highlight". The generated runtime has no binding for
+// a project's own tags yet, so their contracts are restated here as runic.json declares them
+// (Runic-Artifex/runic-translations-sdk#96).
+const tag = (name: string) =>
+  bindMarkup(defineMarkup({ name, kind: "paired", children: "inline", interactive: false, plainText: "children" }), inlineFactory.element);
+
+/** Renders a message with markup for `LocalizedInline`. */
+export const inline = createInlineRenderer(inlineFactory, [tag("nm:highlight"), tag("nm:aside")]);
 
 /**
  * Text without its soft hyphens (U+00AD), for headings and names that never wrap: German compounds such as

@@ -5,8 +5,8 @@ import tailwindcss from "@tailwindcss/vite";
 import { runic } from "@runic-artifex/vite-plugin-runic";
 import { runicTranslations } from "@runic-artifex/vite-plugin-runic-translations";
 
-// The translations compiler is the project-local .NET tool (`dotnet tool restore`). The Nix build has no
-// network to restore it and passes the tool's assembly instead (runic/package.nix).
+// The translations compiler is the project-local .NET tool (`dotnet tool restore`). The Nix build passes the tool's
+// assembly instead (runic/package.nix, until Runic-Artifex/runic-sdk#371).
 const translationsTool = process.env.NIX_MANAGER_TRANSLATIONS_TOOL;
 
 export default defineConfig({

@@ -1,13 +1,12 @@
-<!-- The Nix build publishes the application with NativeAOT (-p:PublishAot=true for every project); the tests run
-     under the JIT, so they keep their own restore and lock files. -->
-<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="PublishAot">
+<!-- The Nix build publishes the application with NativeAOT (PublishAot for NixManager.csproj alone); the tests run
+     under the JIT with their own lock files. -->
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
-    <PublishAot>false</PublishAot>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RuntimeIdentifiers>linux-x64</RuntimeIdentifiers>
     <!-- As in NixManager.csproj: a lock file per runtime for the Nix build. -->
@@ -15,8 +14,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="TUnit" Version="1.73.19" />
-    <PackageReference Include="Runic.Application.Testing" Version="0.8.0-preview.3" />
-    <PackageReference Include="Runic.CommandLine.Testing" Version="0.7.0-preview.1" />
+    <PackageReference Include="Runic.Application.Testing" Version="0.8.0-preview.4" />
+    <PackageReference Include="Runic.CommandLine.Testing" Version="0.7.0-preview.2" />
   </ItemGroup>
   <ItemGroup>
     <!-- The tests need the application's assembly, not its built frontend. -->

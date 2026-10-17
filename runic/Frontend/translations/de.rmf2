@@ -289,8 +289,8 @@ restore {
   cleanup_freeing =
     .input {$count :integer}
     .match $count
-    one {{{$count} Wiederherstellungspunkt wird entfernt und gibt etwa {$size} frei{$note}.}}
-    * {{{$count} Wiederherstellungspunkte werden entfernt und geben etwa {$size} frei{$note}.}}
+    one {{{$count} Wiederherstellungspunkt wird entfernt und gibt etwa {#highlight}{$size}{/highlight} frei{$note}.}}
+    * {{{$count} Wiederherstellungspunkte werden entfernt und geben etwa {#highlight}{$size}{/highlight} frei{$note}.}}
   cleanup_frees = Gibt etwa {$size} frei, mehr, wenn weitere ungenutzte Dateien gefunden werden.
   cleanup_measuring =
     .input {$count :integer}
@@ -322,7 +322,7 @@ settings {
   appearance = Erscheinungsbild
   appearance_body = Wie die Arbeitsumgebung oder ein eigenes Farbschema.
   dark = Dunkel
-  detected_as = Erkannt als {$host}.
+  detected_as = Erkannt als {#highlight}{$host}{/highlight}.
   foreign_host_warning = Änderungen werden jetzt mit der Konfiguration von {$host} gebaut und angewendet. Die Konfiguration eines anderen Computers hier anzuwenden, kann dieses System beschädigen; nutzen Sie das nur, um Builds zu testen.
   home_configuration = Benutzerkonfiguration
   home_profile = Benutzerprofil
@@ -488,12 +488,12 @@ changes {
 }
 
 review {
-  title_all_sources = Alle Softwarequellen aktualisieren {$scope}
-  title_configuration = Ihre Konfiguration anwenden {$scope}
-  title_generation = Zum Wiederherstellungspunkt {$generation} zurückkehren {$scope}
-  title_names = {$names} aktualisieren {$scope}
-  title_sources = {$count :integer} Softwarequellen aktualisieren {$scope}
-  title_undo = Änderung vom {$date} rückgängig machen {$scope}
+  title_all_sources = Alle Softwarequellen aktualisieren {#aside}({$scope}){/aside}
+  title_configuration = Ihre Konfiguration anwenden {#aside}({$scope}){/aside}
+  title_generation = Zum Wiederherstellungspunkt {$generation} zurückkehren {#aside}({$scope}){/aside}
+  title_names = {$names} aktualisieren {#aside}({$scope}){/aside}
+  title_sources = {$count :integer} Softwarequellen aktualisieren {#aside}({$scope}){/aside}
+  title_undo = Änderung vom {$date} rückgängig machen {#aside}({$scope}){/aside}
 }
 
 packages {
@@ -598,7 +598,7 @@ summary {
 
 setup {
   could_not_start = Nix Manager konnte nicht gestartet werden
-  problem_hint = Nix Manager liest die Konfiguration in {$flake}. Beheben Sie das Problem dort und öffnen Sie Nix Manager erneut, oder führen Sie {$command} in einem Terminal aus, um eine andere Konfiguration zu wählen.
+  problem_hint = Nix Manager liest die Konfiguration in {#code}{$flake}{/code}. Beheben Sie das Problem dort und öffnen Sie Nix Manager erneut, oder führen Sie {#code}{$command}{/code} in einem Terminal aus, um eine andere Konfiguration zu wählen.
   not_connected = Das Dashboard konnte keine Verbindung zu Nix Manager herstellen.
   title = Diesen Computer einrichten
   intro = Nix Manager hält die Konfiguration dieses Computers in einem Ordner, der Ihnen gehört, damit es sie für Sie ändern und jede Version aufbewahren kann. Dabei wird Ihre Konfiguration einmalig aus /etc/nixos in diesen Ordner kopiert; am laufenden System ändert sich nichts.
@@ -702,7 +702,7 @@ feature {
   this_computer_only_installs_software_with = Dieser Computer installiert nur Software mit freier Lizenz. Beim Einschalten wird auch unfreie Software erlaubt, in {$file}.
   this_computer_only_installs_software_with_2 = Dieser Computer installiert nur Software mit freier Lizenz. Erlauben Sie zuerst unfreie Software und schalten Sie es dann ein.
   no_changes = Keine Änderungen
-  turning_off_writes = Beim Ausschalten wird {$value} in {$file} geschrieben.
+  turning_off_writes = Beim Ausschalten wird {#code}{$value}{/code} in {$file} geschrieben.
 }
 
 bundle {
@@ -861,7 +861,7 @@ computer {
     * {{{$count} Änderungen noch nicht hinzugefügt}}
   write_to = {$settings} schreiben nach
   more_than_one_place = mehreren Stellen
-  password_after_apply = Geben Sie {$user} nach dem Anwenden in den Benutzereinstellungen Ihrer Arbeitsumgebung ein Passwort oder führen Sie {$command} aus. Bis dahin kann sich {$user} nicht anmelden.
+  password_after_apply = Geben Sie {$user} nach dem Anwenden in den Benutzereinstellungen Ihrer Arbeitsumgebung ein Passwort oder führen Sie {#code}{$command}{/code} aus. Bis dahin kann sich {$user} nicht anmelden.
   keep_user = {$name} behalten
 }
 

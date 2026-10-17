@@ -110,4 +110,17 @@ public static class DaemonProtocol
         var claim = await ApplicationInstance.ClaimAsync(ApplicationId, Launch(request), Options, cancellationToken).ConfigureAwait(false);
         return claim is PlatformResult<ApplicationInstanceClaim>.Success { Value: var value } ? value : null;
     }
+
+    /// <summary>
+    /// Forwards <paramref name="request"/> to the running instance without ever becoming it: <see cref="ApplicationInstanceClaim.NotRunning"/>
+    /// without one, so a daemon or dashboard that starts meanwhile never finds this process holding the instance. Null as
+    /// for <see cref="ClaimAsync"/>.
+    /// </summary>
+    public static async Task<ApplicationInstanceClaim?> ForwardAsync(DaemonRequest request, CancellationToken cancellationToken = default)
+    {
+        if (Disabled()) return null;
+        var claim = await ApplicationInstance.ClaimAsync(ApplicationId, Launch(request), Options with { ForwardOnly = true }, cancellationToken)
+            .ConfigureAwait(false);
+        return claim is PlatformResult<ApplicationInstanceClaim>.Success { Value: var value } ? value : null;
+    }
 }

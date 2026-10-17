@@ -61,7 +61,7 @@ public sealed class StepOutcome
     public string? StartedAt { get; set; }
     public string? FinishedAt { get; set; }
     public BuildProgress? Progress { get; set; }
-    [JsonExtensionData, Runic.Application.Views.RunicIgnore] public Dictionary<string, JsonElement>? Unknown { get; set; }
+    [JsonExtensionData] public Dictionary<string, JsonElement>? Unknown { get; set; }
 }
 
 /// <summary>A failure in plain words (<c>Explanation</c> in <c>src/explain.ts</c>).</summary>
@@ -126,7 +126,7 @@ public sealed class Operation
     public UndoPoint? Undo { get; set; }
     public string? Held { get; set; }
     public RollbackOutcome? Rollback { get; set; }
-    [JsonExtensionData, Runic.Application.Views.RunicIgnore] public Dictionary<string, JsonElement>? Unknown { get; set; }
+    [JsonExtensionData] public Dictionary<string, JsonElement>? Unknown { get; set; }
 
     /// <summary>A deep copy, for events and readers outside the operation's own task.</summary>
     public Operation Clone() =>

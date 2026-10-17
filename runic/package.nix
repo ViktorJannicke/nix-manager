@@ -6,7 +6,6 @@
 # compiling (runic/COMPARISON.md).
 {
   lib,
-  stdenv,
   fetchzip,
   makeDesktopItem,
   buildRunicApplication,
@@ -19,13 +18,6 @@
   tree-sitter,
 }:
 let
-  # The NuGet lock files have a section for each of these; see RuntimeIdentifiers in NixManager.csproj.
-  runtimeId =
-    {
-      x86_64-linux = "linux-x64";
-      aarch64-linux = "linux-arm64";
-    }
-    .${stdenv.hostPlatform.system};
   # The Bun version's entry, which launches the same commands. StartupNotify lets the desktop pass an activation
   # token (XDG_ACTIVATION_TOKEN), which `nix-manager ui` forwards to the running daemon, so the Window it raises
   # gets focus.
@@ -52,12 +44,14 @@ let
     NIX_MANAGER_NIX_PARSER = "${tree-sitter.builtGrammars.tree-sitter-nix}/parser";
     NIX_MANAGER_TREE_SITTER = "${tree-sitter}/lib/libtree-sitter.so";
   };
-  # The version in .config/dotnet-tools.json.
+  # The Translations compiler of .config/dotnet-tools.json, which the frontend's Vite build runs. The builder's
+  # dotnetTools would restore it offline, but it reads the manifest from the filtered src at evaluation, which
+  # `nix flake check --no-build` cannot (Runic-Artifex/runic-sdk#371); vite.config.ts runs this copy instead.
   translationsTool = fetchzip {
-    url = "https://api.nuget.org/v3-flatcontainer/dotnet-runic-translations/0.7.0-preview.2/dotnet-runic-translations.0.7.0-preview.2.nupkg";
+    url = "https://api.nuget.org/v3-flatcontainer/dotnet-runic-translations/0.7.0-preview.3/dotnet-runic-translations.0.7.0-preview.3.nupkg";
     extension = "zip";
     stripRoot = false;
-    hash = "sha256-u8YDxukErTJZHNNPxrEXLA3JzsCa9uXBCIifx7UsHNA=";
+    hash = "sha256-bOIKeVkJjVe34VB2ZM8O6fjNr2u1aG49tsoNo84rr/w=";
   };
 in
 buildRunicApplication {
@@ -69,7 +63,7 @@ buildRunicApplication {
       (lib.fileset.difference ./. (
         lib.fileset.unions [
           ./package.nix
-          # Local tools are for development; the build needs none of them.
+          # Local tools are for development; the build runs translationsTool.
           (lib.fileset.maybeMissing ./.config)
           # Documentation, such as COMPARISON.md.
           (lib.fileset.fileFilter (file: file.hasExt "md") ./.)
@@ -83,37 +77,30 @@ buildRunicApplication {
   testProjectFile = "runic/NixManager.Tests/NixManager.Tests.csproj";
   # One lock file per runtime and project; see NixManager.csproj. The application restores with PublishAot, the
   # tests without.
-  nugetLockFiles =
-    {
-      linux-x64 = [
-        ./packages.aot.lock.json
-        ./NixManager.Tests/packages.lock.json
-      ];
-      linux-arm64 = [
-        ./packages.linux-arm64.aot.lock.json
-        ./NixManager.Tests/packages.linux-arm64.lock.json
-      ];
-    }
-    .${runtimeId};
+  nugetLockFiles = {
+    linux-x64 = [
+      ./packages.aot.lock.json
+      ./NixManager.Tests/packages.lock.json
+    ];
+    linux-arm64 = [
+      ./packages.linux-arm64.aot.lock.json
+      ./NixManager.Tests/packages.linux-arm64.lock.json
+    ];
+  };
   # One native executable without the .NET runtime: no JIT at start-up, and the ASP.NET Core runtime leaves the
   # closure. The tests still run under the JIT.
   nativeAot = true;
   frontend = {
     packageManager = "bun";
-    # The hash of the frontend's node_modules; update both with Frontend/bun.lock. Bun installs only the
-    # system's optional packages, so they differ. The aarch64-linux one was computed on x86_64-linux with
-    # `bun install --frozen-lockfile --ignore-scripts --backend=copyfile --os=linux --cpu=arm64` (the same
-    # command with --cpu=x64 reproduces the x86_64-linux hash), not yet by a build on aarch64-linux.
-    hash =
-      {
-        x86_64-linux = "sha256-mjzmZr8NYDcoPqaLsMx/RrqKuz2vt05q6whM4lagspo=";
-        aarch64-linux = "sha256-Ah34iATxYcCK9qhJP6zdQv+IanTTUdmpZETKFppAQ1k=";
-      }
-      .${stdenv.hostPlatform.system};
+    # The hash of the frontend's node_modules for each system; update both with Frontend/bun.lock (the build fails
+    # when they are out of date). Bun installs only the system's optional packages, so they differ; `nix build
+    # .#runic.frontendNodeModules.fetchedFor.aarch64-linux` computes the aarch64-linux one on any system.
+    hash = {
+      x86_64-linux = "sha256-lmXlaTaJYgGjKJexg34GZvCfljFTyc8nBrgc2hOQgb4=";
+      aarch64-linux = "sha256-QTEYl9rq0R5RGb/UFWGzNKznwd2I+gQzjV2ivpb9ypY=";
+    };
   };
   host = "desktop";
-  # The frontend's Vite build compiles translations with the project-local .NET tool, which the sandbox cannot
-  # restore; vite.config.ts runs this copy of the same version instead.
   preBuild = ''
     export NIX_MANAGER_TRANSLATIONS_TOOL=${translationsTool}/tools/net10.0/any/dotnet-runic-translations.dll
   '';
@@ -121,32 +108,23 @@ buildRunicApplication {
   desktopItems = [ desktop ];
   icons.scalable = ./Frontend/public/nix-manager.svg;
   iconName = "nix-manager";
-  # The completion scripts the command line generates for its own catalog, in the folders NixOS links from
-  # installed packages (share/bash-completion, share/zsh, share/fish). The program runs without its wrapper, so
-  # without ICU on its library path, and needs no state or display for this.
-  postInstall = ''
-    completions=$(mktemp -d)
-    for shell in bash zsh fish; do
-      HOME=$completions XDG_STATE_HOME=$completions XDG_CONFIG_HOME=$completions \
-        DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 NIX_MANAGER_DAEMON=0 \
-        "$out/lib/$pname/nix-manager" --completions "$shell" > "$completions/nix-manager.$shell"
-      [[ -s $completions/nix-manager.$shell ]]
-    done
-    install -Dm644 "$completions/nix-manager.bash" $out/share/bash-completion/completions/nix-manager
-    install -Dm644 "$completions/nix-manager.zsh" $out/share/zsh/site-functions/_nix-manager
-    install -Dm644 "$completions/nix-manager.fish" $out/share/fish/vendor_completions.d/nix-manager.fish
-    rm -r "$completions"
-  '';
+  # The completion scripts the command line generates for its own catalog (`--completions SHELL`, the Bun
+  # version's option), in the folders NixOS links from installed packages (share/bash-completion, share/zsh,
+  # share/fish).
+  completions.command = [ "--completions" ];
   doCheck = true;
+  # TUnit's tests are a Microsoft.Testing.Platform application, which the builder runs with these options.
+  testRunner = "Microsoft.Testing.Platform";
+  dotnetTestFlags = [
+    "--no-progress"
+    "--no-ansi"
+  ];
   # The change history tests commit in temporary Git repositories.
   nativeCheckInputs = [ git ];
-  # Microsoft.Testing.Platform runs the test application itself; dotnet test's VSTest flags do not apply.
-  checkPhase = ''
-    runHook preCheck
+  # The tests read Nix files with the same grammar as the program.
+  preCheck = ''
     export NIX_MANAGER_NIX_PARSER=${parserEnvironment.NIX_MANAGER_NIX_PARSER}
     export NIX_MANAGER_TREE_SITTER=${parserEnvironment.NIX_MANAGER_TREE_SITTER}
-    dotnet runic/NixManager.Tests/bin/Release/net10.0/${runtimeId}/NixManager.Tests.dll --no-progress --no-ansi
-    runHook postCheck
   '';
   makeWrapperArgs = [
     "--set-default"

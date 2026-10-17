@@ -29,24 +29,23 @@
     <DefaultItemExcludes>$(DefaultItemExcludes);NixManager.Tests/**</DefaultItemExcludes>
     <!-- The policy keeps the Bun version's file name and action ID (nixos-module.nix). -->
     <RunicPolkitPolicyName>org.nixos.nix-manager</RunicPolkitPolicyName>
-    <!-- The Nix builder sets RunicApplicationInstallPrefix to $out, whose bin/nix-manager is the wrapper pkexec
-         runs. Other builds install under /usr. -->
-    <NixManagerInstallPrefix Condition="'$(NixManagerInstallPrefix)' == ''">$(RunicApplicationInstallPrefix)</NixManagerInstallPrefix>
-    <NixManagerInstallPrefix Condition="'$(NixManagerInstallPrefix)' == ''">/usr</NixManagerInstallPrefix>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
-    <PackageReference Include="Runic.Application.Views.Desktop" Version="0.8.0-preview.3" />
-    <PackageReference Include="Runic.CommandLine" Version="0.7.0-preview.1" />
-    <PackageReference Include="Runic.CommandLine.Processes" Version="0.7.0-preview.1" />
-    <PackageReference Include="Runic.Platform.Linux.Polkit" Version="0.8.0-preview.3" />
+    <PackageReference Include="Runic.Application.Views.Desktop" Version="0.8.0-preview.4" />
+    <PackageReference Include="Runic.CommandLine" Version="0.7.0-preview.2" />
+    <PackageReference Include="Runic.CommandLine.Processes" Version="0.7.0-preview.2" />
+    <PackageReference Include="Runic.Platform.Linux.Polkit" Version="0.8.0-preview.4" />
+    <PackageReference Include="Runic.Translations" Version="0.7.0-preview.3" />
+    <PackageReference Include="Runic.Translations.Build" Version="0.7.0-preview.3" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
-    <!-- The daemon's own text and the stored English text from the dashboard's catalogue, which the daemon reads in
-         the dashboard's language (Daemon/TrayText.cs). -->
-    <EmbeddedResource Include="Frontend/translations/tray/*.rmf2" LogicalName="NixManager.Translations.tray.%(Filename)%(Extension)" />
-    <EmbeddedResource Include="Frontend/translations/stored/*.rmf2" LogicalName="NixManager.Translations.stored.%(Filename)%(Extension)" />
+    <!-- The dashboard's catalogue, generated as DashboardText for the daemon's own text and the text the backend
+         stores in English, which the daemon shows in the dashboard's language (Daemon/TrayText.cs). The stored text is
+         found by its English through the importer's base-text index. -->
+    <TranslationProject Include="Frontend/translations/runic.json" />
+    <EmbeddedResource Include="Frontend/translations/stored/base-text.json" LogicalName="NixManager.Translations.stored.base-text.json" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="NixManager.Tests" />
@@ -54,18 +53,23 @@
   <ItemGroup>
     <!-- One action, as in the Bun version's policy: one authorization is kept (auth_admin_keep) across the
          privileged steps of an operation, such as activation followed by garbage collection. The verb is the
-         Bun version's entry point; the helper checks positions and meaning itself (PrivilegedHelper). -->
+         Bun version's entry point, and each of its commands is checked by position here; the helper checks
+         meaning (PrivilegedHelper). The Nix builder sets RunicApplicationInstallPrefix to $out, whose
+         bin/nix-manager is the wrapper pkexec runs; other builds install under /usr, the SDK's default. -->
     <RunicPrivilegedAction Include="org.nixos.nix-manager"
                            Name="Privileged"
-                           Program="$(NixManagerInstallPrefix)/bin/nix-manager"
+                           Program="$(RunicApplicationInstallPrefix)/bin/nix-manager"
                            Verb="--privileged"
                            Description="Rebuild NixOS System"
                            Message="Authentication is required to rebuild the NixOS system configuration."
                            IconName="system-software-update"
                            AllowAny="auth_admin"
                            AllowInactive="auth_admin"
-                           AllowActive="auth_admin_keep"
-                           MaximumArguments="3"
-                           ArgumentPattern="activate-output|activate-generation|rollback|gc|switch|boot|[1-9][0-9]{0,9}|/nix/store/[a-z0-9]{32}-nixos-system-[A-Za-z0-9._+-]+" />
+                           AllowActive="auth_admin_keep" />
+    <RunicPrivilegedCommand Include="activate-output" Action="org.nixos.nix-manager"
+                            Arguments="switch|boot;/nix/store/[a-z0-9]{32}-nixos-system-[A-Za-z0-9._+-]+" />
+    <RunicPrivilegedCommand Include="activate-generation" Action="org.nixos.nix-manager" Arguments="[1-9][0-9]{0,9}" />
+    <RunicPrivilegedCommand Include="rollback" Action="org.nixos.nix-manager" />
+    <RunicPrivilegedCommand Include="gc" Action="org.nixos.nix-manager" Arguments="[1-9][0-9]{0,2}" MinimumArguments="0" />
   </ItemGroup>
 </Project>

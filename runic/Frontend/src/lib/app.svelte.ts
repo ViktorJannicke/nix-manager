@@ -1,7 +1,6 @@
 import type { DashboardClient, DashboardState } from "../generated/dashboard.js";
 import type { OperationsClient, OperationsState } from "../generated/operations.js";
 import type { ReviewsClient, ReviewsState } from "../generated/reviews.js";
-import type { AppIconsClient, AppIconsState } from "../generated/appIcons.js";
 import type { AppListClient, AppListState } from "../generated/appList.js";
 import type { SoftwareClient, SoftwareState } from "../generated/software.js";
 import type { SystemClient, SystemState } from "../generated/system.js";
@@ -77,7 +76,6 @@ class AppState {
   systemView = $state.raw<ViewHandle<SystemClient, SystemState>>();
   softwareView = $state.raw<ViewHandle<SoftwareClient, SoftwareState>>();
   appListView = $state.raw<ViewHandle<AppListClient, AppListState>>();
-  iconsView = $state.raw<ViewHandle<AppIconsClient, AppIconsState>>();
   now = $state(Date.now());
   page = $state<Page>(initialPage());
   hostOverride = $state<string | undefined>(localStorage.getItem("nix-manager-host") || undefined);
@@ -183,20 +181,10 @@ class AppState {
     void this.savePreferences({ detail });
   }
 
-  /** Saves preferences; the Window's state carries them back. The Bridge sends every member, so the rest are null. */
-  async savePreferences(change: Partial<PreferenceChange>) {
+  /** Saves the preferences in `change`, leaving the rest as they are; the Window's state carries them back. */
+  async savePreferences(change: PreferenceChange) {
     try {
-      await this.dashboardView?.client?.savePreferences({
-        theme: null,
-        language: null,
-        detail: null,
-        prepareUpdates: null,
-        cleanUp: null,
-        history: null,
-        backup: null,
-        appDetails: null,
-        ...change,
-      });
+      await this.dashboardView?.client?.savePreferences(change);
     } catch (error) {
       this.fail(error, m.settings_save_failed());
     }
@@ -214,9 +202,18 @@ class AppState {
   toast(toast: Omit<Toast, "id">, timeout = toast.tone === "error" ? 12_000 : 6_000) {
     const id = this.nextId++;
     this.toasts = [...this.toasts, { ...toast, id }].slice(-4);
+    const title = toast.tone === "error" ? `${m.toast_error()} ${toast.title}` : toast.title;
+    this.announce(toast.body ? `${title}. ${toast.body}` : title);
     if (toast.action) return;
     const close = () => (this.toastsHeld ? setTimeout(close, 2_000) : this.dismiss(id));
     setTimeout(close, timeout);
+  }
+  /**
+   * Has the screen reader speak a status that a live region shows: WebKitGTK reports no live region to Orca, so the
+   * Window announces it (DashboardViewModel.Announce). In a browser the live region speaks, and this does nothing.
+   */
+  announce(message: string) {
+    if (message) void this.dashboardView?.client?.announce({ message }).catch(() => {});
   }
   dismiss(id: number) {
     this.toasts = this.toasts.filter((toast) => toast.id !== id);

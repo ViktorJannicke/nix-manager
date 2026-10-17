@@ -4,8 +4,8 @@
   import { Switch } from "$lib/components/ui/switch";
   import { app, type Detail, type Language, type Theme } from "$lib/app.svelte";
   import Segmented from "$lib/components/app/Segmented.svelte";
-  import Markup from "$lib/components/app/Markup.svelte";
-  import { m, slot } from "$lib/i18n";
+  import { LocalizedInline, type InlineElement } from "@runic-artifex/translations-svelte/inline";
+  import { inline, m } from "$lib/i18n";
 
   const dashboard = $derived(app.dashboard);
   const theme = $derived((dashboard?.theme ?? "system") as Theme);
@@ -14,6 +14,8 @@
   const hosts = $derived(app.config?.hosts ?? []);
   const host = $derived(hosts.find((item) => item.name === app.host));
 </script>
+
+{#snippet highlight(node: InlineElement)}<span class="font-medium text-foreground"><LocalizedInline nodes={node.children} /></span>{/snippet}
 
 <div class="max-w-3xl space-y-6">
   <header>
@@ -89,7 +91,7 @@
         <div>
           <h2 id="host-heading" class="font-medium">{m.settings_target_host()}</h2>
           <p class="text-xs text-muted-foreground">
-            <Markup text={m.settings_detected_as({ host: slot("host") })}>{#snippet children()}<span class="font-medium text-foreground">{app.config?.hostKey}</span>{/snippet}</Markup>
+            <LocalizedInline nodes={inline.render(m.settings_detected_as({ host: app.config?.hostKey ?? "" }), { slots: {} })} custom={{ "nm:highlight": highlight }} />
           </p>
         </div>
         <div class="flex items-center gap-2">

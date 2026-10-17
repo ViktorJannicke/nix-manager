@@ -3,5 +3,12 @@
   "catalog": "dashboard",
   "code": { "namespace": "NixManager.Dashboard", "className": "DashboardText" },
   "baseLocale": "en",
-  "locales": ["en", "de"]
+  "locales": ["en", "de"],
+  "markup": {
+    "contracts": [
+      { "name": "nm:highlight", "kind": "paired", "children": "inline", "interactive": false, "plainText": "children" },
+      { "name": "nm:aside", "kind": "paired", "children": "inline", "interactive": false, "plainText": "children" }
+    ],
+    "aliases": { "highlight": "nm:highlight", "aside": "nm:aside" }
+  }
 }

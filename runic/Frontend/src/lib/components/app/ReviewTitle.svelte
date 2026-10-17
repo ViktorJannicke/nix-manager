@@ -1,14 +1,14 @@
 <script lang="ts">
+  import { LocalizedInline, type InlineElement } from "@runic-artifex/translations-svelte/inline";
   import type { BuildReview } from "../../../generated/types.js";
   import { dateTime, scopeText } from "$lib/format";
-  import { m, slot } from "$lib/i18n";
-  import Markup from "./Markup.svelte";
+  import { inline, m } from "$lib/i18n";
 
   let { review }: { review: BuildReview } = $props();
 
   // What the review does, with the scope in a lighter tone where the translation puts it.
   const title = $derived.by(() => {
-    const scope = slot("scope");
+    const scope = scopeText(review.scope);
     if (review.undo) return m.review_title_undo({ date: dateTime(review.undo.appliedAt), scope });
     if (review.source === "generation") return m.review_title_generation({ generation: String(review.generation ?? ""), scope });
     if (review.source === "inputs") {
@@ -20,4 +20,6 @@
   });
 </script>
 
-<Markup text={title}>{#snippet children()}<span class="font-normal text-muted-foreground">({scopeText(review.scope)})</span>{/snippet}</Markup>
+{#snippet aside(node: InlineElement)}<span class="font-normal text-muted-foreground"><LocalizedInline nodes={node.children} /></span>{/snippet}
+
+<LocalizedInline nodes={inline.render(title, { slots: {} })} custom={{ "nm:aside": aside }} />
