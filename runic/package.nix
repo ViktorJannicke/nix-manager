@@ -6,6 +6,7 @@
 # compiling (runic/COMPARISON.md).
 {
   lib,
+  fetchzip,
   makeDesktopItem,
   buildRunicApplication,
   coreutils,
@@ -43,6 +44,15 @@ let
     NIX_MANAGER_NIX_PARSER = "${tree-sitter.builtGrammars.tree-sitter-nix}/parser";
     NIX_MANAGER_TREE_SITTER = "${tree-sitter}/lib/libtree-sitter.so";
   };
+  # The Translations compiler of .config/dotnet-tools.json, which the frontend's Vite build runs. The builder's
+  # dotnetTools would restore it offline, but it reads the manifest from the filtered src at evaluation, which
+  # `nix flake check --no-build` cannot (Runic-Artifex/runic-sdk#371); vite.config.ts runs this copy instead.
+  translationsTool = fetchzip {
+    url = "https://api.nuget.org/v3-flatcontainer/dotnet-runic-translations/0.7.0-preview.3/dotnet-runic-translations.0.7.0-preview.3.nupkg";
+    extension = "zip";
+    stripRoot = false;
+    hash = "sha256-bOIKeVkJjVe34VB2ZM8O6fjNr2u1aG49tsoNo84rr/w=";
+  };
 in
 buildRunicApplication {
   pname = "nix-manager-runic";
@@ -53,6 +63,8 @@ buildRunicApplication {
       (lib.fileset.difference ./. (
         lib.fileset.unions [
           ./package.nix
+          # Local tools are for development; the build runs translationsTool.
+          (lib.fileset.maybeMissing ./.config)
           # Documentation, such as COMPARISON.md.
           (lib.fileset.fileFilter (file: file.hasExt "md") ./.)
         ]
@@ -89,12 +101,9 @@ buildRunicApplication {
     };
   };
   host = "desktop";
-  # The frontend's Vite build compiles translations with the project-local .NET tool (.config/dotnet-tools.json),
-  # restored offline from these packages.
-  dotnetTools.hashes = {
-    dotnet-runic = "sha256-XVYEr7wy6vdBFkXvfwZqX6G5FVkM7zxqh0RS5SX+Fu0=";
-    dotnet-runic-translations = "sha256-C+2dSJB+MroVjGK/pR1qHRLnlTuNuBCZN81xejvEv/4=";
-  };
+  preBuild = ''
+    export NIX_MANAGER_TRANSLATIONS_TOOL=${translationsTool}/tools/net10.0/any/dotnet-runic-translations.dll
+  '';
   executables = [ "nix-manager" ];
   desktopItems = [ desktop ];
   icons.scalable = ./Frontend/public/nix-manager.svg;
