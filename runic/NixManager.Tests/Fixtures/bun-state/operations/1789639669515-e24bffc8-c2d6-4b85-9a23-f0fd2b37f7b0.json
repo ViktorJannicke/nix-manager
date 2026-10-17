@@ -1,0 +1,20 @@
+{
+  "id": "1789639669515-e24bffc8-c2d6-4b85-9a23-f0fd2b37f7b0",
+  "pid": 377388,
+  "flake": "/home/user/my-flakes",
+  "request": {
+    "action": "t3code-update",
+    "scope": "all",
+    "host": "desktop",
+    "update": false,
+    "cleanup": false,
+    "force": false,
+    "dryRun": false,
+    "extra": []
+  },
+  "status": "failed",
+  "startedAt": "2026-09-17T10:07:49.515Z",
+  "step": "Build t3code 0.0.42 before saving pin",
+  "error": "Build t3code 0.0.42 before saving pin failed (exit 1). ild@0.28.1_jiti@2.7.0_terser_1b0486c48d974eaf1b48b72da4c5b253/node_modules/@voidzero-dev/vite-plus-core/dist/vite/node/chunks/node.js:39593:19)\n       >     at async Object.buildApp (file:///build/source/node_modules/.pnpm/@voidzero-dev+vite-plus-core@0.3.0_@types+node@24.12.4_esbuild@0.28.1_jiti@2.7.0_terser_1b0486c48d974eaf1b48b72da4c5b253/node_modules/@voidzero-dev/vite-plus-core/dist/vite/node/chunks/node.js:39590:153)\n       >     at async CAC.<anonymous> (file:///build/source/node_modules/.pnpm/@voidzero-dev+vite-plus-core@0.3.0_@types+node@24.12.4_esbuild@0.28.1_jiti@2.7.0_terser_1b0486c48d974eaf1b48b72da4c5b253/node_modules/@voidzero-dev/vite-plus-core/dist/vite/node/cli.js:776:3) {\n       >   errors: [Getter/Setter]\n       > }\n       >\n       > [ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @t3tools/monorepo@ build:desktop: `vp run --filter @t3tools/desktop --filter t3 build`\n       > Exit status 1\n       >\n       > ERROR: 'pnpm run build:desktop' failed\n       >\n       > Here are a few things you can try, depending on the error:\n       > 1. Make sure your build script (build:desktop) exists\n       >    If there isnt one, set `dontPnpmBuild = true`.\n       >\n       For full logs, run:\n         nix log /nix/store/p8lr46hfpn0839shp2rfpzij2q838dly-t3code-unwrapped-0.0.42.drv\nerror: Cannot build '/nix/store/971p9jv6svs6j1pcc12afgkzbhklbrn9-t3code-0.0.42.drv'.\n       Reason: 1 dependency failed.\n       Output paths:\n         /nix/store/5shgsnvx9krnvzbwyf6c4qra8b98n20x-t3code-0.0.42",
+  "finishedAt": "2026-09-17T10:10:30.336Z"
+}

@@ -1,0 +1,13 @@
+bin/
+obj/
+TestResults/
+node_modules/
+Frontend/dist/
+Frontend/.angular/
+# Typed View clients; dotnet build and dotnet runic dev regenerate them.
+Frontend/src/generated/
+# nix build output
+/result
+/result-*
+# Runic Translations output; the Vite plugin generates it from Frontend/translations.
+Frontend/.runic/

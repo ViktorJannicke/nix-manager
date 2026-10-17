@@ -1,0 +1,75 @@
+{
+  "id": "1791817200000-3a9e5c71-2b84-4d6f-a0c3-9e8d7f6b5a41",
+  "pid": 745467,
+  "flake": "/home/user/my-flakes",
+  "request": {
+    "action": "review-apply",
+    "scope": "all",
+    "host": "desktop",
+    "update": false,
+    "cleanup": false,
+    "force": false,
+    "dryRun": false,
+    "extra": [],
+    "reviewId": "2f89612a-fb6f-4e01-bbd6-530c836e1eae",
+    "retention": 3,
+    "activation": "switch"
+  },
+  "status": "failed",
+  "startedAt": "2026-10-12T14:59:52.010Z",
+  "step": "Activate system",
+  "steps": [
+    {
+      "id": "1-write-the-reviewed-flake-lock",
+      "label": "Write the reviewed flake.lock",
+      "status": "succeeded",
+      "startedAt": "2026-10-12T14:59:52.013Z",
+      "finishedAt": "2026-10-12T14:59:52.015Z"
+    },
+    {
+      "id": "2-select-home-manager-generation",
+      "label": "Select Home Manager generation",
+      "status": "succeeded",
+      "startedAt": "2026-10-12T14:59:52.015Z",
+      "finishedAt": "2026-10-12T14:59:52.042Z"
+    },
+    {
+      "id": "3-activate-home-manager",
+      "label": "Activate Home Manager",
+      "status": "succeeded",
+      "startedAt": "2026-10-12T14:59:52.042Z",
+      "finishedAt": "2026-10-12T14:59:52.980Z"
+    },
+    {
+      "id": "4-activate-system",
+      "label": "Activate system",
+      "status": "failed",
+      "startedAt": "2026-10-12T14:59:52.981Z",
+      "finishedAt": "2026-10-12T15:00:00.765Z"
+    },
+    {
+      "id": "5-go-back-to-system-generation-81",
+      "label": "Go back to system generation 81",
+      "status": "succeeded",
+      "startedAt": "2026-10-12T15:00:01.000Z",
+      "finishedAt": "2026-10-12T15:00:09.000Z"
+    },
+    {
+      "id": "6-put-back-the-configuration-files",
+      "label": "Put back the configuration files",
+      "status": "succeeded",
+      "startedAt": "2026-10-12T15:00:09.000Z",
+      "finishedAt": "2026-10-12T15:00:09.004Z"
+    }
+  ],
+  "finishingPrivilegedStep": false,
+  "finishedAt": "2026-10-12T15:00:09.010Z",
+  "error": "Activate system failed (exit 4). warning: the following units failed: home-manager-user.service",
+  "explanation": {
+    "title": "Activate system failed",
+    "body": "warning: the following units failed: home-manager-user.service Everything went back to how it was before, files included."
+  },
+  "rollback": {
+    "done": true
+  }
+}

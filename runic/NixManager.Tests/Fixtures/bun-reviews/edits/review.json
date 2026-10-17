@@ -1,0 +1,96 @@
+{
+  "id": "e0e0e0e0-0000-4000-8000-000000000001",
+  "host": "test",
+  "scope": "home",
+  "createdAt": "2026-10-15T14:47:02.757Z",
+  "fingerprint": "041c24fe18beb844d3c7df0177cded5b0f6b1a3835a8f0c264c0e592eae7d319",
+  "source": "checkout",
+  "edits": {
+    "changes": [
+      {
+        "kind": "add-package",
+        "attr": "pkgs.btop",
+        "scope": "home",
+        "file": "modules/apps.nix"
+      },
+      {
+        "kind": "set-option",
+        "option": "programs.git.enable",
+        "value": true,
+        "scope": "home",
+        "file": "modules/apps.nix"
+      }
+    ],
+    "hash": "ec5aa5fd906b9124431c8e47713d30adc49af0940e4b8d5772d93274aae4ea99",
+    "files": [
+      {
+        "path": "modules/apps.nix",
+        "baseHash": "4de5e7cbd0be7326cce39910d50ca872f3a7878dabf03de40f008053e9d58083",
+        "hunks": [
+          {
+            "line": 2,
+            "lines": [
+              {
+                "kind": " ",
+                "text": "  home.packages = with pkgs; ["
+              },
+              {
+                "kind": " ",
+                "text": "    git"
+              },
+              {
+                "kind": "+",
+                "text": "    btop"
+              },
+              {
+                "kind": " ",
+                "text": "  ];"
+              },
+              {
+                "kind": "+",
+                "text": "  programs.git.enable = true;"
+              },
+              {
+                "kind": " ",
+                "text": "}"
+              },
+              {
+                "kind": " ",
+                "text": ""
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "scope": "home",
+        "added": [
+          {
+            "out": "/nix/store/btop",
+            "name": "btop",
+            "version": "1",
+            "description": null,
+            "file": "modules/apps.nix"
+          }
+        ],
+        "removed": [],
+        "options": [
+          {
+            "option": "programs.git.enable",
+            "before": false,
+            "after": true
+          }
+        ]
+      }
+    ]
+  },
+  "home": {
+    "path": "/home/user/my-flakes/home-output",
+    "changes": [],
+    "compared": false,
+    "closureSize": 123456789
+  },
+  "operationId": "1792075622721-4bbe2ecf-1953-45d6-b643-8d02843aa5d1"
+}

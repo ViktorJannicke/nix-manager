@@ -1,0 +1,47 @@
+{
+  "flake": "/home/user/my-flakes",
+  "report": {
+    "checkedAt": "2026-10-15T08:04:43.249Z",
+    "items": [
+      {
+        "name": "codex-desktop-linux",
+        "current": "ac4c7c173768",
+        "latest": "1153895b6fe9",
+        "kind": "input",
+        "currentDate": "2026-10-14T06:38:19.000Z",
+        "latestDate": "2026-10-15T08:01:06.000Z",
+        "source": "ilysenko/codex-desktop-linux",
+        "url": "https://github.com/ilysenko/codex-desktop-linux/commit/1153895b6fe9101fcf777a4264ccaaf3a4ce55be"
+      },
+      {
+        "name": "nixpkgs_2",
+        "current": "7fd4004d0511",
+        "latest": "55bfb4d7437b",
+        "kind": "input",
+        "currentDate": "2026-10-11T15:54:36.000Z",
+        "latestDate": "2026-10-14T05:35:54.000Z",
+        "source": "nixos/nixpkgs",
+        "url": "https://github.com/nixos/nixpkgs/commit/55bfb4d7437bd4e09ab7cba58a43bd68eb310044"
+      },
+      {
+        "name": "zen-browser",
+        "current": "d98522a05b8a",
+        "latest": "9342d127aa8c",
+        "kind": "input",
+        "currentDate": "2026-10-14T07:10:31.000Z",
+        "latestDate": "2026-10-15T07:02:55.000Z",
+        "source": "0xc000022070/zen-browser-flake",
+        "url": "https://github.com/0xc000022070/zen-browser-flake/commit/9342d127aa8c585e82f3f57ddb25800fd546029f"
+      },
+      {
+        "name": "t3code",
+        "current": "0.0.46-nightly.20261014.3118",
+        "latest": "0.0.46-nightly.20261015.3145",
+        "kind": "package",
+        "source": "pingdotgg/t3code",
+        "url": "https://github.com/pingdotgg/t3code/releases/tag/v0.0.46-nightly.20261015.3145"
+      }
+    ],
+    "errors": []
+  }
+}

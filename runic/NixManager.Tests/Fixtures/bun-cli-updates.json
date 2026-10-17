@@ -1,0 +1,205 @@
+[
+  {
+    "name": "updates-system-scope",
+    "args": [
+      "system",
+      "t3code-update"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Package updates apply to home packages."
+  },
+  {
+    "name": "updates-all-scope-json",
+    "args": [
+      "all",
+      "opencode-update",
+      "--json"
+    ],
+    "exitCode": 1,
+    "stdout": "{\n  \"id\": \"1792075654051-e2158bec-e9d4-40e6-891c-809bc8d7f721\",\n  \"pid\": 523922,\n  \"flake\": \"<flake>\",\n  \"request\": {\n    \"action\": \"opencode-update\",\n    \"scope\": \"all\",\n    \"host\": \"test\",\n    \"update\": false,\n    \"cleanup\": false,\n    \"force\": false,\n    \"dryRun\": false,\n    \"extra\": [],\n    \"retention\": 3\n  },\n  \"status\": \"failed\",\n  \"startedAt\": \"2026-10-15T14:47:34.051Z\",\n  \"step\": \"Update the opencode package pin\",\n  \"steps\": [\n    {\n      \"id\": \"1-update-the-opencode-package-pin\",\n      \"label\": \"Update the opencode package pin\",\n      \"status\": \"failed\",\n      \"startedAt\": \"2026-10-15T14:47:34.055Z\",\n      \"finishedAt\": \"2026-10-15T14:47:34.058Z\"\n    }\n  ],\n  \"error\": \"Read current pin: Error: ENOENT: no such file or directory, open '<flake>/pkgs/opencode/source.json'\",\n  \"finishedAt\": \"2026-10-15T14:47:34.058Z\"\n}\n",
+    "error": null
+  },
+  {
+    "name": "updates-with-update",
+    "args": [
+      "t3code-update",
+      "update"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Package updates cannot combine with update, cleanup or extra arguments."
+  },
+  {
+    "name": "updates-with-cleanup",
+    "args": [
+      "pince-update",
+      "cleanup"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Package updates cannot combine with update, cleanup or extra arguments."
+  },
+  {
+    "name": "updates-extra-args",
+    "args": [
+      "opencode-update",
+      "--",
+      "--show-trace"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Package updates cannot combine with update, cleanup or extra arguments."
+  },
+  {
+    "name": "updates-force-switch",
+    "args": [
+      "switch",
+      "--force"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: --force applies to package updates."
+  },
+  {
+    "name": "updates-force-check",
+    "args": [
+      "check",
+      "--force"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: --force applies to package updates."
+  },
+  {
+    "name": "updates-force-gc",
+    "args": [
+      "--force",
+      "gc",
+      "--json"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: --force applies to package updates."
+  },
+  {
+    "name": "updates-two-packages",
+    "args": [
+      "t3code-update",
+      "pince-update"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "error": "Error: Specify one action."
+  },
+  {
+    "name": "updates-missing-pin-json",
+    "args": [
+      "t3code-update",
+      "--json"
+    ],
+    "exitCode": 1,
+    "stdout": "{\n  \"id\": \"1792075655643-ee67854c-e486-439a-8975-af5455c27d80\",\n  \"pid\": 524199,\n  \"flake\": \"<flake>\",\n  \"request\": {\n    \"action\": \"t3code-update\",\n    \"scope\": \"all\",\n    \"host\": \"test\",\n    \"update\": false,\n    \"cleanup\": false,\n    \"force\": false,\n    \"dryRun\": false,\n    \"extra\": [],\n    \"retention\": 3\n  },\n  \"status\": \"failed\",\n  \"startedAt\": \"2026-10-15T14:47:35.643Z\",\n  \"step\": \"Update the t3code package pin\",\n  \"steps\": [\n    {\n      \"id\": \"1-update-the-t3code-package-pin\",\n      \"label\": \"Update the t3code package pin\",\n      \"status\": \"failed\",\n      \"startedAt\": \"2026-10-15T14:47:35.646Z\",\n      \"finishedAt\": \"2026-10-15T14:47:35.648Z\"\n    }\n  ],\n  \"error\": \"Read current pin: Error: ENOENT: no such file or directory, open '<flake>/pkgs/t3code/source.json'\",\n  \"finishedAt\": \"2026-10-15T14:47:35.648Z\"\n}\n",
+    "error": null
+  },
+  {
+    "name": "updates-missing-pin-dry-run-json",
+    "args": [
+      "--dry-run",
+      "pince-update",
+      "--json"
+    ],
+    "exitCode": 1,
+    "stdout": "{\n  \"id\": \"1792075655854-b7316520-909a-4d8a-9c72-8c5df96002e9\",\n  \"pid\": 524235,\n  \"flake\": \"<flake>\",\n  \"request\": {\n    \"action\": \"pince-update\",\n    \"scope\": \"all\",\n    \"host\": \"test\",\n    \"update\": false,\n    \"cleanup\": false,\n    \"force\": false,\n    \"dryRun\": true,\n    \"extra\": [],\n    \"retention\": 3\n  },\n  \"status\": \"failed\",\n  \"startedAt\": \"2026-10-15T14:47:35.854Z\",\n  \"step\": \"Update the pince package pin\",\n  \"steps\": [\n    {\n      \"id\": \"1-update-the-pince-package-pin\",\n      \"label\": \"Update the pince package pin\",\n      \"status\": \"failed\",\n      \"startedAt\": \"2026-10-15T14:47:35.857Z\",\n      \"finishedAt\": \"2026-10-15T14:47:35.860Z\"\n    }\n  ],\n  \"error\": \"Read current pin: Error: ENOENT: no such file or directory, open '<flake>/pkgs/pince/source.json'\",\n  \"finishedAt\": \"2026-10-15T14:47:35.860Z\"\n}\n",
+    "error": null
+  },
+  {
+    "name": "updates-missing-pin-force-json",
+    "args": [
+      "opencode-update",
+      "--force",
+      "--json"
+    ],
+    "exitCode": 1,
+    "stdout": "{\n  \"id\": \"1792075656065-7da622ae-09f7-4d93-95aa-fa836bbf0b2b\",\n  \"pid\": 524276,\n  \"flake\": \"<flake>\",\n  \"request\": {\n    \"action\": \"opencode-update\",\n    \"scope\": \"all\",\n    \"host\": \"test\",\n    \"update\": false,\n    \"cleanup\": false,\n    \"force\": true,\n    \"dryRun\": false,\n    \"extra\": [],\n    \"retention\": 3\n  },\n  \"status\": \"failed\",\n  \"startedAt\": \"2026-10-15T14:47:36.065Z\",\n  \"step\": \"Update the opencode package pin\",\n  \"steps\": [\n    {\n      \"id\": \"1-update-the-opencode-package-pin\",\n      \"label\": \"Update the opencode package pin\",\n      \"status\": \"failed\",\n      \"startedAt\": \"2026-10-15T14:47:36.067Z\",\n      \"finishedAt\": \"2026-10-15T14:47:36.070Z\"\n    }\n  ],\n  \"error\": \"Read current pin: Error: ENOENT: no such file or directory, open '<flake>/pkgs/opencode/source.json'\",\n  \"finishedAt\": \"2026-10-15T14:47:36.070Z\"\n}\n",
+    "error": null
+  },
+  {
+    "name": "updates-invalid-version-json",
+    "args": [
+      "t3code-update",
+      "--json"
+    ],
+    "exitCode": 1,
+    "stdout": "{\n  \"id\": \"1792075656267-0c8efadf-79ac-4c7b-8219-88dd8e387836\",\n  \"pid\": 524310,\n  \"flake\": \"<flake>\",\n  \"request\": {\n    \"action\": \"t3code-update\",\n    \"scope\": \"all\",\n    \"host\": \"test\",\n    \"update\": false,\n    \"cleanup\": false,\n    \"force\": false,\n    \"dryRun\": false,\n    \"extra\": [],\n    \"retention\": 3\n  },\n  \"status\": \"failed\",\n  \"startedAt\": \"2026-10-15T14:47:36.267Z\",\n  \"step\": \"Update the t3code package pin\",\n  \"steps\": [\n    {\n      \"id\": \"1-update-the-t3code-package-pin\",\n      \"label\": \"Update the t3code package pin\",\n      \"status\": \"failed\",\n      \"startedAt\": \"2026-10-15T14:47:36.270Z\",\n      \"finishedAt\": \"2026-10-15T14:47:36.273Z\"\n    }\n  ],\n  \"error\": \"Invalid source pin: (parseJson <-> { readonly version: { string | filter }; readonly channel?: \\\"stable\\\" | \\\"nightly\\\" | undefined; readonly nixpkgsRev?: string | undefined })\\n└─ Type side transformation failure\\n   └─ { readonly version: { string | filter }; readonly channel?: \\\"stable\\\" | \\\"nightly\\\" | undefined; readonly nixpkgsRev?: string | undefined }\\n      └─ [\\\"version\\\"]\\n         └─ Expected X.Y.Z or X.Y.Z-nightly.YYYYMMDD.N\",\n  \"finishedAt\": \"2026-10-15T14:47:36.273Z\"\n}\n",
+    "error": null
+  },
+  {
+    "name": "updates-missing-version-json",
+    "args": [
+      "opencode-update",
+      "--json"
+    ],
+    "exitCode": 1,
+    "stdout": "{\n  \"id\": \"1792075656474-2165ee1f-cf09-4f78-818d-ba4e70a2d12b\",\n  \"pid\": 524346,\n  \"flake\": \"<flake>\",\n  \"request\": {\n    \"action\": \"opencode-update\",\n    \"scope\": \"all\",\n    \"host\": \"test\",\n    \"update\": false,\n    \"cleanup\": false,\n    \"force\": false,\n    \"dryRun\": false,\n    \"extra\": [],\n    \"retention\": 3\n  },\n  \"status\": \"failed\",\n  \"startedAt\": \"2026-10-15T14:47:36.474Z\",\n  \"step\": \"Update the opencode package pin\",\n  \"steps\": [\n    {\n      \"id\": \"1-update-the-opencode-package-pin\",\n      \"label\": \"Update the opencode package pin\",\n      \"status\": \"failed\",\n      \"startedAt\": \"2026-10-15T14:47:36.476Z\",\n      \"finishedAt\": \"2026-10-15T14:47:36.479Z\"\n    }\n  ],\n  \"error\": \"Invalid source pin: (parseJson <-> { readonly version: { string | filter }; readonly channel?: \\\"stable\\\" | \\\"nightly\\\" | undefined; readonly nixpkgsRev?: string | undefined })\\n└─ Type side transformation failure\\n   └─ { readonly version: { string | filter }; readonly channel?: \\\"stable\\\" | \\\"nightly\\\" | undefined; readonly nixpkgsRev?: string | undefined }\\n      └─ [\\\"version\\\"]\\n         └─ is missing\",\n  \"finishedAt\": \"2026-10-15T14:47:36.479Z\"\n}\n",
+    "error": null
+  },
+  {
+    "name": "updates-invalid-channel-json",
+    "args": [
+      "pince-update",
+      "--json"
+    ],
+    "exitCode": 1,
+    "stdout": "{\n  \"id\": \"1792075656678-c9694139-1152-4658-8193-78b3219e139f\",\n  \"pid\": 524382,\n  \"flake\": \"<flake>\",\n  \"request\": {\n    \"action\": \"pince-update\",\n    \"scope\": \"all\",\n    \"host\": \"test\",\n    \"update\": false,\n    \"cleanup\": false,\n    \"force\": false,\n    \"dryRun\": false,\n    \"extra\": [],\n    \"retention\": 3\n  },\n  \"status\": \"failed\",\n  \"startedAt\": \"2026-10-15T14:47:36.678Z\",\n  \"step\": \"Update the pince package pin\",\n  \"steps\": [\n    {\n      \"id\": \"1-update-the-pince-package-pin\",\n      \"label\": \"Update the pince package pin\",\n      \"status\": \"failed\",\n      \"startedAt\": \"2026-10-15T14:47:36.680Z\",\n      \"finishedAt\": \"2026-10-15T14:47:36.683Z\"\n    }\n  ],\n  \"error\": \"Invalid source pin: (parseJson <-> { readonly version: { string | filter }; readonly channel?: \\\"stable\\\" | \\\"nightly\\\" | undefined; readonly nixpkgsRev?: string | undefined })\\n└─ Type side transformation failure\\n   └─ { readonly version: { string | filter }; readonly channel?: \\\"stable\\\" | \\\"nightly\\\" | undefined; readonly nixpkgsRev?: string | undefined }\\n      └─ [\\\"channel\\\"]\\n         └─ \\\"stable\\\" | \\\"nightly\\\" | undefined\\n            ├─ \\\"stable\\\" | \\\"nightly\\\"\\n            │  ├─ Expected \\\"stable\\\", actual \\\"beta\\\"\\n            │  └─ Expected \\\"nightly\\\", actual \\\"beta\\\"\\n            └─ Expected undefined, actual \\\"beta\\\"\",\n  \"finishedAt\": \"2026-10-15T14:47:36.683Z\"\n}\n",
+    "error": null
+  },
+  {
+    "name": "updates-version-not-text-json",
+    "args": [
+      "pince-update",
+      "--json"
+    ],
+    "exitCode": 1,
+    "stdout": "{\n  \"id\": \"1792075656883-f82ca38e-d806-4bd0-aad0-1df194a83cdd\",\n  \"pid\": 524417,\n  \"flake\": \"<flake>\",\n  \"request\": {\n    \"action\": \"pince-update\",\n    \"scope\": \"all\",\n    \"host\": \"test\",\n    \"update\": false,\n    \"cleanup\": false,\n    \"force\": false,\n    \"dryRun\": false,\n    \"extra\": [],\n    \"retention\": 3\n  },\n  \"status\": \"failed\",\n  \"startedAt\": \"2026-10-15T14:47:36.883Z\",\n  \"step\": \"Update the pince package pin\",\n  \"steps\": [\n    {\n      \"id\": \"1-update-the-pince-package-pin\",\n      \"label\": \"Update the pince package pin\",\n      \"status\": \"failed\",\n      \"startedAt\": \"2026-10-15T14:47:36.887Z\",\n      \"finishedAt\": \"2026-10-15T14:47:36.891Z\"\n    }\n  ],\n  \"error\": \"Invalid source pin: (parseJson <-> { readonly version: { string | filter }; readonly channel?: \\\"stable\\\" | \\\"nightly\\\" | undefined; readonly nixpkgsRev?: string | undefined })\\n└─ Type side transformation failure\\n   └─ { readonly version: { string | filter }; readonly channel?: \\\"stable\\\" | \\\"nightly\\\" | undefined; readonly nixpkgsRev?: string | undefined }\\n      └─ [\\\"version\\\"]\\n         └─ { string | filter }\\n            └─ From side refinement failure\\n               └─ Expected string, actual 3\",\n  \"finishedAt\": \"2026-10-15T14:47:36.891Z\"\n}\n",
+    "error": null
+  },
+  {
+    "name": "updates-invalid-rev-json",
+    "args": [
+      "t3code-update",
+      "--json"
+    ],
+    "exitCode": 1,
+    "stdout": "{\n  \"id\": \"1792075657090-12adddc5-0777-41a0-add6-e912179c40a4\",\n  \"pid\": 524454,\n  \"flake\": \"<flake>\",\n  \"request\": {\n    \"action\": \"t3code-update\",\n    \"scope\": \"all\",\n    \"host\": \"test\",\n    \"update\": false,\n    \"cleanup\": false,\n    \"force\": false,\n    \"dryRun\": false,\n    \"extra\": [],\n    \"retention\": 3\n  },\n  \"status\": \"failed\",\n  \"startedAt\": \"2026-10-15T14:47:37.090Z\",\n  \"step\": \"Update the t3code package pin\",\n  \"steps\": [\n    {\n      \"id\": \"1-update-the-t3code-package-pin\",\n      \"label\": \"Update the t3code package pin\",\n      \"status\": \"failed\",\n      \"startedAt\": \"2026-10-15T14:47:37.093Z\",\n      \"finishedAt\": \"2026-10-15T14:47:37.095Z\"\n    }\n  ],\n  \"error\": \"Invalid source pin: (parseJson <-> { readonly version: { string | filter }; readonly channel?: \\\"stable\\\" | \\\"nightly\\\" | undefined; readonly nixpkgsRev?: string | undefined })\\n└─ Type side transformation failure\\n   └─ { readonly version: { string | filter }; readonly channel?: \\\"stable\\\" | \\\"nightly\\\" | undefined; readonly nixpkgsRev?: string | undefined }\\n      └─ [\\\"nixpkgsRev\\\"]\\n         └─ string | undefined\\n            ├─ Expected string, actual 5\\n            └─ Expected undefined, actual 5\",\n  \"finishedAt\": \"2026-10-15T14:47:37.095Z\"\n}\n",
+    "error": null
+  },
+  {
+    "name": "updates-pin-not-object-json",
+    "args": [
+      "t3code-update",
+      "--json"
+    ],
+    "exitCode": 1,
+    "stdout": "{\n  \"id\": \"1792075657294-31c40cb0-6b3b-4f4e-80d3-2c58bbdf4af3\",\n  \"pid\": 524486,\n  \"flake\": \"<flake>\",\n  \"request\": {\n    \"action\": \"t3code-update\",\n    \"scope\": \"all\",\n    \"host\": \"test\",\n    \"update\": false,\n    \"cleanup\": false,\n    \"force\": false,\n    \"dryRun\": false,\n    \"extra\": [],\n    \"retention\": 3\n  },\n  \"status\": \"failed\",\n  \"startedAt\": \"2026-10-15T14:47:37.294Z\",\n  \"step\": \"Update the t3code package pin\",\n  \"steps\": [\n    {\n      \"id\": \"1-update-the-t3code-package-pin\",\n      \"label\": \"Update the t3code package pin\",\n      \"status\": \"failed\",\n      \"startedAt\": \"2026-10-15T14:47:37.297Z\",\n      \"finishedAt\": \"2026-10-15T14:47:37.299Z\"\n    }\n  ],\n  \"error\": \"Invalid source pin: (parseJson <-> { readonly version: { string | filter }; readonly channel?: \\\"stable\\\" | \\\"nightly\\\" | undefined; readonly nixpkgsRev?: string | undefined })\\n└─ Type side transformation failure\\n   └─ Expected { readonly version: { string | filter }; readonly channel?: \\\"stable\\\" | \\\"nightly\\\" | undefined; readonly nixpkgsRev?: string | undefined }, actual []\",\n  \"finishedAt\": \"2026-10-15T14:47:37.299Z\"\n}\n",
+    "error": null
+  },
+  {
+    "name": "updates-invalid-pin-text",
+    "args": [
+      "opencode-update"
+    ],
+    "exitCode": 1,
+    "stdout": "→ Compare the latest release on the pin's channel and inherited recipes, discover hashes, then build before atomically replacing the pin.\n→ Invalid source pin: (parseJson <-> { readonly version: { string | filter }; readonly channel?: \"stable\" | \"nightly\" | undefined; readonly nixpkgsRev?: string | undefined })\n└─ Type side transformation failure\n   └─ { readonly version: { string | filter }; readonly channel?: \"stable\" | \"nightly\" | undefined; readonly nixpkgsRev?: string | undefined }\n      └─ [\"version\"]\n         └─ Expected X.Y.Z or X.Y.Z-nightly.YYYYMMDD.N\n",
+    "error": null
+  },
+  {
+    "name": "updates-missing-pin-text",
+    "args": [
+      "pince-update"
+    ],
+    "exitCode": 1,
+    "stdout": "→ Compare the latest release on the pin's channel and inherited recipes, discover hashes, then build before atomically replacing the pin.\n→ Read current pin: Error: ENOENT: no such file or directory, open '<flake>/pkgs/pince/source.json'\n",
+    "error": null
+  }
+]

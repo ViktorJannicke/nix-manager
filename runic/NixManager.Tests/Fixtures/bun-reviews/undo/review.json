@@ -1,0 +1,35 @@
+{
+  "id": "b0b0b0b0-0000-4000-8000-000000000002",
+  "host": "test",
+  "scope": "home",
+  "createdAt": "2026-10-15T14:47:02.767Z",
+  "fingerprint": "041c24fe18beb844d3c7df0177cded5b0f6b1a3835a8f0c264c0e592eae7d319",
+  "source": "generation",
+  "undo": {
+    "operationId": "1792075622758-45a15b63-f414-4090-834e-885b1ae953a7",
+    "appliedAt": "2026-10-15T14:47:02.762Z",
+    "point": {
+      "changes": [
+        "Install btop",
+        "programs.git.enable on"
+      ],
+      "generations": {
+        "home": 5
+      },
+      "files": [
+        {
+          "path": "modules/apps.nix",
+          "created": false,
+          "written": "904cba551523ecb4b7ef526d219908ffd71b764489f8e342b950a7563b12b425"
+        }
+      ]
+    }
+  },
+  "home": {
+    "path": "/home/user/my-flakes/home-output",
+    "changes": [],
+    "compared": false,
+    "closureSize": 123456789
+  },
+  "operationId": "1792075622763-f369e400-fd4b-4e9a-afe8-4a32f025f731"
+}

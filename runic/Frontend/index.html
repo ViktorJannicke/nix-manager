@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Nix Manager</title>
+    <link rel="icon" href="./nix-manager.svg" type="image/svg+xml" />
+    <script src="webui.js"></script>
+    <!-- The host copies its Views client to runic-views.js, so one build runs on every host. -->
+    <script src="runic-views.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

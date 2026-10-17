@@ -39,7 +39,29 @@
     "root": {
       "inputs": {
         "home-manager": "home-manager",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "runic-sdk": "runic-sdk"
+      }
+    },
+    "runic-sdk": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1792075945,
+        "narHash": "sha256-/YZzneXV6aDolkVjESEUMAGcq42+N8sgIXPIwuuKCh8=",
+        "owner": "Runic-Artifex",
+        "repo": "runic-sdk",
+        "rev": "3c54f34f1013c9d7bb1e8aa4c9b1abc30fd8b30a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Runic-Artifex",
+        "ref": "v0.8.0-preview.3",
+        "repo": "runic-sdk",
+        "type": "github"
       }
     }
   },

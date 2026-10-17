@@ -42,6 +42,68 @@ modules = [
 ```
 
 The module installs the application, its Polkit policy and optional tray service.
+
+### Trying the Runic port
+
+The port in `runic/` (C# on the Runic SDK) installs instead of the Bun version
+with one more line:
+
+```nix
+programs.nix-manager = {
+  enable = true;
+  runic.enable = true;   # off by default until the port replaces the Bun version
+  tray.enable = true;    # the port's daemon with its status icon
+};
+```
+
+The module then installs only the port's package: its `nix-manager` command,
+the desktop entry (with a "Start in system tray" action and `StartupNotify`,
+so the desktop hands `nix-manager ui` an activation token), the icon, bash,
+zsh and fish completions generated from its command line at build time (NixOS
+links them when `programs.bash.completion`, `programs.zsh` or `programs.fish`
+is on), and the Polkit policy that its build generates for the same action,
+whose program is the package's binary wrapper that pkexec runs
+(`/run/wrappers/bin/pkexec`, which the module enables). The host registry,
+`NIX_MANAGER_HOSTS` and the tray options work the same. The Bun package and
+the module's own policy are not installed, so nothing competes for the
+command, the entry or the action; `runic.enable = false` installs exactly what
+it did before. `checks.module` evaluates both configurations and inspects what
+each links into the system path.
+
+Two later one-line changes finish the switch:
+
+1. Make the port the default: in `nixos-module.nix`, `runic.enable`'s
+   `default = false;` becomes `default = true;`.
+2. Remove the Bun version from the module: in `nixos-module.nix`,
+   `useRunic = cfg.runic.enable;` becomes `useRunic = true;`. The module then
+   never installs or evaluates the Bun package or its policy, whatever
+   `runic.enable` says; the Bun files and flake outputs (`package.nix`,
+   `webui.nix`, `src/`, `ui/`, `packages.default`, the Bun checks and VM
+   tests) and the then unused options can go in a separate cleanup.
+
+The port builds for x86_64-linux and aarch64-linux (`packages.runic`). The
+aarch64 build has only been evaluated so far, without an aarch64 builder: its
+NuGet lock files (`packages.linux-arm64.lock.json`, written with `dotnet
+restore NixManager.slnx -r linux-arm64 --force-evaluate` in `runic/`) restore
+in locked mode, and its Bun frontend hash comes from `bun install
+--frozen-lockfile --ignore-scripts --backend=copyfile --os=linux --cpu=arm64`
+on x86_64-linux, which reproduces the x86_64 hash with `--cpu=x64`. Each
+runtime needs its own lock file because nixpkgs restores with `--runtime` for
+the system's runtime identifier alone, and NuGet's locked mode rejects a lock
+file that records other runtimes. The package is published with NativeAOT,
+whose restore adds the compiler packages, so the application also has an AOT
+lock file per runtime (`packages.aot.lock.json`,
+`packages.linux-arm64.aot.lock.json`); the tests run under the JIT and keep
+theirs. Regenerate all of them after changing package references, in
+`runic/`:
+
+```sh
+dotnet restore NixManager.slnx --force-evaluate
+dotnet restore NixManager.slnx --force-evaluate -p:PublishAot=true
+dotnet restore NixManager.slnx --force-evaluate -r linux-arm64
+dotnet restore NixManager.slnx --force-evaluate -r linux-arm64 -p:PublishAot=true
+```
+
 It writes the host registry to `/etc/nix-manager/hosts.json` and sets
 `NIX_MANAGER_HOSTS` for login sessions and the tray. An empty `hosts` option uses
 `data/hosts.nix` from the selected configuration checkout when it exists, and
@@ -292,6 +354,38 @@ reload grace period. An active operation finishes before the backend exits.
 Hidden or minimized dashboards remain connected without relying on UI polling.
 Tray mode and `--no-open` stay resident until quit or interrupted.
 
+#### The Runic port's daemon
+
+The Runic port in `runic/` runs as one per-user process (decision D025). With
+`programs.nix-manager.runic.enable = true` (off by default until the port
+replaces the Bun version; see [Trying the Runic port](#trying-the-runic-port)),
+the `nix-manager-tray` user service runs `nix-manager tray` from the port,
+windowless with the status icon, and that process owns every operation. The
+port is then the only version installed. Without the option, the Bun version
+runs alone.
+
+- `nix-manager ui` hands its launch to the daemon over the single-instance
+  socket in `XDG_RUNTIME_DIR`. The daemon opens its dashboard Window, or brings
+  the open one forward. Closing the Window leaves a running operation running.
+  Without a daemon, `ui` becomes that process for as long as its Window is open
+  or an operation runs. Command lines reach it in the same way, and a tray that
+  starts meanwhile waits for it to end.
+- Operation commands hand their request to the daemon when it runs for the same
+  checkout, host and state directory. The daemon streams the operation back, so
+  the terminal shows the same output, `--json` included, and the command exits
+  with the same status. Ctrl+C cancels the operation in the daemon. A second
+  operation is refused with the operation lock's message. Status, history,
+  previews (`--dry-run`), help and completions run in the command's own process.
+  Without a daemon, with `NIX_MANAGER_DAEMON=0`, or without `XDG_RUNTIME_DIR`,
+  commands run in their own process as before. Over SSH, operations with a
+  privileged step also run there, so that Polkit asks on the terminal and not
+  on the desktop.
+- The daemon checks for updates, prepares them and cleans up weekly on the same
+  schedule as the Bun tray. It applies the home part of an update applied on
+  the next boot, and observes the system after every operation. When an
+  operation that neither a Window nor a terminal shows ends, it sends a
+  notification.
+
 ### Translations
 
 The dashboard, the setup assistant and the tray speak English or German. They
@@ -312,6 +406,19 @@ data shown through `t(item.title)` is listed in the test. German lives in `src/l
 the interface. `test/i18n.test.ts` fails when a text has no German, a
 placeholder is lost, a text is translated two ways, or a translation is no
 longer used.
+
+The Runic port keeps one Runic Translations catalogue for both sides, in
+`runic/Frontend/translations`: keyed messages (`en.rmf2`, `de.rmf2`), the text
+the backend stores in English (`stored/`, imported from the Bun catalogue by
+`runic/Frontend/scripts/import-bun-catalog.py`), and the daemon's status icon,
+menu and notifications (`tray/`). The page reads it through the Vite plugin as
+`m.*()`. The daemon reads `tray/` and `stored/` from the same files, embedded
+in its assembly, with a small reader for the part of RMF2 they use
+(`runic/Daemon/TrayText.cs`): its `tray_*` messages, and stored text found by
+its English as the page's `stored()` does. It does not use the C# that
+Runic.Translations.Build would generate for the whole catalogue, which costs
+the idle daemon about 50 MiB; `TrayMessages` keeps the generated names, so that
+class can replace the reader later. The tray follows the dashboard's language setting while it runs.
 
 German uses the formal "Sie", „these quotes“ and the same word for the same
 thing everywhere:
@@ -434,7 +541,9 @@ with no external asset requests. `bun build.ts` builds the browser app with Vite
 and embeds its explicit HTML/CSS/JS asset map in the Bun entry point. Effect 3,
 `@effect/cli`, and Clack are pinned in both dependency lock files.
 
-Generated completions are available for the shells supported by `@effect/cli`:
+The Runic port's package installs its completions itself. For the Bun
+version, generated completions are available for the shells supported by
+`@effect/cli`:
 
 ```sh
 nix-manager --completions bash > ~/.local/share/bash-completion/completions/nix-manager
@@ -460,14 +569,57 @@ run as part of the package's Bun test suite.
 
 ### Desktop and screen-reader VM tests
 
-Three slower NixOS VM tests in `nix/lab` run outside `nix flake check`. They
+Slower NixOS VM tests in `nix/lab` run outside `nix flake check`. They
 need KVM:
 
 ```sh
 nix build .#desktop-a11y   # GNOME and Orca: tab order, typing, and what Orca says
 nix build .#speech-audio   # Orca's real speech, recorded and heard by whisper.cpp
 nix build .#desktop-apply  # the dashboard and software apply for real, a reboot, cleanup
+nix build .#desktop-a11y-runic   # the same machine with the Runic port installed
+nix build .#speech-audio-runic   # Orca's speech, and Tab stops in the port's dashboard
+nix build .#webkit-attribute-run # the WebKitGTK attribute-run abort in both WebKitGTK flavours
 ```
+
+The `-runic` tests install the port through `programs.nix-manager.runic.enable`
+(`machine.nix` takes `runic = true`). `desktop-a11y-runic` checks the installed
+command, the policy (pkexec maps the program to the action and runs the
+privileged helper as root), the desktop entry and the completions. It opens the
+setup assistant without a checkout: Tab reaches the folder entry and "Create my
+configuration", Orca names them, and typing reaches the entry. Then, with a
+seeded `~/my-flakes` and a registered host, it walks the dashboard's Tab cycle
+without Orca and with it. The expectations are about structure, so page
+changes keep the test valid: the skip link comes first, the navigation's
+buttons (read from the page) follow in order, at most one stop has no name
+(G-17, the stop outside the web view; not seen with SDK 0.8.0-preview.3), and
+Orca's walk has the same stops and says their names. The test then opens
+Settings by keyboard. In `checklist.txt` it records what Orca says for headings
+(H), lists (L), the theme radio group and its arrow keys, and how a heading's
+size changes with Ctrl and + (G-18) and with GNOME's large text. Only a web
+process crash fails those steps. The AT-SPI application is `nix-manager`
+(Chromium's is `chrom…`), and its window class is `nix-manager`.
+
+WebKitGTK 2.54.1 aborts its web process when Orca asks for the text attributes
+of a list item whose text is only the U+FFFC of an embedded button and whose
+last node has no box, such as whitespace or the comment anchors Svelte leaves.
+A `CrashOnOverflow` in `textAttributesWithUTF8Offset` indexes its
+UTF-16-to-UTF-8 offset table out of bounds, and the Window freezes. GTK 4's
+webkitgtk-6.0 aborts the same way, and WebKit main still has the unchecked
+index. The dashboard's navigation items are `display: contents`, which WebKitGTK
+answers without that computation, and each gives its position with
+`aria-setsize` and `aria-posinset`, so Orca says "list with 8 items" when Tab
+enters the navigation, as with the Bun version (`runic/Frontend/src/App.svelte`).
+`nix build .#webkit-attribute-run` opens the minimal pages of
+`nix/lab/webkit-attribute-run` in both WebKitGTK flavours and records which
+abort; `REPORT.md` there is the upstream report. The VM test counts the web
+process's core dumps after every Tab and names the press. It also checks that
+Orca says the list's size and reads the new number of restore points to keep.
+
+WebKitGTK sends no AT-SPI event when the text of a live region changes, so Orca
+announces no live region in the port (Chromium does, with the same page). The
+restore points to keep are therefore a spin button, whose value Orca reads as it
+changes; its "Keep more" and "Keep fewer" buttons are for the pointer and leave
+focus on it. `nix run .#lab-runic` drives the port's VM like `.#lab`.
 
 Orca's speech is written to a text transcript, so the tests compare exactly
 what a screen-reader user hears. `desktop-apply` boots through systemd-boot
@@ -480,6 +632,14 @@ accessibility tree or Orca's speech, copy files in and out, and run commands
 inside it. `nix run .#lab-apply` does the same with the `desktop-apply` VM and
 alice's checkout. Only one lab runs at a time. `nix run .#lab`
 lists them. Nothing opens on the host desktop.
+
+### Runic against Bun: start-up, memory and size
+
+`nix run .#compare -- [DIRECTORY]` measures both versions the same way inside
+the Hyprland sandbox below (no host desktop, session bus or network, fresh
+state directories and a fixture checkout) and writes a table to
+`DIRECTORY/report.md`. [runic/COMPARISON.md](runic/COMPARISON.md) has the
+method and the latest numbers.
 
 ### Hyprland on the GPU, without a VM
 

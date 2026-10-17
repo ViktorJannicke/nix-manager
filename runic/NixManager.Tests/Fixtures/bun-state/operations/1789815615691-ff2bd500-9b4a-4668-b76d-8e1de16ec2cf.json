@@ -1,0 +1,29 @@
+{
+  "id": "1789815615691-ff2bd500-9b4a-4668-b76d-8e1de16ec2cf",
+  "pid": 129879,
+  "flake": "/home/user/my-flakes",
+  "request": {
+    "action": "check",
+    "scope": "all",
+    "host": "desktop",
+    "update": false,
+    "cleanup": false,
+    "force": false,
+    "dryRun": false,
+    "extra": [],
+    "retention": 3
+  },
+  "status": "succeeded",
+  "startedAt": "2026-09-19T11:00:15.691Z",
+  "step": "Complete",
+  "steps": [
+    {
+      "id": "1-check-inputs-and-package-releases",
+      "label": "Check inputs and package releases",
+      "status": "succeeded",
+      "startedAt": "2026-09-19T11:00:15.694Z",
+      "finishedAt": "2026-09-19T11:00:17.789Z"
+    }
+  ],
+  "finishedAt": "2026-09-19T11:00:17.790Z"
+}

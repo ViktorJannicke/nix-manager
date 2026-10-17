@@ -1,0 +1,29 @@
+{
+  "id": "1790107522576-f1f493f8-ff91-4054-bbfb-c506dc96ec61",
+  "pid": 3327853,
+  "flake": "/home/user/my-flakes",
+  "request": {
+    "action": "pince-update",
+    "scope": "home",
+    "host": "desktop",
+    "update": false,
+    "cleanup": false,
+    "force": false,
+    "dryRun": false,
+    "extra": [],
+    "retention": 3
+  },
+  "status": "succeeded",
+  "startedAt": "2026-09-22T20:05:22.576Z",
+  "step": "Complete",
+  "steps": [
+    {
+      "id": "1-update-pince-package-pin",
+      "label": "Update pince package pin",
+      "status": "succeeded",
+      "startedAt": "2026-09-22T20:05:22.576Z",
+      "finishedAt": "2026-09-22T20:05:34.823Z"
+    }
+  ],
+  "finishedAt": "2026-09-22T20:05:34.823Z"
+}

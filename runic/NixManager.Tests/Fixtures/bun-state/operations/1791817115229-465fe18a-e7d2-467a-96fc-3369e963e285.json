@@ -1,0 +1,108 @@
+{
+  "id": "1791817115229-465fe18a-e7d2-467a-96fc-3369e963e285",
+  "pid": 745467,
+  "flake": "/home/user/my-flakes",
+  "request": {
+    "action": "review-build",
+    "scope": "all",
+    "host": "desktop",
+    "update": true,
+    "cleanup": false,
+    "force": false,
+    "dryRun": false,
+    "extra": [],
+    "retention": 3,
+    "reviewId": "2f89612a-fb6f-4e01-bbd6-530c836e1eae"
+  },
+  "status": "succeeded",
+  "startedAt": "2026-10-12T14:58:35.229Z",
+  "step": "Complete",
+  "steps": [
+    {
+      "id": "1-resolve-all-flake-inputs",
+      "label": "Resolve all flake inputs",
+      "status": "succeeded",
+      "startedAt": "2026-10-12T14:58:35.238Z",
+      "progress": {
+        "evaluating": true,
+        "builds": {
+          "done": 0,
+          "expected": 0,
+          "running": 0,
+          "failed": 0
+        },
+        "downloads": {
+          "done": 0,
+          "expected": 0,
+          "running": 0
+        },
+        "bytes": {
+          "done": 0,
+          "expected": 0
+        },
+        "current": []
+      },
+      "finishedAt": "2026-10-12T14:58:37.885Z"
+    },
+    {
+      "id": "2-build-home-configuration",
+      "label": "Build home configuration",
+      "status": "succeeded",
+      "startedAt": "2026-10-12T14:58:37.885Z",
+      "progress": {
+        "evaluating": false,
+        "builds": {
+          "done": 15,
+          "expected": 15,
+          "running": 0,
+          "failed": 0
+        },
+        "downloads": {
+          "done": 1,
+          "expected": 1,
+          "running": 0
+        },
+        "bytes": {
+          "done": 255840664,
+          "expected": 255840664
+        },
+        "current": []
+      },
+      "finishedAt": "2026-10-12T14:59:33.316Z"
+    },
+    {
+      "id": "3-build-system-configuration",
+      "label": "Build system configuration",
+      "status": "succeeded",
+      "startedAt": "2026-10-12T14:59:33.317Z",
+      "progress": {
+        "evaluating": true,
+        "builds": {
+          "done": 0,
+          "expected": 0,
+          "running": 0,
+          "failed": 0
+        },
+        "downloads": {
+          "done": 0,
+          "expected": 0,
+          "running": 0
+        },
+        "bytes": {
+          "done": 0,
+          "expected": 0
+        },
+        "current": []
+      },
+      "finishedAt": "2026-10-12T14:59:41.283Z"
+    },
+    {
+      "id": "4-compare-with-the-active-configuration",
+      "label": "Compare with the active configuration",
+      "status": "succeeded",
+      "startedAt": "2026-10-12T14:59:41.284Z",
+      "finishedAt": "2026-10-12T14:59:41.688Z"
+    }
+  ],
+  "finishedAt": "2026-10-12T14:59:41.689Z"
+}
