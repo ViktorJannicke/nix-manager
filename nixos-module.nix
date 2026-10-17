@@ -62,14 +62,15 @@ in
     runic = {
       enable = lib.mkOption {
         type = lib.types.bool;
-        default = false;
+        default = true;
         description = ''
           Install the Runic port instead of the Bun version: its
           `nix-manager` command, desktop entry, icon, shell completions and
           Polkit policy (the same action), and a tray service that runs its
           daemon, which owns every operation, shows the status icon and
           opens the dashboard window. The Bun package is then not installed.
-          Off by default until the port replaces the Bun version (W300-032).
+          Set it to `false` to install the Bun version (`package`) and the
+          module's Polkit policy instead, exactly as before the port.
         '';
       };
       package = lib.mkOption {

@@ -116,7 +116,7 @@ public static class DashboardApplication
 
 /// <summary>
 /// <c>nix-manager ui</c> with its options, which the command line hands back to <c>Main</c>, because the Desktop host
-/// must start on the main thread before any <see langword="await"/> (<see cref="Cli.NixManagerCli.Run"/>).
+/// must start on the main thread before any <see langword="await"/> (<see cref="Cli.NixManagerCli.Run(string[], Cli.CliSession, Runic.CommandLine.ICommandConsole, bool, CancellationToken)"/>).
 /// </summary>
 public static class DashboardCommand
 {

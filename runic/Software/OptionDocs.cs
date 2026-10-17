@@ -103,12 +103,13 @@ public sealed class Memo<T>
             value = compute();
             _entries[slot] = (key, value);
         }
-        // Failures are not cached.
+        // Failures are not cached. The entry goes as the task fails (at once for one that failed already), so no later
+        // Get returns it.
         _ = value.ContinueWith(_ =>
         {
             lock (_lock)
                 if (_entries.TryGetValue(slot, out var entry) && entry.Value == value) _entries.Remove(slot);
-        }, CancellationToken.None, TaskContinuationOptions.NotOnRanToCompletion, TaskScheduler.Default);
+        }, CancellationToken.None, TaskContinuationOptions.NotOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         return value;
     }
 

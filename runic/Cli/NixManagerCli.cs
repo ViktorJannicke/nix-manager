@@ -38,7 +38,7 @@ public sealed class CliSession
     /// <summary>Runs processes whose output goes to a file, such as the package catalog's evaluation.</summary>
     public IProcessRunner Processes { get; init; } = new ProcessRunner(new LocalExecutablePolicy());
     /// <summary>
-    /// Runs <c>ui</c> on the thread that called <see cref="NixManagerCli.Run"/>, once the command line has returned, and
+    /// Runs <c>ui</c> on the thread that called <see cref="NixManagerCli.Run(string[], CliSession, ICommandConsole, bool, CancellationToken)"/>, once the command line has returned, and
     /// returns its exit code; the dashboard's Desktop host must start there before any <see langword="await"/>.
     /// </summary>
     public Func<Dashboard.DashboardCommand.Invocation, int> Dashboard { get; init; } = global::NixManager.Dashboard.DashboardCommand.Run;
@@ -89,7 +89,7 @@ public static class NixManagerCli
         return app.Run(arguments, cancellationToken);
     }
 
-    /// <summary>Runs the command line as <see cref="Run"/> does, except <c>ui</c> and <c>tray</c>, which need the calling thread.</summary>
+    /// <summary>Runs the command line as <see cref="Run(string[], CliSession, ICommandConsole, bool, CancellationToken)"/> does, except <c>ui</c> and <c>tray</c>, which need the calling thread.</summary>
     public static async Task<int> RunAsync(string[] args, CliSession? session = null, ICommandConsole? console = null,
         bool handleSignals = true, CancellationToken cancellationToken = default)
     {

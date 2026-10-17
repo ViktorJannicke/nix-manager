@@ -43,20 +43,20 @@ modules = [
 
 The module installs the application, its Polkit policy and optional tray service.
 
-### Trying the Runic port
+### The Runic port and the Bun version
 
-The port in `runic/` (C# on the Runic SDK) installs instead of the Bun version
-with one more line:
+The module installs the port in `runic/` (C# on the Runic SDK) by default;
+`runic.enable = false` installs the Bun version instead:
 
 ```nix
 programs.nix-manager = {
   enable = true;
-  runic.enable = true;   # off by default until the port replaces the Bun version
-  tray.enable = true;    # the port's daemon with its status icon
+  tray.enable = true;      # the port's daemon with its status icon
+  # runic.enable = false;  # the Bun version, its tray and the module's policy
 };
 ```
 
-The module then installs only the port's package: its `nix-manager` command,
+With the port, the module installs only the port's package: its `nix-manager` command,
 the desktop entry (with a "Start in system tray" action and `StartupNotify`,
 so the desktop hands `nix-manager ui` an activation token), the icon, bash,
 zsh and fish completions generated from its command line at build time (NixOS
@@ -67,19 +67,17 @@ whose program is the package's binary wrapper that pkexec runs
 `NIX_MANAGER_HOSTS` and the tray options work the same. The Bun package and
 the module's own policy are not installed, so nothing competes for the
 command, the entry or the action; `runic.enable = false` installs exactly what
-it did before. `checks.module` evaluates both configurations and inspects what
-each links into the system path.
+the module installed before the port: the Bun package, its tray and the
+module's own policy. `checks.module` evaluates the default and both explicit
+settings and inspects what each links into the system path.
 
-Two later one-line changes finish the switch:
-
-1. Make the port the default: in `nixos-module.nix`, `runic.enable`'s
-   `default = false;` becomes `default = true;`.
-2. Remove the Bun version from the module: in `nixos-module.nix`,
-   `useRunic = cfg.runic.enable;` becomes `useRunic = true;`. The module then
-   never installs or evaluates the Bun package or its policy, whatever
-   `runic.enable` says; the Bun files and flake outputs (`package.nix`,
-   `webui.nix`, `src/`, `ui/`, `packages.default`, the Bun checks and VM
-   tests) and the then unused options can go in a separate cleanup.
+One later one-line change finishes the switch: remove the Bun version from
+the module. In `nixos-module.nix`, `useRunic = cfg.runic.enable;` becomes
+`useRunic = true;`. The module then
+never installs or evaluates the Bun package or its policy, whatever
+`runic.enable` says; the Bun files and flake outputs (`package.nix`,
+`webui.nix`, `src/`, `ui/`, `packages.default`, the Bun checks and VM tests)
+and the then unused options can go in a separate cleanup.
 
 The port builds for x86_64-linux and aarch64-linux (`packages.runic`). The
 aarch64 build has only been evaluated so far, without an aarch64 builder: its
@@ -358,12 +356,12 @@ Tray mode and `--no-open` stay resident until quit or interrupted.
 #### The Runic port's daemon
 
 The Runic port in `runic/` runs as one per-user process (decision D025). With
-`programs.nix-manager.runic.enable = true` (off by default until the port
-replaces the Bun version; see [Trying the Runic port](#trying-the-runic-port)),
+the port installed (`programs.nix-manager.runic.enable`, the default; see
+[The Runic port and the Bun version](#the-runic-port-and-the-bun-version)),
 the `nix-manager-tray` user service runs `nix-manager tray` from the port,
 windowless with the status icon, and that process owns every operation. The
-port is then the only version installed. Without the option, the Bun version
-runs alone.
+port is then the only version installed. With `runic.enable = false`, the Bun
+version runs alone.
 
 - `nix-manager ui` hands its launch to the daemon over the single-instance
   socket in `XDG_RUNTIME_DIR`. The daemon opens its dashboard Window, or brings
@@ -588,7 +586,8 @@ nix build .#webkit-attribute-run # the WebKitGTK attribute-run abort in both Web
 ```
 
 The `-runic` tests install the port through `programs.nix-manager.runic.enable`
-(`machine.nix` takes `runic = true`). `desktop-a11y-runic` checks the installed
+(`machine.nix` takes `runic = true`; the other tests set it to `false` for the
+Bun version). `desktop-a11y-runic` checks the installed
 command, the policy (pkexec maps the program to the action and runs the
 privileged helper as root), the desktop entry and the completions. It opens the
 setup assistant without a checkout: Tab reaches the folder entry and "Create my
