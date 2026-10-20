@@ -43,7 +43,7 @@ public static class HostResolution
     {
         var matches = hosts.Where(entry => entry.Key == name || entry.Value.NixosHostName == name).ToList();
         if (matches.Count != 1)
-            throw new ManagerException($"Unknown or ambiguous host: {name}. Available: {string.Join(", ", hosts.Keys)}");
+            throw new ManagerException(DisplayText.Of("stored_host_unknown_or_ambiguous", ("name", name), ("hosts", string.Join(", ", hosts.Keys))));
         return matches[0];
     }
 }

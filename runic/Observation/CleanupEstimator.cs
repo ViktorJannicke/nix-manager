@@ -51,7 +51,7 @@ public static class CleanupEstimator
         if (freed.Count == 0) return new CleanupEstimate { Generations = removed.Count, Bytes = 0 };
         Task<CommandResult> Closure(IEnumerable<string> paths, bool sizes) => run(new Command
         {
-            Label = "Measure what cleaning up frees",
+            Label = DisplayText.Of("stored_cleanup_measure_what_it_frees"),
             Argv = ["nix", "path-info", "--recursive", .. sizes ? new[] { "--size" } : [], .. paths],
             Quiet = true,
             FullOutput = true,

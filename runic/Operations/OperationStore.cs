@@ -20,8 +20,8 @@ public sealed partial class OperationStore(Config config)
     public const int LogTail = 256 * 1024;
     public const int HistoryLength = 50;
 
-    public const string InterruptedError =
-        "The manager exited before recording completion. Check the log and active generations before retrying.";
+    /// <summary>The error of an operation whose process ended while it ran.</summary>
+    public static DisplayText InterruptedError => DisplayText.Of("stored_the_manager_exited_before_recording_completion_check");
 
     private (string Key, List<Operation> Operations)? _historyCache;
 
@@ -33,7 +33,7 @@ public sealed partial class OperationStore(Config config)
 
     public string PathOf(string id, string extension)
     {
-        if (!IdPattern().IsMatch(id)) throw new ManagerException("Invalid operation ID.");
+        if (!IdPattern().IsMatch(id)) throw new ManagerException(DisplayText.Of("stored_invalid_operation_id"));
         return Path.Combine(Directory, $"{id}.{extension}");
     }
 
@@ -177,7 +177,7 @@ public sealed partial class OperationStore(Config config)
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            throw new ManagerException($"Save update report: {e.Message}");
+            throw new ManagerException(DisplayText.Of("stored_save_update_report", ("error", DisplayText.Plain(e.Message))));
         }
     }
 
@@ -210,7 +210,7 @@ public sealed partial class OperationStore(Config config)
     }
 
     /// <summary>Why an operation cannot start while another runs, in any manager process.</summary>
-    internal static ManagerException Busy() => new("Another nix-manager operation is running. Wait for it to finish.");
+    internal static ManagerException Busy() => new(DisplayText.Of("stored_another_nix_manager_operation_is_running_wait"));
 }
 
 public static partial class Native

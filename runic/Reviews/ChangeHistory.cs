@@ -24,11 +24,15 @@ public static partial class ChangeHistory
     /// <summary>Marks the commits Nix Manager makes, so the history can tell them apart.</summary>
     private const string Trailer = "Applied-with";
 
-    /// <summary>A commit message from what a change did: the first part as subject, every part in the body (<c>changeMessage</c>).</summary>
-    public static string ChangeMessage(IReadOnlyList<string> changes)
+    /// <summary>
+    /// A commit message from what a change did: the first part as subject, every part in the body (<c>changeMessage</c>).
+    /// Commit messages are English.
+    /// </summary>
+    public static string ChangeMessage(IReadOnlyList<DisplayText> changes)
     {
-        var subject = changes.Count > 1 ? $"{changes[0]} and {changes.Count - 1} more" : changes.Count == 1 ? changes[0] : "Apply the configuration";
-        return changes.Count > 1 ? $"{subject}\n\n{string.Join('\n', changes.Select(change => $"- {change}"))}" : subject;
+        var parts = changes.Select(change => change.English).ToList();
+        var subject = parts.Count > 1 ? $"{parts[0]} and {parts.Count - 1} more" : parts.Count == 1 ? parts[0] : DisplayText.Of("stored_apply_the_configuration").English;
+        return parts.Count > 1 ? $"{subject}\n\n{string.Join('\n', parts.Select(change => $"- {change}"))}" : subject;
     }
 
     private static string LastLine(string text) => text.Trim().Split('\n')[^1];
@@ -36,39 +40,38 @@ public static partial class ChangeHistory
     /// <summary>
     /// Commits exactly the files an apply wrote, with a message saying what it did, and pushes when
     /// <paramref name="backup"/> is on and the branch has an upstream (<c>recordChange</c>). Git failures do not
-    /// fail it: the change is applied already, so it returns what happened, in words, or null when the files did
-    /// not change.
+    /// fail it: the change is applied already, so it returns what happened, or null when the files did not change.
     /// </summary>
     /// <param name="run">Runs the Git commands; the operation service passes its quiet runner.</param>
-    public static async Task<string?> RecordChangeAsync(Config config, IReadOnlyList<string> paths, IReadOnlyList<string> changes, bool backup,
+    public static async Task<DisplayText?> RecordChangeAsync(Config config, IReadOnlyList<string> paths, IReadOnlyList<DisplayText> changes, bool backup,
         Func<Command, Task<CommandResult>> run)
     {
-        Task<CommandResult> Git(string label, IReadOnlyList<string> args, IReadOnlyDictionary<string, string>? env = null) =>
+        Task<CommandResult> Git(DisplayText label, IReadOnlyList<string> args, IReadOnlyDictionary<string, string>? env = null) =>
             run(new Command { Label = label, Argv = ["git", "-C", config.Flake, .. args], AllowFailure = true, Env = env });
-        if ((await Git("Find the Git repository", ["rev-parse", "--is-inside-work-tree"]).ConfigureAwait(false)).Code != 0)
-            return "The configuration is not in a Git repository, so this change is not kept in a history.";
-        var added = await Git("Stage the changed files", ["add", "--all", "--", .. paths]).ConfigureAwait(false);
-        if (added.Code != 0) return $"The change is applied, but not kept in the history: {LastLine(added.Stderr)}";
-        var head = (await Git("Find the last commit", ["rev-parse", "--verify", "--quiet", "HEAD"]).ConfigureAwait(false)).Code == 0;
-        if (head && (await Git("Look for changes", ["diff", "--cached", "--quiet", "HEAD", "--", .. paths]).ConfigureAwait(false)).Code == 0)
+        static DisplayText NotKept(string output) => DisplayText.Of("stored_history_not_kept", ("reason", LastLine(output)));
+        if ((await Git(DisplayText.Of("stored_find_the_git_repository"), ["rev-parse", "--is-inside-work-tree"]).ConfigureAwait(false)).Code != 0)
+            return DisplayText.Of("stored_history_not_a_git_repository");
+        var added = await Git(DisplayText.Of("stored_stage_the_changed_files"), ["add", "--all", "--", .. paths]).ConfigureAwait(false);
+        if (added.Code != 0) return NotKept(added.Stderr);
+        var head = (await Git(DisplayText.Of("stored_find_the_last_commit"), ["rev-parse", "--verify", "--quiet", "HEAD"]).ConfigureAwait(false)).Code == 0;
+        if (head && (await Git(DisplayText.Of("stored_look_for_changes"), ["diff", "--cached", "--quiet", "HEAD", "--", .. paths]).ConfigureAwait(false)).Code == 0)
             return null;
         // Without a Git identity, commits are made in Nix Manager's name.
-        string[] identity = (await Git("Read the Git identity", ["config", "user.email"]).ConfigureAwait(false)).Stdout.Trim().Length > 0
+        string[] identity = (await Git(DisplayText.Of("stored_read_the_git_identity"), ["config", "user.email"]).ConfigureAwait(false)).Stdout.Trim().Length > 0
             ? []
             : ["-c", "user.name=Nix Manager", "-c", "user.email=nix-manager@localhost"];
         var message = ChangeMessage(changes);
-        var committed = await Git("Keep the change in the history",
+        var committed = await Git(DisplayText.Of("stored_keep_the_change_in_the_history"),
             [.. identity, "commit", "--quiet", "--only", "--message", message, "--trailer", $"{Trailer}: Nix Manager", "--", .. paths]).ConfigureAwait(false);
-        if (committed.Code != 0)
-            return $"The change is applied, but not kept in the history: {LastLine(committed.Stderr.Length > 0 ? committed.Stderr : committed.Stdout)}";
-        var recorded = $"Kept \"{message.Split('\n')[0]}\" in the history.";
+        if (committed.Code != 0) return NotKept(committed.Stderr.Length > 0 ? committed.Stderr : committed.Stdout);
+        var recorded = DisplayText.Of("stored_history_kept", ("subject", message.Split('\n')[0]));
         if (!backup) return recorded;
-        var upstream = await Git("Find the backup", ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]).ConfigureAwait(false);
-        if (upstream.Code != 0) return $"{recorded} It is not backed up, because the branch has no remote.";
-        var pushed = await Git("Back up the configuration", ["push", "--quiet"], new Dictionary<string, string> { ["GIT_TERMINAL_PROMPT"] = "0" }).ConfigureAwait(false);
+        var upstream = await Git(DisplayText.Of("stored_find_the_backup"), ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]).ConfigureAwait(false);
+        if (upstream.Code != 0) return DisplayText.Of("stored_history_kept_no_remote", ("recorded", recorded));
+        var pushed = await Git(DisplayText.Of("stored_back_up_the_configuration"), ["push", "--quiet"], new Dictionary<string, string> { ["GIT_TERMINAL_PROMPT"] = "0" }).ConfigureAwait(false);
         return pushed.Code == 0
-            ? $"{recorded} Backed up to {upstream.Stdout.Trim()}."
-            : $"{recorded} The backup failed: {LastLine(pushed.Stderr)}";
+            ? DisplayText.Of("stored_history_kept_backed_up", ("recorded", recorded), ("upstream", upstream.Stdout.Trim()))
+            : DisplayText.Of("stored_history_kept_backup_failed", ("recorded", recorded), ("reason", LastLine(pushed.Stderr)));
     }
 
     [GeneratedRegex("^Applied-with:.*$", RegexOptions.Multiline)]

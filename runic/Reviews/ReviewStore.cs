@@ -32,14 +32,14 @@ public static class ReviewStore
     /// <exception cref="ManagerException">The ID is invalid, or the review is unavailable.</exception>
     public static BuildReview Get(Config config, string id)
     {
-        if (!RequestValidation.ValidId(id)) throw new ManagerException("Invalid review.");
+        if (!RequestValidation.ValidId(id)) throw new ManagerException(DisplayText.Of("stored_invalid_review"));
         try
         {
             return ManagerJson.Deserialize<BuildReview>(File.ReadAllText(ReviewFile(config, id))) ?? throw new JsonException("null");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or NotSupportedException or InvalidOperationException)
         {
-            throw new ManagerException("The selected review is unavailable.");
+            throw new ManagerException(DisplayText.Of("stored_the_selected_review_is_unavailable"));
         }
     }
 
@@ -101,7 +101,7 @@ public static class ReviewStore
     /// <summary>Removes a review and its GC roots; the outputs become collectable (<c>removeReview</c>).</summary>
     public static void Remove(Config config, string id)
     {
-        if (!RequestValidation.ValidId(id)) throw new ManagerException("Invalid review.");
+        if (!RequestValidation.ValidId(id)) throw new ManagerException(DisplayText.Of("stored_invalid_review"));
         var root = Paths.ReviewRoot(config, id);
         // GC roots are links: they are removed, never followed.
         if (Directory.Exists(root) || File.Exists(root)) Directory.Delete(root, recursive: true);
@@ -179,7 +179,7 @@ public static class ReviewStore
             var output = new ReviewOutput { Path = path, Changes = [], Compared = false };
             var sizes = await run(new Command
             {
-                Label = "Measure closure sizes",
+                Label = DisplayText.Of("stored_measure_closure_sizes"),
                 Argv = ["nix", "path-info", "--json", "--closure-size", path, .. current is null ? Array.Empty<string>() : [current]],
                 Quiet = true,
                 AllowFailure = true,
@@ -202,7 +202,7 @@ public static class ReviewStore
             {
                 var diff = await run(new Command
                 {
-                    Label = "Compare package versions",
+                    Label = DisplayText.Of("stored_compare_package_versions"),
                     Argv = ["nix", "store", "diff-closures", current, path],
                     Quiet = true,
                     AllowFailure = true,
@@ -231,7 +231,7 @@ public static class ReviewStore
         var currentSystemPath = RealPath(currentSystem);
         var home = r.Scope != Scopes.System ? await Inspect(Scopes.Home, currentHome).ConfigureAwait(false) : null;
         var system = r.Scope != Scopes.Home ? await Inspect(Scopes.System, currentSystemPath).ConfigureAwait(false) : null;
-        if (home is null && system is null) throw new ManagerException("The build did not produce any output to review.");
+        if (home is null && system is null) throw new ManagerException(DisplayText.Of("stored_build_produced_no_output_to_review"));
         var proposed = Path.Combine(root, "flake.lock");
         var proposal = File.Exists(proposed) ? File.ReadAllText(proposed) : null;
         var review = new BuildReview
@@ -260,7 +260,7 @@ public static class ReviewStore
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            throw new ManagerException($"Save review: {e.Message}");
+            throw new ManagerException(DisplayText.Of("stored_step_failed_because", ("step", DisplayText.Of("stored_save_review")), ("reason", FileErrors.Describe(e))));
         }
         return review;
     }
@@ -273,13 +273,13 @@ public static class ReviewStore
         {
             var target = Path.Combine(config.Flake, "flake.lock");
             if (Repository.HashText(Repository.ReadLock(config.Flake)) != review.Inputs.BaseLockHash)
-                throw new ManagerException("flake.lock changed after this review was prepared. Prepare the update again.");
+                throw new ManagerException(DisplayText.Of("stored_flake_lock_changed_after_review"));
             var proposal = File.ReadAllBytes(Path.Combine(Paths.ReviewRoot(config, review.Id), "flake.lock"));
             AtomicWrite(target, proposal, ModeOf(target));
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            throw new ManagerException($"Write flake.lock: {e.Message}");
+            throw new ManagerException(DisplayText.Of("stored_step_failed_because", ("step", DisplayText.Of("stored_write_flake_lock")), ("reason", FileErrors.Describe(e))));
         }
     }
 }

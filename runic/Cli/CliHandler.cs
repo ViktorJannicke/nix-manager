@@ -15,7 +15,7 @@ internal static class CliHandler
         if (cli.Mode is CliMode.Ui)
         {
             if (cli.Json || cli.Interval != 360)
-                return CliFaults.Failure<RunResult>(CommandExitCategory.Usage, CliFaults.InvalidCommandLine, new ManagerException("The dashboard takes only --flake, --host, --no-open and --browser."));
+                return CliFaults.Failure<RunResult>(CommandExitCategory.Usage, CliFaults.InvalidCommandLine, new ManagerException(DisplayText.Of("stored_cli_dashboard_options")));
             var dashboard = new Dashboard.DashboardCommand.Invocation(cli.Flake, cli.Host, cli.NoOpen, cli.Browser);
             context.ContinueOnCallingThread(() => session.Dashboard(dashboard));
             return CommandOutcome.Success(new RunResult { Kind = RunResult.DashboardKind });
@@ -23,7 +23,7 @@ internal static class CliHandler
         if (cli.Mode is CliMode.Tray)
         {
             if (cli.Json || cli.Browser || cli.NoOpen)
-                return CliFaults.Failure<RunResult>(CommandExitCategory.Usage, CliFaults.InvalidCommandLine, new ManagerException("The tray takes only --flake, --host and --interval."));
+                return CliFaults.Failure<RunResult>(CommandExitCategory.Usage, CliFaults.InvalidCommandLine, new ManagerException(DisplayText.Of("stored_cli_tray_options")));
             var daemon = new Daemon.DaemonCommand.Invocation(cli.Flake, cli.Host, cli.Interval);
             context.ContinueOnCallingThread(() => session.Daemon(daemon));
             return CommandOutcome.Success(new RunResult { Kind = RunResult.TrayKind });

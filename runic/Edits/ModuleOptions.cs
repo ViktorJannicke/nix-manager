@@ -48,7 +48,7 @@ public static partial class ModuleOptions
             case JsonValueKind.Number:
             {
                 var number = double.Parse(value.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture);
-                if (!double.IsFinite(number)) throw new ManagerException("Numbers must be finite.");
+                if (!double.IsFinite(number)) throw new ManagerException(DisplayText.Of("stored_numbers_must_be_finite"));
                 // Number.isInteger: String(value); otherwise toFixed(12) where String would use an exponent.
                 var text = JsJson.Number(number);
                 if (number != Math.Floor(number) && text.Contains('e')) text = ToFixed12(number);
@@ -121,7 +121,7 @@ public static partial class ModuleOptions
             if (bound is null) continue;
             if (bound.Count == path.Count && StartsWith(path, bound)) return new Found(binding, set, []);
             if (StartsWith(bound, path))
-                throw new ManagerException($"{string.Join('.', path)} is written as separate parts here. Edit it in the file.");
+                throw new ManagerException(DisplayText.Of("stored_option_written_as_separate_parts", ("option", string.Join('.', path))));
             var value = binding.ChildForFieldName("expression");
             if (bound.Count < path.Count && StartsWith(path, bound) && value is not null && Attrsets.Contains(value.Type))
             {
@@ -163,13 +163,13 @@ public static partial class ModuleOptions
     private static SyntaxNode ParseModule(string source)
     {
         var tree = PackageLists.ParseValid(source);
-        return ModuleBody(tree.Root) ?? throw new ManagerException("This file is not a module Nix Manager can edit.");
+        return ModuleBody(tree.Root) ?? throw new ManagerException(DisplayText.Of("stored_file_is_not_an_editable_module"));
     }
 
     private static string[] CheckPath(string option)
     {
         var path = option.Split('.');
-        if (!path.All(NixSyntax.Identifier)) throw new ManagerException($"Unsupported option path: {option}");
+        if (!path.All(NixSyntax.Identifier)) throw new ManagerException(DisplayText.Of("stored_unsupported_option_path", ("option", option)));
         return path;
     }
 
@@ -190,7 +190,7 @@ public static partial class ModuleOptions
             if (!Literal(expression))
             {
                 var line = expression.Text.Split('\n')[0];
-                throw new ManagerException($"{option} is computed here ({line[..Math.Min(60, line.Length)]}). Edit it in the file.");
+                throw new ManagerException(DisplayText.Of("stored_option_is_computed_here_as", ("option", option), ("code", line[..Math.Min(60, line.Length)])));
             }
             return PackageLists.Apply(source, expression.StartIndex, expression.EndIndex, text);
         }
@@ -237,7 +237,7 @@ public static partial class ModuleOptions
         var path = CheckPath(option);
         var body = ParseModule(source);
         var found = Locate(body, path);
-        if (found.Binding is not null) throw new ManagerException($"{option} is computed here. Edit it in the file.");
+        if (found.Binding is not null) throw new ManagerException(DisplayText.Of("stored_option_is_computed_here", ("option", option)));
         return InsertBinding(source, found.Set, $"{string.Join('.', found.Rest)} = [ {item} ];");
     }
 
@@ -250,16 +250,16 @@ public static partial class ModuleOptions
     /// <summary>Adds a relative path such as <c>./fzf.nix</c> to a module's <c>imports</c>, starting the list if needed (<c>addImport</c>).</summary>
     public static SourceEdit AddImport(string source, string path)
     {
-        if (!ImportablePath().IsMatch(path)) throw new ManagerException($"{path} cannot be written as a Nix path.");
+        if (!ImportablePath().IsMatch(path)) throw new ManagerException(DisplayText.Of("stored_cannot_be_written_as_a_nix_path", ("path", path)));
         var tree = PackageLists.ParseValid(source);
-        var set = ModuleSet(tree.Root) ?? throw new ManagerException("This file is not a module Nix Manager can edit.");
+        var set = ModuleSet(tree.Root) ?? throw new ManagerException(DisplayText.Of("stored_file_is_not_an_editable_module"));
         var binding = Bindings(set).FirstOrDefault(item => Names(item) is { } names && string.Join('.', names) == "imports");
         if (binding is null) return InsertBinding(source, set, $"imports = [ {path} ];");
         var list = binding.ChildForFieldName("expression");
         if (list?.Type != "list_expression")
-            throw new ManagerException("This file computes its imports. Add the import in the file.");
+            throw new ManagerException(DisplayText.Of("stored_file_computes_its_imports"));
         var elements = list.ChildrenForFieldName("element");
-        if (elements.Any(element => element.Text == path)) throw new ManagerException($"The file already imports {path}.");
+        if (elements.Any(element => element.Text == path)) throw new ManagerException(DisplayText.Of("stored_file_already_imports", ("path", path)));
         var last = elements.Count > 0 ? elements[^1] : null;
         return PackageLists.AppendItem(source, (list.StartIndex, list.EndIndex), last is null ? null : (last.StartIndex, last.EndIndex), path);
     }
@@ -269,7 +269,7 @@ public static partial class ModuleOptions
     {
         var path = CheckPath(option);
         var body = ParseModule(source);
-        var binding = Locate(body, path).Binding ?? throw new ManagerException($"{option} is not set in this file.");
+        var binding = Locate(body, path).Binding ?? throw new ManagerException(DisplayText.Of("stored_option_is_not_set_in_this_file", ("option", option)));
         var start = PackageLists.LineStart(source, binding.StartIndex);
         var end = PackageLists.LineEnd(source, binding.EndIndex);
         if (PackageLists.Blank().IsMatch(source[start..binding.StartIndex]) && PackageLists.BlankOrComment().IsMatch(source[binding.EndIndex..end]))

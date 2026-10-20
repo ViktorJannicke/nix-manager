@@ -33,7 +33,7 @@ public sealed record AppsStatus
     public required string State { get; init; }
     public string? FetchedAt { get; init; }
     /// <summary>The last download failed; a ready catalogue is older.</summary>
-    public string? Error { get; init; }
+    public DisplayText? Error { get; init; }
 }
 
 /// <summary>
@@ -296,7 +296,7 @@ public static partial class Apps
     public static async Task<AppStream> FetchAsync(Config config, INetwork network, TimeProvider clock, CancellationToken cancellationToken)
     {
         var response = await network.GetAsync(AppStreamUrl, followRedirects: true, cancellationToken).ConfigureAwait(false);
-        if (!response.Ok) throw new ManagerException($"Flathub answered {response.Status} {response.Reason}.");
+        if (!response.Ok) throw new ManagerException(DisplayText.Of("stored_flathub_answered", ("status", response.Status), ("reason", response.Reason)));
         string xml;
         try
         {
@@ -306,10 +306,10 @@ public static partial class Apps
         }
         catch (InvalidDataException error)
         {
-            throw new ManagerException(error.Message);
+            throw new ManagerException(DisplayText.Plain(error.Message));
         }
         var result = new AppStream(Timestamps.Now(clock), ParseAppStream(xml));
-        if (result.Apps.Count == 0) throw new ManagerException("Flathub's catalogue lists no apps.");
+        if (result.Apps.Count == 0) throw new ManagerException(DisplayText.Of("stored_flathub_s_catalogue_lists_no_apps"));
         OperationStore.CreatePrivateDirectory(Path.Combine(config.StateDir, "apps"));
         OperationStore.AtomicJson(AppStreamPath(config), ManagerJson.Serialize(result));
         return result;

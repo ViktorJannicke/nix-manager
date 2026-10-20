@@ -5,10 +5,10 @@ using NixManager.Execution;
 namespace NixManager.Setup;
 
 /// <summary>A step of creating the checkout, with its status: waiting, running, done or failed.</summary>
-public sealed record SetupStepState(string Id, string Label, string Status);
+public sealed record SetupStepState(string Id, DisplayText Label, string Status);
 
 /// <summary>Why the dashboard could not start; nothing else is offered then.</summary>
-public sealed record SetupProblem(string Message, string Flake);
+public sealed record SetupProblem(DisplayText Message, string Flake);
 
 /// <summary>The setup assistant's state as the interface shows it.</summary>
 public sealed record SetupState
@@ -18,7 +18,7 @@ public sealed record SetupState
     public string? Target { get; init; }
     public IReadOnlyList<SetupStepState> Steps { get; init; } = [];
     public bool Running { get; init; }
-    public string? Error { get; init; }
+    public DisplayText? Error { get; init; }
     /// <summary>The dashboard's address, once it runs.</summary>
     public string? Next { get; init; }
     public SetupProblem? Problem { get; init; }
@@ -108,14 +108,14 @@ public sealed class SetupAssistantService
         }
         catch (Exception error) when (error is ManagerException or IOException or UnauthorizedAccessException)
         {
-            Update(state => state with { Error = error.Message });
+            Update(state => state with { Error = DisplayText.From(error) });
         }
     }
 
     private void Refuse()
     {
-        if (_state.Problem is not null) throw new ManagerException("Nix Manager could not start.");
-        if (_state.Running || _state.Next is not null) throw new ManagerException("Setup is already running.");
+        if (_state.Problem is not null) throw new ManagerException(DisplayText.Of("stored_nix_manager_could_not_start"));
+        if (_state.Running || _state.Next is not null) throw new ManagerException(DisplayText.Of("stored_setup_is_already_running"));
     }
 
     /// <summary>Reads the computer again, such as after the user enabled flakes or fixed /etc/nixos.</summary>
@@ -145,7 +145,7 @@ public sealed class SetupAssistantService
             var refused = _state.Info?.Blocked ?? SetupAssistant.TargetProblem(path, _environment.HomeDirectory);
             if (refused is not null) throw new ManagerException(refused);
             // Before the computer was read there is nothing to create from; the reading's error says why.
-            info = _state.Info ?? throw new ManagerException(_state.Error ?? "Setup is still reading this computer.");
+            info = _state.Info ?? throw new ManagerException(_state.Error ?? DisplayText.Of("stored_setup_is_still_reading_this_computer"));
             _state = _state with { Running = true, Error = null, Target = path, Steps = Waiting() };
         }
         Update(state => state);
@@ -172,7 +172,7 @@ public sealed class SetupAssistantService
         }
         catch (Exception error)
         {
-            Update(state => state with { Steps = Finish(state.Steps, StatusFailed), Running = false, Error = error.Message });
+            Update(state => state with { Steps = Finish(state.Steps, StatusFailed), Running = false, Error = DisplayText.From(error) });
             return;
         }
         Update(state => state with { Steps = Finish(state.Steps, StatusDone), Running = false });

@@ -50,7 +50,7 @@ public sealed record CatalogStatus
     public required string State { get; init; }
     public int? Count { get; init; }
     public string? BuiltAt { get; init; }
-    public string? Error { get; init; }
+    public DisplayText? Error { get; init; }
 }
 
 /// <summary>The package catalog of a configuration's <c>pkgs</c>.</summary>
@@ -132,11 +132,11 @@ public static partial class Catalog
             }
             if (result.State == ProcessState.Cancelled) throw new OperationCanceledException(cancellationToken);
             if (result.State != ProcessState.Exited)
-                throw new ManagerException($"Build package catalog: Error: {result.Fault?.Message ?? result.State.ToString()}");
+                throw new ManagerException(DisplayText.Of("stored_catalog_build_failed", ("reason", result.Fault?.Message ?? result.State.ToString())));
             if (result.ExitCode != 0)
             {
                 var stderr = result.StandardError.Text;
-                throw new ManagerException($"Package catalog evaluation failed. {(stderr.Length > 1200 ? stderr[^1200..] : stderr).Trim()}");
+                throw new ManagerException(DisplayText.Of("stored_catalog_evaluation_failed", ("output", (stderr.Length > 1200 ? stderr[^1200..] : stderr).Trim())));
             }
             File.Move(temporary, target, overwrite: true);
             // Catalogs of earlier lock files or versions are not read again.
@@ -145,7 +145,7 @@ public static partial class Catalog
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
-            throw new ManagerException($"Build package catalog: Error: {error.Message}");
+            throw new ManagerException(DisplayText.Of("stored_catalog_build_failed", ("reason", error.Message)));
         }
         finally
         {

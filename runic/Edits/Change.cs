@@ -30,7 +30,10 @@ public static class Targets
 /// <remarks>Two edits are equal when their members are, option values compared as JSON.</remarks>
 /// <param name="Scope"><c>home</c> or <c>system</c>.</param>
 /// <param name="File">Path of the edited file inside the flake.</param>
-/// <param name="Label">What the change belongs to, such as an experience title.</param>
+/// <param name="Label">
+/// What the change belongs to, such as an experience title: a message of the catalogue, or English text in edits
+/// stored before labels were messages.
+/// </param>
 [RunicUnion(typeof(AddPackage), typeof(RemovePackage), typeof(SetOption), typeof(UnsetOption), typeof(CreateModule))]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(AddPackage), ChangeKinds.AddPackage)]
@@ -41,8 +44,11 @@ public static class Targets
 public abstract record Change(
     [property: JsonPropertyOrder(-2)] string Scope,
     [property: JsonPropertyOrder(-1)] string File,
-    [property: JsonPropertyOrder(2)] string? Label)
+    [property: JsonPropertyOrder(2)] DisplayText? Label)
 {
+    /// <summary>The longest label reference, in characters of JSON.</summary>
+    private const int LabelLimit = 4096;
+
     /// <summary>A change's subject, for messages: the attribute or option it edits, or the file it creates.</summary>
     [JsonIgnore] public string Subject => this switch
     {
@@ -51,7 +57,7 @@ public abstract record Change(
         _ => File,
     };
 
-    private static ManagerException Invalid(string why) => new($"Invalid edit: {why}");
+    private static ManagerException Invalid(DisplayText why) => new(DisplayText.Of("stored_invalid_edit", ("reason", why)));
 
     /// <summary>
     /// Validates an edit read from <c>draft.json</c>, the page or the command line: a known <c>kind</c>, a known
@@ -60,12 +66,26 @@ public abstract record Change(
     /// <exception cref="ManagerException">The value is not an edit.</exception>
     public static Change Decode(JsonNode? node)
     {
-        if (node is not JsonObject json) throw Invalid("expected an object.");
+        if (node is not JsonObject json) throw Invalid(DisplayText.Of("stored_invalid_edit_not_an_object"));
         string Required(string name, int limit)
         {
-            if (json[name] is not JsonValue value || !value.TryGetValue<string>(out var text)) throw Invalid($"{name} is missing.");
-            if (text.Length > limit) throw Invalid($"{name} is longer than {limit} characters.");
+            if (json[name] is not JsonValue value || !value.TryGetValue<string>(out var text))
+                throw Invalid(DisplayText.Of("stored_invalid_edit_missing", ("name", name)));
+            if (text.Length > limit) throw Invalid(DisplayText.Of("stored_invalid_edit_too_long", ("name", name), ("limit", limit)));
             return text;
+        }
+        // A label is a text reference, or English text in edits stored before labels were messages.
+        DisplayText? Label()
+        {
+            if (!json.ContainsKey("label")) return null;
+            if (json["label"] is JsonObject reference)
+            {
+                var text = reference.ToJsonString();
+                if (text.Length > LabelLimit) throw Invalid(DisplayText.Of("stored_invalid_edit_too_long", ("name", "label"), ("limit", LabelLimit)));
+                try { return JsonSerializer.Deserialize(text, ManagerJson.Compact.DisplayText); }
+                catch (JsonException) { throw Invalid(DisplayText.Of("stored_invalid_edit_label")); }
+            }
+            return DisplayText.Plain(Required("label", 120));
         }
         var kind = Required("kind", int.MaxValue);
         // The case's own member is checked before the shared ones.
@@ -74,12 +94,12 @@ public abstract record Change(
             ChangeKinds.AddPackage or ChangeKinds.RemovePackage => Required("attr", 256),
             ChangeKinds.SetOption or ChangeKinds.UnsetOption => Required("option", 256),
             ChangeKinds.CreateModule => Required("importer", 256),
-            _ => throw Invalid($"unknown kind {kind}."),
+            _ => throw Invalid(DisplayText.Of("stored_invalid_edit_unknown_kind", ("kind", kind))),
         };
         var scope = Required("scope", int.MaxValue);
-        if (scope is not (Targets.Home or Targets.System)) throw Invalid($"unknown scope {scope}.");
+        if (scope is not (Targets.Home or Targets.System)) throw Invalid(DisplayText.Of("stored_invalid_edit_unknown_scope", ("scope", scope)));
         var file = Required("file", 256);
-        var label = json.ContainsKey("label") ? Required("label", 120) : null;
+        var label = Label();
         return kind switch
         {
             ChangeKinds.AddPackage => new AddPackage(scope, file, own, label),
@@ -94,8 +114,8 @@ public abstract record Change(
     /// <exception cref="ManagerException">The value is not such a list.</exception>
     public static List<Change> DecodeList(JsonNode? node)
     {
-        if (node is not JsonArray items) throw new ManagerException("Invalid edits: expected a list.");
-        if (items.Count > 200) throw new ManagerException("Invalid edits: at most 200 are allowed.");
+        if (node is not JsonArray items) throw new ManagerException(DisplayText.Of("stored_invalid_edits_not_a_list"));
+        if (items.Count > 200) throw new ManagerException(DisplayText.Of("stored_invalid_edits_too_many", ("limit", 200)));
         return items.Select(Decode).ToList();
     }
 
@@ -116,25 +136,25 @@ public abstract record Change(
 
 /// <summary>An edit of a package list.</summary>
 /// <param name="Attr">Package attribute, such as <c>pkgs.fzf</c>.</param>
-public abstract record PackageEdit(string Scope, string File, string Attr, string? Label) : Change(Scope, File, Label);
+public abstract record PackageEdit(string Scope, string File, string Attr, DisplayText? Label) : Change(Scope, File, Label);
 
 /// <summary>An edit of an option's definition.</summary>
 /// <param name="Option">Option path, such as <c>programs.git.enable</c>.</param>
-public abstract record OptionEdit(string Scope, string File, string Option, string? Label) : Change(Scope, File, Label);
+public abstract record OptionEdit(string Scope, string File, string Option, DisplayText? Label) : Change(Scope, File, Label);
 
 /// <summary>Adds a package to the file's package list, or starts one.</summary>
 [RunicUnionCase(ChangeKinds.AddPackage)]
-public sealed record AddPackage(string Scope, string File, string Attr, string? Label = null) : PackageEdit(Scope, File, Attr, Label);
+public sealed record AddPackage(string Scope, string File, string Attr, DisplayText? Label = null) : PackageEdit(Scope, File, Attr, Label);
 
 /// <summary>Removes a package from the file's package lists.</summary>
 [RunicUnionCase(ChangeKinds.RemovePackage)]
-public sealed record RemovePackage(string Scope, string File, string Attr, string? Label = null) : PackageEdit(Scope, File, Attr, Label);
+public sealed record RemovePackage(string Scope, string File, string Attr, DisplayText? Label = null) : PackageEdit(Scope, File, Attr, Label);
 
 /// <summary>Defines an option in the file.</summary>
 /// <param name="Value">The value, as JSON; null for JSON <c>null</c>.</param>
 [RunicUnionCase(ChangeKinds.SetOption)]
 public sealed record SetOption(string Scope, string File, string Option,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.Never), JsonPropertyOrder(1)] JsonNode? Value, string? Label = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.Never), JsonPropertyOrder(1)] JsonNode? Value, DisplayText? Label = null)
     : OptionEdit(Scope, File, Option, Label)
 {
     /// <summary>Whether the edits are equal, their values compared as JSON rather than as references.</summary>
@@ -145,9 +165,9 @@ public sealed record SetOption(string Scope, string File, string Option,
 
 /// <summary>Removes the file's definition of an option.</summary>
 [RunicUnionCase(ChangeKinds.UnsetOption)]
-public sealed record UnsetOption(string Scope, string File, string Option, string? Label = null) : OptionEdit(Scope, File, Option, Label);
+public sealed record UnsetOption(string Scope, string File, string Option, DisplayText? Label = null) : OptionEdit(Scope, File, Option, Label);
 
 /// <summary>Creates the file as an empty module, imported from another one.</summary>
 /// <param name="Importer">The module that imports the created file.</param>
 [RunicUnionCase(ChangeKinds.CreateModule)]
-public sealed record CreateModule(string Scope, string File, string Importer, string? Label = null) : Change(Scope, File, Label);
+public sealed record CreateModule(string Scope, string File, string Importer, DisplayText? Label = null) : Change(Scope, File, Label);

@@ -44,9 +44,9 @@ public static class DashboardPreferences
     /// <exception cref="ManagerException">A value is not one of the known choices.</exception>
     public static void Save(Config config, PreferenceChange change)
     {
-        if (change.Theme is { } theme && !Themes.Contains(theme)) throw new ManagerException($"Unknown theme: {theme}.");
-        if (change.Language is { } language && !Languages.Contains(language)) throw new ManagerException($"Unknown language: {language}.");
-        if (change.Detail is { } detail && !Details.Contains(detail)) throw new ManagerException($"Unknown detail level: {detail}.");
+        if (change.Theme is { } theme && !Themes.Contains(theme)) throw new ManagerException(DisplayText.Of("stored_preferences_unknown_theme", ("theme", theme)));
+        if (change.Language is { } language && !Languages.Contains(language)) throw new ManagerException(DisplayText.Of("stored_preferences_unknown_language", ("language", language)));
+        if (change.Detail is { } detail && !Details.Contains(detail)) throw new ManagerException(DisplayText.Of("stored_preferences_unknown_detail", ("detail", detail)));
         // Writes the backend's first choice when there is none yet, as readPreferences does.
         var next = Preferences.Read(config);
         if (change.Theme is not null) next["theme"] = change.Theme;

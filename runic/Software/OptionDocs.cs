@@ -46,7 +46,7 @@ public static class OptionDocs
     {
         var result = await run(new Command
         {
-            Label = "Read option documentation",
+            Label = DisplayText.Of("stored_read_option_documentation"),
             Argv = ["nix", "eval", "--json", $"{config.Flake}#{Evaluation.ConfigurationAttr(config, host, scope)}", "--apply", Expression],
             // NixOS documents tens of thousands of options: more than the usual capture.
             Quiet = true,
@@ -58,7 +58,7 @@ public static class OptionDocs
         }
         catch (JsonException error)
         {
-            throw new ManagerException($"Invalid option documentation: {error.Message}");
+            throw new ManagerException(DisplayText.Of("stored_option_documentation_invalid", ("reason", error.Message)));
         }
     }
 

@@ -161,7 +161,7 @@ public static class DashboardCommand
         var named = invocation.Flake is not null || invocation.Host is not null
             || environment.Variable("NIX_MANAGER_FLAKE") is { Length: > 0 } || environment.Variable("NIX_MANAGER_HOST") is { Length: > 0 };
         Config? config = null;
-        string? error = null;
+        DisplayText? error = null;
         if (named)
         {
             if (SetupLaunch.NeedsSetup(invocation.Flake)) return SetupApplication.Run(invocation, named);
@@ -195,7 +195,7 @@ public static class DashboardCommand
     /// The configuration did not load, which loading reported on standard error. Started from the menu, that would go
     /// unseen, so the assistant's Window says why until it is closed.
     /// </summary>
-    private static int Failed(Invocation invocation, string? error)
+    private static int Failed(Invocation invocation, DisplayText? error)
     {
         if (error is not null && SetupLaunch.ShowsProblem(invocation.Served, Console.IsOutputRedirected))
             SetupApplication.ShowProblem(new SetupProblem(error, SetupLaunch.Checkout(invocation.Flake).Path));

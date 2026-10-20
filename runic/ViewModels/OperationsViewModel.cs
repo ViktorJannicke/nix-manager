@@ -75,7 +75,7 @@ public sealed partial class OperationsViewModel : ObservableObject, IDisposable
 
     /// <summary>Why the last start failed, such as another operation running.</summary>
     [ObservableProperty]
-    public partial string? StartError { get; private set; }
+    public partial DisplayText? StartError { get; private set; }
 
     public bool Busy => Active is not null;
 
@@ -96,7 +96,7 @@ public sealed partial class OperationsViewModel : ObservableObject, IDisposable
         }
         catch (ManagerException error)
         {
-            StartError = error.Message;
+            StartError = error.Text;
         }
     }
 

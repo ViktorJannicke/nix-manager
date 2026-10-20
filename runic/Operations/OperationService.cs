@@ -112,7 +112,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
     {
         var operation = History().FirstOrDefault(op => op.Id == id);
         if (operation?.Undo is not { } point)
-            throw new ManagerException("This change cannot be undone: it recorded nothing to go back to.");
+            throw new ManagerException(DisplayText.Of("stored_this_change_cannot_be_undone_it_recorded"));
         var path = _store.PathOf(id, "undo");
         var contents = File.Exists(path)
             ? ManagerJson.Deserialize<Dictionary<string, string>>(File.ReadAllText(path)) ?? []
@@ -145,7 +145,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
         {
             var operation = _current?.Operation;
             if (operation?.Id != id || operation.Request.Then != "apply") return false;
-            operation.Held = "You chose to review it first.";
+            operation.Held = DisplayText.Of("stored_you_chose_to_review_it_first");
             Changed(operation);
             return true;
         }
@@ -165,18 +165,26 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
     }
 
     /// <summary>What applying a review changes, in words (<c>describeReview</c>).</summary>
-    private static List<string> DescribeReview(BuildReview review)
+    private static List<DisplayText> DescribeReview(BuildReview review)
     {
-        var changes = new List<string>();
+        var changes = new List<DisplayText>();
         if (review.Edits is { } edits) changes.AddRange(edits.Changes.Select(change => ChangeRules.Describe(change).Title));
-        if (review.Inputs is { } inputs) changes.Add(inputs.Names.Count > 0 ? $"Update {string.Join(", ", inputs.Names)}" : "Update all inputs");
-        if (review.Undo is { } undo) changes.Add($"Undo: {string.Join("; ", undo.Point.Changes)}");
+        if (review.Inputs is { } inputs)
+            changes.Add(inputs.Names.Count > 0
+                ? DisplayText.Of("stored_update", ("names", string.Join(", ", inputs.Names)))
+                : DisplayText.Of("stored_update_all_inputs"));
+        if (review.Undo is { } undo) changes.Add(DisplayText.Of("stored_undo", ("changes", JoinChanges(undo.Point.Changes))));
         if (review.Source == ReviewSources.Generation && review.Generation is { } generation && review.Undo is null)
-            changes.Add(review.Scope == Scopes.Home
-                ? $"Go back to restore point {generation} of your user"
-                : $"Go back to restore point {generation} of the system");
-        return changes.Count > 0 ? changes : ["Apply the configuration"];
+            changes.Add(DisplayText.Of(review.Scope == Scopes.Home ? "stored_go_back_to_restore_point_of_your" : "stored_go_back_to_restore_point_of_the",
+                ("generation", generation)));
+        return changes.Count > 0 ? changes : [DisplayText.Of("stored_apply_the_configuration")];
     }
+
+    /// <summary>"a; b; c", each change in the reader's language.</summary>
+    private static DisplayText JoinChanges(IReadOnlyList<DisplayText> changes) =>
+        changes.Count == 0
+            ? DisplayText.Plain("")
+            : changes.Skip(1).Aggregate(changes[0], (joined, change) => DisplayText.Of("stored_changes_joined", ("first", joined), ("rest", change)));
 
     public IDisposable Subscribe(Action<ManagerEvent> listener)
     {
@@ -207,7 +215,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
         {
             current = _current;
             if (current is null) return;
-            current.Operation.Step = current.Operation.FinishingPrivilegedStep == true ? "Stopping after privileged step" : "Cancelling";
+            current.Operation.Step = DisplayText.Of(current.Operation.FinishingPrivilegedStep == true ? "stored_operation_stopping_after_privileged_step" : "stored_operation_cancelling");
             Changed(current.Operation);
         }
         // Outside the lock: cancellation callbacks run synchronously and may wait for output that needs it.
@@ -230,23 +238,27 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
     [GeneratedRegex("\r(?!\n)")]
     private static partial Regex LoneCarriageReturn();
 
-    private static string StepId(int index, string label) =>
-        $"{index + 1}-{OuterDash().Replace(NonAlphanumeric().Replace(label.ToLowerInvariant(), "-"), "")}";
+    private static string StepId(int index, DisplayText label) =>
+        $"{index + 1}-{OuterDash().Replace(NonAlphanumeric().Replace(label.English.ToLowerInvariant(), "-"), "")}";
 
     private static string PackageName(string action) => action.Replace("-update", "", StringComparison.Ordinal);
+
+    private static DisplayText CheckLabel => DisplayText.Of("stored_check_inputs_and_package_releases");
+
+    private static DisplayText PinLabel(string action) => DisplayText.Of("stored_update_the_package_pin", ("name", PackageName(action)));
 
     public OperationRun Start(Request input)
     {
         var (request, review, undo) = Resolve(input);
         var plan = Planner.Plan(config, request, review, undo?.Point);
-        if (Busy) throw new ManagerException("An operation is already running.");
+        if (Busy) throw new ManagerException(DisplayText.Of("stored_an_operation_is_already_running"));
         var release = _store.AcquireLock();
         Operation operation;
         try
         {
             var labels = plan.Steps.Count > 0
                 ? plan.Steps.Select(step => step.Label).ToList()
-                : [request.Action == Actions.Check ? "Check inputs and package releases" : $"Update the {PackageName(request.Action)} package pin"];
+                : [request.Action == Actions.Check ? CheckLabel : PinLabel(request.Action)];
             operation = new Operation
             {
                 Id = OperationStore.NewId(_clock),
@@ -255,7 +267,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                 Request = request,
                 Status = OperationStatuses.Running,
                 StartedAt = Timestamps.Now(_clock),
-                Step = "Preparing",
+                Step = DisplayText.Of("stored_operation_preparing"),
                 Steps = labels.Select((label, index) => new StepOutcome { Id = StepId(index, label), Label = label, Status = StepStatuses.Pending }).ToList(),
             };
             // A new user's first preferences are decided before their first operation is recorded, or that
@@ -356,7 +368,9 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
 
         private void Log(string text) => Output(new TextOutput("stdout", $"→ {text}\n"));
 
-        private StepOutcome? StartStep(string label)
+        private void Log(DisplayText text) => Log(text.English);
+
+        private StepOutcome? StartStep(DisplayText label)
         {
             StepOutcome? step = null;
             Mutate(() =>
@@ -388,7 +402,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
         private async Task<CommandResult> RunStepAsync(Command command)
         {
             var outcome = StartStep(command.Label);
-            Log($"{command.Label}\n  {Planner.Format(command)}");
+            Log($"{command.Label.English}\n  {Planner.Format(command)}");
             var privileged = PrivilegedCommandRunner.IsPrivileged(service.Config, command);
             if (privileged) Mutate(() => operation.FinishingPrivilegedStep = true);
             CommandResult result;
@@ -423,7 +437,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                     lock (service._gate)
                     {
                         operation.Status = OperationStatuses.Succeeded;
-                        operation.Step = r.DryRun ? "Preview complete" : "Complete";
+                        operation.Step = DisplayText.Of(r.DryRun ? "stored_operation_preview_complete" : "stored_operation_complete");
                         if (review is not null && _undoable is { } undoable)
                         {
                             operation.Undo = new UndoPoint { Changes = DescribeReview(review), Generations = undoable.Generations, Files = undoable.Files };
@@ -433,7 +447,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                     }
                     if (r.Then == "apply" && !r.DryRun)
                     {
-                        string? held;
+                        DisplayText? held;
                         lock (service._gate) held = operation.Held;
                         try
                         {
@@ -441,10 +455,10 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                         }
                         catch (Exception error)
                         {
-                            held = error.Message;
+                            held = DisplayText.From(error);
                         }
                         lock (service._gate) operation.Held = held;
-                        if (held is not null) Log($"Waiting for your review: {held}");
+                        if (held is not null) Log($"Waiting for your review: {held.English}");
                         else follow = Request.Create() with
                         {
                             Action = Actions.ReviewApply, Scope = Scopes.Home, Host = r.Host, ReviewId = r.ReviewId, Activation = "switch",
@@ -459,8 +473,8 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                         operation.Status = cancelled ? OperationStatuses.Cancelled : OperationStatuses.Failed;
                         if (!cancelled && error is ManagerException { Explanation: { } explanation }) operation.Explanation = explanation;
                         operation.Error = cancelled
-                            ? "Cancelled. Any completed activation or input update remains applied."
-                            : error is ManagerException ? error.Message : error.ToString();
+                            ? DisplayText.Of("stored_operation_cancelled_completed_parts_remain")
+                            : error is ManagerException manager ? manager.Text : DisplayText.Plain(error.ToString());
                         foreach (var step in operation.Steps ?? [])
                         {
                             if (step.Status == StepStatuses.Running)
@@ -471,7 +485,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                             else if (step.Status == StepStatuses.Pending) step.Status = StepStatuses.Skipped;
                         }
                     }
-                    Log(operation.Error);
+                    Log(operation.Error!);
                 }
             }
             finally
@@ -515,7 +529,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                 {
                     lock (service._gate)
                     {
-                        operation.Held = $"It could not be applied: {error.Message}";
+                        operation.Held = DisplayText.Of("stored_it_could_not_be_applied", ("reason", DisplayText.From(error)));
                         Persist();
                         service.Changed(operation);
                     }
@@ -549,7 +563,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
             foreach (var note in plan.Notes) Log(note);
             if (r.Action == Actions.Check)
             {
-                var outcome = StartStep("Check inputs and package releases");
+                var outcome = StartStep(CheckLabel);
                 if (r.DryRun)
                 {
                     Log("Would check inputs and package releases without changing the checkout.");
@@ -559,16 +573,16 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                 var report = await service.UpdateChecker.CheckAsync(service.Config, RunStepAsync, token).ConfigureAwait(false);
                 _store.SaveUpdates(report);
                 foreach (var item in report.Items) Log($"{item.Name}: {item.Current} → {item.Latest}");
-                foreach (var error in report.Errors) Log($"Check failed: {error}");
+                foreach (var error in report.Errors) Log($"Check failed: {error.English}");
                 Log($"{report.Items.Count} updates found{(report.Errors.Count > 0 ? $"; {report.Errors.Count} checks failed" : "")}.");
                 if (report.Errors.Count > 0)
-                    throw new ManagerException("Some update checks failed. The report contains the successful results and errors.");
+                    throw new ManagerException(DisplayText.Of("stored_some_update_checks_failed_the_report_contains"));
                 FinishStep(outcome, StepStatuses.Succeeded);
                 return;
             }
             if (Actions.IsPackage(r.Action))
             {
-                var outcome = StartStep($"Update the {PackageName(r.Action)} package pin");
+                var outcome = StartStep(PinLabel(r.Action));
                 // Each command is a step of its own in the log.
                 await service.Packages.UpdateAsync(service.Config, r, RunStepAsync, Log, token).ConfigureAwait(false);
                 FinishStep(outcome, StepStatuses.Succeeded);
@@ -683,16 +697,16 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                 lock (service._gate)
                 {
                     failed = operation.Steps!.FirstOrDefault(step => step.Status == StepStatuses.Running);
-                    bool Touched(string prefix) => operation.Steps!.Any(step => step.Label.StartsWith(prefix, StringComparison.Ordinal) && step.Status != StepStatuses.Pending);
-                    home = Touched("Select Home Manager");
-                    activatedSystem = Touched("Activate system");
+                    bool Touched(params DisplayText[] labels) => operation.Steps!.Any(step => labels.Contains(step.Label) && step.Status != StepStatuses.Pending);
+                    home = Touched(DisplayText.Of("stored_select_home_manager_generation"));
+                    activatedSystem = Touched(DisplayText.Of("stored_activate_system"), DisplayText.Of("stored_activate_system_on_next_boot"));
                 }
                 var back = Planner.GoBackSteps(config, home: home ? homeGeneration : null, system: activatedSystem ? systemGeneration : null);
                 var files = replacedFiles.Count > 0;
                 if (back.Count == 0 && !files) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(error);
                 FinishStep(failed, StepStatuses.Failed);
-                const string putBack = "Put back the configuration files";
-                var labels = back.Select(step => step.Label).Concat(files ? [putBack] : []).ToList();
+                var putBack = DisplayText.Of("stored_put_back_the_configuration_files");
+                var labels = back.Select(step => step.Label).Concat(files ? [putBack] : Array.Empty<DisplayText>()).ToList();
                 Mutate(() =>
                 {
                     var count = operation.Steps!.Count;
@@ -725,20 +739,21 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                 // Without an earlier home generation the new one stays selected, so only the rest went back.
                 var first = home && homeGeneration is null;
                 lock (service._gate)
-                    operation.Rollback = problem is null ? new RollbackOutcome { Done = !first } : new RollbackOutcome { Done = false, Error = problem.Message };
-                var what = error.Explanation?.Body ?? error.Message;
-                throw new ManagerException(error.Message, new Explanation
+                    operation.Rollback = problem is null ? new RollbackOutcome { Done = !first } : new RollbackOutcome { Done = false, Error = problem.Text };
+                var what = error.Explanation?.Body ?? error.Text;
+                throw new ManagerException(error.Text, new Explanation
                 {
-                    Title = error.Explanation?.Title ?? (failed is not null ? $"{failed.Label} failed" : "Applying failed"),
+                    Title = error.Explanation?.Title
+                        ?? (failed is not null ? DisplayText.Of("stored_failed", ("label", failed.Label)) : DisplayText.Of("stored_applying_failed")),
                     Body = problem is null
                         ? first
                             ? files
-                                ? $"{what} The files were put back, but there was no earlier restore point of your user to go back to, so the new version stays in use."
-                                : $"{what} There was no earlier restore point of your user to go back to, so the new version stays in use."
+                                ? DisplayText.Of("stored_the_files_were_put_back_but_there", ("what", what))
+                                : DisplayText.Of("stored_there_was_no_earlier_restore_point_of", ("what", what))
                             : files
-                                ? $"{what} Everything went back to how it was before, files included."
-                                : $"{what} Everything went back to how it was before."
-                        : $"{what} Going back did not work either: {problem.Message} The Restore points page can take you back.",
+                                ? DisplayText.Of("stored_everything_went_back_to_how_it_was", ("what", what))
+                                : DisplayText.Of("stored_everything_went_back_to_how_it_was_2", ("what", what))
+                        : DisplayText.Of("stored_going_back_did_not_work_either_the", ("what", what), ("reason", problem.Text)),
                 });
             }
 

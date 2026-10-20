@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using NixManager.Domain;
 
 namespace NixManager.Edits;
 
@@ -45,7 +46,7 @@ public sealed record DraftProblem
 {
     /// <summary>Index of the change in the draft.</summary>
     public int Index { get; init; }
-    public required string Message { get; init; }
+    public required DisplayText Message { get; init; }
 }
 
 /// <summary>The draft as the dashboard and <c>software pending</c> show it (<c>RenderedDraft</c>).</summary>

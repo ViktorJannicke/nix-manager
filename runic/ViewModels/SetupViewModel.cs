@@ -44,7 +44,7 @@ public sealed partial class SetupViewModel : ObservableObject, IDisposable
 
     /// <summary>Why the last request was refused, such as a folder that is not empty.</summary>
     [ObservableProperty]
-    public partial string? RequestError { get; private set; }
+    public partial DisplayText? RequestError { get; private set; }
 
     public bool Running => State.Running;
 
@@ -75,7 +75,7 @@ public sealed partial class SetupViewModel : ObservableObject, IDisposable
         }
         catch (ManagerException error)
         {
-            _context.TryPost(() => RequestError = error.Message);
+            _context.TryPost(() => RequestError = error.Text);
         }
     }
 
@@ -90,7 +90,7 @@ public sealed partial class SetupViewModel : ObservableObject, IDisposable
         }
         catch (ManagerException error)
         {
-            RequestError = error.Message;
+            RequestError = error.Text;
         }
     }
 

@@ -57,7 +57,7 @@ public sealed class HttpNetwork(HttpClient? client = null) : INetwork
             }
             catch (Exception e) when (e is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
             {
-                if (attempt >= 2) throw new ManagerException($"Fetch failed: {e.Message}");
+                if (attempt >= 2) throw new ManagerException(DisplayText.Of("stored_fetch_failed", ("reason", e.Message)));
                 await Task.Delay(TimeSpan.FromMilliseconds(500 * Math.Pow(2, attempt)), cancellationToken).ConfigureAwait(false);
             }
         }
@@ -75,7 +75,9 @@ public sealed class HttpNetwork(HttpClient? client = null) : INetwork
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
         {
-            throw new ManagerException(cancellationToken.IsCancellationRequested ? "The operation timed out." : $"Fetch failed: {e.Message}");
+            throw new ManagerException(cancellationToken.IsCancellationRequested
+                ? DisplayText.Of("stored_the_operation_timed_out")
+                : DisplayText.Of("stored_fetch_failed", ("reason", e.Message)));
         }
     }
 }
@@ -108,7 +110,7 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
             }
             catch (ManagerException e)
             {
-                report.Errors.Add(e.Message);
+                report.Errors.Add(e.Text);
             }
             foreach (var (name, owner, repo) in Packages)
             {
@@ -130,7 +132,7 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
                 }
                 catch (ManagerException e)
                 {
-                    report.Errors.Add($"{name}: {e.Message}");
+                    report.Errors.Add(DisplayText.Of("stored_package_check_failed", ("name", name), ("reason", e.Text)));
                 }
             }
             return report;
@@ -148,7 +150,7 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
         var proposed = Path.Combine(work, "flake.lock");
         await run(new Command
         {
-            Label = "Check flake inputs without changing the checkout",
+            Label = DisplayText.Of("stored_check_flake_inputs_without_changing_the_checkout"),
             Argv = ["nix", "flake", "update", "--flake", config.Flake, "--output-lock-file", proposed],
         }).ConfigureAwait(false);
         var after = ReadLock(proposed);
@@ -178,12 +180,16 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
     {
         string text;
         try { text = File.ReadAllText(path); }
-        catch (IOException e) { throw new ManagerException($"Read {path}: {e.Message}"); }
+        catch (IOException e)
+        {
+            throw new ManagerException(DisplayText.Of("stored_step_failed_because",
+                ("step", DisplayText.Of("stored_read_file", ("path", path))), ("reason", DisplayText.Plain(e.Message))));
+        }
         try
         {
             using var document = JsonDocument.Parse(text);
             if (!document.RootElement.TryGetProperty("nodes", out var nodes) || nodes.ValueKind != JsonValueKind.Object)
-                throw new ManagerException($"Invalid lock file {path}: no nodes.");
+                throw new ManagerException(DisplayText.Of("stored_invalid_lock_file_no_nodes", ("path", path)));
             return nodes.EnumerateObject()
                 .Select(node => new KeyValuePair<string, JsonElement?>(node.Name,
                     node.Value.TryGetProperty("locked", out var locked) && locked.ValueKind == JsonValueKind.Object ? locked.Clone() : null))
@@ -191,7 +197,7 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
         }
         catch (JsonException e)
         {
-            throw new ManagerException($"Invalid lock file {path}: {e.Message}");
+            throw new ManagerException(DisplayText.Of("stored_invalid_lock_file", ("path", path), ("reason", e.Message)));
         }
     }
 
@@ -215,8 +221,12 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
     {
         string text;
         try { text = File.ReadAllText(path); }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { throw new ManagerException($"Read {name} pin: {NodeErrors.Describe(e, path)}"); }
-        return PackagePins.Parse(text);
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new ManagerException(DisplayText.Of("stored_step_failed_because",
+                ("step", DisplayText.Of("stored_read_package_pin", ("name", name))), ("reason", FileErrors.Describe(e, path))));
+        }
+        return PackagePins.Parse(text, name);
     }
 
     /// <summary>The newest release on a pin's channel (<c>latest</c>).</summary>
@@ -237,16 +247,21 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
                     .Where(version => StableVersion().IsMatch(version) || NightlyVersion().IsMatch(version))
                     .ToList();
                 versions.Sort(CompareVersions);
-                return versions.Count > 0 ? versions[^1] : throw new ManagerException($"{name}: Error: No stable or nightly release tags found");
+                return versions.Count > 0 ? versions[^1] : throw new ManagerException(DisplayText.Of("stored_no_stable_or_nightly_release_tags", ("name", name)));
             }
             var latest = document.RootElement.TryGetProperty("tag_name", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString()! : "";
             var match = StableTag().Match(latest);
-            return match.Success ? match.Groups[1].Value : throw new ManagerException($"{name}: Error: Release does not have a stable vX.Y.Z tag");
+            return match.Success ? match.Groups[1].Value : throw new ManagerException(DisplayText.Of("stored_latest_release_has_no_stable_tag", ("name", name)));
         }
-        catch (Exception e) when (e is JsonException or InvalidOperationException)
+        catch (JsonException e)
         {
-            // JavaScriptCore names the error's kind first; the reason is .NET's.
-            throw new ManagerException($"{name}: {(e is JsonException ? "SyntaxError: JSON Parse error" : "TypeError")}: {e.Message}");
+            throw new ManagerException(DisplayText.Of(nightly ? "stored_release_list_not_valid_json" : "stored_latest_release_not_valid_json",
+                ("name", name), ("reason", e.Message)));
+        }
+        catch (InvalidOperationException)
+        {
+            // The answer is JSON of another shape, such as an object where the list of releases belongs.
+            throw new ManagerException(DisplayText.Of(nightly ? "stored_release_list_not_a_list" : "stored_latest_release_not_an_object", ("name", name)));
         }
     }
 
@@ -260,7 +275,7 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
             var stable = StableVersion().Match(version);
             var match = stable.Success ? stable : NightlyVersion().Match(version);
             if (!match.Success)
-                throw new ManagerException($"Expected X.Y.Z or X.Y.Z-nightly.YYYYMMDD.N versions: {a}, {b}");
+                throw new ManagerException(DisplayText.Of("stored_versions_not_comparable", ("first", a), ("second", b)));
             var parts = match.Groups.Cast<Group>().Skip(1).Select(group => BigInteger.Parse(group.Value, System.Globalization.CultureInfo.InvariantCulture)).ToList();
             return stable.Success ? [.. parts, new BigInteger(9007199254740991), BigInteger.Zero] : [.. parts];
         }

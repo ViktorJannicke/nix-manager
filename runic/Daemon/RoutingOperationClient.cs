@@ -99,8 +99,9 @@ public sealed class RoutingOperationClient(IOperationClient local, Func<string, 
             }
         }
         await reply.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
-        if (error is not null) throw new ManagerException(error.Message ?? "The operation could not start.", error.Explanation);
-        return result ?? throw new ManagerException(
-            "Nix Manager's daemon ended before the operation finished. Its record shows how far it got: nix-manager history.");
+        if (error is not null)
+            throw new ManagerException(error.Text ?? (error.Message is { } message ? DisplayText.Plain(message) : DisplayText.Of("stored_operation_could_not_start")),
+                error.Explanation);
+        return result ?? throw new ManagerException(DisplayText.Of("stored_daemon_ended_before_operation_finished"));
     }
 }

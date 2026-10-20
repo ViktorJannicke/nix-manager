@@ -46,7 +46,7 @@ public static class CliArguments
     /// </summary>
     public static CliInvocation Resolve(IReadOnlyList<string> tokens, CliOptions options, IReadOnlyList<string> extra)
     {
-        static void Fail(string message) => throw new ManagerException(message);
+        static void Fail(string key) => throw new ManagerException(DisplayText.Of(key));
         var request = Request.Create() with { DryRun = options.DryRun, Force = options.Force, Extra = [.. extra] };
         if (options.Host is { Length: > 0 } host) request = request with { Host = host };
         var mode = CliMode.Run;
@@ -57,7 +57,7 @@ public static class CliArguments
             switch (token)
             {
                 case "home" or "system" or "all":
-                    if (scope) Fail("Specify one scope.");
+                    if (scope) Fail("stored_cli_specify_one_scope");
                     scope = true;
                     request = request with { Scope = token };
                     break;
@@ -68,30 +68,30 @@ public static class CliArguments
                     request = request with { Cleanup = true };
                     break;
                 case "ui" or "tray" or "status" or "history":
-                    if (action || explicitMode) Fail("Specify one action.");
+                    if (action || explicitMode) Fail("stored_cli_specify_one_action");
                     explicitMode = true;
                     mode = Enum.Parse<CliMode>(token, ignoreCase: true);
                     break;
                 default:
-                    if (!Tokens.Contains(token)) Fail($"Unknown word: {token}.");
-                    if (action || explicitMode) Fail("Specify one action.");
+                    if (!Tokens.Contains(token)) throw new ManagerException(DisplayText.Of("stored_cli_unknown_word", ("word", token)));
+                    if (action || explicitMode) Fail("stored_cli_specify_one_action");
                     action = true;
                     request = request with { Action = token };
                     break;
             }
         }
-        if (options.Interval is < 5 or > 10_080) Fail("--interval must be 5–10080 minutes.");
+        if (options.Interval is < 5 or > 10_080) Fail("stored_cli_interval_out_of_range");
         if (mode == CliMode.Run)
         {
             if (!action && request.Cleanup) request = request with { Action = Actions.Gc };
-            else if (!action) Fail("Specify an action; see --help.");
+            else if (!action) Fail("stored_cli_specify_an_action");
             if (!scope && request.Action == Actions.Boot) request = request with { Scope = Scopes.System };
             RequestValidation.Validate(request);
             if (options.Browser || options.NoOpen || options.Interval != 360)
-                Fail("Window and interval options require ui or tray.");
+                Fail("stored_cli_window_options_require_ui_or_tray");
         }
         else if (scope || request.Update || request.Cleanup || request.Force || request.DryRun || request.Extra.Count > 0)
-            Fail("Action modifiers require a build, activation, maintenance, or package action.");
+            Fail("stored_cli_modifiers_require_an_action");
         return new CliInvocation
         {
             Request = request,

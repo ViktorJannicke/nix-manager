@@ -38,7 +38,7 @@ public sealed class TerminalRenderer(CommandExecutionContext context, CliInvocat
         var host = request.Host is { Length: > 0 } ? request.Host : config.HostKey;
         await _console.WriteErrorAsync($"┌  Nix Manager · {host} · {(request.Scope == Scopes.All ? "Home + system" : request.Scope)}\n│\n".AsMemory(), cancellationToken)
             .ConfigureAwait(false);
-        _task = await new CommandPrompts(context).StartTaskLogAsync(Actions.Label(request.Action), visibleLines: 6, cancellationToken).ConfigureAwait(false);
+        _task = await new CommandPrompts(context).StartTaskLogAsync(Actions.Label(request.Action).English, visibleLines: 6, cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask OnEventAsync(ManagerEvent e, CancellationToken cancellationToken)
@@ -143,7 +143,7 @@ public static class CliText
         foreach (var operation in history)
         {
             var status = operation.Status.PadRight(11);
-            var name = Actions.Label(operation.Request.Action).PadRight(29);
+            var name = Actions.Label(operation.Request.Action).English.PadRight(29);
             var context = $"{(operation.Request.Host is { Length: > 0 } h ? h : host)}{(operation.Request.DryRun ? " · preview" : "")}";
             var line = $"{When(operation.StartedAt)}  {status} {name} {context}";
             text.Append(line.Length > width ? line[..width] : line).Append('\n');
