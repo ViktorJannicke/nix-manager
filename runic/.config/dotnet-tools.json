@@ -3,14 +3,14 @@
   "isRoot": true,
   "tools": {
     "dotnet-runic": {
-      "version": "0.8.0-preview.4",
+      "version": "0.8.0-preview.6",
       "commands": [
         "dotnet-runic"
       ],
       "rollForward": false
     },
     "dotnet-runic-translations": {
-      "version": "0.7.0-preview.3",
+      "version": "0.7.0-preview.4",
       "commands": [
         "runic-translations"
       ],

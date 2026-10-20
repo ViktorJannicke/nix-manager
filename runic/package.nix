@@ -5,7 +5,6 @@
 # icon and the command line answers without starting a runtime or compiling.
 {
   lib,
-  fetchzip,
   makeDesktopItem,
   buildRunicApplication,
   coreutils,
@@ -43,15 +42,6 @@ let
     NIX_MANAGER_NIX_PARSER = "${tree-sitter.builtGrammars.tree-sitter-nix}/parser";
     NIX_MANAGER_TREE_SITTER = "${tree-sitter}/lib/libtree-sitter.so";
   };
-  # The Translations compiler of .config/dotnet-tools.json, which the frontend's Vite build runs. The builder's
-  # dotnetTools would restore it offline, but it reads the manifest from the filtered src at evaluation, which
-  # `nix flake check --no-build` cannot (Runic-Artifex/runic-sdk#371); vite.config.ts runs this copy instead.
-  translationsTool = fetchzip {
-    url = "https://api.nuget.org/v3-flatcontainer/dotnet-runic-translations/0.7.0-preview.3/dotnet-runic-translations.0.7.0-preview.3.nupkg";
-    extension = "zip";
-    stripRoot = false;
-    hash = "sha256-bOIKeVkJjVe34VB2ZM8O6fjNr2u1aG49tsoNo84rr/w=";
-  };
 in
 buildRunicApplication {
   pname = "nix-manager";
@@ -62,8 +52,6 @@ buildRunicApplication {
       (lib.fileset.difference ./. (
         lib.fileset.unions [
           ./package.nix
-          # Local tools are for development; the build runs translationsTool.
-          (lib.fileset.maybeMissing ./.config)
           # Documentation.
           (lib.fileset.fileFilter (file: file.hasExt "md") ./.)
         ]
@@ -95,14 +83,16 @@ buildRunicApplication {
     # when they are out of date). Bun installs only the system's optional packages, so they differ; `nix build
     # .#default.frontendNodeModules.fetchedFor.aarch64-linux` computes the aarch64-linux one on any system.
     hash = {
-      x86_64-linux = "sha256-lmXlaTaJYgGjKJexg34GZvCfljFTyc8nBrgc2hOQgb4=";
-      aarch64-linux = "sha256-QTEYl9rq0R5RGb/UFWGzNKznwd2I+gQzjV2ivpb9ypY=";
+      x86_64-linux = "sha256-smwZISnxamSweAn85Za03Fjjz2piC0T9audGYliBRVg=";
+      aarch64-linux = "sha256-mam1UfyugHOf3bK7T0Mh5z6YaF6odg7IrR9CN6omY50=";
     };
   };
   host = "desktop";
-  preBuild = ''
-    export NIX_MANAGER_TRANSLATIONS_TOOL=${translationsTool}/tools/net10.0/any/dotnet-runic-translations.dll
-  '';
+  # The tools of .config/dotnet-tools.json: the frontend's Vite build runs the Translations compiler.
+  dotnetTools.hashes = {
+    dotnet-runic = "sha256-2MFrWdg/Etlq7J8ifQtofRuFYLEgKVu3A7FNZ1XipVU=";
+    dotnet-runic-translations = "sha256-yFoN/Af2l6WMlpl7Ia9Sx24BmQsxoy/1Q3o+EswR7hk=";
+  };
   executables = [ "nix-manager" ];
   desktopItems = [ desktop ];
   icons.scalable = ./Frontend/public/nix-manager.svg;

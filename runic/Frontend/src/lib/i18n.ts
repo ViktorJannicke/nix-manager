@@ -4,7 +4,7 @@
 // the stored catalogue (translations/stored), which the import script made from the Bun version's labels and
 // messages with `runic-translations import-text`; its base-text.json maps each English text to its message key.
 
-import { bindMarkup, createInlineRenderer, defineMarkup, getLocale, type Locale } from "virtual:runic-translations/dashboard/runtime";
+import { createInlineRenderer, getLocale, type Locale } from "virtual:runic-translations/dashboard/runtime";
 import { m } from "virtual:runic-translations/dashboard";
 import { inlineFactory } from "@runic-artifex/translations-svelte/inline";
 import baseText from "../../translations/stored/base-text.json";
@@ -91,14 +91,10 @@ export function list(items: readonly string[]) {
 
 // Messages with markup, such as `Detected as {#highlight}{$host}{/highlight}.`, render through `inline` and
 // `LocalizedInline`. The page's own tags are declared in translations/runic.json; `LocalizedInline` renders them with
-// the snippets its `custom` prop gives by tag name, such as "nm:highlight". The generated runtime has no binding for
-// a project's own tags yet, so their contracts are restated here as runic.json declares them
-// (Runic-Artifex/runic-translations-sdk#96).
-const tag = (name: string) =>
-  bindMarkup(defineMarkup({ name, kind: "paired", children: "inline", interactive: false, plainText: "children" }), inlineFactory.element);
+// the snippets its `custom` prop gives by tag name, such as "nm:highlight".
 
 /** Renders a message with markup for `LocalizedInline`. */
-export const inline = createInlineRenderer(inlineFactory, [tag("nm:highlight"), tag("nm:aside")]);
+export const inline = createInlineRenderer(inlineFactory);
 
 /**
  * Text without its soft hyphens (U+00AD), for headings and names that never wrap: German compounds such as

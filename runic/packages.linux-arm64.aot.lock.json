@@ -31,21 +31,21 @@
       },
       "Runic.Application.Views.Desktop": {
         "type": "Direct",
-        "requested": "[0.8.0-preview.4, )",
-        "resolved": "0.8.0-preview.4",
-        "contentHash": "8tVa00SdXEi9QEQC+Y1Nm3R1sSU7cUMZldN3pHP++8SgxUzRnjd+hQSz87NobXa5LV6cMoxA/seQa/A696sfxQ==",
+        "requested": "[0.8.0-preview.6, )",
+        "resolved": "0.8.0-preview.6",
+        "contentHash": "/vtwTKoVaZKh+ml12s4EpOlJVvSfkPiNMXwzDchMYX/Ju+3sdT6cXHR+CIeXwDdBeU1DZG/z/CR88lbdKIBQzw==",
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.12",
           "Microsoft.Extensions.Logging.Abstractions": "10.0.12",
           "Microsoft.Web.WebView2": "1.0.4258.31",
-          "Runic.Application.Views": "[0.8.0-preview.4]",
-          "Runic.Desktop": "[0.8.0-preview.4]",
-          "Runic.Platform.Linux": "[0.8.0-preview.4]",
-          "Runic.Platform.Linux.Gtk4": "[0.8.0-preview.4]",
-          "Runic.Platform.Linux.Portal": "[0.8.0-preview.4]",
-          "Runic.Platform.MacOS": "[0.8.0-preview.4]",
-          "Runic.Platform.Runtime": "[0.8.0-preview.4]",
-          "Runic.Platform.Windows": "[0.8.0-preview.4]",
+          "Runic.Application.Views": "[0.8.0-preview.6]",
+          "Runic.Desktop": "[0.8.0-preview.6]",
+          "Runic.Platform.Linux": "[0.8.0-preview.6]",
+          "Runic.Platform.Linux.Gtk4": "[0.8.0-preview.6]",
+          "Runic.Platform.Linux.Portal": "[0.8.0-preview.6]",
+          "Runic.Platform.MacOS": "[0.8.0-preview.6]",
+          "Runic.Platform.Runtime": "[0.8.0-preview.6]",
+          "Runic.Platform.Windows": "[0.8.0-preview.6]",
           "Tmds.DBus.Protocol": "0.95.1"
         }
       },
@@ -66,24 +66,24 @@
       },
       "Runic.Platform.Linux.Polkit": {
         "type": "Direct",
-        "requested": "[0.8.0-preview.4, )",
-        "resolved": "0.8.0-preview.4",
-        "contentHash": "vZbuXWGfy9b4MzZpwkF+EC5aDzQFQgBQVjo6kKIRj0/v1+17f21Q0AAmZVFYf+l2m1FaSeiwzleXmf/hBR5r2Q==",
+        "requested": "[0.8.0-preview.6, )",
+        "resolved": "0.8.0-preview.6",
+        "contentHash": "rukt3LPjpD9C9bFKE4WYOTtkyIuLECa1wDZvn2vu8LbTi2PGkWGDnLyRu72UGiaPI9ICszKTInmB/7eetqbwqw==",
         "dependencies": {
-          "Runic.Platform": "[0.8.0-preview.4]"
+          "Runic.Platform": "[0.8.0-preview.6]"
         }
       },
       "Runic.Translations": {
         "type": "Direct",
-        "requested": "[0.7.0-preview.3, )",
-        "resolved": "0.7.0-preview.3",
-        "contentHash": "BKN/TEv6FDoIOkT7ILeeVPg+oFV9RmK/ie4d91EAQmEZ8abjMjc9JGq9ERBfKkpKuN0P+mrL2zcLvGpnKyeEHg=="
+        "requested": "[0.7.0-preview.4, )",
+        "resolved": "0.7.0-preview.4",
+        "contentHash": "JxAbeZhBmoCTPc3pILhWfuMLuR8P8JaI+0sMkw4DrdrsiGKHvQ3w4oCNMEr1QoF+pOfLIzYwXKMmy3zUQyfLAg=="
       },
       "Runic.Translations.Build": {
         "type": "Direct",
-        "requested": "[0.7.0-preview.3, )",
-        "resolved": "0.7.0-preview.3",
-        "contentHash": "C7uig8CHpUGXrfYp4RbgevdEZA5/1PgvODt1EFIEctYxXZphW8Q3CT39yqT7iHbzixf+AY5OWCDoNbOGWZGtnQ=="
+        "requested": "[0.7.0-preview.4, )",
+        "resolved": "0.7.0-preview.4",
+        "contentHash": "DGVF2i+cl3pK3sffZfwLkGhou0ZbHPZx9p3Ev8yfe2vxlVR3/bX4dKPHBz9kEauYC3XfgAIXCBeAfwSrNZC/3Q=="
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "Transitive",
@@ -105,26 +105,26 @@
       },
       "Runic.Application.Views": {
         "type": "Transitive",
-        "resolved": "0.8.0-preview.4",
-        "contentHash": "+IadqqmRHC6KKPLLJ9XA2MgIaK1BiGvnWMzJ8VBuVnZu1GsZ3OdpDKz4jYrf6SmvqC6HVoYDbzQ7SUZY1D8b5A==",
+        "resolved": "0.8.0-preview.6",
+        "contentHash": "UH9TEUbxrB4wDU1pQW9TvuYwjh8dJLbE41/TE3fXKyn+Roiir3urgGGAPIRylw2ju6RrwmgmxLlcIsSXINPT4Q==",
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.12",
           "Microsoft.Extensions.Logging.Abstractions": "10.0.12",
-          "Runic.Navigation": "[0.8.0-preview.4]"
+          "Runic.Navigation": "[0.8.0-preview.6]"
         }
       },
       "Runic.Desktop": {
         "type": "Transitive",
-        "resolved": "0.8.0-preview.4",
-        "contentHash": "5rXxgenPQ6srUYfgFGUnTvkujXpraGOdPggtBlS28U4o1llsaSaLwQbRsciYnyz9lLgSVH4cnxBcdVuRV8ARcg==",
+        "resolved": "0.8.0-preview.6",
+        "contentHash": "GSCdC/M1Yc6Dozdc/TQlmAW6KR64KZv6PuSXbMp2sHG3wPzFSoekVveuh4UJF6mRpasC9XsZ7tGcEnewUC9ldw==",
         "dependencies": {
           "Microsoft.Web.WebView2": "1.0.4258.31"
         }
       },
       "Runic.Navigation": {
         "type": "Transitive",
-        "resolved": "0.8.0-preview.4",
-        "contentHash": "gCEwFeh0C/GduE2GKwaVwDT4dA1FvfdvjZJknx89uIYESBH31ceOJ1TUUDQ3mYbwSNJjMSVwHZEAn0wkxvLPDg==",
+        "resolved": "0.8.0-preview.6",
+        "contentHash": "WF9Ev2P4pUeG0klT/MS54nBTV/gjVWRyxegXcRKO++fvltZeYABblc0SzY4UMm+vIAEJyz0SmR4SkGWRzE+KZA==",
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.12",
           "Microsoft.Extensions.Logging.Abstractions": "10.0.12"
@@ -132,58 +132,71 @@
       },
       "Runic.Platform": {
         "type": "Transitive",
-        "resolved": "0.8.0-preview.4",
-        "contentHash": "dZWP6zdyovoUnAGxBzzNCfhX/HPuybc5OnX8p9iQV/raqZZjGM7t5GY6NZE/ury3BUoRXKFGaXo6FAMrvQpNYg=="
+        "resolved": "0.8.0-preview.6",
+        "contentHash": "LPPGflLWvFSPwFDTBhRpGtuSLtsgZvLgoJDIY+fmCbmPRrpCSUJTD6D3IrJcCdzWcZLcCQbdyy/OiCwTB7X4oQ=="
       },
       "Runic.Platform.Linux": {
         "type": "Transitive",
-        "resolved": "0.8.0-preview.4",
-        "contentHash": "C+Yq4x2dIJdxbwc+HQP1Bd1GyOFW+UldaZzvEDjgzVYtJityCvI3nPrjuaMTh/ypiw5mmB7IwUkbp0iBnkrusQ==",
+        "resolved": "0.8.0-preview.6",
+        "contentHash": "qInDzewCmkA3tJ/bFM3VxyyTmCvG8hmJgELa7ifCVS346pXJhpzzjwx0/HcyEhowWHS8Gntvl5IYU6Xnw7db5g==",
         "dependencies": {
-          "Runic.Platform.Linux.Portal": "[0.8.0-preview.4]",
-          "Runic.Platform.Runtime": "[0.8.0-preview.4]",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.12",
+          "Runic.Platform.Linux.Portal": "[0.8.0-preview.6]",
+          "Runic.Platform.Runtime": "[0.8.0-preview.6]",
+          "Tmds.DBus.Protocol": "0.95.1"
+        }
+      },
+      "Runic.Platform.Linux.DBus": {
+        "type": "Transitive",
+        "resolved": "0.8.0-preview.6",
+        "contentHash": "EbziNDcZEKHg65sqAZ4Sp4lrSCqDCpUWxBA/3umMiH0EMnhvN13ImMbY+8yNrRhG5Hy4KGkvnV2A7+IvTEKvrQ==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.12",
+          "Runic.Platform": "[0.8.0-preview.6]",
           "Tmds.DBus.Protocol": "0.95.1"
         }
       },
       "Runic.Platform.Linux.Gtk4": {
         "type": "Transitive",
-        "resolved": "0.8.0-preview.4",
-        "contentHash": "8MAwfgOU399uBndFTfP09Nd0SZbj8u4uAyPws/UrlV155gusFOzGNaipeO9/LqOKd4XWwef+eJfqVCXxtdSuZw==",
+        "resolved": "0.8.0-preview.6",
+        "contentHash": "ytAVwinvDS8222GqYRZWe9wgRScUI6p9gI/WkqFARbiUaBFQ6XscEsOYGJ9DNUfMNSZ3/7RQzQM9YZSjqAAVWQ==",
         "dependencies": {
-          "Runic.Platform.Runtime": "[0.8.0-preview.4]"
+          "Runic.Platform.Runtime": "[0.8.0-preview.6]"
         }
       },
       "Runic.Platform.Linux.Portal": {
         "type": "Transitive",
-        "resolved": "0.8.0-preview.4",
-        "contentHash": "SDNAPoa41bjuFBJJGtfMMlXD0giCH5eVfADF8Dbk8aBWqMC1iMkuaMO4SiKKUKF/5XiULi1jvBgD9cjxvQ7Rug==",
+        "resolved": "0.8.0-preview.6",
+        "contentHash": "NGemN9ymLJ9xacitzXrmEED2zzB5kiNqj8Lak2HwaRe9IZnb1CTCt+CNFGFJESQKUi6+DWK3rLOSAHI3/hqMYw==",
         "dependencies": {
-          "Runic.Platform.Runtime": "[0.8.0-preview.4]",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.12",
+          "Runic.Platform.Linux.DBus": "[0.8.0-preview.6]",
+          "Runic.Platform.Runtime": "[0.8.0-preview.6]",
           "Tmds.DBus.Protocol": "0.95.1"
         }
       },
       "Runic.Platform.MacOS": {
         "type": "Transitive",
-        "resolved": "0.8.0-preview.4",
-        "contentHash": "SRYlglQU+N5M86Mk2FuvfjhjMk1n1qY7KWaY5TMUaP3EcziDNclMsgVUUiJcnH2szkCfMhMLISuS7PNyX4mDkQ==",
+        "resolved": "0.8.0-preview.6",
+        "contentHash": "5msLFQlDp7SqFIFIdB4BoN5+HcDHi0cwqVl+/DCORG/2oZb5Zq4HbCN2cKy3WKF+d2HPDTdonBWh2MGBbRZwjA==",
         "dependencies": {
-          "Runic.Platform.Runtime": "[0.8.0-preview.4]"
+          "Runic.Platform.Runtime": "[0.8.0-preview.6]"
         }
       },
       "Runic.Platform.Runtime": {
         "type": "Transitive",
-        "resolved": "0.8.0-preview.4",
-        "contentHash": "45jqYOjOcbtqlH2MpgaEuLGPeAExG1MKDM7DlhSbb6cKj4oiM24XxLnO2nALRUeacAQIiXlwRp2H4jE9LOaQRQ==",
+        "resolved": "0.8.0-preview.6",
+        "contentHash": "hc25YB1+2jdZ+Zgxa+rcw+F1510yo27BN340muJCNvgYTMLyvlZPP1dZo3MRqhKlcr9j3WBvaeA13kfMd0drwA==",
         "dependencies": {
-          "Runic.Platform": "[0.8.0-preview.4]"
+          "Runic.Platform": "[0.8.0-preview.6]"
         }
       },
       "Runic.Platform.Windows": {
         "type": "Transitive",
-        "resolved": "0.8.0-preview.4",
-        "contentHash": "auBNAftWHaSHXMOda+U8a/vZtXEBicvmJELSpfYqEgJP0vMvKE+0OKUbRjOra8SVLUPT24ZtjL7X4ScBki6kEQ==",
+        "resolved": "0.8.0-preview.6",
+        "contentHash": "dcn4h1bmRh3tcZkBGbd00DM5H35Pde833b/hH8ppQjnUgsEgVmy/zynrWi5/87rU4Q7J2KBYkeL972eoyCvASA==",
         "dependencies": {
-          "Runic.Platform.Runtime": "[0.8.0-preview.4]"
+          "Runic.Platform.Runtime": "[0.8.0-preview.6]"
         }
       },
       "Tmds.DBus.Protocol": {

@@ -7,9 +7,11 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # The application builder and the .NET development shell for runic/.
+    # The application builder and the .NET development shell for runic/. Fetched with Git rather than as GitHub's
+    # tarball: the SDK checks out some files with CRLF line endings (.gitattributes), which Nix versions apply
+    # differently to a tarball, so the tarball's hash depends on the Nix version that fetched it.
     runic-sdk = {
-      url = "github:Runic-Artifex/runic-sdk/v0.8.0-preview.4";
+      url = "git+https://github.com/Runic-Artifex/runic-sdk?ref=refs/tags/v0.8.0-preview.6&shallow=1";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
