@@ -9,7 +9,7 @@
     };
     # The application builder and the .NET development shell for runic/.
     runic-sdk = {
-      url = "github:Runic-Artifex/runic-sdk/v0.8.0-preview.4";
+      url = "github:Runic-Artifex/runic-sdk/v0.8.0-preview.6";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

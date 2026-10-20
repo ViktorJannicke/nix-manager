@@ -33,12 +33,12 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
-    <PackageReference Include="Runic.Application.Views.Desktop" Version="0.8.0-preview.4" />
+    <PackageReference Include="Runic.Application.Views.Desktop" Version="0.8.0-preview.6" />
     <PackageReference Include="Runic.CommandLine" Version="0.7.0-preview.2" />
     <PackageReference Include="Runic.CommandLine.Processes" Version="0.7.0-preview.2" />
-    <PackageReference Include="Runic.Platform.Linux.Polkit" Version="0.8.0-preview.4" />
-    <PackageReference Include="Runic.Translations" Version="0.7.0-preview.3" />
-    <PackageReference Include="Runic.Translations.Build" Version="0.7.0-preview.3" PrivateAssets="all" />
+    <PackageReference Include="Runic.Platform.Linux.Polkit" Version="0.8.0-preview.6" />
+    <PackageReference Include="Runic.Translations" Version="0.7.0-preview.4" />
+    <PackageReference Include="Runic.Translations.Build" Version="0.7.0-preview.4" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
     <!-- The dashboard's catalogue, generated as DashboardText for the daemon's own text and the text the backend
