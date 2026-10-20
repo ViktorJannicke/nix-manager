@@ -226,6 +226,35 @@ public sealed class DashboardTests : IAsyncDisposable
     }
 
     [Test]
+    public async Task Pending_edits_cross_the_Bridge_as_a_union_and_are_stored_by_kind()
+    {
+        await WaitForAsync(() => _window.Root.Snapshot().Get(vm => vm.Draft).ValueKind == JsonValueKind.Object);
+        var software = _window.Root.View<SoftwareViewModel>(vm => vm.Software);
+
+        (await software.ExecuteAsync(vm => vm.SetDraftCommand, """
+            [{"$case":"set-option","scope":"system","file":"home.nix","option":"o.p","value":{"a":[1.5,null]},"label":"L"},
+             {"$case":"add-package","scope":"home","file":"home.nix","attr":"pkgs.hello"}]
+            """)).EnsureOk();
+
+        var changes = software.Snapshot().Get(vm => vm.Draft).GetProperty("changes");
+        await Assert.That(changes.GetRawText()).IsEqualTo("""
+            [{"$case":"set-option","scope":"system","file":"home.nix","label":"L","option":"o.p","value":{"a":[1.5,null]}},{"$case":"add-package","scope":"home","file":"home.nix","label":null,"attr":"pkgs.hello"}]
+            """.Trim());
+        var saved = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(_fixtures.StateDir, "draft.json")))!;
+        await Assert.That(saved["changes"]!.ToJsonString()).IsEqualTo("""
+            [{"kind":"set-option","scope":"system","file":"home.nix","option":"o.p","value":{"a":[1.5,null]},"label":"L"},{"kind":"add-package","scope":"home","file":"home.nix","attr":"pkgs.hello"}]
+            """.Trim());
+
+        var invalid = await software.ExecuteAsync(vm => vm.SetDraftCommand, """
+            [{"$case":"add-package","scope":"elsewhere","file":"home.nix","attr":"pkgs.hello","label":null}]
+            """);
+        await Assert.That(invalid.ErrorKind).IsEqualTo("domain-failed");
+        await Assert.That(invalid.Failure!.Value.GetProperty("message").GetString()).IsEqualTo("Invalid edit: unknown scope elsewhere.");
+        var unknown = await software.ExecuteAsync(vm => vm.SetDraftCommand, """[{"$case":"rename-package","scope":"home","file":"home.nix"}]""");
+        await Assert.That(unknown.Ok).IsFalse();
+    }
+
+    [Test]
     public async Task An_operation_that_ends_observes_the_computer_again()
     {
         await WaitForAsync(() => _observations > 0 && _window.Root.View<SystemViewModel>(vm => vm.System).Snapshot().Get(vm => vm.System).ValueKind == JsonValueKind.Object);

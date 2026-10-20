@@ -43,14 +43,14 @@ public sealed class SyntaxTests
     }
 
     [Test]
-    public async Task Edits_keep_the_member_order_the_Bun_version_hashes()
+    public async Task Edits_are_stored_with_their_kind_then_the_shared_members_then_their_own()
     {
-        // Created on the command line: kind, scope, file, attr. Decoded from draft.json: the schema's order.
-        var created = Change.AddPackage("home", "a.nix", "pkgs.x");
-        var decoded = Change.Decode(JsonNode.Parse("""{"kind":"add-package","scope":"home","file":"a.nix","attr":"pkgs.x","extra":1}"""));
-        await Assert.That(created.ToString()).IsEqualTo("""{"kind":"add-package","scope":"home","file":"a.nix","attr":"pkgs.x"}""");
-        await Assert.That(decoded.ToString()).IsEqualTo("""{"kind":"add-package","attr":"pkgs.x","scope":"home","file":"a.nix"}""");
+        var created = new AddPackage("home", "a.nix", "pkgs.x");
+        var decoded = Change.Decode(JsonNode.Parse("""{"attr":"pkgs.x","file":"a.nix","extra":1,"scope":"home","kind":"add-package"}"""));
+        await Assert.That(decoded).IsEqualTo(created);
+        await Assert.That(JsJson.Stringify(Change.ToJson([created]))).IsEqualTo("""[{"kind":"add-package","scope":"home","file":"a.nix","attr":"pkgs.x"}]""");
         var option = Change.Decode(JsonNode.Parse("""{"file":"b.nix","value":1.5,"option":"o.p","scope":"system","kind":"set-option","label":"L"}"""));
-        await Assert.That(option.ToString()).IsEqualTo("""{"kind":"set-option","option":"o.p","value":1.5,"scope":"system","file":"b.nix","label":"L"}""");
+        await Assert.That(JsJson.Stringify(Change.ToJson([option, new SetOption("home", "c.nix", "o.q", null)])))
+            .IsEqualTo("""[{"kind":"set-option","scope":"system","file":"b.nix","option":"o.p","value":1.5,"label":"L"},{"kind":"set-option","scope":"home","file":"c.nix","option":"o.q","value":null}]""");
     }
 }

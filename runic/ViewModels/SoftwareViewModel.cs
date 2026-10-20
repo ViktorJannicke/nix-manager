@@ -1,4 +1,3 @@
-using System.Text.Json.Nodes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NixManager.Domain;
@@ -14,7 +13,7 @@ namespace NixManager.ViewModels;
 public sealed record SoftwareFailure(string Message);
 
 /// <summary>Options of one configuration: those to describe or read the values of.</summary>
-/// <param name="Scope"><c>home</c> or <c>system</c>; anything else is <c>home</c>, as in the Bun version.</param>
+/// <param name="Scope"><c>home</c> or <c>system</c>; anything else is <c>home</c>.</param>
 /// <param name="Options">Option paths, such as <c>programs.git.enable</c>.</param>
 public sealed record OptionsRequest(string Scope, IReadOnlyList<string> Options);
 
@@ -272,7 +271,7 @@ public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
     {
         try
         {
-            Draft = await _service.SetDraftAsync(new JsonArray([.. changes.Select(change => (JsonNode)change.ToJson())]));
+            Draft = await _service.SetDraftAsync(changes);
         }
         catch (Exception error) when (error is ManagerException or IOException or UnauthorizedAccessException)
         {

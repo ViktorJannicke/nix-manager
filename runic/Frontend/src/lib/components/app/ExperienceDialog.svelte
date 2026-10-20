@@ -69,28 +69,28 @@
     const label = experience.title;
     const file = creating ? newFile : target;
     const where = (option: string) => software.editableIn(scope, option) ?? file;
-    const edits: Change[] = [...(allowing ?? []), ...(creating ? [{ kind: "create-module", scope, file, importer, label } as const] : [])];
+    const edits: Change[] = [...(allowing ?? []), ...(creating ? [{ $case: "create-module", scope, file, importer, label } as const] : [])];
     if (on !== initial.on)
       for (const [option, value] of Object.entries(experience.enable))
         edits.push(
           on
-            ? { kind: "set-option", scope, file: where(option), option, value, label }
+            ? { $case: "set-option", scope, file: where(option), option, value, label }
             : typeof value === "boolean"
-              ? { kind: "set-option", scope, file: where(option), option, value: false, label }
-              : { kind: "unset-option", scope, file: where(option), option, label },
+              ? { $case: "set-option", scope, file: where(option), option, value: false, label }
+              : { $case: "unset-option", scope, file: where(option), option, label },
         );
     for (const setting of experience.settings) {
       const value = values[setting.option];
       if (JSON.stringify(value) === JSON.stringify(initial.values[setting.option])) continue;
-      edits.push({ kind: "set-option", scope, file: where(setting.option), option: setting.option, value: value as never, label });
+      edits.push({ $case: "set-option", scope, file: where(setting.option), option: setting.option, value: value as never, label });
     }
     if (on && !initial.on) {
       for (const [option, value] of Object.entries(experience.alsoSet ?? {}))
-        edits.push({ kind: "set-option", scope, file: where(option), option, value: value as never, label });
+        edits.push({ $case: "set-option", scope, file: where(option), option, value: value as never, label });
       // A new file keeps everything about the feature together.
       const packages = creating ? file : software.packageFiles(scope)[0]?.file;
       for (const attr of experience.packages ?? [])
-        if (packages) edits.push({ kind: "add-package", scope, file: packages, attr: `pkgs.${attr}`, label });
+        if (packages) edits.push({ $case: "add-package", scope, file: packages, attr: `pkgs.${attr}`, label });
     }
     if (needsTarget && !creating) software.remember(scope, target);
     await software.stage(edits);

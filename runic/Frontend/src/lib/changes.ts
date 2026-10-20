@@ -1,14 +1,16 @@
-// Pending edits in words and in combination (`src/changes.ts`). The backend keeps the English text of these
-// phrases in its rules (Edits/ChangeRules.cs); the stored catalogue translates them, so `stored` turns each into
-// the current language. Problems are returned in English, for `stored` where they are shown.
+// Pending edits in words and in combination. The backend keeps the English text of these phrases in its rules
+// (Edits/ChangeRules.cs); the stored catalogue translates them, so `stored` turns each into the current language.
+// Problems are returned in English, for `stored` where they are shown.
 
-import type { ModuleFile, RenderedDraft, UnfreePolicy } from "../generated/types.js";
+import type { Change, ModuleFile, UnfreePolicy } from "../generated/types.js";
 import { stored, storedTemplate } from "./i18n";
 
-export type Change = RenderedDraft["changes"][number];
+export type { Change };
 export type Target = "home" | "system";
 
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+/** Whether two package edits are the same: every member matches. */
+const same = (a: Change, b: Change) =>
+  a.$case === b.$case && a.scope === b.scope && a.file === b.file && a.label === b.label && "attr" in a && "attr" in b && a.attr === b.attr;
 
 /** Whether a policy accepts a non-free package by its name; a predicate counts as accepting. */
 export const acceptsUnfree = (policy: UnfreePolicy | null | undefined, name: string | null) =>
@@ -21,11 +23,11 @@ export const acceptsUnfree = (policy: UnfreePolicy | null | undefined, name: str
 export function mergeChanges(current: readonly Change[], next: readonly Change[], unchanged: (change: Change) => boolean = () => false): Change[] {
   let changes = [...current];
   for (const change of next) {
-    if (change.kind === "create-module") {
-      if (!changes.some((item) => item.kind === "create-module" && item.file === change.file)) changes.push(change);
+    if (change.$case === "create-module") {
+      if (!changes.some((item) => item.$case === "create-module" && item.file === change.file)) changes.push(change);
     } else if ("attr" in change) {
       const opposite = changes.findIndex(
-        (item) => "attr" in item && item.attr === change.attr && item.file === change.file && item.kind !== change.kind,
+        (item) => "attr" in item && item.attr === change.attr && item.file === change.file && item.$case !== change.$case,
       );
       if (opposite >= 0) {
         changes.splice(opposite, 1);
@@ -44,7 +46,7 @@ export function mergeChanges(current: readonly Change[], next: readonly Change[]
 /** Removes an edit; removing a created file also removes the edits written into it. */
 export function dropChange(changes: readonly Change[], index: number): Change[] {
   const removed = changes[index];
-  return changes.filter((change, position) => position !== index && !(removed?.kind === "create-module" && change.file === removed.file));
+  return changes.filter((change, position) => position !== index && !(removed?.$case === "create-module" && change.file === removed.file));
 }
 
 const directory = (file: string) => file.split("/").slice(0, -1).join("/");
@@ -142,7 +144,7 @@ export function showValue(value: unknown) {
 }
 
 /** An option edit in words; the value's phrase has its own keys so it can be translated. */
-function describeOption(option: string, value: unknown, label: string | undefined) {
+function describeOption(option: string, value: unknown, label: string | null) {
   const values = { option, label: label ?? "" };
   const empty = Array.isArray(value) && !value.length;
   if (!label) {
@@ -161,7 +163,7 @@ function describeOption(option: string, value: unknown, label: string | undefine
 
 /** A pending edit in words: what it does, and where. */
 export function describeChange(change: Change) {
-  switch (change.kind) {
+  switch (change.$case) {
     case "add-package":
       return { title: say("Install {name}", { name: change.attr.replace(/^pkgs\./, "") }), detail: change.file };
     case "remove-package":
@@ -190,10 +192,10 @@ export function oneStepProblem(changes: readonly Change[]): string | undefined {
   if (changes.some((change) => change.scope !== "home")) return "It changes the computer itself, not just your apps.";
   const simple = changes.every(
     (change) =>
-      change.kind === "add-package" ||
-      change.kind === "remove-package" ||
-      change.kind === "create-module" ||
-      (change.kind === "set-option" && change.option === "nixpkgs.config.allowUnfree" && change.value === true),
+      change.$case === "add-package" ||
+      change.$case === "remove-package" ||
+      change.$case === "create-module" ||
+      (change.$case === "set-option" && change.option === "nixpkgs.config.allowUnfree" && change.value === true),
   );
   return simple ? undefined : "It changes settings, which can restart programs you are using.";
 }

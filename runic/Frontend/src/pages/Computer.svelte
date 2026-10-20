@@ -112,7 +112,7 @@
   /** Users the configuration has, then users that pending edits or this page add. */
   const accounts = $derived.by(() => {
     const known = inventory?.users ?? [];
-    const added = [...software.changes.flatMap((change) => (change.kind === "set-option" ? [change.option] : [])), ...Object.keys(edits)]
+    const added = [...software.changes.flatMap((change) => (change.$case === "set-option" ? [change.option] : [])), ...Object.keys(edits)]
       .map((option) => option.match(NEW_USER)?.[1])
       .filter((name): name is string => Boolean(name) && !known.some((user) => user.name === name));
     return [
@@ -218,13 +218,13 @@
 
   async function save() {
     const file = creating ? newFile : target;
-    const changes: Change[] = creating && homeless.length ? [{ kind: "create-module", scope: SCOPE, file, importer, label: msg("Computer") }] : [];
+    const changes: Change[] = creating && homeless.length ? [{ $case: "create-module", scope: SCOPE, file, importer, label: msg("Computer") }] : [];
     for (const [option, edit] of Object.entries(edits)) {
       const where = home(option) ?? file;
       changes.push(
         "remove" in edit
-          ? { kind: "unset-option", scope: SCOPE, file: where, option, label: label(option) }
-          : { kind: "set-option", scope: SCOPE, file: where, option, value: edit.value as never, label: label(option) },
+          ? { $case: "unset-option", scope: SCOPE, file: where, option, label: label(option) }
+          : { $case: "set-option", scope: SCOPE, file: where, option, value: edit.value as never, label: label(option) },
       );
     }
     if (homeless.length && !creating) software.remember(SCOPE, target);

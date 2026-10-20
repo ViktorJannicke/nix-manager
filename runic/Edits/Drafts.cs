@@ -11,7 +11,7 @@ namespace NixManager.Edits;
 /// <summary>The draft rendered in memory: the changed files and the edits that could not be applied.</summary>
 public sealed record RenderResult(IReadOnlyList<EditedFile> Files, IReadOnlyList<DraftProblem> Problems);
 
-/// <summary>Pending edits rendered into the files they change, and the stored draft (<c>src/draft.ts</c>).</summary>
+/// <summary>Pending edits rendered into the files they change, and the stored draft.</summary>
 public static partial class Drafts
 {
     /// <summary>What a module created for the draft starts as (<c>moduleTemplate</c>).</summary>
@@ -62,25 +62,25 @@ public static partial class Drafts
     // The edit of one change other than create-module (`edit`).
     private static SourceEdit Edit(string source, Change change)
     {
-        switch (change.Kind)
+        switch (change)
         {
-            case ChangeKinds.AddPackage:
+            case AddPackage add:
                 try
                 {
-                    return PackageLists.AddPackage(source, change.Attr!, ScopeBindings(change.Scope));
+                    return PackageLists.AddPackage(source, add.Attr, ScopeBindings(add.Scope));
                 }
                 catch (ManagerException error) when (error.Message.StartsWith("No editable package list", StringComparison.Ordinal))
                 {
-                    return ModuleOptions.StartList(source, PackagesOption(change.Scope), change.Attr!);
+                    return ModuleOptions.StartList(source, PackagesOption(add.Scope), add.Attr);
                 }
-            case ChangeKinds.RemovePackage:
-                return PackageLists.RemovePackage(source, change.Attr!);
-            case ChangeKinds.SetOption:
-                return ModuleOptions.SetOption(source, change.Option!, change.Value);
-            case ChangeKinds.UnsetOption:
-                return ModuleOptions.UnsetOption(source, change.Option!);
+            case RemovePackage remove:
+                return PackageLists.RemovePackage(source, remove.Attr);
+            case SetOption set:
+                return ModuleOptions.SetOption(source, set.Option, set.Value?.DeepClone());
+            case UnsetOption unset:
+                return ModuleOptions.UnsetOption(source, unset.Option);
             default:
-                throw new ManagerException($"Unknown edit {change.Kind}.");
+                throw new ArgumentOutOfRangeException(nameof(change));
         }
     }
 
@@ -173,15 +173,15 @@ public static partial class Drafts
             var change = changes[index];
             try
             {
-                if (change.Kind == ChangeKinds.CreateModule)
+                if (change is CreateModule create)
                 {
                     if (!WritablePath().IsMatch(change.File)) throw new ManagerException($"{change.File} cannot be written as a Nix path.");
                     if (files.ContainsKey(change.File) || Native.RealPath(SourcePath(flake, change.File)) is not null)
                         throw new ManagerException($"{change.File} already exists.");
-                    if (change.Importer == change.File) throw new ManagerException("A file cannot import itself.");
-                    var importer = Open(change.Importer!);
-                    importer.After = ModuleOptions.AddImport(importer.After, ImportPath(change.Importer!, change.File)).Source;
-                    files[change.Importer!] = importer;
+                    if (create.Importer == change.File) throw new ManagerException("A file cannot import itself.");
+                    var importer = Open(create.Importer);
+                    importer.After = ModuleOptions.AddImport(importer.After, ImportPath(create.Importer, change.File)).Source;
+                    files[create.Importer] = importer;
                     files[change.File] = new EditedFile { Path = change.File, BaseHash = "", Created = true, Before = "", After = ModuleTemplate };
                     continue;
                 }
@@ -218,7 +218,7 @@ public static partial class Drafts
     {
         try
         {
-            // JSON.parse refuses a byte order mark, which ReadAllText would drop.
+            // A byte order mark makes the draft unreadable; ReadAllText would drop it.
             var saved = JsonNode.Parse(Encoding.UTF8.GetString(File.ReadAllBytes(DraftFile(config))));
             if (saved is not JsonObject members || members["flake"] is not JsonValue flake ||
                 !flake.TryGetValue<string>(out var path) || path != config.Flake)
@@ -243,7 +243,7 @@ public static partial class Drafts
             var draft = new JsonObject
             {
                 ["flake"] = config.Flake,
-                ["changes"] = new JsonArray([.. changes.Select(change => (JsonNode)change.ToJson())]),
+                ["changes"] = Change.ToJson(changes),
             };
             var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
             if (!OperatingSystem.IsWindows()) options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;

@@ -1,4 +1,4 @@
-// The Software and Computer pages' state over the Window's SoftwareViewModel (ui/lib/software.svelte.ts): what the
+// The Software and Computer pages' state over the Window's SoftwareViewModel: what the
 // selected host installs, the package catalog and its search, option documentation, and staging edits in the
 // draft. The draft itself is the Window's (`app.draft`), which the navigation and the Overview show without
 // evaluating the inventory; a draft this page just saved is used until the Window's has caught up.
@@ -200,14 +200,14 @@ class SoftwareState {
     const experience = experiences.find((item) => item.scope === scope && UNFREE in item.enable)!;
     const label = experience.title;
     const target = this.editableIn(scope, UNFREE) ?? this.featureFile(scope, UNFREE, experience.id);
-    if (target !== NEW_FILE) return [{ kind: "set-option", scope, file: target, option: UNFREE, value: true, label }];
+    if (target !== NEW_FILE) return [{ $case: "set-option", scope, file: target, option: UNFREE, value: true, label }];
     const near = this.moduleFiles(scope, UNFREE).find((module) => module.active !== false)?.file;
     const file = this.suggestFile(scope, experience.id, near);
     const importer = this.importers(scope, file)[0];
     if (!importer) return undefined;
     return [
-      { kind: "create-module", scope, file, importer, label },
-      { kind: "set-option", scope, file, option: UNFREE, value: true, label },
+      { $case: "create-module", scope, file, importer, label },
+      { $case: "set-option", scope, file, option: UNFREE, value: true, label },
     ];
   }
 
@@ -243,17 +243,17 @@ class SoftwareState {
           skipped.push(stored(label));
           continue;
         }
-        edits.push({ kind: "create-module", scope, file, importer, label });
+        edits.push({ $case: "create-module", scope, file, importer, label });
       }
       if (experience.unfree?.some((name) => this.refusesUnfreeName(scope, name)) && !allow(scope)) {
         skipped.push(stored(label));
         continue;
       }
       for (const [option, value] of Object.entries({ ...experience.enable, ...experience.alsoSet }))
-        edits.push({ kind: "set-option", scope, file: this.editableIn(scope, option) ?? file, option, value, label });
+        edits.push({ $case: "set-option", scope, file: this.editableIn(scope, option) ?? file, option, value, label });
       const packages = creating ? file : this.packageFiles(scope)[0]?.file;
       for (const attr of experience.packages ?? [])
-        if (packages) edits.push({ kind: "add-package", scope, file: packages, attr: `pkgs.${attr}`, label });
+        if (packages) edits.push({ $case: "add-package", scope, file: packages, attr: `pkgs.${attr}`, label });
       changes.push(...edits);
     }
     const list = this.packageFiles("home")[0]?.file;
@@ -263,7 +263,7 @@ class SoftwareState {
         skipped.push(entry.app?.name ?? entry.n ?? entry.a);
         continue;
       }
-      changes.push({ kind: "add-package", scope: "home", file: list, attr: `pkgs.${entry.a}` });
+      changes.push({ $case: "add-package", scope: "home", file: list, attr: `pkgs.${entry.a}`, label: null });
     }
     return { changes, skipped };
   }
@@ -275,8 +275,8 @@ class SoftwareState {
   /** Current value of an option, with a pending edit taking precedence. */
   value(scope: Target, option: string): { value: unknown; pending: boolean } {
     const pending = [...this.changes].reverse().find((change) => "option" in change && change.scope === scope && change.option === option);
-    if (pending?.kind === "set-option") return { value: pending.value, pending: true };
-    if (pending?.kind === "unset-option") return { value: undefined, pending: true };
+    if (pending?.$case === "set-option") return { value: pending.value, pending: true };
+    if (pending?.$case === "unset-option") return { value: undefined, pending: true };
     return { value: this.inventory?.[scope].options[option]?.value ?? undefined, pending: false };
   }
 
@@ -332,7 +332,7 @@ class SoftwareState {
       ...(inventory?.modules.map((module) => module.file) ?? []),
       ...(inventory?.files.map((file) => file.file) ?? []),
       ...(inventory?.importers ?? []),
-      ...this.changes.filter((change) => change.kind === "create-module").map((change) => change.file),
+      ...this.changes.filter((change) => change.$case === "create-module").map((change) => change.file),
     ]);
   }
 
@@ -384,8 +384,8 @@ class SoftwareState {
   stage(next: Change[]) {
     return this.save(
       mergeChanges(this.changes, next, (change) => {
-        if (change.kind !== "set-option") return false;
-        const current = this.inventory?.[change.scope].options[change.option];
+        if (change.$case !== "set-option") return false;
+        const current = this.inventory?.[change.scope as Target].options[change.option];
         return Boolean(current && !current.error && same(current.value, change.value));
       }),
     );

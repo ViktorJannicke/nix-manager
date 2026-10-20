@@ -389,7 +389,7 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
         .. state.Modules.Select(module => module.File),
         .. state.Files.Select(file => file.File),
         .. state.Importers,
-        .. _changes.Where(change => change.Kind == ChangeKinds.CreateModule).Select(change => change.File),
+        .. _changes.OfType<CreateModule>().Select(change => change.File),
     ];
 
     private static string AttrOf(string name)
@@ -430,7 +430,7 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
         var importer = command.ImportFrom ?? ChangeRules.RankImporters(state.Importers, newFile, state.Imports).FirstOrDefault();
         if (string.IsNullOrEmpty(importer))
             throw Fail($"No file {_host} imports has an imports list to add {newFile} to. Use --import-from.");
-        return (newFile, [Change.CreateModule(_scope, newFile, importer)]);
+        return (newFile, [new CreateModule(_scope, newFile, importer)]);
     }
 
     /// <summary>Current value and defining flake files of an option.</summary>
@@ -512,11 +512,11 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
                 var target = await ChosenAsync().ConfigureAwait(false) ?? (best is { Active: true } ? (best.File, []) : null);
                 if (target is not { } chosen)
                     throw Fail($"No file of {Name} has a package list. Choose one with --file, or create one with --new-file.");
-                var next = chosen.Create.Concat(attrs.Select(attr => Change.AddPackage(_scope, chosen.File, attr))).ToList();
+                var next = chosen.Create.Concat(attrs.Select(attr => new AddPackage(_scope, chosen.File, attr))).ToList();
                 Save(changes, ChangeRules.Merge(changes, next), output);
                 // Prepare would refuse these; say so now, with the edit that allows them.
-                var allowed = changes.Any(change => change.Kind == ChangeKinds.SetOption && change.Scope == _scope
-                    && change.Option == "nixpkgs.config.allowUnfree" && change.Value is JsonValue value && value.GetValueKind() == JsonValueKind.True);
+                var allowed = changes.Any(change => change is SetOption { Option: "nixpkgs.config.allowUnfree", Value: JsonValue value }
+                    && change.Scope == _scope && value.GetValueKind() == JsonValueKind.True);
                 var refused = allowed ? [] : (index ?? [])
                     .Where(entry => attrs.Contains($"pkgs.{entry.A}") && !entry.F && !ChangeRules.AcceptsUnfree(state.Unfree, entry.N)).ToList();
                 if (refused.Count > 0)
@@ -530,7 +530,7 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
                 var next = command.Packages.Select(AttrOf).Select(attr =>
                 {
                     var listed = state.Packages.FirstOrDefault(item => item.Attr == attr && (string.IsNullOrEmpty(command.File) || item.File == command.File));
-                    if (listed is not null) return Change.RemovePackage(_scope, listed.File, attr);
+                    if (listed is not null) return new RemovePackage(_scope, listed.File, attr);
                     var added = state.Packages.FirstOrDefault(item => $"pkgs.{item.Name}" == attr && item.External);
                     throw Fail(added is not null
                         ? $"{attr} is added by {ChangeRules.Origin(added.File)}, not a package list. Turn off the setting that adds it instead."
@@ -555,10 +555,10 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
                         var file = ChangeRules.FreePath(Known(state), topic, ranked.FirstOrDefault(module => module.Active != false)?.File,
                             _scope == Targets.Home ? "modules/home" : "modules/nixos");
                         if (ChangeRules.RankImporters(state.Importers, file, state.Imports).FirstOrDefault() is { } importer)
-                            target = (file, [Change.CreateModule(_scope, file, importer)]);
+                            target = (file, [new CreateModule(_scope, file, importer)]);
                     }
                     if (target is { } written)
-                        await note($"Writing to {written.File}{(written.Create.Count > 0 ? $" (new, imported from {written.Create[0].Importer})" : "")}.").ConfigureAwait(false);
+                        await note($"Writing to {written.File}{(written.Create is [CreateModule created, ..] ? $" (new, imported from {created.Importer})" : "")}.").ConfigureAwait(false);
                 }
                 var path = target?.File ?? (current.Files.Count == 1 ? current.Files[0] : null);
                 if (path is null)
@@ -579,12 +579,12 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
                     }
                     if (current.Error != true && current.HasValue && JsJson.Stringify(current.Value) == JsJson.Stringify(value) && current.Files.Contains(path))
                         throw Fail($"{command.Option} is already {ChangeRules.ShowValue(value)}.");
-                    next = [.. target?.Create ?? [], Change.SetOption(_scope, path, command.Option, value)];
+                    next = [.. target?.Create ?? [], new SetOption(_scope, path, command.Option, value)];
                 }
                 else
                 {
                     if (!current.Files.Contains(path)) throw Fail($"{command.Option} is not set in {path}.");
-                    next = [Change.UnsetOption(_scope, path, command.Option)];
+                    next = [new UnsetOption(_scope, path, command.Option)];
                 }
                 Save(changes, ChangeRules.Merge(changes, next), output);
                 return null;

@@ -44,11 +44,11 @@
   const adding = $derived.by((): Change[] => {
     const allow = allowing ?? [];
     return creating
-      ? [...allow, { kind: "create-module", scope, file: newFile, importer }, { kind: "add-package", scope, file: newFile, attr }]
-      : [...allow, { kind: "add-package", scope, file, attr }];
+      ? [...allow, { $case: "create-module", scope, file: newFile, importer, label: null }, { $case: "add-package", scope, file: newFile, attr, label: null }]
+      : [...allow, { $case: "add-package", scope, file, attr, label: null }];
   });
   const removing = $derived<Change[]>(
-    installed?.attr ? [{ kind: "remove-package", scope: installed.scope, file: installed.file, attr: installed.attr }] : [],
+    installed?.attr ? [{ $case: "remove-package", scope: installed.scope, file: installed.file, attr: installed.attr, label: null }] : [],
   );
   const name = $derived(entry ? (entry.n ?? entry.a) : "");
 
@@ -119,7 +119,7 @@
 
       {#if pending}
         <p class="rounded-lg bg-accent px-3 py-2 text-xs">
-          {pending.kind === "add-package"
+          {pending.$case === "add-package"
             ? m.package_waiting_to_be_installed_in_your({ file: pending.file })
             : m.package_waiting_to_be_removed_in_your({ file: pending.file })}
         </p>

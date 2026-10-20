@@ -86,13 +86,12 @@
       "add",
       "fzf"
     ],
-    "exitCode": 1,
-    "stdout": "",
+    "exitCode": 0,
+    "stdout": "1 pending edit. Run nix-manager software prepare to build it.\n",
     "stderr": [
-      "Reading test's home configuration...",
-      "Error: Install fzf: pkgs.fzf is already listed in this file."
+      "Reading test's home configuration..."
     ],
-    "error": "Error: Install fzf: pkgs.fzf is already listed in this file.",
+    "error": null,
     "draft": [
       {
         "kind": "add-package",

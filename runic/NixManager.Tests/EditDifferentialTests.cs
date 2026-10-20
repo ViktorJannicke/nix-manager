@@ -1,7 +1,9 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using NixManager.Domain;
 using NixManager.Edits;
 using NixManager.Nix;
+using NixManager.Operations;
 using NixManager.Software;
 
 namespace NixManager.Tests;
@@ -43,9 +45,10 @@ public sealed class EditDifferentialTests
         ["lines"] = new JsonArray([.. hunk.Lines.Select(line => (JsonNode)new JsonObject { ["kind"] = line.Kind, ["text"] = line.Text })]),
     })]);
 
-    private static JsonNode Changes(IEnumerable<Change> changes) => new JsonArray([.. changes.Select(change => (JsonNode)change.ToJson())]);
+    private static JsonNode Changes(IEnumerable<Change> changes) => Change.ToJson(changes);
 
-    private static List<Change> ChangeList(JsonNode? node) => node!.AsArray().Select(item => Change.FromJson(item!.AsObject())).ToList();
+    // Read as stored edits are, from reviews and events.
+    private static List<Change> ChangeList(JsonNode? node) => node.Deserialize(ManagerJson.Default.ListChange)!;
 
     private static List<string> StringList(JsonNode? node) => node!.AsArray().Select(item => item!.GetValue<string>()).ToList();
 
@@ -107,7 +110,7 @@ public sealed class EditDifferentialTests
             case "showValue": return ChangeRules.ShowValue(args[0]?.DeepClone());
             case "describeChange":
             {
-                var described = ChangeRules.Describe(Change.FromJson(args[0]!.AsObject()));
+                var described = ChangeRules.Describe(ChangeList(new JsonArray(args[0]!.DeepClone()))[0]);
                 return new JsonObject { ["title"] = described.Title, ["detail"] = described.Detail };
             }
             case "mergeChanges":

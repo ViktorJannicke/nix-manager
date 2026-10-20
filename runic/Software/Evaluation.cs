@@ -58,7 +58,10 @@ public sealed record Probe(string File, string Option);
 
 public sealed record FilePackages(string File, IReadOnlyList<PackageInfo> Items);
 
-public sealed record NixpkgsFingerprint([property: Runic.Application.Views.RunicBridgeCodec(typeof(ViewModels.JsonNodeBridgeCodec))] JsonObject Config, string Names);
+/// <summary>What decides a configuration's package set, to tell whether a <c>nixpkgs.config</c> edit changes more than itself.</summary>
+/// <param name="Config">The package set's <c>config</c>, a JSON object.</param>
+/// <param name="Names">The names of the packages the flake adds.</param>
+public sealed record NixpkgsFingerprint(JsonNode Config, string Names);
 
 /// <summary>One evaluation of a configuration (<c>ConfigurationState</c>).</summary>
 public sealed record ConfigurationState
@@ -324,7 +327,7 @@ public static class Evaluation
             Resolved = (state["resolved"] as JsonArray ?? []).Select(Text).ToList(),
             Used = (state["used"] as JsonArray ?? []).Select(item => item is JsonValue v && v.TryGetValue<bool>(out var used) && used).ToList(),
             Nixpkgs = state["nixpkgs"] is JsonObject nixpkgs
-                ? new NixpkgsFingerprint(nixpkgs["config"] as JsonObject ?? [], Text(nixpkgs["names"]) ?? "")
+                ? new NixpkgsFingerprint(nixpkgs["config"] is JsonObject config ? config.DeepClone() : new JsonObject(), Text(nixpkgs["names"]) ?? "")
                 : null,
             Unfree = state["unfree"] is JsonObject unfree
                 ? new UnfreePolicy

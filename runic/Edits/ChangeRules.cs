@@ -11,13 +11,11 @@ namespace NixManager.Edits;
 public sealed record ChangeText(string Title, string Detail);
 
 /// <summary>
-/// Pending edits in words and in combination, shared by the dashboard and the command line (<c>src/changes.ts</c>).
-/// Texts are English, as the Bun version's <c>msg()</c> writes them.
+/// Pending edits in words and in combination, shared by the dashboard and the command line. Texts are English; the
+/// dashboard translates them where it shows them.
 /// </summary>
 public static partial class ChangeRules
 {
-    private static bool Has(Change change, string member) => change.ToJson().ContainsKey(member);
-
     /// <summary>Whether a policy accepts a non-free package by its name; a predicate counts as accepting (<c>acceptsUnfree</c>).</summary>
     public static bool AcceptsUnfree(UnfreePolicy? policy, string? name) =>
         policy is null || policy.All || policy.Predicate || (name is not null && policy.Packages.Contains(name));
@@ -33,26 +31,21 @@ public static partial class ChangeRules
         var changes = current.ToList();
         foreach (var change in next)
         {
-            if (change.Kind == ChangeKinds.CreateModule)
+            switch (change)
             {
-                if (!changes.Any(item => item.Kind == ChangeKinds.CreateModule && item.File == change.File)) changes.Add(change);
-            }
-            else if (Has(change, "attr"))
-            {
-                var opposite = changes.FindIndex(item =>
-                    Has(item, "attr") && item.Attr == change.Attr && item.File == change.File && item.Kind != change.Kind);
-                if (opposite >= 0)
-                {
-                    changes.RemoveAt(opposite);
-                    continue;
-                }
-                if (changes.Any(item => item.Same(change))) continue;
-                changes.Add(change);
-            }
-            else
-            {
-                changes = changes.Where(item => !(Has(item, "option") && item.Option == change.Option && item.Scope == change.Scope)).ToList();
-                if (!unchanged(change)) changes.Add(change);
+                case CreateModule:
+                    if (!changes.Any(item => item is CreateModule && item.File == change.File)) changes.Add(change);
+                    break;
+                case PackageEdit package:
+                    var opposite = changes.FindIndex(item =>
+                        item is PackageEdit other && other.Attr == package.Attr && other.File == package.File && other.GetType() != package.GetType());
+                    if (opposite >= 0) changes.RemoveAt(opposite);
+                    else if (!changes.Contains(change)) changes.Add(change);
+                    break;
+                case OptionEdit option:
+                    changes = changes.Where(item => !(item is OptionEdit other && other.Option == option.Option && other.Scope == option.Scope)).ToList();
+                    if (!unchanged(change)) changes.Add(change);
+                    break;
             }
         }
         return changes;
@@ -63,7 +56,7 @@ public static partial class ChangeRules
     {
         var removed = index >= 0 && index < changes.Count ? changes[index] : null;
         return changes.Where((change, position) =>
-            position != index && !(removed?.Kind == ChangeKinds.CreateModule && change.File == removed.File)).ToList();
+            position != index && !(removed is CreateModule && change.File == removed.File)).ToList();
     }
 
     // String(value) of a JSON value, as Array.prototype.join writes its items (null as empty).
@@ -118,14 +111,14 @@ public static partial class ChangeRules
     private static partial Regex PkgsPrefix();
 
     /// <summary>A pending edit in words: what it does, and where (<c>describeChange</c>).</summary>
-    public static ChangeText Describe(Change change) => change.Kind switch
+    public static ChangeText Describe(Change change) => change switch
     {
-        ChangeKinds.AddPackage => new($"Install {PkgsPrefix().Replace(change.Attr ?? "", "", 1)}", change.File),
-        ChangeKinds.RemovePackage => new($"Remove {PkgsPrefix().Replace(change.Attr ?? "", "", 1)}", change.File),
-        ChangeKinds.SetOption => new(DescribeOption(change.Option ?? "", change.Value, change.Label), change.File),
-        ChangeKinds.UnsetOption => new($"Reset {change.Option} to its default", change.File),
-        ChangeKinds.CreateModule => new($"Create {change.File.Split('/')[^1]}", $"{change.File}, imported from {change.Importer}"),
-        _ => new(change.Kind, change.File),
+        AddPackage add => new($"Install {PkgsPrefix().Replace(add.Attr, "", 1)}", add.File),
+        RemovePackage remove => new($"Remove {PkgsPrefix().Replace(remove.Attr, "", 1)}", remove.File),
+        SetOption set => new(DescribeOption(set.Option, set.Value, set.Label), set.File),
+        UnsetOption unset => new($"Reset {unset.Option} to its default", unset.File),
+        CreateModule create => new($"Create {create.File.Split('/')[^1]}", $"{create.File}, imported from {create.Importer}"),
+        _ => throw new ArgumentOutOfRangeException(nameof(change)),
     };
 
     /// <summary>The scope a review must build to include every edit (<c>changesScope</c>): <c>all</c>, <c>home</c> or <c>system</c>.</summary>
@@ -283,8 +276,8 @@ public static partial class ChangeRules
         if (changes.Count == 0) return "There is nothing to install.";
         if (changes.Any(change => change.Scope != Targets.Home)) return "It changes the computer itself, not just your apps.";
         var simple = changes.All(change =>
-            change.Kind is ChangeKinds.AddPackage or ChangeKinds.RemovePackage or ChangeKinds.CreateModule ||
-            (change.Kind == ChangeKinds.SetOption && change.Option == "nixpkgs.config.allowUnfree" && Is(change.Value, JsonValueKind.True)));
+            change is PackageEdit or CreateModule ||
+            (change is SetOption { Option: "nixpkgs.config.allowUnfree" } set && Is(set.Value, JsonValueKind.True)));
         return simple ? null : "It changes settings, which can restart programs you are using.";
     }
 

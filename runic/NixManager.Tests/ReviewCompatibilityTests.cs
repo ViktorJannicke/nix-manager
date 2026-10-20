@@ -53,7 +53,28 @@ public sealed class ReviewCompatibilityTests : IDisposable
     {
         var text = File.ReadAllText(Recorded(name));
         var review = ManagerJson.Deserialize<BuildReview>(text)!;
-        await Assert.That(ReviewStore.Stringify(review, indented: true) + "\n").IsEqualTo(text);
+        var written = ReviewStore.Stringify(review, indented: true) + "\n";
+        // Pending edits are written with their kind, scope and file first, whatever order they were read in.
+        if (name == "edits") await Assert.That(RecordedFixtures.Difference(JsonNode.Parse(text), JsonNode.Parse(written))).IsNull();
+        else await Assert.That(written).IsEqualTo(text);
+    }
+
+    [Test]
+    public async Task Pending_edits_of_a_review_read_with_their_members_in_any_order()
+    {
+        var json = JsonNode.Parse(File.ReadAllText(Recorded("edits")))!;
+        foreach (var change in json["edits"]!["changes"]!.AsArray())
+        {
+            var kind = change!["kind"]!.GetValue<string>();
+            change.AsObject().Remove("kind");
+            change["kind"] = kind;
+            change["unknown"] = 1;
+        }
+        var review = ManagerJson.Deserialize<BuildReview>(json.ToJsonString())!;
+        await Assert.That(review.Edits!.Changes.SequenceEqual([
+            new Edits.AddPackage(Edits.Targets.Home, "modules/apps.nix", "pkgs.btop"),
+            new Edits.SetOption(Edits.Targets.Home, "modules/apps.nix", "programs.git.enable", JsonValue.Create(true)),
+        ])).IsTrue();
     }
 
     [Test]
@@ -70,10 +91,13 @@ public sealed class ReviewCompatibilityTests : IDisposable
     public async Task The_details_of_recorded_reviews_read_as_the_dashboard_shows_them()
     {
         var edits = ManagerJson.Deserialize<BuildReview>(File.ReadAllText(Recorded("edits")))!;
-        await Assert.That(edits.Edits!.Changes.Select(c => c.Kind)).IsEquivalentTo(["add-package", "set-option"]);
+        await Assert.That(edits.Edits!.Changes.Select(c => c.GetType())).IsEquivalentTo([typeof(Edits.AddPackage), typeof(Edits.SetOption)]);
         await Assert.That(edits.Edits.Effects[0].Added.Single().Name).IsEqualTo("btop");
         await Assert.That(edits.Edits.Effects[0].Options.Single().After.GetBoolean()).IsTrue();
-        await Assert.That(edits.Edits.Hash).IsEqualTo(Edits.Change.Hash(edits.Edits.Changes));
+        // Prepared while change lists were hashed in the order their members were read: it no longer matches its
+        // own edits, so the draft needs preparing again.
+        await Assert.That(edits.Edits.Hash).IsEqualTo("ec5aa5fd906b9124431c8e47713d30adc49af0940e4b8d5772d93274aae4ea99");
+        await Assert.That(edits.Edits.Hash).IsNotEqualTo(Edits.Change.Hash(edits.Edits.Changes));
         var undo = ManagerJson.Deserialize<BuildReview>(File.ReadAllText(Recorded("undo")))!;
         await Assert.That(undo.Undo!.Point.Generations.Home).IsEqualTo(5);
         await Assert.That(undo.Source).IsEqualTo(ReviewSources.Generation);

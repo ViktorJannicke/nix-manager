@@ -17,13 +17,13 @@ public sealed record Staged(string Original, IReadOnlyList<EditedFile> Files);
 
 /// <summary>
 /// Pending edits in a review: staged into a copy of the flake, verified by evaluation, written into the checkout
-/// on apply and put back by an undo (<c>src/edits.ts</c>, all but the draft rendering).
+/// on apply and put back by an undo.
 /// </summary>
-/// <remarks>Every <c>run</c> parameter runs quiet commands, as Bun's <c>Runner</c> in these steps does.</remarks>
+/// <remarks>Every <c>run</c> parameter runs quiet commands.</remarks>
 public static partial class SourceEdits
 {
     /// <summary>
-    /// Options that are written but never read (<c>unreadOptions</c> in <c>src/curated.ts</c>): the
+    /// Options that are written but never read: the
     /// <c>alsoSet</c> keys of the experiences, whose value cannot be evaluated while their feature is off.
     /// </summary>
     public static IReadOnlySet<string> UnreadOptions() => new HashSet<string>(StringComparer.Ordinal) { "hardware.nvidia.open" };
@@ -63,7 +63,7 @@ public static partial class SourceEdits
     {
         if (changes.Count == 0) throw new ManagerException("There are no pending edits.");
         foreach (var change in changes)
-            if (change.Attr is { } attr && SplitAttr(attr)?[0] != "pkgs")
+            if (change is PackageEdit { Attr: var attr } && SplitAttr(attr)?[0] != "pkgs")
                 throw new ManagerException($"{attr} is not a package from pkgs.");
         var (files, problems) = Drafts.Render(config.Flake, changes);
         if (problems.Count > 0)
@@ -175,8 +175,6 @@ public static partial class SourceEdits
 
     private static string Sentence(string text) => text.Length == 0 ? text : $"{char.ToUpperInvariant(text[0])}{text[1..]}";
 
-    private static Js ChangeValue(Change change) => change.HasValue ? new(true, change.Value) : default;
-
     /// <summary>
     /// Evaluates every edited configuration before and after the edits (<c>verifyEdits</c>). Each change must have
     /// its effect in the configuration that is being reviewed: a package appears in (or leaves) its file's list,
@@ -194,8 +192,8 @@ public static partial class SourceEdits
         async Task<EditEffect> Verify(string scope)
         {
             var own = changes.Where(change => change.Scope == scope).ToList();
-            var options = own.Where(change => change.IsOption).Select(change => change.Option!).ToList();
-            var attrs = own.Where(change => change.IsPackage).Select(change => (IReadOnlyList<string>)SplitAttr(change.Attr!)!.Skip(1).ToList()).ToList();
+            var options = own.OfType<OptionEdit>().Select(change => change.Option).ToList();
+            var attrs = own.OfType<PackageEdit>().Select(change => (IReadOnlyList<string>)SplitAttr(change.Attr)!.Skip(1).ToList()).ToList();
             var attribute = Evaluation.ConfigurationAttr(config, host, scope);
             // Package settings must not replace the package set the flake builds.
             var settings = options.Where(option => option.StartsWith("nixpkgs.config.", StringComparison.Ordinal)).Select(option => option.Split('.')[2]).ToList();
@@ -212,8 +210,8 @@ public static partial class SourceEdits
             var name = scope == Targets.Home ? $"{host}'s home configuration" : $"{host}'s system";
             if (before.Nixpkgs is { } beforeSet && after.Nixpkgs is { } afterSet)
             {
-                var keys = beforeSet.Config.Select(pair => pair.Key).Concat(afterSet.Config.Select(pair => pair.Key)).Distinct().ToList();
-                Js Member(JsonObject set, string key) => set.TryGetPropertyValue(key, out var value) ? new(true, value) : default;
+                var keys = beforeSet.Config.AsObject().Select(pair => pair.Key).Concat(afterSet.Config.AsObject().Select(pair => pair.Key)).Distinct().ToList();
+                Js Member(JsonNode set, string key) => set.AsObject().TryGetPropertyValue(key, out var value) ? new(true, value) : default;
                 var changed = keys.Where(key => !key.StartsWith('_') && !settings.Contains(key)
                     && !DeepEqual(Member(beforeSet.Config, key), Member(afterSet.Config, key))).ToList();
                 if (beforeSet.Names != afterSet.Names) changed.Add("the packages the flake adds");
@@ -225,21 +223,19 @@ public static partial class SourceEdits
                     });
             }
             // Settings are checked first: a setting without effect explains a package that is still refused better
-            // than the refusal does.
-            foreach (var change in own)
+            // than the refusal does. A created file is checked through the settings and packages written into it.
+            foreach (var change in own.OfType<OptionEdit>())
             {
-                // A created file is checked through the settings and packages written into it.
-                if (change.IsPackage || change.Kind == ChangeKinds.CreateModule) continue;
-                var option = change.Option!;
+                var option = change.Option;
                 var now = after.Options.GetValueOrDefault(option);
                 // Removing an entry, such as a user from users.users, leaves no setting behind.
-                if (change.Kind == ChangeKinds.UnsetOption && now?.Exists != true && before.Options.GetValueOrDefault(option)?.Exists == true) continue;
+                if (change is UnsetOption && now?.Exists != true && before.Options.GetValueOrDefault(option)?.Exists == true) continue;
                 if (now is not { Exists: true }) throw new ManagerException($"{option} is not an option of {name}.");
-                if (change.Kind == ChangeKinds.SetOption)
+                if (change is SetOption set)
                 {
                     if (now.Error == true) throw new ManagerException($"{option} no longer evaluates after the edit.");
                     var others = now.Files.Where(file => file != change.File).ToList();
-                    var wanted = ChangeValue(change);
+                    var wanted = new Js(true, set.Value);
                     if (!Includes(Js.Of(now.Value), wanted))
                     {
                         var files = Sentence(Joined(others.Select(Origin).ToList()));
@@ -273,17 +269,16 @@ public static partial class SourceEdits
                     throw new ManagerException($"{option} is still set in {change.File}.");
             }
             var index = 0;
-            foreach (var change in own)
+            foreach (var change in own.OfType<PackageEdit>())
             {
-                if (!change.IsPackage) continue;
                 var position = index++;
-                var adding = change.Kind == ChangeKinds.AddPackage;
+                var adding = change is AddPackage;
                 var resolved = (adding ? after : before).Resolved;
                 var output = position < resolved.Count ? resolved[position] : null;
                 if (string.IsNullOrEmpty(output))
                 {
                     // Evaluating it again without tryEval yields Nix's reason, such as an unfree license.
-                    var path = string.Join('.', SplitAttr(change.Attr!)!.Skip(1).Select(NixText.Attr));
+                    var path = string.Join('.', SplitAttr(change.Attr)!.Skip(1).Select(NixText.Attr));
                     var result = await run(new Command
                     {
                         Label = "Evaluate package",
@@ -456,13 +451,7 @@ public static partial class SourceEdits
     /// <summary>The draft without the changes a review applied (<c>remaining</c>).</summary>
     public static List<Change> Remaining(IReadOnlyList<Change> draft, IReadOnlyList<Change> applied)
     {
-        var rest = applied.Select(change => change.ToString()).ToList();
-        return draft.Where(change =>
-        {
-            var index = rest.IndexOf(change.ToString());
-            if (index < 0) return true;
-            rest.RemoveAt(index);
-            return false;
-        }).ToList();
+        var rest = applied.ToList();
+        return draft.Where(change => !rest.Remove(change)).ToList();
     }
 }

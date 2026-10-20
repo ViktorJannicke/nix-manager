@@ -468,7 +468,7 @@ public sealed class ReviewWorkflowTests : IDisposable
         await Assert.That(SourceEdits.SplitAttr("pkgs..x")).IsNull();
         await Assert.That(SourceEdits.SplitAttr("pkgs.${x}")).IsNull();
         await Assert.That(SourceEdits.SplitAttr("pkgs.x\n")).IsNull();
-        var btop = Change.AddPackage(Targets.Home, "modules/apps.nix", "pkgs.btop");
+        var btop = new AddPackage(Targets.Home, "modules/apps.nix", "pkgs.btop");
         await Assert.That(SourceEdits.Remaining([btop, btop], [btop]).Select(c => c.ToString())).IsEquivalentTo([btop.ToString()]);
         await Assert.That(SourceEdits.UnreadOptions()).Contains("hardware.nvidia.open");
     }
