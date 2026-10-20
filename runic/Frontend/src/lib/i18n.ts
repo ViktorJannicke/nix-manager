@@ -9,63 +9,9 @@ import { m } from "virtual:runic-translations/dashboard";
 import { createTextReference, parseTextReference, resolveTextReference } from "virtual:runic-translations/dashboard/transport";
 import { inlineFactory } from "@runic-artifex/translations-svelte/inline";
 import type { DisplayText } from "../generated/types.js";
-import baseText from "../../translations/stored/base-text.json";
 
 export { getLocale, m };
 export type { DisplayText, Locale };
-
-type Pattern = { key: string; english: string; pattern: RegExp; names: string[]; literal: number };
-let exact: Map<string, string> | undefined;
-let patterns: Pattern[] | undefined;
-const call = (key: string, values?: Record<string, string>) =>
-  (m as unknown as Record<string, (inputs?: Record<string, string>) => string>)[key](values);
-
-function index() {
-  exact = new Map();
-  patterns = [];
-  for (const [english, key] of Object.entries(baseText)) {
-    const names = [...english.matchAll(/\{(\w+)\}/g)].map((match) => match[1]);
-    if (!names.length) {
-      exact.set(english, key);
-      continue;
-    }
-    const source = english
-      .split(/\{\w+\}/)
-      .map((piece) => piece.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-      .join("([\\s\\S]+?)");
-    patterns.push({ key, english, pattern: new RegExp(`^${source}$`), names, literal: english.replace(/\{\w+\}/g, "").length });
-  }
-  // The most specific key wins, so "{label} failed" does not take "Building {name} failed".
-  patterns.sort((a, b) => b.literal - a.literal);
-}
-
-/**
- * Text that the backend stored in English, in the current language. A value filled into it can be stored text
- * itself, like the step label in "{label} failed". Text without a translation stays English.
- */
-export function stored(text: string | null | undefined): string {
-  if (!text) return "";
-  if (!exact) index();
-  const key = exact!.get(text);
-  if (key) return call(key);
-  if (getLocale() === "en") return text;
-  for (const { key, pattern, names } of patterns!) {
-    const match = pattern.exec(text);
-    if (match) return call(key, Object.fromEntries(names.map((name, i) => [name, stored(match[i + 1])])));
-  }
-  return text;
-}
-
-/**
- * Stored text with placeholders, such as "{label}: {option} on", filled with `values` in the current language.
- * Unlike matching the filled English with `stored`, the template is known, so a value cannot be mistaken for part
- * of another message. Values are used as given; translate those that are stored text first.
- */
-export function storedTemplate(english: string, values: Record<string, string>): string {
-  if (!exact) index();
-  const key = exact!.get(english) ?? patterns!.find((pattern) => pattern.english === english)?.key;
-  return key ? call(key, values) : english.replace(/\{(\w+)\}/g, (_, name: string) => values[name] ?? "");
-}
 
 type Messages = typeof m;
 type Key = keyof Messages;

@@ -1,8 +1,5 @@
 using System.Collections.Concurrent;
 using System.Globalization;
-using System.Reflection;
-using System.Text.Json;
-using System.Text.RegularExpressions;
 using NixManager.Dashboard;
 using NixManager.Domain;
 using Runic.Translations;
@@ -16,15 +13,13 @@ namespace NixManager.Daemon;
 /// <remarks>
 /// The messages are the dashboard's own Runic Translations catalogue (<c>Frontend/translations</c>), which the Vite
 /// plugin compiles for the page and Runic.Translations.Build for this assembly as <see cref="DashboardText"/>: the
-/// daemon's in <c>tray/</c>, and the text the backend stores in English, such as step labels and errors, in
-/// <c>stored/</c>. One catalogue serves the page and the daemon, so a translation is written once. The generated
-/// catalogue reads a language when it is first used, and English stored text is found through the importer's
-/// base-text index (<c>stored/base-text.json</c>), as the page's <c>stored()</c> finds it.
+/// daemon's in <c>tray/</c>, and the text the backend writes for people, such as step labels and errors, in
+/// <c>stored/</c>, which travels as text references (<see cref="DisplayText"/>). One catalogue serves the page and
+/// the daemon, so a translation is written once. The generated catalogue reads a language when it is first used.
 /// </remarks>
 public sealed class TrayText
 {
     private static readonly ConcurrentDictionary<string, TrayText> Cache = new(StringComparer.Ordinal);
-    private static readonly Lazy<StoredIndex> Index = new(StoredIndex.Load);
     private readonly ITranslationManager _manager;
     private readonly NumberFormatInfo _numbers;
 
@@ -61,70 +56,4 @@ public sealed class TrayText
     /// <summary>Text the backend wrote for people, such as a step label or an error, in this language.</summary>
     /// <remarks>Text that is not a message, such as a tool's output or a record from before text references, stays as it is.</remarks>
     public string Show(DisplayText? text) => text?.In(_manager.Current) ?? "";
-
-    /// <summary>
-    /// Text the backend stored in English, such as a step label or an error, in this language; text without a
-    /// translation stays as it is. A value filled into it can be stored text itself, like the step label in
-    /// "{label} failed".
-    /// </summary>
-    public string Stored(string? text)
-    {
-        if (string.IsNullOrEmpty(text)) return "";
-        var index = Index.Value;
-        if (index.Exact.TryGetValue(text, out var exact)) return Format(exact, []) ?? text;
-        if (Locale == "en") return text;
-        foreach (var pattern in index.Patterns)
-        {
-            var match = pattern.Expression.Match(text);
-            if (!match.Success) continue;
-            var values = pattern.Names.Select((name, i) => TextArgument.CreateRmf2(name, new TextArgument("_", Stored(match.Groups[i + 1].Value))));
-            return Format(pattern.Key, [.. values]) ?? text;
-        }
-        return text;
-    }
-
-    /// <summary>A stored message by its key, or null when the catalogue has none.</summary>
-    private string? Format(string key, ReadOnlySpan<TextArgument> arguments)
-    {
-        var snapshot = _manager.Current;
-        return snapshot.TryGetKey(key, out var found) ? snapshot.Format(found, arguments) : null;
-    }
-
-    /// <summary>The stored messages by their English text, as the page's <c>stored()</c> indexes them.</summary>
-    private sealed record StoredIndex(IReadOnlyDictionary<string, string> Exact, IReadOnlyList<StoredPattern> Patterns)
-    {
-        private static readonly Regex Placeholder = new(@"\{(\w+)\}", RegexOptions.CultureInvariant);
-
-        /// <summary>Reads <c>stored/base-text.json</c>, English text to message key, embedded in the assembly.</summary>
-        public static StoredIndex Load()
-        {
-            const string name = "NixManager.Translations.stored.base-text.json";
-            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
-                ?? throw new InvalidDataException($"{name} is not embedded.");
-            return Create(JsonSerializer.Deserialize(stream, Operations.ManagerJson.Default.DictionaryStringString)
-                ?? throw new InvalidDataException($"{name} is not an object."));
-        }
-
-        public static StoredIndex Create(IReadOnlyDictionary<string, string> english)
-        {
-            var exact = new Dictionary<string, string>(StringComparer.Ordinal);
-            var patterns = new List<StoredPattern>();
-            foreach (var (text, key) in english)
-            {
-                var names = Placeholder.Matches(text).Select(match => match.Groups[1].Value).ToList();
-                if (names.Count == 0)
-                {
-                    exact.TryAdd(text, key);
-                    continue;
-                }
-                var source = string.Join(@"([\s\S]+?)", Placeholder.Split(text).Where((_, i) => i % 2 == 0).Select(Regex.Escape));
-                patterns.Add(new StoredPattern(key, new Regex($"^{source}$", RegexOptions.CultureInvariant), names,
-                    Placeholder.Replace(text, "").Length));
-            }
-            // The most specific message wins, so "{label} failed" does not take "Building {name} failed".
-            return new StoredIndex(exact, [.. patterns.OrderByDescending(pattern => pattern.Literal)]);
-        }
-    }
-
-    private sealed record StoredPattern(string Key, Regex Expression, IReadOnlyList<string> Names, int Literal);
 }
