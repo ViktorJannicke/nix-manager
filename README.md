@@ -1,10 +1,12 @@
 # Nix Manager
 
-The manager's CLI, dashboard and Linux tray use one Bun + Effect application.
-The CLI is defined with `@effect/cli`; its generated help,
-version output, and shell completions stay in sync with the accepted options.
-Existing action and modifier syntax is preserved. Run `nix-manager --help` for
-the complete command reference.
+Nix Manager builds, reviews and applies NixOS and Home Manager configurations
+from a flake checkout. Its command line, dashboard Window and Linux tray are one
+C# application on the [Runic SDK](https://github.com/Runic-Artifex/runic-sdk),
+in `runic/`, with a Svelte dashboard. The command line is defined with Runic
+Command Line; its help, version output and shell completions are generated from
+the same command catalogue, so they stay in sync with the accepted options. Run
+`nix-manager --help` for the complete command reference.
 
 ```sh
 nix run github:ViktorJannicke/nix-manager -- --flake /path/to/configuration ui
@@ -41,69 +43,21 @@ modules = [
 ];
 ```
 
-The module installs the application, its Polkit policy and optional tray service.
+The module installs the package (`programs.nix-manager.package`, by default
+this flake's `packages.${system}.default`) and the optional tray service. The
+package brings the `nix-manager` command, the desktop entry (with a "Start in
+system tray" action and `StartupNotify`, so the desktop hands `nix-manager ui`
+an activation token), the icon, bash, zsh and fish completions generated from
+its command line at build time (NixOS links them when
+`programs.bash.completion`, `programs.zsh` or `programs.fish` is on), and the
+Polkit policy that its build generates for its privileged action, whose program
+is the package's binary wrapper that pkexec runs (`/run/wrappers/bin/pkexec`,
+which the module enables). `checks.module` inspects what the module links into
+the system path. The former option `programs.nix-manager.runic.package` is
+renamed to `programs.nix-manager.package`; `programs.nix-manager.runic.enable`
+is removed, and setting it fails with an explanation.
 
-### The Runic port and the Bun version
-
-The module installs the port in `runic/` (C# on the Runic SDK) by default;
-`runic.enable = false` installs the Bun version instead:
-
-```nix
-programs.nix-manager = {
-  enable = true;
-  tray.enable = true;      # the port's daemon with its status icon
-  # runic.enable = false;  # the Bun version, its tray and the module's policy
-};
-```
-
-With the port, the module installs only the port's package: its `nix-manager` command,
-the desktop entry (with a "Start in system tray" action and `StartupNotify`,
-so the desktop hands `nix-manager ui` an activation token), the icon, bash,
-zsh and fish completions generated from its command line at build time (NixOS
-links them when `programs.bash.completion`, `programs.zsh` or `programs.fish`
-is on), and the Polkit policy that its build generates for the same action,
-whose program is the package's binary wrapper that pkexec runs
-(`/run/wrappers/bin/pkexec`, which the module enables). The host registry,
-`NIX_MANAGER_HOSTS` and the tray options work the same. The Bun package and
-the module's own policy are not installed, so nothing competes for the
-command, the entry or the action; `runic.enable = false` installs exactly what
-the module installed before the port: the Bun package, its tray and the
-module's own policy. `checks.module` evaluates the default and both explicit
-settings and inspects what each links into the system path.
-
-One later one-line change finishes the switch: remove the Bun version from
-the module. In `nixos-module.nix`, `useRunic = cfg.runic.enable;` becomes
-`useRunic = true;`. The module then
-never installs or evaluates the Bun package or its policy, whatever
-`runic.enable` says; the Bun files and flake outputs (`package.nix`,
-`webui.nix`, `src/`, `ui/`, `packages.default`, the Bun checks and VM tests)
-and the then unused options can go in a separate cleanup.
-
-The port builds for x86_64-linux and aarch64-linux (`packages.runic`). The
-aarch64 build has only been evaluated so far, without an aarch64 builder: its
-NuGet lock files (`packages.linux-arm64.lock.json`, written with `dotnet
-restore NixManager.slnx -r linux-arm64 --force-evaluate` in `runic/`) restore
-in locked mode, and its Bun frontend hash comes from `nix build
-.#runic.frontendNodeModules.fetchedFor.aarch64-linux`, which installs for that
-system on any system. Each
-runtime needs its own lock file because nixpkgs restores with `--runtime` for
-the system's runtime identifier alone, and NuGet's locked mode rejects a lock
-file that records other runtimes. The package is published with NativeAOT,
-whose restore adds the compiler packages, so the application also has an AOT
-lock file per runtime (`packages.aot.lock.json`,
-`packages.linux-arm64.aot.lock.json`); the Nix build publishes only
-`NixManager.csproj` with NativeAOT, and the tests run under the JIT and keep
-theirs. Regenerate all of them after changing package references, in
-`runic/`:
-
-```sh
-dotnet restore NixManager.slnx --force-evaluate
-dotnet restore NixManager.csproj --force-evaluate -p:PublishAot=true
-dotnet restore NixManager.slnx --force-evaluate -r linux-arm64
-dotnet restore NixManager.csproj --force-evaluate -r linux-arm64 -p:PublishAot=true
-```
-
-It writes the host registry to `/etc/nix-manager/hosts.json` and sets
+The module writes the host registry to `/etc/nix-manager/hosts.json` and sets
 `NIX_MANAGER_HOSTS` for login sessions and the tray. An empty `hosts` option uses
 `data/hosts.nix` from the selected configuration checkout when it exists, and
 otherwise reads the host from the flake itself: the NixOS configuration named
@@ -129,12 +83,18 @@ otherwise `~/my-flakes`. The optional T3 Code, OpenCode and
 PINCE package updaters expect the corresponding `pkgs/` recipes and source pins
 used by `my-flakes`; extraction does not make those commands generic.
 
+The package builds for x86_64-linux and aarch64-linux. The aarch64 build has
+only been evaluated so far, without an aarch64 builder. It is published with
+NativeAOT as one native executable without the .NET runtime, so the tray shows
+its icon and the command line answers without starting a runtime or compiling.
+
 ## CI and binary cache
 
 GitHub Actions evaluates both Linux architectures and builds/tests x86_64-linux
-using the committed lock file. It also builds the `npm-deps` output explicitly,
-so the build-time dependency cache can be uploaded even when the application is
-already available from a cache. Cachix support is optional and initially disabled.
+using the committed lock files. It also builds the frontend's dependencies
+(`.#default.frontendNodeModules`) explicitly, so the build-time dependency cache
+can be uploaded even when the application is already available from a cache.
+Cachix support is optional and initially disabled.
 
 To enable it, create or choose a public Cachix cache, then set:
 
@@ -143,7 +103,7 @@ To enable it, create or choose a public Cachix cache, then set:
 
 Rerun the workflow. Pull requests read the cache without receiving its write
 token. Main-branch and tag builds can upload; the Cachix post-build hook includes
-the npm dependency cache and native WebUI library as well as the application.
+the frontend's dependencies as well as the application.
 Without a cache name, all checks still run using the standard NixOS cache.
 
 Configure consuming machines with the cache's URL and public signing key:
@@ -162,16 +122,20 @@ garbage-collected build-time dependencies.
 
 ## Dashboard and tray
 
-`ui` opens a desktop window using [WebUI](https://webui.me), loaded directly
-through [Bun FFI](https://bun.sh/docs/runtime/ffi). The Nix derivation builds a
-pinned WebUI native library; nothing is downloaded at application startup.
-An installed browser is required. `--browser` uses the desktop's default browser;
-`--no-open` prints the local session link for manual use.
+`ui` opens the dashboard in a desktop Window on Runic Desktop, which shows the
+page with WebKitGTK 4.1 through GTK 3 and falls back to an installed browser
+without it. The page is built into the package; nothing is downloaded at
+application startup. `--no-open` serves the page without a Window and prints
+its address (`RUNIC_APPLICATION_URL=...`); `--browser` serves it the same way
+and opens it in the desktop's default browser with `xdg-open`. A served page
+admits a tab only with the session's token. With `--browser`, it ends once its
+last tab has been closed for a second (a reload reconnects within that) and no
+operation runs, or when no tab connected within three minutes.
 
 The package adds Nix Manager to the application menu with its own icon. Opening
 it while the tray runs brings up the tray's dashboard instead of a second one.
-When it was started without a terminal and cannot read the configuration, the
-window explains why.
+When it was started without a terminal and cannot read the configuration, a
+Window explains why.
 
 On a computer without a configuration checkout, `ui` starts with a setup
 assistant. It copies `/etc/nixos` into a new folder in the home folder (by
@@ -206,8 +170,8 @@ anything unwanted unticked. Below them are apps: popular ones first, then by cat
 names, summaries and icons. Those details come from Flathub's public AppStream
 catalogue, downloaded when Discover opens and again after a week, and matched to
 nixpkgs packages by homepage and name; the apps are still installed from the
-locked nixpkgs. Icons are fetched through the dashboard server and kept, so the
-window itself never contacts Flathub. Settings can turn this off. Search lists
+locked nixpkgs. Icons are downloaded by the application, kept, and served to the
+page beside its own files, so the page itself never contacts Flathub. Settings can turn this off. Search lists
 apps first, including packages built like graphical apps that Flathub does not
 know, then other software.
 Search can be limited to free software and can leave out broken packages. Results
@@ -270,10 +234,13 @@ chooses one when the flake does not set it yet. `--new-file` imports the file fr
 its folder's imported module unless `--import-from` names another.
 
 The other pages are Overview (active generations, the prepared next generation,
-reboot notices and recent activity), Updates (flake inputs and package pins, each
-selectable before preparing), Restore points (generations, rollback, cleanup and history), Activity (step
-outcomes and a filterable live log with copy and download) and Settings. The
-Svelte 5 interface supports light, dark and system themes.
+reboot notices and recent activity), Computer (the computer's name, date and
+time, language, keyboard, login, sound, printing, Bluetooth, firewall and user
+accounts, edited as pending edits like software), Updates (flake inputs and
+package pins, each selectable before preparing), Restore points (generations,
+rollback, cleanup and history), Activity (step outcomes and a filterable live
+log with copy) and Settings. The Svelte 5 interface supports light, dark and
+system themes.
 
 Settings chooses how much the dashboard shows. Simple, the default for a new
 state directory, gives pending edits one button: "Apply changes" when they can be
@@ -281,10 +248,10 @@ applied in one step, otherwise "Review and apply", which prepares them. Reviews
 start with a plain summary; sizes, file diffs, flake inputs and the full package
 list are one click away. Detailed shows every prepare, review and apply step.
 A state directory with earlier operations starts detailed. Preferences are kept in
-`preferences.json` in the state directory, because each launch serves the
-dashboard from a new port and browser storage does not carry over. Flake input updates and
-package-pin updates are distinct: refreshing the lock does not refresh the three
-local package pins. After updating a pin, prepare a home build to apply it.
+`preferences.json` in the state directory, where the tray's background tasks read
+them too. Flake input updates and package-pin updates are distinct: refreshing the
+lock does not refresh the three local package pins. After updating a pin, prepare
+a home build to apply it.
 
 The detected host is used by default. Settings can override it to build another
 configuration from the same checkout on this machine; the dashboard then shows a
@@ -305,14 +272,15 @@ applying copies that exact reviewed lock atomically and refuses if the checkout
 changed in the meantime. Discarding a review removes its manager-owned GC roots,
 allowing a later garbage collection to reclaim the outputs.
 
-`tray` registers a StatusNotifierItem and D-Bus menu, supported by Plasma and
-other compatible Linux desktops. Its menu opens the dashboard, checks updates,
-prepares all updates for review, or quits. Preparing builds with every input
-updated and opens the dashboard, where the changes are reviewed before anything
-is applied. Checks run ten seconds after startup and
-then every six hours (`--interval MINUTES` changes this). Notifications report
-new update sets, failed operations, and completed changes. Clicking a notification
-opens the dashboard. Checks never activate a configuration automatically.
+`tray` shows a status icon (a StatusNotifierItem) with a menu, supported by
+Plasma and other compatible Linux desktops; notifications go through the desktop
+portal. Its menu opens the dashboard, checks updates, prepares all updates for
+review, or quits. Preparing builds with every input updated, and the dashboard
+shows the changes for review before anything is applied. Checks run ten seconds
+after startup and then every six hours (`--interval MINUTES`, from 5 to 10080,
+changes this). Notifications report new update sets, failed operations, and
+completed changes. Clicking a notification opens the dashboard. Checks never
+activate a configuration automatically.
 
 With "Keep a history of changes" switched on (the default for new users), every
 applied change commits exactly the files it wrote, with a message saying what it
@@ -345,30 +313,21 @@ programs.nix-manager.tray = {
 The tray uses the same checkout as the window; `flakePath = "%h/configuration"`
 selects another one. Tray autostart defaults to disabled. After a system switch that enables it, the
 user service starts with the next graphical session, or with
-`systemctl --user start nix-manager-tray`. Only one tray instance per user can
-register. Restarting Plasma's tray host causes the item to register again.
+`systemctl --user start nix-manager-tray`.
 
-Closing the last standalone dashboard exits its backend after a one-second
-reload grace period. An active operation finishes before the backend exits.
-Hidden or minimized dashboards remain connected without relying on UI polling.
-Tray mode and `--no-open` stay resident until quit or interrupted.
+### One process per user
 
-#### The Runic port's daemon
-
-The Runic port in `runic/` runs as one per-user process (decision D025). With
-the port installed (`programs.nix-manager.runic.enable`, the default; see
-[The Runic port and the Bun version](#the-runic-port-and-the-bun-version)),
-the `nix-manager-tray` user service runs `nix-manager tray` from the port,
-windowless with the status icon, and that process owns every operation. The
-port is then the only version installed. With `runic.enable = false`, the Bun
-version runs alone.
+Nix Manager runs as one per-user process. With `tray.enable`, the
+`nix-manager-tray` user service runs `nix-manager tray`, windowless with the
+status icon, and that process owns every operation.
 
 - `nix-manager ui` hands its launch to the daemon over the single-instance
   socket in `XDG_RUNTIME_DIR`. The daemon opens its dashboard Window, or brings
   the open one forward. Closing the Window leaves a running operation running.
   Without a daemon, `ui` becomes that process for as long as its Window is open
   or an operation runs. Command lines reach it in the same way, and a tray that
-  starts meanwhile waits for it to end.
+  starts meanwhile waits for it to end. `--no-open`, `--browser`, or a checkout
+  other than the running instance's run the dashboard on its own.
 - Operation commands hand their request to the daemon when it runs for the same
   checkout, host and state directory. The daemon streams the operation back, so
   the terminal shows the same output, `--json` included, and the command exits
@@ -378,14 +337,13 @@ version runs alone.
   Status, history, previews (`--dry-run`), help and completions run in the
   command's own process.
   Without a daemon, with `NIX_MANAGER_DAEMON=0`, or without `XDG_RUNTIME_DIR`,
-  commands run in their own process as before. Over SSH, operations with a
+  commands run in their own process. Over SSH, operations with a
   privileged step also run there, so that Polkit asks on the terminal and not
   on the desktop.
-- The daemon checks for updates, prepares them and cleans up weekly on the same
-  schedule as the Bun tray. It applies the home part of an update applied on
-  the next boot, and observes the system after every operation. When an
-  operation that neither a Window nor a terminal shows ends, it sends a
-  notification.
+- The daemon checks for updates, prepares them and cleans up weekly on the
+  schedule above. It applies the home part of an update applied on the next
+  boot, and observes the system after every operation. When an operation that
+  neither a Window nor a terminal shows ends, it sends a notification.
 
 ### Translations
 
@@ -395,27 +353,14 @@ Settings → Language chooses one. The command line stays in English, so its
 output can be searched for and pasted into reports. Output from Nix itself is
 shown as Nix wrote it.
 
-Interface text is written in English and passed through `t()` from
-`src/i18n.ts`: `t("Remove {name}", { name })`, and `tn(one, other, count)` for
-counts. Text with markup in it uses `<T text={"Run {command} first."}>` with a
-snippet for the markup. Text the server stores or sends, like step labels and
-failure explanations, is marked with `msg()` instead: it stays English, and
-`t()` translates it where it is shown. When it has values filled in, its key
-belongs in `labels.ts` or `messages.ts`, whose keys stored text is matched
-against. Keys are plain string literals, so the test can find them; curated
-data shown through `t(item.title)` is listed in the test. German lives in `src/locales/de/`, one file per part of
-the interface. `test/i18n.test.ts` fails when a text has no German, a
-placeholder is lost, a text is translated two ways, or a translation is no
-longer used.
-
-The Runic port keeps one Runic Translations catalogue for both sides, in
+One Runic Translations catalogue serves the page and the daemon, in
 `runic/Frontend/translations`: keyed messages (`en.rmf2`, `de.rmf2`), the text
-the backend stores in English (`stored/`, imported from the Bun catalogue by
-`runic/Frontend/scripts/import-bun-catalog.py` with `runic-translations
-import-text`; `stored/base-text.json` maps each English text to its message
-key), and the daemon's status icon, menu and notifications (`tray/`). The page
-reads it through the Vite plugin as `m.*()`, in the language the ViewModel
-says (`useMessageLocale`). Messages with markup, such as
+the backend stores in English, such as step labels and failure explanations
+(`stored/`, whose `base-text.json` maps each English text to its message key),
+and the daemon's status icon, menu and notifications (`tray/`). The page reads
+it through the Vite plugin as `m.*()`, in the language the ViewModel says
+(`useMessageLocale`), and translates stored text with `stored()` from
+`runic/Frontend/src/lib/i18n.ts`. Messages with markup, such as
 `Detected as {#highlight}{$host}{/highlight}.`, render with `LocalizedInline`;
 the page's own tags are declared in `runic.json`. The daemon formats the same
 catalogue through the C# that Runic.Translations.Build generates for it,
@@ -423,6 +368,8 @@ catalogue through the C# that Runic.Translations.Build generates for it,
 stored text found by its English through `base-text.json`, as the page's
 `stored()` does. The generated catalogue reads a language only when it is
 first used. The tray follows the dashboard's language setting while it runs.
+`TranslationCoverageTests` reads the backend's sources and fails when an error
+that reaches the page has no German.
 
 German uses the formal "Sie", „these quotes“ and the same word for the same
 thing everywhere:
@@ -466,36 +413,37 @@ succeed and retains three generations in each selected profile. Garbage
 collection removes unreferenced store paths, which can require downloads or
 rebuilds if needed again.
 
-Effect services isolate subprocesses and network access, and scoped finalizers
-clean temporary workspaces. Subprocess output is streamed to the CLI and saved
-for the dashboard. Interactive terminals use Clack for a compact task log;
+Steps run as argument vectors without a shell, with closed standard input and in
+a new session without a controlling terminal. Their output is streamed to the
+CLI and saved for the dashboard; Nix's structured log becomes readable lines and
+progress. Interactive terminals show a compact task log of the last lines;
 `--plain` disables dynamic presentation and `--verbose` retains successful task
 output. `--json` keeps stdout machine-readable and sends command output to stderr.
-Cancelling a build terminates its process group. During a privileged step,
-cancellation waits for that step to finish, then stops further
-steps. Completed activation, lock changes or pin updates are not undone by
-cancellation. Interrupted operations retain their logs.
+Cancelling a build sends SIGTERM to its process group, then SIGKILL after a grace
+period. During a privileged step, cancellation waits for that step to finish,
+then stops further steps. Completed activation, lock changes or pin updates are
+not undone by cancellation. Interrupted operations retain their logs.
 
-System activation, system rollback and system cleanup go through the immutable
-packaged executable's `--privileged` entry point and the existing Polkit policy.
-Its `activate-output` command accepts only a NixOS system store path, sets the
-system profile to it and runs its `switch-to-configuration`.
+System activation, system rollback and system cleanup go through the packaged
+executable's `--privileged` entry point and its Polkit action
+`org.nixos.nix-manager`. The policy declares each command and checks its
+arguments by position; the helper then checks their meaning.
+Its `activate-output` command accepts only `switch` or `boot` and a NixOS system
+store path, sets the system profile to it and runs its `switch-to-configuration`.
 `activate-generation` accepts only the number of an existing system generation
 and activates it the same way, for going back after a failed apply. `rollback`
 takes no arguments, and `gc` accepts only a retention count from 1 to 100.
-The dashboard and tray run as the ordinary user. The HTTP server binds only to
-`127.0.0.1` on a random port and checks a per-session bearer token, Host and Origin.
-The token is passed in the initial URL fragment and then kept in session storage.
-The native WebUI server has an empty temporary document root. There is no general
-shell-command endpoint or remote listening option.
+The dashboard and tray run as the ordinary user. There is no general
+shell-command entry point or remote listening option.
 
 History, logs, update reports and the operation lock live under
 `$XDG_STATE_HOME/nix-manager` (default `~/.local/state/nix-manager`). The dashboard
-lists the latest 50 operations and displays/exports the last 128,000 characters
+lists the latest 50 operations and displays the last 128,000 characters
 of the selected log. Individual stored logs are capped at 16 MiB; older operation
-files remain on disk. The OS releases the shared advisory lock even if a manager
-process crashes. It covers CLI, dashboard, tray, and different checkout selections
-using that state directory. It does not lock out native Nix commands or other users.
+files remain on disk. The lock is a `flock` on `operation.lock`, which the OS
+releases even if a manager process crashes. It covers CLI, dashboard, tray, and
+different checkout selections using that state directory. It does not lock out
+native Nix commands or other users.
 `NIX_MANAGER_STATE_DIR` can select an isolated state directory for testing. `NIX_MANAGER_SYSFS` points hardware detection at a fake `/sys` tree, and
 `NIX_MANAGER_SETUP_SOURCE` points the setup assistant at another classic configuration.
 Pending software edits are stored in `draft.json` and the package index under
@@ -503,14 +451,14 @@ Pending software edits are stored in `draft.json` and the package index under
 needs several gigabytes of memory for about a quarter of a minute. Flathub's app
 catalogue and icons are kept under `apps/`.
 
-New operation records include the status and timestamps of each planned step.
-Older records without step data remain readable and appear without inferred
-outcomes. The manager publishes ordered operation and output events to
-authenticated dashboard sessions over a same-origin WebSocket. Reconnecting
-clients refresh a complete snapshot and log tail before consuming more events;
-a periodic snapshot also covers missed events. This live stream is process-local.
-Another manager process is represented by the shared lock rather than claimed
-live state.
+Operation records include the status and timestamps of each planned step. The
+dashboard's ViewModels are views of the process's operation service: its events
+reach the page in order, and closing the Window leaves the service and a running
+operation as they are. The dashboard also watches the state directory, so
+operations started by a command line in another process, new update reports,
+reviews, pending edits and preferences changed elsewhere appear without a
+refresh. It observes the computer again when the Window opens, after each
+operation and every 30 seconds while it is open.
 
 Update checks write a proposed flake lock to a temporary directory using Nix's
 `--output-lock-file`, then compare input revisions. Stable GitHub releases are
@@ -532,22 +480,52 @@ may fetch metadata and recipe text, but do not fetch archives, build or save pin
 
 ```sh
 nix develop
-bun install --frozen-lockfile --ignore-scripts
-bun run typecheck
-bun test
-bun run build
-bun run start -- --flake /path/to/configuration --host desktop ui --browser
+cd runic
+dotnet tool restore                    # the Runic and Runic Translations tools
+(cd Frontend && bun install --frozen-lockfile)
+dotnet build
+dotnet run --project NixManager.Tests -- --progress off
 ```
 
-The shell supplies Bun, Node/npm, D-Bus, and the pinned WebUI library. The UI uses
-Svelte 5, Vite, Tailwind CSS 4, and project-owned shadcn-svelte component source,
-with no external asset requests. `bun build.ts` builds the browser app with Vite
-and embeds its explicit HTML/CSS/JS asset map in the Bun entry point. Effect 3,
-`@effect/cli`, and Clack are pinned in both dependency lock files.
+The shell supplies the .NET SDK, Bun and Node.js for `runic/`, GTK and WebKitGTK
+for the dashboard Window, Chromium for headless browser checks of a served page,
+Python and D-Bus for `test/`, and tree-sitter's Nix grammar
+(`NIX_MANAGER_NIX_PARSER`, `NIX_MANAGER_TREE_SITTER`), which the program and its
+tests read Nix files with. `dotnet build` in `runic/` builds `NixManager.slnx`:
+the application, its frontend, and the tests. The frontend in `runic/Frontend`
+uses Svelte 5, Vite, Tailwind CSS 4 and bits-ui, with no external asset requests;
+`bun run build` builds it and runs `svelte-check`, `bun run typecheck` runs
+`svelte-check` alone, and `bun run dev` starts Vite. The page's bridge to its
+ViewModels is generated in `runic/Frontend/src/generated/`.
 
-The Runic port's package installs its completions itself. For the Bun
-version, generated completions are available for the shells supported by
-`@effect/cli`:
+The frontend's dependencies are locked by `runic/Frontend/bun.lock`. The Nix
+build installs them as a fixed-output derivation whose hash differs per system,
+because Bun installs only the system's optional packages; both hashes are in
+`runic/package.nix` (`frontend.hash`), and the build fails when they are out of
+date. After changing the frontend's dependencies, update `bun.lock` with
+`bun install`, then both hashes: `nix build .#default.frontendNodeModules`
+reports the current system's when it is out of date, and
+`nix build .#default.frontendNodeModules.fetchedFor.aarch64-linux` computes the
+aarch64-linux one on any system.
+
+NuGet packages are restored in locked mode. Each runtime needs its own lock
+file because nixpkgs restores with `--runtime` for the system's runtime
+identifier alone, and NuGet's locked mode rejects a lock file that records other
+runtimes. NativeAOT's restore adds the compiler packages, so the application
+also has an AOT lock file per runtime (`packages.aot.lock.json`,
+`packages.linux-arm64.aot.lock.json`); the Nix build publishes only
+`NixManager.csproj` with NativeAOT, and the tests run under the JIT and keep
+theirs. Regenerate all of them after changing package references, in `runic/`:
+
+```sh
+dotnet restore NixManager.slnx --force-evaluate
+dotnet restore NixManager.csproj --force-evaluate -p:PublishAot=true
+dotnet restore NixManager.slnx --force-evaluate -r linux-arm64
+dotnet restore NixManager.csproj --force-evaluate -r linux-arm64 -p:PublishAot=true
+```
+
+The package installs its completions itself. Generated completions are also
+available from the command:
 
 ```sh
 nix-manager --completions bash > ~/.local/share/bash-completion/completions/nix-manager
@@ -555,21 +533,19 @@ nix-manager --completions zsh > ~/.local/share/zsh/site-functions/_nix-manager
 nix-manager --completions fish > ~/.config/fish/completions/nix-manager.fish
 ```
 
-`bun.lock` serves Bun development. `package-lock.json` lets Nix use its fixed-output
-`fetchNpmDeps` cache for a network-free application build. After changing
-dependencies, regenerate both lock files (`npm install --package-lock-only
---ignore-scripts`, then `bun install --ignore-scripts`) and update `npmDepsHash`.
-Package installation scripts are disabled. The native library revision and source
-hash are pinned separately in `webui.nix`.
+`nix build .` builds the package in the sandbox and runs the .NET unit tests
+(TUnit). The tests mock Nix commands and GitHub responses: they never activate a
+machine or change real pins. `nix flake check` runs every check:
 
-`nix build .` runs type checking and Bun tests, including a native WebUI
-ABI smoke test and a D-Bus tray test against a private daemon. The tests mock Nix
-commands and GitHub responses: they never activate a machine or change real pins.
-`nix build .#checks.x86_64-linux.cli` also runs the preserved Python CLI regression
-suite against the packaged Bun entry point. `nix flake check` additionally checks
-Nix formatting and the NixOS module, including runtime host configuration that
-does not alter the application derivation. Updater and fixed-output hash tests
-run as part of the package's Bun test suite.
+- `nix-manager`: the package, built and unit-tested.
+- `cli`: the Python CLI regression suite (`test/test-manager.py`) against the
+  packaged executable, with mocked build tools.
+- `daemon`: the daemon as processes (`test/test-daemon.py`): a daemon or a
+  dashboard, and command lines that hand it their operations, with mocked build
+  tools and the dashboard served instead of shown.
+- `module`: the NixOS module, including runtime host configuration that does not
+  alter the application derivation, and what it links into the system path.
+- `formatting`: Nix formatting.
 
 ### Desktop and screen-reader VM tests
 
@@ -580,29 +556,25 @@ need KVM:
 nix build .#desktop-a11y   # GNOME and Orca: tab order, typing, and what Orca says
 nix build .#speech-audio   # Orca's real speech, recorded and heard by whisper.cpp
 nix build .#desktop-apply  # the dashboard and software apply for real, a reboot, cleanup
-nix build .#desktop-a11y-runic   # the same machine with the Runic port installed
-nix build .#speech-audio-runic   # Orca's speech, and Tab stops in the port's dashboard
 nix build .#webkit-attribute-run # the WebKitGTK attribute-run abort in both WebKitGTK flavours
 ```
 
-The `-runic` tests install the port through `programs.nix-manager.runic.enable`
-(`machine.nix` takes `runic = true`; the other tests set it to `false` for the
-Bun version). `desktop-a11y-runic` checks the installed
-command, the policy (pkexec maps the program to the action and runs the
-privileged helper as root), the desktop entry and the completions. It opens the
-setup assistant without a checkout: Tab reaches the folder entry and "Create my
-configuration", Orca names them, and typing reaches the entry. Then, with a
-seeded `~/my-flakes` and a registered host, it walks the dashboard's Tab cycle
-without Orca and with it. The expectations are about structure, so page
-changes keep the test valid: the skip link comes first, the navigation's
-buttons (read from the page) follow in order, at most one stop has no name
-(G-17, the stop outside the web view; not seen with SDK 0.8.0-preview.3), and
-Orca's walk has the same stops and says their names. The test then opens
-Settings by keyboard. In `checklist.txt` it records what Orca says for headings
-(H), lists (L), the theme radio group and its arrow keys, and how a heading's
-size changes with Ctrl and + (G-18) and with GNOME's large text. Only a web
-process crash fails those steps. The AT-SPI application is `nix-manager`
-(Chromium's is `chrom…`), and its window class is `nix-manager`.
+`desktop-a11y` checks the installed command, the policy (pkexec maps the
+program to the action and runs the privileged helper as root), the desktop
+entry and the bash completion. It opens the setup assistant without a checkout:
+Tab reaches the folder entry and "Create my configuration", Orca names them, and
+typing reaches the entry. Then, with a seeded `~/my-flakes` and a registered
+host, it walks the dashboard's Tab cycle without Orca and with it. The
+expectations are about structure, so page changes keep the test valid: the skip
+link comes first, the navigation's buttons (read from the page) follow in order,
+at most one stop has no name (G-17, the stop outside the web view; not seen with
+SDK 0.8.0-preview.3), and Orca's walk has the same stops and says their names.
+The test then opens Settings by keyboard. In `checklist.txt` it records what
+Orca says for headings (H), lists (L), the theme radio group and its arrow keys,
+and how a heading's size changes with Ctrl and + (G-18) and with GNOME's large
+text. Only a web process crash fails those steps. The AT-SPI application is
+`nix-manager` (Chromium's is `chrom…`), and its window class is `nix-manager`.
+`speech-audio` also hears a Tab stop in the dashboard through espeak-ng.
 
 WebKitGTK 2.54.1 aborts its web process when Orca asks for the text attributes
 of a list item whose text is only the U+FFFC of an embedded button and whose
@@ -613,7 +585,7 @@ webkitgtk-6.0 aborts the same way, and WebKit main still has the unchecked
 index. The dashboard's navigation items are `display: contents`, which WebKitGTK
 answers without that computation, and each gives its position with
 `aria-setsize` and `aria-posinset`, so Orca says "list with 8 items" when Tab
-enters the navigation, as with the Bun version (`runic/Frontend/src/App.svelte`).
+enters the navigation (`runic/Frontend/src/App.svelte`).
 `nix build .#webkit-attribute-run` opens the minimal pages of
 `nix/lab/webkit-attribute-run` in both WebKitGTK flavours and records which
 abort; `REPORT.md` there is the upstream report. The VM test counts the web
@@ -622,13 +594,13 @@ Orca says the list's size, reads the new number of restore points to keep, and
 hears the Window announce a running operation's step and its end.
 
 WebKitGTK sends no AT-SPI event when the text of a live region changes, so Orca
-announces no live region in the port (Chromium does, with the same page). The
+announces no live region in the Window (Chromium does, with the same page). The
 page therefore has the Window announce what its live regions show, a running
 operation's step and each toast, through Runic Desktop's announcements
 (`Object:Announcement`); in a browser the live region speaks instead. The
 restore points to keep are a spin button, whose value Orca reads as it
 changes; its "Keep more" and "Keep fewer" buttons are for the pointer and leave
-focus on it. `nix run .#lab-runic` drives the port's VM like `.#lab`.
+focus on it.
 
 Orca's speech is written to a text transcript, so the tests compare exactly
 what a screen-reader user hears. `desktop-apply` boots through systemd-boot
@@ -641,14 +613,6 @@ accessibility tree or Orca's speech, copy files in and out, and run commands
 inside it. `nix run .#lab-apply` does the same with the `desktop-apply` VM and
 alice's checkout. Only one lab runs at a time. `nix run .#lab`
 lists them. Nothing opens on the host desktop.
-
-### Runic against Bun: start-up, memory and size
-
-`nix run .#compare -- [DIRECTORY]` measures both versions the same way inside
-the Hyprland sandbox below (no host desktop, session bus or network, fresh
-state directories and a fixture checkout) and writes a table to
-`DIRECTORY/report.md`. [runic/COMPARISON.md](runic/COMPARISON.md) has the
-method and the latest numbers.
 
 ### Hyprland on the GPU, without a VM
 
@@ -682,16 +646,39 @@ headless labwc, which renders on the render node without a seat. Hyprland's
 own output is a headless one, rendered with OpenGL on the same GPU. Mesa comes
 from this flake's nixpkgs.
 
-Core modules:
+## Layout
 
-- `domain.ts`, `contracts.ts`, `cli.ts`, `config.ts`: schemas, browser-safe state,
-  Effect CLI definitions, validation, command plans and selection.
-- `process.ts`, `updates.ts`: Effect services, process lifecycle, update checks and pins.
-- `advanced.ts`: repository observations, generations, reviewed outputs, and exact lock proposals.
-- `manager.ts`: shared operation lock, execution, step outcomes, events, history,
-  and cancellation.
-- `server.ts`, `window.ts`, `tray.ts`: authenticated UI transport and desktop adapters.
-- `terminal.ts`: Clack and plain terminal presentation.
-- `ui/`: Svelte dashboard, browser transport and shadcn-svelte components.
+The application is in `runic/`:
+
+- `Program.cs`: the entry point; the privileged helper runs first, then the
+  command line.
+- `Cli/`: the command line on Runic Command Line, the `software` commands, and
+  terminal presentation.
+- `Configuration/`, `Domain/`: checkout and host selection, requests, validation
+  and command plans.
+- `Execution/`, `Privileged/`: step processes, privileged steps through Polkit,
+  and the `--privileged` helper that runs as root.
+- `Operations/`: the operation service, the shared operation lock, history and
+  logs, preferences, background tasks and hardware detection.
+- `Observation/`, `Reviews/`: repository and system observations, generations,
+  cleanup estimates, prepared reviews, and the change history.
+- `Edits/`, `Nix/`: pending edits and source edits, readers for Nix's outputs and
+  progress, and the tree-sitter syntax tree (`Nix/Syntax/`).
+- `Software/`, `Updates/`, `Explain/`, `Setup/`: the package index, Flathub's
+  app catalogue and curated features; update checks, package pins and updaters;
+  failure explanations; the setup assistant.
+- `Daemon/`: the per-user daemon, its instance protocol, the status icon and
+  notifications, and the client that routes command lines to it.
+- `Dashboard/`, `ViewModels/`, `BackendServices.cs`: the dashboard Window, the
+  ViewModels its page binds, and the backend's service registration.
+- `Frontend/`: the Svelte dashboard and setup assistant pages, their generated
+  bridge, components and translations.
+- `NixManager.Tests/`: the unit tests and their fixtures.
+- `package.nix`, `NixManager.csproj`, `NixManager.slnx` and the lock files: the
+  Nix package, the project with its Polkit action, and NuGet's locked restore.
+
+`test/` has the CLI and daemon regression suites and the Nix error output the
+explanation tests read; `nix/` has the VM tests, the lab and the Hyprland
+sandbox.
 
 Planned work, aimed at people who do not know Nix, is in [ROADMAP.md](ROADMAP.md).
