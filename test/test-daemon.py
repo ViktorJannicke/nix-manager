@@ -569,7 +569,7 @@ class SetupTests(unittest.TestCase):
                 self.assertEqual(setup.page(), "setup.html")
                 self.assertEqual(setup.process.poll(), None)
                 setup.close_window()
-                # Closed before it created anything, as the Bun version's assistant ends.
+                # Closed before it created anything, the assistant ends successfully.
                 self.assertEqual(setup.process.wait(TIMEOUT), 0, setup.lines)
                 setup.close()
                 self.assertFalse((self.sandbox.root / "home" / "nixos-config").exists())
@@ -623,8 +623,8 @@ class SetupTests(unittest.TestCase):
 
 
 class BrowserTests(unittest.TestCase):
-    """`ui --browser` ends once its last tab has been closed for a second, so a reload keeps it, as the Bun version's
-    `ui` did (main in src/main.ts). A daemon that runs meanwhile keeps running."""
+    """`ui --browser` ends once its last tab has been closed for a second, so a reload keeps it. A daemon that runs
+    meanwhile keeps running."""
 
     def setUp(self):
         self.sandbox = Sandbox()

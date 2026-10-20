@@ -19,6 +19,8 @@ let
         "${modulesPath}/testing/test-instrumentation.nix"
         (import ./machine.nix {
           inherit self;
+          # desktop-apply.nix writes alice's checkout itself.
+          seeded = false;
           userAccount = "${modulesPath}/../tests/common/user-account.nix";
         })
       ];

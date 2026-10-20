@@ -11,7 +11,7 @@ namespace NixManager.Tests;
 /// </summary>
 public sealed class StoreCompatibilityTests : IDisposable
 {
-    private readonly BunFixtures _fixtures = new();
+    private readonly RecordedFixtures _fixtures = new();
 
     public void Dispose() => _fixtures.Dispose();
 
@@ -28,7 +28,7 @@ public sealed class StoreCompatibilityTests : IDisposable
             var operation = ManagerJson.Deserialize<Operation>(File.ReadAllText(file));
             await Assert.That(operation).IsNotNull();
             var written = JsonNode.Parse(ManagerJson.Serialize(operation));
-            await Assert.That(BunFixtures.Difference(original, written)).IsNull().Because(Path.GetFileName(file));
+            await Assert.That(RecordedFixtures.Difference(original, written)).IsNull().Because(Path.GetFileName(file));
         }
     }
 

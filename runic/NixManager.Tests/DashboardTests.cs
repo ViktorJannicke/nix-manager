@@ -17,7 +17,7 @@ namespace NixManager.Tests;
 /// </summary>
 public sealed class DashboardTests : IAsyncDisposable
 {
-    private readonly BunFixtures _fixtures = new();
+    private readonly RecordedFixtures _fixtures = new();
     private readonly RunicPathWatchTester _watching = new();
     private readonly ServiceProvider _services;
     private readonly AsyncServiceScope _scope;
@@ -170,7 +170,7 @@ public sealed class DashboardTests : IAsyncDisposable
     [Test]
     public async Task Someone_new_starts_simple_with_a_kept_history()
     {
-        using var fixtures = new BunFixtures();
+        using var fixtures = new RecordedFixtures();
         var config = TestConfig.Create(fixtures.Root) with { StateDir = Path.Combine(fixtures.Root, "fresh-state") };
 
         var preferences = DashboardPreferences.Read(config);

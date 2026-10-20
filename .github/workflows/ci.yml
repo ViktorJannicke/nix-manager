@@ -41,4 +41,4 @@ jobs:
       - name: Build and test x86_64-linux
         run: nix flake check --print-build-logs
       - name: Retain build-time dependency cache
-        run: nix build .#npm-deps --no-link --print-build-logs
+        run: nix build .#default.frontendNodeModules --no-link --print-build-logs

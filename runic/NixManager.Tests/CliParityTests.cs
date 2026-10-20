@@ -8,7 +8,7 @@ namespace NixManager.Tests;
 /// <summary>
 /// The command line keeps the Bun version's syntax, JSON documents, exit codes and error messages: every case of
 /// <c>Fixtures/cli-cases.json</c> runs here and is compared with the Bun version's output recorded in
-/// <c>Fixtures/bun-cli.json</c> (<c>record-bun-cli.py</c>) over the same stored operations.
+/// <c>Fixtures/recorded-cli.json</c> (<c>record-bun-cli.py</c>) over the same stored operations.
 /// </summary>
 public sealed class CliParityTests
 {
@@ -21,13 +21,13 @@ public sealed class CliParityTests
 
     /// <summary>Every recorded case of every <c>bun-cli*.json</c>.</summary>
     private static readonly Dictionary<string, Recorded> Recordings = System.IO.Directory
-        .EnumerateFiles(BunFixtures.Directory, "bun-cli*.json")
+        .EnumerateFiles(RecordedFixtures.Directory, "recorded-cli*.json")
         .SelectMany(file => JsonSerializer.Deserialize<List<Recorded>>(File.ReadAllText(file), Web)!)
         .ToDictionary(r => r.Name);
 
     /// <summary>The files each case adds to the checkout (<c>cli-cases*.json</c>).</summary>
     private static readonly Dictionary<string, Case> CaseFiles = System.IO.Directory
-        .EnumerateFiles(BunFixtures.Directory, "cli-cases*.json")
+        .EnumerateFiles(RecordedFixtures.Directory, "cli-cases*.json")
         .SelectMany(file => JsonSerializer.Deserialize<List<Case>>(File.ReadAllText(file), Web)!)
         .ToDictionary(c => c.Name);
 
@@ -49,7 +49,7 @@ public sealed class CliParityTests
 
     public static IEnumerable<string> Cases() => Recordings.Keys;
 
-    internal static async Task<(int ExitCode, string Stdout, string Stderr)> RunAsync(BunFixtures fixtures, string[] args)
+    internal static async Task<(int ExitCode, string Stdout, string Stderr)> RunAsync(RecordedFixtures fixtures, string[] args)
     {
         var console = new TestCommandConsole { IsOutputRedirected = true, IsErrorRedirected = true };
         var session = new CliSession
@@ -69,7 +69,7 @@ public sealed class CliParityTests
     {
         var recorded = Recordings[name];
         var @case = CaseFiles.GetValueOrDefault(name);
-        using var fixtures = new BunFixtures(@case?.Files);
+        using var fixtures = new RecordedFixtures(@case?.Files);
         var volatileNames = @case?.Volatile ?? [];
 
         var (exitCode, stdout, stderr) = await RunAsync(fixtures, recorded.Args);
@@ -79,10 +79,10 @@ public sealed class CliParityTests
         await Assert.That(error is null ? null : fixtures.NormalizeText(error)).IsEqualTo(recorded.Error);
         if (recorded.Stdout.TrimStart().StartsWith('{') || recorded.Stdout.TrimStart().StartsWith('['))
         {
-            var expected = WithoutVolatile(BunFixtures.NormalizeJson(JsonNode.Parse(recorded.Stdout)), volatileNames);
-            var actual = WithoutVolatile(BunFixtures.NormalizeJson(JsonNode.Parse(fixtures.NormalizeText(stdout))), volatileNames);
-            await Assert.That(BunFixtures.Difference(expected, actual)).IsNull();
+            var expected = WithoutVolatile(RecordedFixtures.NormalizeJson(JsonNode.Parse(recorded.Stdout)), volatileNames);
+            var actual = WithoutVolatile(RecordedFixtures.NormalizeJson(JsonNode.Parse(fixtures.NormalizeText(stdout))), volatileNames);
+            await Assert.That(RecordedFixtures.Difference(expected, actual)).IsNull();
         }
-        else await Assert.That(fixtures.NormalizeText(stdout)).IsEqualTo(BunFixtures.NormalizeRecordedText(recorded.Stdout));
+        else await Assert.That(fixtures.NormalizeText(stdout)).IsEqualTo(RecordedFixtures.NormalizeRecordedText(recorded.Stdout));
     }
 }

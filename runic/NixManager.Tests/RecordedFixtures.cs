@@ -5,11 +5,11 @@ using NixManager.Configuration;
 namespace NixManager.Tests;
 
 /// <summary>
-/// A checkout with a copy of <c>Fixtures/bun-state</c>: real operation records, logs and the update report the
+/// A checkout with a copy of <c>Fixtures/recorded-state</c>: real operation records, logs and the update report the
 /// Bun version wrote, with the checkout path replaced. <c>record-bun-cli.py</c> prepares the same for the Bun
 /// version's recorded outputs.
 /// </summary>
-internal sealed partial class BunFixtures : IDisposable
+internal sealed partial class RecordedFixtures : IDisposable
 {
     public const string RecordedFlake = "/home/user/my-flakes";
     public static string Directory => Path.Combine(AppContext.BaseDirectory, "Fixtures");
@@ -21,14 +21,14 @@ internal sealed partial class BunFixtures : IDisposable
     public ManagerEnvironment Environment { get; }
 
     /// <param name="files">Files to add, by path relative to the checkout; <c>&lt;flake&gt;</c> in their text is the checkout.</param>
-    public BunFixtures(IReadOnlyDictionary<string, string>? files = null)
+    public RecordedFixtures(IReadOnlyDictionary<string, string>? files = null)
     {
         var created = System.IO.Directory.CreateTempSubdirectory("nix-manager-fixtures-").FullName;
         Root = NixManager.Operations.Native.RealPath(created) ?? created;
         File.WriteAllText(Path.Combine(Root, "flake.nix"), "{}");
         File.WriteAllText(Path.Combine(Root, "hosts.json"),
             """{"test":{"homeConfiguration":"user-test","nixosConfiguration":"test-machine","nixosHostName":"test-machine","system":"x86_64-linux"}}""");
-        Copy(Path.Combine(Directory, "bun-state"), StateDir);
+        Copy(Path.Combine(Directory, "recorded-state"), StateDir);
         foreach (var file in System.IO.Directory.EnumerateFiles(StateDir, "*.json", SearchOption.AllDirectories))
             File.WriteAllText(file, File.ReadAllText(file).Replace(RecordedFlake, Root, StringComparison.Ordinal));
         var profile = Path.Combine(Root, "state", "nix", "profiles", "home-manager");

@@ -350,36 +350,6 @@ public sealed class ReviewEditFlowTests : IDisposable
     }
 
     [Test]
-    public async Task An_edited_review_its_undo_contents_and_the_draft_written_here_read_in_the_Bun_version()
-    {
-        EditEngine.Require();
-        File.CreateSymbolicLink(Config.HomeProfile, "home-manager-5-link");
-        await using (var service = Service(options: _ => []))
-        {
-            Drafts.Write(Config, [Btop]);
-            await service.Start(Build("aaaaaaaa")).Completion;
-            await service.Start(Build("bbbbbbbb")).Completion;
-            var applied = await service.Start(Apply("aaaaaaaa")).Completion;
-            await Assert.That(applied.Status).IsEqualTo(OperationStatuses.Succeeded);
-        }
-        Drafts.Write(Config, [Change.AddPackage(Targets.Home, "modules/apps.nix", "pkgs.fd", "Find files"),
-            Change.SetOption(Targets.Home, "modules/apps.nix", "programs.git.enable", JsonValue.Create(true))]);
-
-        var read = await ReviewCompatibilityTests.ReadInBunAsync(Config);
-        Skip.When(read is null, ReviewCompatibilityTests.NoBun);
-
-        var review = read!["reviews"]!.AsArray().Single()!;
-        await Assert.That(review["id"]!.GetValue<string>()).IsEqualTo("bbbbbbbb");
-        await Assert.That(review["apply"]!.AsArray().Select(l => l!.GetValue<string>()))
-            .IsEquivalentTo(["Write modules/apps.nix", "Select Home Manager generation", "Activate Home Manager"]);
-        var undo = read["undos"]!.AsArray().Single()!;
-        await Assert.That(undo["changes"]!.AsArray().Select(c => c!.GetValue<string>())).IsEquivalentTo(["Install btop"]);
-        await Assert.That(undo["plan"]!.AsArray().Select(c => c!.GetValue<string>())).IsEquivalentTo(["Retain home generation 5", "Compare with the active configuration"]);
-        await Assert.That(read["draft"]!.ToJsonString()).IsEqualTo(
-            JsJson.Stringify(new JsonArray([.. Drafts.Read(Config).Select(c => (JsonNode)c.ToJson())])));
-    }
-
-    [Test]
     public async Task Staging_refuses_edits_that_are_not_packages_from_pkgs_or_change_nothing()
     {
         EditEngine.Require();

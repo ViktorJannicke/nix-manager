@@ -8,7 +8,7 @@ namespace NixManager.Tests;
 
 /// <summary>
 /// Replays the corpus <c>Fixtures/record-bun-edits.ts</c> recorded with the Bun version's edit engine
-/// (<c>Fixtures/bun-edits.json</c>) and requires the same results and error messages, as JSON text.
+/// (<c>Fixtures/recorded-edits.json</c>) and requires the same results and error messages, as JSON text.
 /// </summary>
 public sealed class EditDifferentialTests
 {
@@ -191,21 +191,7 @@ public sealed class EditDifferentialTests
     [Test]
     public async Task The_edit_engine_matches_the_Bun_version_on_the_recorded_corpus()
     {
-        var differences = Differences(Path.Combine(BunFixtures.Directory, "bun-edits.json"));
-        if (differences.Count > 0) Assert.Fail($"{differences.Count} differences:\n{string.Join("\n", differences.Take(20))}");
-        await Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// A one-off recording of a real flake (<c>record-bun-edits.ts --files DIR --out FILE</c>), replayed when
-    /// <c>NIX_MANAGER_BUN_EDITS</c> names it.
-    /// </summary>
-    [Test]
-    public async Task The_edit_engine_matches_the_Bun_version_on_a_recorded_flake()
-    {
-        var recording = Environment.GetEnvironmentVariable("NIX_MANAGER_BUN_EDITS");
-        Skip.When(string.IsNullOrEmpty(recording), "NIX_MANAGER_BUN_EDITS is not set.");
-        var differences = Differences(recording!);
+        var differences = Differences(Path.Combine(RecordedFixtures.Directory, "recorded-edits.json"));
         if (differences.Count > 0) Assert.Fail($"{differences.Count} differences:\n{string.Join("\n", differences.Take(20))}");
         await Task.CompletedTask;
     }

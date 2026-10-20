@@ -5,7 +5,6 @@
 {
   pkgs,
   self,
-  runic ? false,
 }:
 let
   userAccount = pkgs.path + "/nixos/tests/common/user-account.nix";
@@ -16,12 +15,12 @@ let
   };
 in
 pkgs.testers.runNixOSTest {
-  name = "nix-manager-speech-audio" + pkgs.lib.optionalString runic "-runic";
+  name = "nix-manager-speech-audio";
 
   nodes.machine =
     { lib, pkgs, ... }:
     {
-      imports = [ (import ./machine.nix { inherit self userAccount runic; }) ];
+      imports = [ (import ./machine.nix { inherit self userAccount; }) ];
 
       services.speechd = {
         config = lib.mkForce null;
@@ -73,9 +72,9 @@ pkgs.testers.runNixOSTest {
         # The tiny model sometimes mishears "Screen" ("Spring reader on").
         assert "reader on" in heard.lower(), "the recording does not say 'reader on'"
   ''
-  # The Runic port's Window: a Tab stop in its web page, spoken by Orca
+  # The dashboard Window: a Tab stop in its web page, spoken by Orca
   # through espeak-ng.
-  + pkgs.lib.optionalString runic ''
+  + ''
 
     with subtest("whisper.cpp hears a Tab stop in the dashboard"):
         machine.succeed("lab-user systemd-run --user --unit nix-manager nix-manager ui")
@@ -99,7 +98,7 @@ pkgs.testers.runNixOSTest {
 
     with subtest("Orca reads the navigation's list without a WebKitGTK abort"):
         # Tab into the navigation, whose list item aborted WebKitGTK's web process when Orca read it (README.md). What
-        # Orca says there ("list with 8 items") is checked exactly in desktop-a11y-runic's transcript; whisper.cpp's
+        # Orca says there ("list with 8 items") is checked exactly in desktop-a11y's transcript; whisper.cpp's
         # tiny model is too unsure of it to assert on.
         if "'Skip to content'" not in machine.execute("lab-user lab-atspi nix-manager | grep -w focused")[1]:
             machine.send_key("shift-tab")
