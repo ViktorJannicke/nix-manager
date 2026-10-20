@@ -83,11 +83,8 @@ const actionLabels: Record<string, string> = {
 /** The name of an action, such as "Check for updates". */
 export const actionLabel = (action: string) => stored(actionLabels[action] ?? action);
 
-/** "a, b and c" in the current language; English without the serial comma. */
-export function list(items: readonly string[]) {
-  const locale = getLocale();
-  return new Intl.ListFormat(locale === "en" ? "en-GB" : locale, { type: "conjunction" }).format(items);
-}
+/** "a, b, and c" in the current language. */
+export const list = (items: readonly string[]) => m.common_list({ items });
 
 // Messages with markup, such as `Detected as {#highlight}{$host}{/highlight}.`, render through `inline` and
 // `LocalizedInline`. The page's own tags are declared in translations/runic.json; `LocalizedInline` renders them with

@@ -2,6 +2,8 @@
 # messages from the Bun version's catalogue (src/locales/de). Text the backend stores is in stored/.
 
 common {
+  @param $items - Items in the order given
+  list = {$items :runic:list}
   and_more = and {$count :integer} more
   cancel = Cancel
   close = Close
@@ -448,10 +450,11 @@ changes {
   @param $files - File paths
   creates_files =
     .input {$count :integer}
+    .input {$files :runic:list}
     .match $count
     one {{Creates {$files} and adds it to Git, so Nix can read it.}}
     * {{Creates {$files} and adds them to Git, so Nix can read them.}}
-  deletes = Deletes {$files}, which that change created.
+  deletes = Deletes {$files :runic:list}, which that change created.
   discard = Discard
   discarded = Prepared changes discarded
   draft_moved = Your pending edits changed since this was prepared. Applying writes the edits shown below; prepare again to include the others.
@@ -490,6 +493,7 @@ changes {
   preparing_body = The build is running; its changes will appear here when it finishes.
   puts_back =
     .input {$count :integer}
+    .input {$files :runic:list}
     .match $count
     one {{Puts back {$files} as it was before that change.}}
     * {{Puts back {$files} as they were before that change.}}
@@ -504,7 +508,7 @@ changes {
   system_disk = System disk use
   @param $date - A date and time
   undo_before = Goes back to how it was before {$date}, undoing:
-  undo_restores = Applying also restores {$files}.
+  undo_restores = Applying also restores {$files :runic:list}.
   updates = Updates {$name}
   writes_file = Writes your edits to {$path} in your configuration.
   writes_files = Writes your edits to {$count :integer} files in your configuration.
@@ -754,11 +758,13 @@ bundle {
   pending = Pending
   is_not_free_software_allowing_non =
     .input {$count :integer}
+    .input {$names :runic:list}
     .match $count
     one {{{$names} is not free software; allowing non-free software is part of the edit.}}
     * {{{$names} are not free software; allowing non-free software is part of the edit.}}
   needs_a_file_chosen_by_hand =
     .input {$count :integer}
+    .input {$names :runic:list}
     .match $count
     one {{{$names} needs a file chosen by hand. Add it from Discover on its own.}}
     * {{{$names} need a file chosen by hand. Add them from Discover on their own.}}

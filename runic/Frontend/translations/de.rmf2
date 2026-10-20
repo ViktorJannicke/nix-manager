@@ -1,5 +1,6 @@
 
 common {
+  list = {$items :runic:list}
   and_more = und {$count :integer} weitere
   cancel = Abbrechen
   close = Schließen
@@ -425,10 +426,11 @@ changes {
   counts = {$changed :integer} aktualisiert, {$added :integer} neu, {$removed :integer} entfernt
   creates_files =
     .input {$count :integer}
+    .input {$files :runic:list}
     .match $count
     one {{Erstellt {$files} und fügt die Datei zu Git hinzu, damit Nix sie lesen kann.}}
     * {{Erstellt {$files} und fügt die Dateien zu Git hinzu, damit Nix sie lesen kann.}}
-  deletes = Löscht {$files} (von dieser Änderung erstellt).
+  deletes = Löscht {$files :runic:list} (von dieser Änderung erstellt).
   discard = Verwerfen
   discarded = Vorbereitete Änderungen verworfen
   draft_moved = Ihre vorgemerkten Änderungen haben sich geändert, seit dies vorbereitet wurde. Beim Anwenden werden die unten gezeigten Änderungen geschrieben; bereiten Sie erneut vor, um die übrigen einzubeziehen.
@@ -467,6 +469,7 @@ changes {
   preparing_body = Der Build läuft; seine Änderungen erscheinen hier, sobald er fertig ist.
   puts_back =
     .input {$count :integer}
+    .input {$files :runic:list}
     .match $count
     one {{Stellt {$files} so wieder her, wie die Datei vor dieser Änderung war.}}
     * {{Stellt {$files} so wieder her, wie die Dateien vor dieser Änderung waren.}}
@@ -480,7 +483,7 @@ changes {
   system_apps = Apps des Systems
   system_disk = Speicherplatzbedarf des Systems
   undo_before = Kehrt zum Stand vor dem {$date} zurück und macht rückgängig:
-  undo_restores = Beim Anwenden wird außerdem {$files} wiederhergestellt.
+  undo_restores = Beim Anwenden wird außerdem {$files :runic:list} wiederhergestellt.
   updates = Aktualisiert: {$name}
   writes_file = Schreibt Ihre Änderungen in {$path} in Ihrer Konfiguration.
   writes_files = Schreibt Ihre Änderungen in {$count :integer} Dateien in Ihrer Konfiguration.
@@ -720,11 +723,13 @@ bundle {
   pending = Vorgemerkt
   is_not_free_software_allowing_non =
     .input {$count :integer}
+    .input {$names :runic:list}
     .match $count
     one {{{$names} ist keine freie Software; das Erlauben unfreier Software gehört zur Änderung.}}
     * {{{$names} sind keine freie Software; das Erlauben unfreier Software gehört zur Änderung.}}
   needs_a_file_chosen_by_hand =
     .input {$count :integer}
+    .input {$names :runic:list}
     .match $count
     one {{{$names} braucht eine von Hand gewählte Datei. Fügen Sie es einzeln über „Entdecken“ hinzu.}}
     * {{{$names} brauchen eine von Hand gewählte Datei. Fügen Sie sie einzeln über „Entdecken“ hinzu.}}

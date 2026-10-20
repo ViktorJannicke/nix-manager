@@ -51,13 +51,8 @@ public sealed class TrayText
     /// <summary>The catalogue's messages; the daemon's are <c>tray_*</c>.</summary>
     public DashboardTextMessages Messages { get; }
 
-    /// <summary>A conjunction as <c>Intl.ListFormat</c> writes it: "a, b and c", "a, b und c".</summary>
-    public string List(IReadOnlyList<string> items) => items.Count switch
-    {
-        0 => "",
-        1 => items[0],
-        _ => $"{string.Join(", ", items.Take(items.Count - 1))} {(Locale == "de" ? "und" : "and")} {items[^1]}",
-    };
+    /// <summary>A conjunction in this language, such as "a, b, and c" (<c>:runic:list</c>).</summary>
+    public string List(IReadOnlyList<string> items) => Messages.common_list(items);
 
     /// <summary>A size in binary units with the language's decimal separator (<c>bytes</c> in <c>src/summary.ts</c>).</summary>
     public string Bytes(double? value, bool signed = false) => Reviews.ReviewSummary.Bytes(value, signed, _numbers);
