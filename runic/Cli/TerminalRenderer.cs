@@ -7,10 +7,10 @@ using Runic.CommandLine;
 namespace NixManager.Cli;
 
 /// <summary>
-/// Presents an operation's events on the terminal (<c>TerminalRenderer</c> in <c>src/terminal.ts</c>). On an
-/// interactive terminal a Runic task log keeps the last lines under the action's title; with <c>--plain</c>,
-/// without a terminal or with <c>--json</c> every line is written as it arrives, and with <c>--json</c> the
-/// handler console sends it to standard error so standard output stays machine-readable.
+/// Presents an operation's events on the terminal while it runs. On an interactive terminal a Runic task log keeps
+/// the last lines under the action's title; with <c>--plain</c>, without a terminal or with <c>--output json</c>
+/// every line is written as it arrives, and with <c>--output json</c> the handler console sends it to standard
+/// error so standard output holds only the response.
 /// </summary>
 public sealed class TerminalRenderer(CommandExecutionContext context, CliInvocation cli, Func<string, string?> environment)
 {
@@ -78,7 +78,9 @@ public sealed class TerminalRenderer(CommandExecutionContext context, CliInvocat
         {
             if (operation.Status == OperationStatuses.Succeeded)
                 await _task.SucceedAsync("Complete", showLog: cli.Verbose, cancellationToken).ConfigureAwait(false);
-            else await _task.FailAsync(operation.Error ?? operation.Status, showLog: true, cancellationToken).ConfigureAwait(false);
+            // The error itself follows as the failure's human output, so the summary does not repeat it.
+            else await _task.FailAsync(operation.Status == OperationStatuses.Cancelled ? "Cancelled" : "Failed", showLog: true, cancellationToken)
+                .ConfigureAwait(false);
             await _task.DisposeAsync().ConfigureAwait(false);
             _task = null;
         }
@@ -90,22 +92,22 @@ public sealed class TerminalRenderer(CommandExecutionContext context, CliInvocat
             foreach (var step in steps) text.Append($"{Symbol(step.Status)} {step.Label} ({step.Status})\n");
             await _console.WriteErrorAsync(text.ToString().AsMemory(), cancellationToken).ConfigureAwait(false);
         }
-        if (!cli.Json && operation.Status == OperationStatuses.Failed && operation.Explanation is { } explanation)
-            await _console.WriteErrorAsync(ExplanationText(explanation).AsMemory(), cancellationToken).ConfigureAwait(false);
     }
 
-    public async ValueTask FailAsync(Exception error, CancellationToken cancellationToken)
+    /// <summary>Ends the task log of an operation that ended with an error; the error follows as the failure's human output.</summary>
+    public async ValueTask FailAsync(CancellationToken cancellationToken)
     {
         if (_task is null) return;
-        await _task.FailAsync(error.Message, showLog: true, cancellationToken).ConfigureAwait(false);
+        await _task.FailAsync("Failed", showLog: true, cancellationToken).ConfigureAwait(false);
         await _task.DisposeAsync().ConfigureAwait(false);
         _task = null;
     }
 
+    /// <summary>An explanation of a failure as human output shows it before the error line.</summary>
     public static string ExplanationText(Explanation explanation) =>
         $"\n{explanation.Title}.\n{explanation.Body}\n{(explanation.Fix is { } fix ? $"To allow it: {FixCommand(fix)}\n" : "")}";
 
-    /// <summary>The command-line equivalent of a fix (<c>fixCommand</c>).</summary>
+    /// <summary>The command-line equivalent of a fix.</summary>
     public static string FixCommand(Fix fix) =>
         $"nix-manager software set nixpkgs.config.allowUnfree true{(fix.Scope == "system" ? " --system" : "")}";
 
@@ -118,7 +120,7 @@ public sealed class TerminalRenderer(CommandExecutionContext context, CliInvocat
     };
 }
 
-/// <summary>The plan, history and status texts of <c>src/terminal.ts</c>.</summary>
+/// <summary>The human texts of a plan, the history and the status.</summary>
 public static class CliText
 {
     public static string Plan(Plan plan)
@@ -149,12 +151,12 @@ public static class CliText
         return text.ToString();
     }
 
-    public static string Status(Config config, UpdateReport? updates, Operation? latest)
+    public static string Status(StatusDocument status)
     {
-        var host = config.Host;
+        var (host, updates, latest) = (status.Config, status.Updates, status.Latest);
         var text = new StringBuilder();
-        text.Append($"Nix Manager · {config.HostKey}\n");
-        text.Append($"Checkout  {config.Flake}\n");
+        text.Append($"Nix Manager · {status.Host}\n");
+        text.Append($"Checkout  {status.Flake}\n");
         text.Append($"Home      {host.HomeConfiguration}\n");
         text.Append($"System    {host.NixosConfiguration}\n");
         text.Append(updates is not null

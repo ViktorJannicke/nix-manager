@@ -319,18 +319,17 @@ public sealed class DashboardTests : IAsyncDisposable
         await Assert.That(DashboardPreferences.ResolveLocale(language, name => name == "LANG" ? lang : null)).IsEqualTo(locale);
 
     /// <summary>Runs the command line as <c>Main</c> does, with the dashboard and the daemon recorded instead of started.</summary>
-    private static (int ExitCode, object? Started, string Stderr) Launch(params string[] args)
+    private static (int ExitCode, object? Started, string Stderr, string Stdout) Launch(params string[] args)
     {
         object? started = null;
         var console = new Runic.CommandLine.Testing.TestCommandConsole { IsOutputRedirected = true, IsErrorRedirected = true };
         var session = new Cli.CliSession
         {
-            Output = new Cli.CliOutput(),
             Dashboard = invocation => { started = invocation; return 7; },
             Daemon = invocation => { started = invocation; return 8; },
         };
         var code = Cli.NixManagerCli.Run(args, session, console, handleSignals: false);
-        return (code, started, console.StandardError);
+        return (code, started, console.StandardError, console.StandardOutput);
     }
 
     [Test]
@@ -341,7 +340,7 @@ public sealed class DashboardTests : IAsyncDisposable
     public async Task A_dashboard_invocation_starts_the_Window_once_the_command_line_returned(string[] args, string? flake, string? host,
         bool noOpen, bool browser)
     {
-        var (code, started, _) = Launch(args);
+        var (code, started, _, _) = Launch(args);
         await Assert.That(code).IsEqualTo(7);
         await Assert.That(started).IsEqualTo(new DashboardCommand.Invocation(flake, host, noOpen, browser));
     }
@@ -349,28 +348,36 @@ public sealed class DashboardTests : IAsyncDisposable
     [Test]
     public async Task A_tray_invocation_starts_the_daemon_once_the_command_line_returned()
     {
-        var (code, started, _) = Launch("tray", "--interval", "30", "--flake", "/x");
+        var (code, started, _, _) = Launch("tray", "--interval", "30", "--flake", "/x");
         await Assert.That(code).IsEqualTo(8);
         await Assert.That(started).IsEqualTo(new Daemon.DaemonCommand.Invocation("/x", null, 30));
     }
 
     [Test]
-    [Arguments(new[] { "ui", "--json" }, "Error: The dashboard takes only --flake, --host, --no-open and --browser.")]
-    [Arguments(new[] { "ui", "--interval", "30" }, "Error: The dashboard takes only --flake, --host, --no-open and --browser.")]
-    [Arguments(new[] { "tray", "--browser" }, "Error: The tray takes only --flake, --host and --interval.")]
-    [Arguments(new[] { "ui", "home" }, "Error: Action modifiers require a build, activation, maintenance, or package action.")]
+    [Arguments(new[] { "ui", "--interval", "30" }, "The dashboard takes only --flake, --host, --no-open and --browser.")]
+    [Arguments(new[] { "tray", "--browser" }, "The tray takes only --flake, --host and --interval.")]
+    [Arguments(new[] { "ui", "home" }, "Action modifiers require a build, activation, maintenance, or package action.")]
     public async Task Other_options_with_ui_or_tray_start_nothing(string[] args, string error)
     {
-        var (code, started, stderr) = Launch(args);
-        await Assert.That(code).IsEqualTo(1);
+        var (code, started, stderr, stdout) = Launch(args);
+        await Assert.That(code).IsEqualTo(2);
         await Assert.That(started).IsNull();
-        await Assert.That(stderr).StartsWith(error);
+        await Assert.That(stdout).IsEqualTo(error + "\n");
+        await Assert.That(stderr).IsEqualTo("NM0002: The command line is not valid.\n");
+    }
+
+    [Test]
+    public async Task The_dashboard_has_no_JSON_output()
+    {
+        var (code, started, _, _) = Launch("ui", "--output", "json");
+        await Assert.That(code).IsEqualTo(2);
+        await Assert.That(started).IsNull();
     }
 
     [Test]
     public async Task Help_for_ui_starts_nothing()
     {
-        var (code, started, _) = Launch("ui", "--help");
+        var (code, started, _, _) = Launch("ui", "--help");
         await Assert.That(code).IsEqualTo(0);
         await Assert.That(started).IsNull();
     }

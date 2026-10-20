@@ -11,7 +11,7 @@ the same command catalogue, so they stay in sync with the accepted options. Run
 ```sh
 nix run github:ViktorJannicke/nix-manager -- --flake /path/to/configuration ui
 nix run . -- --flake /path/to/configuration --dry-run update cleanup switch
-nix run . -- --flake /path/to/configuration check --json
+nix run . -- --flake /path/to/configuration check --output json
 nix run . -- --flake /path/to/configuration tray
 ```
 
@@ -330,7 +330,7 @@ status icon, and that process owns every operation.
   other than the running instance's run the dashboard on its own.
 - Operation commands hand their request to the daemon when it runs for the same
   checkout, host and state directory. The daemon streams the operation back, so
-  the terminal shows the same output, `--json` included, and the command exits
+  the terminal shows the same output, `--output json` included, and the command exits
   with the same status. Ctrl+C cancels the operation in the daemon; a command
   line that goes away, such as with a dropped SSH session, leaves it running
   to its end. A second operation is refused with the operation lock's message.
@@ -418,11 +418,26 @@ a new session without a controlling terminal. Their output is streamed to the
 CLI and saved for the dashboard; Nix's structured log becomes readable lines and
 progress. Interactive terminals show a compact task log of the last lines;
 `--plain` disables dynamic presentation and `--verbose` retains successful task
-output. `--json` keeps stdout machine-readable and sends command output to stderr.
-Cancelling a build sends SIGTERM to its process group, then SIGKILL after a grace
-period. During a privileged step, cancellation waits for that step to finish,
-then stops further steps. Completed activation, lock changes or pin updates are
-not undone by cancellation. Interrupted operations retain their logs.
+output. `--output json` writes one `runic.commandline/1` response to stdout and
+sends command output to stderr. Its payload is typed: `nix-manager.run/1` for
+the root command (`kind` is `plan`, `operation`, `history` or `status`, with the
+member of that name; `check` adds `updates`), `nix-manager.software-search/1` for
+`software search` and `nix-manager.software-draft/1` for the other software
+commands that change or list pending edits. A failed command's `fault.data`
+holds the failed operation (`nix-manager.run/1`) or the exact error with its
+explanation (`nix-manager.error/1`).
+
+Exit codes are Runic Command Line's: 0 on success, 2 for invalid arguments or
+combinations, 4 after cancellation, 5 when the configuration or host cannot be
+loaded, 10 when the command or its operation fails, and 70 for an unexpected
+failure. A fault's code (`NM0002`, `NM0004`, `NM0005`, `NM0010`) carries the
+same number, and its message is a fixed summary such as "The configuration
+could not be loaded."; the exact error, which may name paths, is written before
+it in human output and kept in the fault's data.
+Cancelling a build terminates its process group. During a privileged step,
+cancellation waits for that step to finish, then stops further
+steps. Completed activation, lock changes or pin updates are not undone by
+cancellation. Interrupted operations retain their logs.
 
 System activation, system rollback and system cleanup go through the packaged
 executable's `--privileged` entry point and its Polkit action
@@ -524,13 +539,13 @@ dotnet restore NixManager.slnx --force-evaluate -r linux-arm64
 dotnet restore NixManager.csproj --force-evaluate -r linux-arm64 -p:PublishAot=true
 ```
 
-The package installs its completions itself. Generated completions are also
-available from the command:
+The package installs its shell completions itself. Outside the package, the
+command line generates them from its catalog:
 
 ```sh
-nix-manager --completions bash > ~/.local/share/bash-completion/completions/nix-manager
-nix-manager --completions zsh > ~/.local/share/zsh/site-functions/_nix-manager
-nix-manager --completions fish > ~/.config/fish/completions/nix-manager.fish
+nix-manager completion bash > ~/.local/share/bash-completion/completions/nix-manager
+nix-manager completion zsh > ~/.local/share/zsh/site-functions/_nix-manager
+nix-manager completion fish > ~/.config/fish/completions/nix-manager.fish
 ```
 
 `nix build .` builds the package in the sandbox and runs the .NET unit tests

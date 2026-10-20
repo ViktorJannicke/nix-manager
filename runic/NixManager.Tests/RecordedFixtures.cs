@@ -5,9 +5,8 @@ using NixManager.Configuration;
 namespace NixManager.Tests;
 
 /// <summary>
-/// A checkout with a copy of <c>Fixtures/recorded-state</c>: real operation records, logs and the update report the
-/// Bun version wrote, with the checkout path replaced. <c>record-bun-cli.py</c> prepares the same for the Bun
-/// version's recorded outputs.
+/// A checkout with a copy of <c>Fixtures/recorded-state</c>: real operation records, logs and an update report,
+/// with the checkout path replaced.
 /// </summary>
 internal sealed partial class RecordedFixtures : IDisposable
 {

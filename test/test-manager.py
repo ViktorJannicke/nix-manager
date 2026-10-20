@@ -65,7 +65,7 @@ class ManagerTests(unittest.TestCase):
     def test_prebuild_failure_prevents_activation_and_cleanup(self):
         for fail in ("nix build home", "nix build system"):
             result, calls, *_ = self.invoke(["cleanup", "switch"], fail=fail)
-            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.returncode, 10, result.stderr)
             self.assertTrue(calls)
             self.assertTrue(all(call.startswith("nix build ") for call in calls), calls)
 
@@ -83,7 +83,7 @@ class ManagerTests(unittest.TestCase):
 
     def test_activation_failure_prevents_cleanup(self):
         result, calls, *_ = self.invoke(["home", "cleanup", "switch"], fail="activate --driver-version")
-        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.returncode, 10, result.stderr)
         self.assertEqual(len(calls), 3)
 
     def test_dry_run_order_and_one_lock_update(self):
@@ -102,16 +102,41 @@ class ManagerTests(unittest.TestCase):
         self.assertNotIn("homeConfigurations", result.stdout)
         self.assertIn("activate-output boot", result.stdout)
         self.assertEqual(calls, [])
-        self.assertNotEqual(self.invoke(["home", "boot"])[0].returncode, 0)
+        self.assertEqual(self.invoke(["home", "boot"])[0].returncode, 2)
+
+    def test_json_output_is_a_response_with_the_plan(self):
+        result, calls, *_ = self.invoke(["--dry-run", "home", "switch", "--output", "json"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(calls, [])
+        response = json.loads(result.stdout)
+        self.assertEqual((response["protocol"], response["payloadType"]), ("runic.commandline/1", "nix-manager.run/1"))
+        self.assertEqual(response["payload"]["kind"], "plan")
+        self.assertTrue(response["payload"]["plan"]["steps"])
 
     def test_invalid_combinations_fail_without_side_effects(self):
-        for args in (["switch", "boot"], ["home", "all", "switch"], ["cleanup", "build"],
-                     ["update", "rollback"], ["cleanup", "rollback"], ["--force", "switch"],
-                     ["system", "t3code-update"], ["--host", "missing", "switch"]):
+        # Invalid combinations are usage errors (2); an unknown host makes the configuration unavailable (5).
+        for args, code in ((["switch", "boot"], 2), (["home", "all", "switch"], 2), (["cleanup", "build"], 2),
+                           (["update", "rollback"], 2), (["cleanup", "rollback"], 2), (["--force", "switch"], 2),
+                           (["system", "t3code-update"], 2), (["--host", "missing", "switch"], 5)):
             with self.subTest(args=args):
                 result, calls, *_ = self.invoke(args)
-                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.returncode, code, result.stderr)
                 self.assertEqual(calls, [])
+
+    def test_failures_report_in_json(self):
+        result, calls, *_ = self.invoke(["switch", "boot", "--output", "json"])
+        self.assertEqual(result.returncode, 2)
+        response = json.loads(result.stdout)
+        self.assertEqual((response["success"], response["exitCode"]), (False, 2))
+        self.assertEqual(response["fault"]["code"], "NM0002")
+        self.assertEqual(response["fault"]["data"]["payload"]["message"], "Specify one action.")
+
+    def test_completion_scripts(self):
+        for shell in ("bash", "zsh", "fish"):
+            with self.subTest(shell=shell):
+                result, *_ = self.invoke(["completion", shell])
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("nix-manager", result.stdout)
 
     def test_home_rollback_uses_native_cli(self):
         result, calls, *_ = self.invoke(["home", "rollback"])

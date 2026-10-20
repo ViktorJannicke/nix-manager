@@ -5,67 +5,88 @@ using Runic.CommandLine;
 
 namespace NixManager.Cli;
 
-/// <summary>The command line's modes (<c>main</c> and <c>execute</c> in <c>src/main.ts</c>).</summary>
+/// <summary>Runs a resolved command line: the dashboard, the tray, the history, the status or an operation.</summary>
 internal static class CliHandler
 {
-    private static CommandOutcome<string> Ok() => CommandOutcome.Success("");
-
-    public static async Task<CommandOutcome<string>> ExecuteAsync(CliInvocation cli, CliSession session, CommandExecutionContext context, CancellationToken cancellationToken)
+    public static async Task<CommandOutcome<RunResult>> ExecuteAsync(CliInvocation cli, CliSession session, CommandExecutionContext context, CancellationToken cancellationToken)
     {
         // The dashboard and the daemon start the Desktop host, which must own the main thread before any await: the
         // command hands them back to Main (NixManagerCli.Run), which runs them once the command line has returned.
         if (cli.Mode is CliMode.Ui)
         {
-            if (cli.Json || cli.Interval != 360) throw new ManagerException("The dashboard takes only --flake, --host, --no-open and --browser.");
+            if (cli.Json || cli.Interval != 360)
+                return CliFaults.Failure<RunResult>(CommandExitCategory.Usage, CliFaults.InvalidCommandLine, new ManagerException("The dashboard takes only --flake, --host, --no-open and --browser."));
             var dashboard = new Dashboard.DashboardCommand.Invocation(cli.Flake, cli.Host, cli.NoOpen, cli.Browser);
             context.ContinueOnCallingThread(() => session.Dashboard(dashboard));
-            return Ok();
+            return CommandOutcome.Success(new RunResult { Kind = RunResult.DashboardKind });
         }
         if (cli.Mode is CliMode.Tray)
         {
-            if (cli.Json || cli.Browser || cli.NoOpen) throw new ManagerException("The tray takes only --flake, --host and --interval.");
+            if (cli.Json || cli.Browser || cli.NoOpen)
+                return CliFaults.Failure<RunResult>(CommandExitCategory.Usage, CliFaults.InvalidCommandLine, new ManagerException("The tray takes only --flake, --host and --interval."));
             var daemon = new Daemon.DaemonCommand.Invocation(cli.Flake, cli.Host, cli.Interval);
             context.ContinueOnCallingThread(() => session.Daemon(daemon));
-            return Ok();
+            return CommandOutcome.Success(new RunResult { Kind = RunResult.TrayKind });
         }
-        Setup.SetupAssistant.AllowFlakes(session.Environment);
-        var config = await new ConfigLoader(session.Runner, session.Environment)
-            .LoadAsync(cli.Flake, cli.Host, CliSession.PrivilegedPrefix).ConfigureAwait(false);
+        Config config;
+        try
+        {
+            config = await LoadAsync(cli.Flake, cli.Host, session).ConfigureAwait(false);
+        }
+        catch (ManagerException error)
+        {
+            return CliFaults.Failure<RunResult>(CommandExitCategory.Unavailable, CliFaults.ConfigurationUnavailable, error);
+        }
         var client = session.CreateClient(config, session.Runner);
         if (cli.Mode is CliMode.History or CliMode.Status)
         {
-            var history = client.History();
-            if (cli.Json)
-                session.Output.Json = cli.Mode == CliMode.History
-                    ? ManagerJson.Serialize(history.ToList())
-                    : ManagerJson.Serialize(new StatusDocument(config.HostKey, config.Flake, config.Host, client.Updates(), history.FirstOrDefault()));
-            else
-                session.Output.Human = cli.Mode == CliMode.History
-                    ? CliText.History(history, config.HostKey, Console.IsOutputRedirected ? 0 : SafeWidth())
-                    : CliText.Status(config, client.Updates(), history.FirstOrDefault());
-            return Ok();
+            try
+            {
+                var history = client.History();
+                return CommandOutcome.Success(cli.Mode == CliMode.History
+                    ? new RunResult { Kind = RunResult.HistoryKind, Host = config.HostKey, History = history.ToList() }
+                    : new RunResult
+                    {
+                        Kind = RunResult.StatusKind,
+                        Host = config.HostKey,
+                        Status = new StatusDocument(config.HostKey, config.Flake, config.Host, client.Updates(), history.FirstOrDefault()),
+                    });
+            }
+            catch (ManagerException error)
+            {
+                return CliFaults.Failure<RunResult>(CommandExitCategory.CommandFailure, CliFaults.HistoryUnavailable, error);
+            }
         }
         return await RunAsync(cli, config, client, session, context, cancellationToken).ConfigureAwait(false);
     }
 
-    private static int SafeWidth()
+    /// <summary>Loads the configuration a command uses. A configuration that does not load makes the command unavailable.</summary>
+    public static async Task<Config> LoadAsync(string? flake, string? host, CliSession session)
     {
-        try { return Console.WindowWidth; }
-        catch (IOException) { return 0; }
+        Setup.SetupAssistant.AllowFlakes(session.Environment);
+        return await new ConfigLoader(session.Runner, session.Environment)
+            .LoadAsync(flake, host, CliSession.PrivilegedPrefix).ConfigureAwait(false);
     }
 
-    /// <summary>Runs one operation in the terminal and sets the exit code from its result (<c>execute</c>).</summary>
-    internal static async Task<CommandOutcome<string>> RunAsync(CliInvocation cli, Config config, IOperationClient client, CliSession session,
+    /// <summary>
+    /// Previews a request, or runs it as an operation presented in the terminal while it runs; the operation's status
+    /// selects the outcome.
+    /// </summary>
+    internal static async Task<CommandOutcome<RunResult>> RunAsync(CliInvocation cli, Config config, IOperationClient client, CliSession session,
         CommandExecutionContext context, CancellationToken cancellationToken)
     {
         var r = cli.Request with { Host = cli.Request.Host is { Length: > 0 } ? cli.Request.Host : config.HostKey };
         // A normal command preview is entirely read-only, including operation state.
         if (r.DryRun && !Actions.IsPackage(r.Action))
         {
-            var plan = client.Plan(r);
-            if (cli.Json) session.Output.Json = ManagerJson.Serialize(plan);
-            else session.Output.Human = CliText.Plan(plan);
-            return Ok();
+            try
+            {
+                return CommandOutcome.Success(new RunResult { Kind = RunResult.PlanKind, Host = r.Host, Plan = client.Plan(r) });
+            }
+            catch (ManagerException error)
+            {
+                return CliFaults.Failure<RunResult>(CommandExitCategory.CommandFailure, CliFaults.OperationNotStarted, error);
+            }
         }
         var terminal = new TerminalRenderer(context, cli, session.Environment.Variable);
         await terminal.BeginAsync(r, config, cancellationToken).ConfigureAwait(false);
@@ -107,25 +128,21 @@ internal static class CliHandler
         }
         catch (ManagerException error)
         {
-            await terminal.FailAsync(error, CancellationToken.None).ConfigureAwait(false);
-            throw;
+            await terminal.FailAsync(CancellationToken.None).ConfigureAwait(false);
+            return CliFaults.Failure<RunResult>(CommandExitCategory.CommandFailure, CliFaults.OperationFailed, error);
         }
         finally
         {
             await heartbeatStop.CancelAsync().ConfigureAwait(false);
             await heartbeat.ConfigureAwait(false);
         }
-        if (cli.Json)
-            session.Output.Json = r.Action == Actions.Check
-                ? ManagerJson.Serialize(new CheckDocument(result, client.Updates()))
-                : ManagerJson.Serialize(result);
-        else await terminal.FinishAsync(result, CancellationToken.None).ConfigureAwait(false);
-        session.Output.Presented = true;
-        return result.Status switch
+        await terminal.FinishAsync(result, CancellationToken.None).ConfigureAwait(false);
+        return CliFaults.Operation(new RunResult
         {
-            OperationStatuses.Succeeded => Ok(),
-            OperationStatuses.Cancelled => CommandOutcome.Failure<string>(CommandExitCategory.Cancelled, new CommandFault("NM0130", result.Error ?? "Cancelled.")),
-            _ => CommandOutcome.Failure<string>(CommandExitCategory.CommandFailure, new CommandFault("NM0001", result.Error ?? result.Status)),
-        };
+            Kind = RunResult.OperationKind,
+            Host = r.Host,
+            Operation = result,
+            Updates = r.Action == Actions.Check ? client.Updates() : null,
+        });
     }
 }

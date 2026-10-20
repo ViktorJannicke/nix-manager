@@ -198,7 +198,7 @@ public static partial class Drafts
         return new RenderResult(files.Values.Where(file => file.Created == true || file.Before != file.After).ToList(), problems);
     }
 
-    /// <summary>The draft as the dashboard and <c>software pending --json</c> show it (<c>draftPublic</c>).</summary>
+    /// <summary>The draft as the dashboard and <c>software pending</c> show it (<c>draftPublic</c>).</summary>
     public static RenderedDraft Public(string flake, IReadOnlyList<Change> changes)
     {
         var (files, problems) = Render(flake, changes);
