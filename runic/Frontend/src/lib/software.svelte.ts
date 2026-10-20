@@ -20,7 +20,7 @@ import {
   type Target,
 } from "./changes";
 import { experiences, type Experience } from "./curated";
-import { m, stored } from "./i18n";
+import { display, m, say, TextError, type DisplayText } from "./i18n";
 
 export type { Change, Target };
 export type Inventory = SoftwareInventory;
@@ -36,8 +36,8 @@ export const NEW_FILE = "\0new";
 export const local = (file: string) => !file.startsWith("/");
 
 /** A failure the Software page's commands declare, or an unexpected one. */
-const failure = (outcome: { ok: boolean; failure?: { message: string } } | undefined) =>
-  outcome && !outcome.ok ? new Error(outcome.failure?.message) : undefined;
+const failure = (outcome: { ok: boolean; failure?: { message: DisplayText } } | undefined) =>
+  outcome && !outcome.ok ? (outcome.failure ? new TextError(outcome.failure.message) : new Error()) : undefined;
 
 class SoftwareState {
   saving = $state(false);
@@ -198,7 +198,7 @@ class SoftwareState {
    */
   allowUnfree(scope: Target): Change[] | undefined {
     const experience = experiences.find((item) => item.scope === scope && UNFREE in item.enable)!;
-    const label = experience.title;
+    const label = display(experience.title);
     const target = this.editableIn(scope, UNFREE) ?? this.featureFile(scope, UNFREE, experience.id);
     if (target !== NEW_FILE) return [{ $case: "set-option", scope, file: target, option: UNFREE, value: true, label }];
     const near = this.moduleFiles(scope, UNFREE).find((module) => module.active !== false)?.file;
@@ -231,7 +231,8 @@ class SoftwareState {
     };
     for (const experience of features) {
       if (this.enabled(experience) || !this.available(experience)) continue;
-      const { scope, id, title: label } = experience;
+      const { scope, id, title } = experience;
+      const label = display(title);
       const first = Object.keys(experience.enable)[0];
       let file = this.editableIn(scope, first) ?? this.featureFile(scope, first, id);
       const creating = file === NEW_FILE;
@@ -240,13 +241,13 @@ class SoftwareState {
         file = this.suggestFile(scope, id, this.moduleFiles(scope, first).find((module) => module.active !== false)?.file);
         const importer = this.importers(scope, file)[0];
         if (!importer) {
-          skipped.push(stored(label));
+          skipped.push(say(title));
           continue;
         }
         edits.push({ $case: "create-module", scope, file, importer, label });
       }
       if (experience.unfree?.some((name) => this.refusesUnfreeName(scope, name)) && !allow(scope)) {
-        skipped.push(stored(label));
+        skipped.push(say(title));
         continue;
       }
       for (const [option, value] of Object.entries({ ...experience.enable, ...experience.alsoSet }))
@@ -346,10 +347,9 @@ class SoftwareState {
     return freePath(this.known(scope), name, near, scope === "home" ? "modules/home" : "modules/nixos");
   }
 
-  /** Why `file` cannot be a new module, translated, if it cannot. */
+  /** Why `file` cannot be a new module, if it cannot. */
   newFileProblem(scope: Target, file: string) {
-    const problem = newFileProblem(this.known(scope), file);
-    return problem && stored(problem);
+    return newFileProblem(this.known(scope), file);
   }
 
   importers(scope: Target, file: string) {
@@ -369,7 +369,7 @@ class SoftwareState {
     this.saving = true;
     try {
       const outcome = await client.setDraft(changes);
-      if (!outcome.ok) throw new Error(outcome.failure.message);
+      if (!outcome.ok) throw new TextError(outcome.failure.message);
       this.saved = outcome.value.draft ?? undefined;
       return true;
     } catch (error) {

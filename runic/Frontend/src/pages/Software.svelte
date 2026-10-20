@@ -10,7 +10,7 @@
   import { software, type Target } from "$lib/software.svelte";
   import { origin } from "$lib/changes";
   import { relative } from "$lib/format";
-  import { m, stored } from "$lib/i18n";
+  import { display, m, sameText, say, text } from "$lib/i18n";
   import { experiences, type Experience } from "$lib/curated";
   import Segmented from "$lib/components/app/Segmented.svelte";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
@@ -135,7 +135,7 @@
   const visible = $derived(inventory ? experiences.filter((item) => software.available(item)) : []);
   const pendingFor = (item: Experience) =>
     software.changes.some(
-      (change) => change.scope === item.scope && (change.label === item.title || ("option" in change && Object.keys(item.enable).includes(change.option))),
+      (change) => change.scope === item.scope && (sameText(change.label, display(item.title)) || ("option" in change && Object.keys(item.enable).includes(change.option))),
     );
 
   // `previous` is the version in use when the next build changes a package, null when the version in use lacks it
@@ -208,7 +208,7 @@
   {#if software.error}
     <p class="flex gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-destructive">
       <TriangleAlertIcon class="mt-0.5 size-4 shrink-0" />
-      <span class="flex-1">{m.software_could_not_read_s_configuration({ host: app.host })} {stored(software.error)}</span>
+      <span class="flex-1">{m.software_could_not_read_s_configuration({ host: app.host })} {text(software.error)}</span>
       <Button variant="ghost" size="sm" onclick={() => software.load(true)}>{m.activity_try_again()}</Button>
     </p>
   {/if}
@@ -267,7 +267,7 @@
       {:else if software.catalog?.state === "failed"}
         <section class="panel">
           <EmptyState icon={TriangleAlertIcon} title={m.software_the_package_index_could_not_be()}>
-            {stored(software.catalog.error)}
+            {text(software.catalog.error)}
             {#snippet actions()}<Button variant="outline" onclick={() => software.buildCatalog(true)}><RefreshIcon /> {m.activity_try_again()}</Button>{/snippet}
           </EmptyState>
         </section>
@@ -297,8 +297,8 @@
                 onclick={() => (bundle = item)}
               >
                 <span class="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary"><ExperienceIcon name={item.icon} class="size-4.5" /></span>
-                <span class="font-semibold">{stored(item.title)}</span>
-                <span class="text-muted-foreground">{stored(item.summary)}</span>
+                <span class="font-semibold">{say(item.title)}</span>
+                <span class="text-muted-foreground">{say(item.summary)}</span>
               </button>
             </li>
           {/each}
@@ -353,11 +353,11 @@
           {:else if software.appStatus?.state === "failed"}
             <p class="flex gap-2 rounded-lg bg-warning/10 px-3 py-2 text-xs">
               <TriangleAlertIcon class="size-4 shrink-0 text-warning" />
-              <span class="flex-1">{stored(software.appStatus.error)} {m.software_searching_still_finds_every_package()}</span>
+              <span class="flex-1">{text(software.appStatus.error)} {m.software_searching_still_finds_every_package()}</span>
               <button class="focus-ring rounded text-primary hover:underline" onclick={() => software.loadApps(true)}>{m.activity_try_again()}</button>
             </p>
           {:else if software.catalog?.state === "failed"}
-            <p class="text-muted-foreground">{m.software_the_app_list_needs_the_package()} {stored(software.catalog.error)}</p>
+            <p class="text-muted-foreground">{m.software_the_app_list_needs_the_package()} {text(software.catalog.error)}</p>
           {:else}
             <p class="flex items-center gap-2 text-muted-foreground">
               <LoaderIcon class="size-4 animate-spin" />
@@ -388,11 +388,11 @@
                     </span>
                     <span class="min-w-0 flex-1">
                       <span class="flex items-baseline gap-2">
-                        <span class="font-semibold">{stored(item.title)}</span>
+                        <span class="font-semibold">{say(item.title)}</span>
                         {#if pending}<span class="text-xs font-medium text-prepared-foreground">{m.bundle_pending()}</span>
                         {:else if on}<span class="text-xs font-medium text-primary">{m.setup_flakes_on()}</span>{/if}
                       </span>
-                      <span class="block text-muted-foreground">{stored(item.summary)}</span>
+                      <span class="block text-muted-foreground">{say(item.summary)}</span>
                       <span class="mt-0.5 block text-[0.72rem] text-muted-foreground">{item.scope === "system" ? m.scope_system() : m.scope_home()}</span>
                     </span>
                   </button>

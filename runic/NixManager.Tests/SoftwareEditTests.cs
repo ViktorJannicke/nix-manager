@@ -39,7 +39,7 @@ public sealed class SoftwareEditTests
         ["nix", "eval", ..] => new CommandResult(0, evaluation.Replace("<flake>", fixtures.Root, StringComparison.Ordinal), ""),
         _ => command.AllowFailure == true
             ? new CommandResult(1, "", $"Cannot start {command.Argv[0]}")
-            : throw new Domain.ManagerException($"Cannot start {command.Argv[0]}"),
+            : throw new Domain.ManagerException(Domain.DisplayText.Plain($"Cannot start {command.Argv[0]}")),
     }));
 
     [Test]

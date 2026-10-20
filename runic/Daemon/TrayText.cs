@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using NixManager.Dashboard;
+using NixManager.Domain;
 using Runic.Translations;
 
 namespace NixManager.Daemon;
@@ -56,6 +57,10 @@ public sealed class TrayText
 
     /// <summary>A size in binary units with the language's decimal separator (<c>bytes</c> in <c>src/summary.ts</c>).</summary>
     public string Bytes(double? value, bool signed = false) => Reviews.ReviewSummary.Bytes(value, signed, _numbers);
+
+    /// <summary>Text the backend wrote for people, such as a step label or an error, in this language.</summary>
+    /// <remarks>Text that is not a message, such as a tool's output or a record from before text references, stays as it is.</remarks>
+    public string Show(DisplayText? text) => text?.In(_manager.Current) ?? "";
 
     /// <summary>
     /// Text the backend stored in English, such as a step label or an error, in this language; text without a

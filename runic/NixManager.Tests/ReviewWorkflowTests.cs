@@ -22,12 +22,12 @@ internal sealed class ReviewNix(string home, string system, Func<Command, bool>?
     public FakeRunner Runner => new((command, _, _) =>
     {
         lock (Calls) Calls.Add(command);
-        if (fails?.Invoke(command) == true) throw new ManagerException($"{command.Label} failed (exit 1).");
+        if (fails?.Invoke(command) == true) throw new ManagerException(DisplayText.Plain($"{command.Label} failed (exit 1)."));
         var argv = command.Argv;
         var lockIndex = argv.ToList().IndexOf("--output-lock-file");
         if (lockIndex >= 0) File.WriteAllText(argv[lockIndex + 1], ProposedLock);
         var link = argv.ToList().IndexOf("--out-link");
-        if (link >= 0) File.CreateSymbolicLink(argv[link + 1], command.Label.Contains("system", StringComparison.Ordinal) ? system : home);
+        if (link >= 0) File.CreateSymbolicLink(argv[link + 1], command.Label.English.Contains("system", StringComparison.Ordinal) ? system : home);
         if (argv.Count > 2 && argv[2] == "diff-closures") return Task.FromResult(new CommandResult(0, "firefox: 130.0 → 131.0, +12.0 KiB\n", ""));
         return Task.FromResult(new CommandResult(0, "", ""));
     });
@@ -98,7 +98,7 @@ public sealed class ReviewWorkflowTests : IDisposable
         await Assert.That(apply.Steps[1].Argv).Contains(_home);
         await Assert.That(apply.Steps[^1].Argv).Contains(_system);
         var boot = service.Plan(Request.Create() with { Action = Actions.ReviewApply, ReviewId = review.Id, Activation = "boot" });
-        await Assert.That(boot.Steps.Select(s => s.Label)).IsEquivalentTo(["Write the reviewed flake.lock", "Activate system on next boot"]);
+        await Assert.That(boot.Steps.Select(s => s.Label.English)).IsEquivalentTo(["Write the reviewed flake.lock", "Activate system on next boot"]);
 
         var applied = await service.Start(Apply(review.Id)).Completion;
 
@@ -123,13 +123,13 @@ public sealed class ReviewWorkflowTests : IDisposable
         // JSON.stringify(review, null, 2) and a line feed.
         await Assert.That(text).StartsWith("{\n  \"id\": \"abcdef01\",\n");
         await Assert.That(text).EndsWith("\n}\n");
-        await Assert.That(nix.Calls.Single(c => c.Label == "Measure closure sizes").Quiet).IsEqualTo(true);
+        await Assert.That(nix.Calls.Single(c => c.Label.English == "Measure closure sizes").Quiet).IsEqualTo(true);
     }
 
     [Test]
     public async Task A_failed_review_build_removes_its_partial_outputs()
     {
-        await using var service = Service(new FakeRunner((_, _, _) => throw new ManagerException("evaluation error")));
+        await using var service = Service(new FakeRunner((_, _, _) => throw new ManagerException(DisplayText.Plain("evaluation error"))));
 
         var operation = await service.Start(Review("dddddddd", Scopes.Home) with { Inputs = null }).Completion;
 
@@ -181,11 +181,11 @@ public sealed class ReviewWorkflowTests : IDisposable
     {
         var config = Config;
         var rollback = Planner.Plan(config, Request.Create() with { Action = Actions.ReviewBuild, Scope = Scopes.Home, Generation = 1, ReviewId = "cccccccc" });
-        await Assert.That(rollback.Steps[0].Label).IsEqualTo("Retain home generation 1");
+        await Assert.That(rollback.Steps[0].Label.English).IsEqualTo("Retain home generation 1");
         await Assert.That(rollback.Steps[0].Argv).Contains($"{config.HomeProfile}-1-link");
         await Assert.That(rollback.Steps[0].Argv).Contains($"{Paths.ReviewRoot(config, "cccccccc")}/home");
         await Assert.That(rollback.Steps[^1].Internal).IsEqualTo(InternalSteps.Compare);
-        await Assert.That(rollback.Notes).IsEquivalentTo(["Nothing is activated. The build is kept until you apply or discard it."]);
+        await Assert.That(rollback.Notes.Select(note => note.English)).IsEquivalentTo(["Nothing is activated. The build is kept until you apply or discard it."]);
         var system = Planner.Plan(config, Request.Create() with { Action = Actions.ReviewBuild, Scope = Scopes.System, Generation = 79, ReviewId = "cccccccc" });
         await Assert.That(system.Steps[0].Argv).Contains("/nix/var/nix/profiles/system-79-link");
         await Assert.That(() => Planner.Plan(config, Request.Create() with { Action = Actions.ReviewBuild, Generation = 1, ReviewId = "cccccccc" }))
@@ -203,12 +203,12 @@ public sealed class ReviewWorkflowTests : IDisposable
         var edits = Planner.Plan(config, Request.Create() with { Action = Actions.ReviewBuild, ReviewId = "ffffffff", Edits = true });
         await Assert.That(edits.Steps.Take(2).Select(s => s.Internal)).IsEquivalentTo([InternalSteps.StageSources, InternalSteps.VerifyEdits]);
         await Assert.That(edits.Steps[2].Argv).Contains($"path:{Paths.ReviewRoot(config, "ffffffff")}/source#homeConfigurations.user-test.activationPackage");
-        await Assert.That(edits.Notes).Contains("Edits are built from a copy of the checkout. Your files change only when you apply this review.");
+        await Assert.That(edits.Notes.Select(note => note.English)).Contains("Edits are built from a copy of the checkout. Your files change only when you apply this review.");
         await Assert.That(() => Planner.Plan(config, Request.Create() with { Action = Actions.Build, Edits = true })).Throws<ManagerException>().WithMessageContaining("reviews");
         await Assert.That(() => Planner.Plan(config, Request.Create() with { Action = Actions.ReviewBuild, Scope = Scopes.Home, Generation = 1, Edits = true }))
             .Throws<ManagerException>().WithMessageContaining("generation");
         var all = Planner.Plan(config, Request.Create() with { Action = Actions.ReviewBuild, ReviewId = "ffffffff", Update = true });
-        await Assert.That(all.Steps[0].Label).IsEqualTo("Resolve all flake inputs");
+        await Assert.That(all.Steps[0].Label.English).IsEqualTo("Resolve all flake inputs");
         await Assert.That(all.Steps[0].Argv).IsEquivalentTo(["nix", "flake", "update", "--flake", config.Flake, "--output-lock-file",
             $"{Paths.ReviewRoot(config, "ffffffff")}/flake.lock", "--log-format", "internal-json"]);
     }
@@ -250,18 +250,15 @@ public sealed class ReviewWorkflowTests : IDisposable
 
         await Assert.That(failed.Status).IsEqualTo(OperationStatuses.Failed);
         await Assert.That(failed.Rollback).IsEqualTo(new RollbackOutcome { Done = true });
-        await Assert.That(failed.Explanation).IsEqualTo(new Explanation
-        {
-            Title = "Activate Home Manager failed",
-            Body = "Activate Home Manager failed (exit 1). Everything went back to how it was before, files included.",
-        });
+        await Assert.That((failed.Explanation!.Title.English, failed.Explanation.Body.English, failed.Explanation.Fix))
+            .IsEqualTo(("Activate Home Manager failed", "Activate Home Manager failed (exit 1). Everything went back to how it was before, files included.", (Fix?)null));
         await Assert.That(nix.Calls.TakeLast(4).Select(c => string.Join(' ', c.Argv.Take(5)))).IsEquivalentTo([
             $"nix-env --profile {Config.HomeProfile} --set {_home}",
             $"{_home}/activate --driver-version 1",
             $"nix-env --profile {Config.HomeProfile} --switch-generation 4",
             $"{Config.HomeProfile}-4-link/activate --driver-version 1",
         ]);
-        await Assert.That(failed.Steps!.Select(s => (s.Label, s.Status))).IsEquivalentTo([
+        await Assert.That(failed.Steps!.Select(s => (s.Label.English, s.Status))).IsEquivalentTo([
             ("Write the reviewed flake.lock", StepStatuses.Succeeded),
             ("Select Home Manager generation", StepStatuses.Succeeded),
             ("Activate Home Manager", StepStatuses.Failed),
@@ -287,10 +284,10 @@ public sealed class ReviewWorkflowTests : IDisposable
 
         var failed = await service.Start(Apply("abababab")).Completion;
 
-        await Assert.That(failed.Rollback).IsEqualTo(new RollbackOutcome { Done = false, Error = "Activate the earlier home generation failed (exit 1)." });
-        await Assert.That(failed.Explanation!.Body).IsEqualTo(
+        await Assert.That(failed.Rollback).IsEqualTo(new RollbackOutcome { Done = false, Error = DisplayText.Plain("Activate the earlier home generation failed (exit 1).") });
+        await Assert.That(failed.Explanation!.Body.English).IsEqualTo(
             "Activate Home Manager failed (exit 1). Going back did not work either: Activate the earlier home generation failed (exit 1). The Restore points page can take you back.");
-        await Assert.That(failed.Steps!.TakeLast(3).Select(s => (s.Label, s.Status))).IsEquivalentTo([
+        await Assert.That(failed.Steps!.TakeLast(3).Select(s => (s.Label.English, s.Status))).IsEquivalentTo([
             ("Go back to home generation 4", StepStatuses.Succeeded),
             ("Activate the earlier home generation", StepStatuses.Failed),
             ("Put back the configuration files", StepStatuses.Succeeded),
@@ -308,7 +305,7 @@ public sealed class ReviewWorkflowTests : IDisposable
         var failed = await service.Start(Apply("abababab")).Completion;
 
         await Assert.That(failed.Rollback).IsEqualTo(new RollbackOutcome { Done = false });
-        await Assert.That(failed.Explanation!.Body).IsEqualTo(
+        await Assert.That(failed.Explanation!.Body.English).IsEqualTo(
             "Activate Home Manager failed (exit 1). The files were put back, but there was no earlier restore point of your user to go back to, so the new version stays in use.");
         await Assert.That(Lock).IsEqualTo(BaseLock);
     }
@@ -322,7 +319,7 @@ public sealed class ReviewWorkflowTests : IDisposable
         await service.Start(Review("aaaaaaaa", Scopes.Home)).Completion;
         var applied = await service.Start(Apply("aaaaaaaa")).Completion;
 
-        await Assert.That(applied.Undo!.Changes).IsEquivalentTo(["Update nixpkgs"]);
+        await Assert.That(applied.Undo!.Changes.Select(change => change.English)).IsEquivalentTo(["Update nixpkgs"]);
         await Assert.That(applied.Undo.Generations).IsEqualTo(new UndoGenerations { Home = 5 });
         var written = applied.Undo.Files.Single();
         await Assert.That((written.Path, written.Created, written.Written)).IsEqualTo(("flake.lock", false, Repository.HashText(ReviewNix.ProposedLock)));
@@ -340,12 +337,12 @@ public sealed class ReviewWorkflowTests : IDisposable
         await Assert.That(review.Scope).IsEqualTo(Scopes.Home);
         await Assert.That(review.Source).IsEqualTo(ReviewSources.Generation);
         var restore = service.Plan(Apply("bbbbbbbb")).Steps[0];
-        await Assert.That((restore.Label, restore.Internal)).IsEqualTo(("Restore flake.lock", InternalSteps.RestoreSources));
+        await Assert.That((restore.Label.English, restore.Internal)).IsEqualTo(("Restore flake.lock", InternalSteps.RestoreSources));
 
         // A file edited since is not overwritten.
         File.WriteAllText(Path.Combine(_flake, "flake.lock"), edited + "\n");
         var refused = await service.Start(Apply("bbbbbbbb")).Completion;
-        await Assert.That(refused.Explanation!.Title).IsEqualTo("flake.lock was edited since");
+        await Assert.That(refused.Explanation!.Title.English).IsEqualTo("flake.lock was edited since");
         await Assert.That(Lock).EndsWith("}\n");
 
         File.WriteAllText(Path.Combine(_flake, "flake.lock"), edited);
@@ -353,7 +350,7 @@ public sealed class ReviewWorkflowTests : IDisposable
         var undone = await service.Start(Apply("cccccccc")).Completion;
         await Assert.That(undone.Status).IsEqualTo(OperationStatuses.Succeeded);
         await Assert.That(Lock).IsEqualTo(BaseLock);
-        await Assert.That(undone.Undo!.Changes).IsEquivalentTo(["Undo: Update nixpkgs"]);
+        await Assert.That(undone.Undo!.Changes.Select(change => change.English)).IsEquivalentTo(["Undo: Update nixpkgs"]);
 
         // The undo is itself a change that can be undone.
         await service.Start(Request.Create() with { Action = Actions.ReviewBuild, ReviewId = "dddddddd", Undo = undone.Id }).Completion;
@@ -380,7 +377,7 @@ public sealed class ReviewWorkflowTests : IDisposable
         var boot = await service.Start(Apply("a1a1a1a1", Scopes.All, "boot")).Completion;
 
         await Assert.That(boot.Status).IsEqualTo(OperationStatuses.Succeeded);
-        await Assert.That(boot.Steps!.Select(s => s.Label)).IsEquivalentTo(["Write the reviewed flake.lock", "Activate system on next boot"]);
+        await Assert.That(boot.Steps!.Select(s => s.Label.English)).IsEquivalentTo(["Write the reviewed flake.lock", "Activate system on next boot"]);
         // Applied on next boot, a change is not undoable.
         await Assert.That(boot.Undo).IsNull();
         var kept = ReviewStore.Get(Config, "a1a1a1a1");
@@ -403,7 +400,7 @@ public sealed class ReviewWorkflowTests : IDisposable
         await Assert.That(home.Status).IsEqualTo(OperationStatuses.Succeeded);
         await Assert.That(home.Request.Scope).IsEqualTo(Scopes.Home);
         await Assert.That(home.Request.Activation).IsEqualTo("switch");
-        await Assert.That(home.Steps!.Select(s => s.Label)).IsEquivalentTo(["Write the reviewed flake.lock", "Select Home Manager generation", "Activate Home Manager"]);
+        await Assert.That(home.Steps!.Select(s => s.Label.English)).IsEquivalentTo(["Write the reviewed flake.lock", "Select Home Manager generation", "Activate Home Manager"]);
         await Assert.That(ReviewStore.List(Config)).IsEmpty();
         await Assert.That(await service.ResumeAfterBootAsync(booted)).IsNull();
     }

@@ -6,7 +6,7 @@
   import { Button } from "$lib/components/ui/button";
   import Segmented from "./Segmented.svelte";
   import { app } from "$lib/app.svelte";
-  import { m, stored } from "$lib/i18n";
+  import { m } from "$lib/i18n";
   import { origin } from "$lib/changes";
   import { NEW_FILE, software, type Change, type Target } from "$lib/software.svelte";
   import NewModuleFields from "./NewModuleFields.svelte";

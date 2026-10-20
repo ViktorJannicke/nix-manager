@@ -5,7 +5,7 @@
   import Undo2Icon from "@lucide/svelte/icons/undo-2";
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
-  import { actionLabel, m, plain, stored } from "$lib/i18n";
+  import { actionLabel, m, plain, text } from "$lib/i18n";
   import { describeChange } from "$lib/changes";
   import { bytes, duration, relative, remaining, scopeText, shortRev } from "$lib/format";
   import BuildProgress from "$lib/components/app/BuildProgress.svelte";
@@ -83,7 +83,7 @@
       <div class="min-w-0 flex-1">
         <h2 id="last-change" class="font-semibold">{m.overview_last_change({ when: relative(last.operation.finishedAt ?? last.operation.startedAt, app.now) })}</h2>
         <ul role="list" aria-labelledby="last-change" class="mt-1 text-muted-foreground">
-          {#each last.undo.changes.slice(0, 3) as change, index (index)}<li class="truncate">{stored(change)}</li>{/each}
+          {#each last.undo.changes.slice(0, 3) as change, index (index)}<li class="truncate">{text(change)}</li>{/each}
           {#if last.undo.changes.length > 3}<li>{m.common_and_more({ count: last.undo.changes.length - 3 })}</li>{/if}
         </ul>
         <p class="mt-1 text-xs text-muted-foreground">
@@ -117,7 +117,7 @@
       <div class="flex items-start justify-between gap-4">
         <div>
           <h2 id="running-heading" class="heading">{actionLabel(running.request.action)}</h2>
-          <p class="text-muted-foreground">{m.overview_step_so_far({ step: stored(runningStep?.label ?? running.step), duration: duration(running, app.now) })}</p>
+          <p class="text-muted-foreground">{m.overview_step_so_far({ step: text(runningStep?.label ?? running.step), duration: duration(running, app.now) })}</p>
           {#if left}<p class="text-xs text-muted-foreground">{left}</p>{/if}
         </div>
         <div class="flex gap-2">

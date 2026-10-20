@@ -9,7 +9,7 @@ public sealed class PlannerTests
     {
         var plan = Planner.Plan(TestConfig.Create(), Request.Create() with { Action = Actions.Boot, Scope = Scopes.System, Host = "test" });
 
-        await Assert.That(plan.Steps.Select(step => step.Label)).IsEquivalentTo(["Build system configuration", "Activate system on next boot"]);
+        await Assert.That(plan.Steps.Select(step => step.Label.English)).IsEquivalentTo(["Build system configuration", "Activate system on next boot"]);
         await Assert.That(plan.Steps[1].Argv.TakeLast(3)).IsEquivalentTo(["activate-output", "boot", $"{TestConfig.Create().StateDir}/build/system"]);
     }
 }

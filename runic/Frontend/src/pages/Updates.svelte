@@ -5,7 +5,7 @@
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
-  import { actionLabel, m, stored } from "$lib/i18n";
+  import { actionLabel, m, text } from "$lib/i18n";
   import { day, daysBetween, relative, shortRev } from "$lib/format";
   import type { Action, Scope } from "$lib/requests";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
@@ -60,7 +60,7 @@
   {#if app.updates?.errors.length}
     <div class="space-y-1 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3">
       <p class="flex items-center gap-2 font-medium text-destructive"><CircleAlertIcon class="size-4" /> {m.updates_some_failed()}</p>
-      {#each app.updates.errors as error, index (index)}<p class="text-xs break-words text-muted-foreground">{stored(error)}</p>{/each}
+      {#each app.updates.errors as error, index (index)}<p class="text-xs break-words text-muted-foreground">{text(error)}</p>{/each}
     </div>
   {/if}
 

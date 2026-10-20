@@ -1,23 +1,25 @@
 // Curated experiences: friendly bundles of NixOS and Home Manager options. The backend reads the same options for the
 // inventory (Software/CuratedOptions.cs); keep the option names identical in both. Titles, summaries, labels and help
-// are English; `stored` translates them (translations/stored).
+// are messages of translations/stored, named by key; `say` shows them in the current language.
 //
 // Every option path below is validated against the evaluated option tree at
 // runtime. An experience whose options are missing from the user's
 // configuration (for example because a module is not imported) is hidden.
 
+import type { Phrase } from "./i18n";
+
 export interface CuratedSetting {
   /** Full option path, e.g. "programs.steam.remotePlay.openFirewall". */
   option: string;
-  label: string;
+  label: Phrase;
   /** One short sentence; omit when the label says it all. */
-  help?: string;
+  help?: Phrase;
 }
 
 export interface Experience {
   id: string;
-  title: string;
-  summary: string;
+  title: Phrase;
+  summary: Phrase;
   icon: string;
   category: "Games" | "Development" | "Internet" | "Media" | "System" | "Productivity";
   scope: "home" | "system";
@@ -44,8 +46,8 @@ export const experiences: Experience[] = [
 
   {
     id: "non-free",
-    title: "Non-free software",
-    summary: "Allow apps whose license is not free, such as Steam, Discord, Spotify or Chrome.",
+    title: "stored_non_free_software",
+    summary: "stored_allow_apps_whose_license_is_not_free",
     icon: "lock-open",
     category: "System",
     scope: "system",
@@ -57,8 +59,8 @@ export const experiences: Experience[] = [
 
   {
     id: "steam",
-    title: "Steam",
-    summary: "Install Steam with Proton so you can play Windows and Linux games.",
+    title: "stored_steam",
+    summary: "stored_install_steam_with_proton_so_you_can",
     icon: "gamepad-2",
     category: "Games",
     scope: "system",
@@ -68,40 +70,40 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.steam.remotePlay.openFirewall",
-        label: "Open firewall for Remote Play",
-        help: "Lets other devices stream games from this computer.",
+        label: "stored_open_firewall_for_remote_play",
+        help: "stored_lets_other_devices_stream_games_from_this",
       },
       {
         option: "programs.steam.localNetworkGameTransfers.openFirewall",
-        label: "Open firewall for local game transfers",
-        help: "Copies games from other computers on your network instead of downloading them.",
+        label: "stored_open_firewall_for_local_game_transfers",
+        help: "stored_copies_games_from_other_computers_on_your",
       },
       {
         option: "programs.steam.gamescopeSession.enable",
-        label: "Add a Steam Big Picture session",
-        help: "Adds a console-like session to the login screen.",
+        label: "stored_add_a_steam_big_picture_session",
+        help: "stored_adds_a_console_like_session_to_the",
       },
       {
         option: "programs.steam.protontricks.enable",
-        label: "Install Protontricks",
-        help: "Helps fix games that need extra Windows components.",
+        label: "stored_install_protontricks",
+        help: "stored_helps_fix_games_that_need_extra_windows",
       },
       {
         option: "programs.steam.extest.enable",
-        label: "Steam Input on Wayland",
-        help: "Translates Steam Input mouse and keyboard events for Wayland apps.",
+        label: "stored_steam_input_on_wayland",
+        help: "stored_translates_steam_input_mouse_and_keyboard_events",
       },
       {
         option: "programs.gamemode.enable",
-        label: "Use GameMode",
-        help: "Lets games ask for more CPU performance while they run.",
+        label: "stored_use_gamemode",
+        help: "stored_lets_games_ask_for_more_cpu_performance",
       },
     ],
   },
   {
     id: "gamescope",
-    title: "Gamescope",
-    summary: "Run games in a separate compositor with upscaling and frame limits.",
+    title: "stored_gamescope",
+    summary: "stored_run_games_in_a_separate_compositor_with",
     icon: "monitor-play",
     category: "Games",
     scope: "system",
@@ -111,25 +113,25 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.gamescope.capSysNice",
-        label: "Allow higher scheduling priority",
-        help: "Can reduce stutter when the system is busy.",
+        label: "stored_allow_higher_scheduling_priority",
+        help: "stored_can_reduce_stutter_when_the_system_is",
       },
       {
         option: "programs.gamescope.enableWsi",
-        label: "Enable the Vulkan WSI layer",
-        help: "Needed for HDR and some presentation modes.",
+        label: "stored_enable_the_vulkan_wsi_layer",
+        help: "stored_needed_for_hdr_and_some_presentation_modes",
       },
       {
         option: "programs.gamescope.args",
-        label: "Default arguments",
-        help: "For example --rt or --adaptive-sync.",
+        label: "stored_default_arguments",
+        help: "stored_for_example_rt_or_adaptive_sync",
       },
     ],
   },
   {
     id: "sunshine",
-    title: "Sunshine",
-    summary: "Stream your desktop and games to Moonlight on other devices.",
+    title: "stored_sunshine",
+    summary: "stored_stream_your_desktop_and_games_to_moonlight",
     icon: "cast",
     category: "Games",
     scope: "system",
@@ -140,28 +142,28 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "services.sunshine.openFirewall",
-        label: "Open firewall for streaming",
-        help: "Needed for devices on your network to connect.",
+        label: "stored_open_firewall_for_streaming",
+        help: "stored_needed_for_devices_on_your_network_to",
       },
       {
         option: "services.sunshine.autoStart",
-        label: "Start when you log in",
+        label: "stored_start_when_you_log_in",
       },
       {
         option: "services.sunshine.capSysAdmin",
-        label: "Allow screen capture on Wayland",
-        help: "Required to capture the screen in a Plasma Wayland session.",
+        label: "stored_allow_screen_capture_on_wayland",
+        help: "stored_required_to_capture_the_screen_in_a",
       },
       {
         option: "services.sunshine.settings.port",
-        label: "Base port",
+        label: "stored_base_port",
       },
     ],
   },
   {
     id: "docker",
-    title: "Docker",
-    summary: "Build and run containers with the Docker engine.",
+    title: "stored_docker",
+    summary: "stored_build_and_run_containers_with_the_docker",
     icon: "container",
     category: "Development",
     scope: "system",
@@ -171,36 +173,36 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "virtualisation.docker.enableOnBoot",
-        label: "Start at boot",
-        help: "When off, Docker starts the first time it is used.",
+        label: "stored_start_at_boot",
+        help: "stored_when_off_docker_starts_the_first_time",
       },
       {
         option: "virtualisation.docker.autoPrune.enable",
-        label: "Clean up unused images automatically",
+        label: "stored_clean_up_unused_images_automatically",
       },
       {
         option: "virtualisation.docker.autoPrune.dates",
-        label: "Cleanup schedule",
-        help: "A systemd calendar expression such as weekly.",
+        label: "stored_cleanup_schedule",
+        help: "stored_a_systemd_calendar_expression_such_as_weekly",
       },
       {
         option: "virtualisation.docker.rootless.enable",
-        label: "Run Docker without root",
+        label: "stored_run_docker_without_root",
       },
       {
         option: "virtualisation.docker.rootless.setSocketVariable",
-        label: "Point the docker command at the rootless daemon",
+        label: "stored_point_the_docker_command_at_the_rootless",
       },
       {
         option: "virtualisation.docker.logDriver",
-        label: "Container log storage",
+        label: "stored_container_log_storage",
       },
     ],
   },
   {
     id: "virtual-machines",
-    title: "Virtual Machine Manager",
-    summary: "Create and run virtual machines with libvirt and QEMU.",
+    title: "stored_virtual_machine_manager",
+    summary: "stored_create_and_run_virtual_machines_with_libvirt",
     icon: "monitor-cog",
     category: "System",
     scope: "system",
@@ -211,34 +213,34 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "virtualisation.libvirtd.qemu.swtpm.enable",
-        label: "Virtual TPM",
-        help: "Needed to install Windows 11.",
+        label: "stored_virtual_tpm",
+        help: "stored_needed_to_install_windows_11",
       },
       {
         option: "virtualisation.spiceUSBRedirection.enable",
-        label: "Pass USB devices to virtual machines",
+        label: "stored_pass_usb_devices_to_virtual_machines",
       },
       {
         option: "virtualisation.libvirtd.onBoot",
-        label: "At boot",
-        help: "Whether to start machines that were running before shutdown.",
+        label: "stored_at_boot",
+        help: "stored_whether_to_start_machines_that_were_running",
       },
       {
         option: "virtualisation.libvirtd.onShutdown",
-        label: "At shutdown",
-        help: "Whether running machines are suspended or shut down.",
+        label: "stored_at_shutdown",
+        help: "stored_whether_running_machines_are_suspended_or_shut",
       },
       {
         option: "virtualisation.libvirtd.nss.enable",
-        label: "Reach machines by name",
-        help: "Resolves virtual machine host names on this computer.",
+        label: "stored_reach_machines_by_name",
+        help: "stored_resolves_virtual_machine_host_names_on_this",
       },
     ],
   },
   {
     id: "ollama",
-    title: "Ollama",
-    summary: "Run large language models locally for chat and coding tools.",
+    title: "stored_ollama",
+    summary: "stored_run_large_language_models_locally_for_chat",
     icon: "bot",
     category: "Development",
     scope: "system",
@@ -248,33 +250,33 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "services.ollama.loadModels",
-        label: "Models to download",
-        help: "Model names such as llama3.2 or qwen2.5-coder.",
+        label: "stored_models_to_download",
+        help: "stored_model_names_such_as_llama3_2_or",
       },
       {
         option: "services.ollama.host",
-        label: "Listen address",
-        help: "Use 0.0.0.0 to share models with other devices.",
+        label: "stored_listen_address",
+        help: "stored_use_0_0_0_0_to_share",
       },
       {
         option: "services.ollama.port",
-        label: "Port",
+        label: "stored_port",
       },
       {
         option: "services.ollama.openFirewall",
-        label: "Open firewall for other devices",
+        label: "stored_open_firewall_for_other_devices",
       },
       {
         option: "services.ollama.rocmOverrideGfx",
-        label: "AMD GPU override",
-        help: "Set a GFX version for AMD cards that ROCm does not detect.",
+        label: "stored_amd_gpu_override",
+        help: "stored_set_a_gfx_version_for_amd_cards",
       },
     ],
   },
   {
     id: "tailscale",
-    title: "Tailscale",
-    summary: "Connect your devices in a private network that works anywhere.",
+    title: "stored_tailscale",
+    summary: "stored_connect_your_devices_in_a_private_network",
     icon: "network",
     category: "Internet",
     scope: "system",
@@ -284,30 +286,30 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "services.tailscale.useRoutingFeatures",
-        label: "Routing features",
-        help: "Choose client to use exit nodes, server to offer one.",
+        label: "stored_routing_features",
+        help: "stored_choose_client_to_use_exit_nodes_server",
       },
       {
         option: "services.tailscale.openFirewall",
-        label: "Open firewall for direct connections",
-        help: "Allows faster peer-to-peer connections.",
+        label: "stored_open_firewall_for_direct_connections",
+        help: "stored_allows_faster_peer_to_peer_connections",
       },
       {
         option: "services.tailscale.disableTaildrop",
-        label: "Turn off Taildrop file sharing",
+        label: "stored_turn_off_taildrop_file_sharing",
       },
       {
         option: "services.tailscale.extraUpFlags",
-        label: "Extra login flags",
-        help: "For example --accept-routes.",
+        label: "stored_extra_login_flags",
+        help: "stored_for_example_accept_routes",
       },
     ],
     packages: ["trayscale"],
   },
   {
     id: "chromium",
-    title: "Chromium",
-    summary: "Install the Chromium browser with system-wide policies.",
+    title: "stored_chromium",
+    summary: "stored_install_the_chromium_browser_with_system_wide",
     icon: "globe",
     category: "Internet",
     scope: "system",
@@ -317,29 +319,29 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.chromium.enablePlasmaBrowserIntegration",
-        label: "Plasma browser integration",
-        help: "Shows media controls and tabs in Plasma.",
+        label: "stored_plasma_browser_integration",
+        help: "stored_shows_media_controls_and_tabs_in_plasma",
       },
       {
         option: "programs.chromium.homepageLocation",
-        label: "Home page",
+        label: "stored_home_page",
       },
       {
         option: "programs.chromium.defaultSearchProviderEnabled",
-        label: "Use a custom search engine",
+        label: "stored_use_a_custom_search_engine",
       },
       {
         option: "programs.chromium.defaultSearchProviderSearchURL",
-        label: "Search URL",
-        help: "Use {searchTerms} where the query goes.",
+        label: "stored_search_url",
+        help: "stored_use_where_the_query_goes",
       },
     ],
     packages: ["chromium"],
   },
   {
     id: "printing",
-    title: "Printing",
-    summary: "Print to local and network printers, which are found automatically.",
+    title: "stored_printing",
+    summary: "stored_print_to_local_and_network_printers_which",
     icon: "printer",
     category: "System",
     scope: "system",
@@ -351,31 +353,31 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "services.printing.cups-pdf.enable",
-        label: "Add a Print to PDF printer",
+        label: "stored_add_a_print_to_pdf_printer",
       },
       {
         option: "services.printing.browsing",
-        label: "Show printers shared by other computers",
+        label: "stored_show_printers_shared_by_other_computers",
       },
       {
         option: "services.printing.defaultShared",
-        label: "Share new printers on the network",
+        label: "stored_share_new_printers_on_the_network",
       },
       {
         option: "services.printing.openFirewall",
-        label: "Open firewall for shared printers",
+        label: "stored_open_firewall_for_shared_printers",
       },
       {
         option: "services.printing.webInterface",
-        label: "Web interface",
-        help: "Manage printers at localhost:631.",
+        label: "stored_web_interface",
+        help: "stored_manage_printers_at_localhost_631",
       },
     ],
   },
   {
     id: "bluetooth",
-    title: "Bluetooth",
-    summary: "Connect headphones, controllers and other wireless devices.",
+    title: "stored_bluetooth",
+    summary: "stored_connect_headphones_controllers_and_other_wireless_devices",
     icon: "bluetooth",
     category: "System",
     scope: "system",
@@ -385,19 +387,19 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "hardware.bluetooth.powerOnBoot",
-        label: "Turn on at startup",
+        label: "stored_turn_on_at_startup",
       },
       {
         option: "hardware.bluetooth.disabledPlugins",
-        label: "Disabled plugins",
-        help: "BlueZ plugin names to skip, for example sap.",
+        label: "stored_disabled_plugins",
+        help: "stored_bluez_plugin_names_to_skip_for_example",
       },
     ],
   },
   {
     id: "firmware-updates",
-    title: "Firmware updates",
-    summary: "Update device firmware from Discover or the command line.",
+    title: "stored_firmware_updates",
+    summary: "stored_update_device_firmware_from_discover_or_the",
     icon: "hard-drive-download",
     category: "System",
     scope: "system",
@@ -407,24 +409,24 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "services.fwupd.extraRemotes",
-        label: "Extra update sources",
-        help: "Add lvfs-testing to get firmware before general release.",
+        label: "stored_extra_update_sources",
+        help: "stored_add_lvfs_testing_to_get_firmware_before",
       },
       {
         option: "services.fwupd.daemonSettings.DisabledPlugins",
-        label: "Disabled plugins",
+        label: "stored_disabled_plugins",
       },
       {
         option: "services.fwupd.daemonSettings.DisabledDevices",
-        label: "Ignored devices",
-        help: "Device GUIDs that should never be updated.",
+        label: "stored_ignored_devices",
+        help: "stored_device_guids_that_should_never_be_updated",
       },
     ],
   },
   {
     id: "appimage",
-    title: "AppImage",
-    summary: "Run downloaded AppImage apps with a double click.",
+    title: "stored_appimage",
+    summary: "stored_run_downloaded_appimage_apps_with_a_double",
     icon: "package",
     category: "System",
     scope: "system",
@@ -435,20 +437,20 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.appimage.binfmt",
-        label: "Open AppImages directly",
-        help: "Lets you start AppImage files like any other program.",
+        label: "stored_open_appimages_directly",
+        help: "stored_lets_you_start_appimage_files_like_any",
       },
       {
         option: "programs.nix-ld.enable",
-        label: "Run other prebuilt Linux programs",
-        help: "Provides a standard loader for binaries not built for NixOS.",
+        label: "stored_run_other_prebuilt_linux_programs",
+        help: "stored_provides_a_standard_loader_for_binaries_not",
       },
     ],
   },
   {
     id: "zram",
-    title: "Compressed memory",
-    summary: "Fit more programs in memory by compressing part of it.",
+    title: "stored_compressed_memory",
+    summary: "stored_fit_more_programs_in_memory_by_compressing",
     icon: "memory-stick",
     category: "System",
     scope: "system",
@@ -458,26 +460,26 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "zramSwap.algorithm",
-        label: "Compression algorithm",
-        help: "zstd compresses best, lz4 is fastest.",
+        label: "stored_compression_algorithm",
+        help: "stored_zstd_compresses_best_lz4_is_fastest",
       },
       {
         option: "zramSwap.priority",
-        label: "Swap priority",
-        help: "Higher values are used before disk swap.",
+        label: "stored_swap_priority",
+        help: "stored_higher_values_are_used_before_disk_swap",
       },
       {
         option: "zramSwap.memoryMax",
-        label: "Maximum size in bytes",
-        help: "Leave empty to use a share of total memory.",
+        label: "stored_maximum_size_in_bytes",
+        help: "stored_leave_empty_to_use_a_share_of",
       },
     ],
   },
 
   {
     id: "flatpak",
-    title: "Flatpak",
-    summary: "Install apps from Flathub alongside Nix packages.",
+    title: "stored_flatpak",
+    summary: "stored_install_apps_from_flathub_alongside_nix_packages",
     icon: "store",
     category: "System",
     scope: "system",
@@ -488,8 +490,8 @@ export const experiences: Experience[] = [
   },
   {
     id: "podman",
-    title: "Podman",
-    summary: "Run containers without a background daemon.",
+    title: "stored_podman",
+    summary: "stored_run_containers_without_a_background_daemon",
     icon: "boxes",
     category: "Development",
     scope: "system",
@@ -499,19 +501,19 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "virtualisation.podman.dockerCompat",
-        label: "Answer to the docker command",
-        help: "Conflicts with Docker itself.",
+        label: "stored_answer_to_the_docker_command",
+        help: "stored_conflicts_with_docker_itself",
       },
       {
         option: "virtualisation.podman.autoPrune.enable",
-        label: "Clean up unused images automatically",
+        label: "stored_clean_up_unused_images_automatically",
       },
     ],
   },
   {
     id: "wireshark",
-    title: "Wireshark",
-    summary: "Capture and inspect network traffic.",
+    title: "stored_wireshark",
+    summary: "stored_capture_and_inspect_network_traffic",
     icon: "radar",
     category: "Development",
     scope: "system",
@@ -521,20 +523,20 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.wireshark.dumpcap.enable",
-        label: "Capture without root",
-        help: "Members of the wireshark group can capture.",
+        label: "stored_capture_without_root",
+        help: "stored_members_of_the_wireshark_group_can_capture",
       },
       {
         option: "programs.wireshark.usbmon.enable",
-        label: "Capture USB traffic",
+        label: "stored_capture_usb_traffic",
       },
     ],
     packages: ["wireshark"],
   },
   {
     id: "openssh",
-    title: "SSH server",
-    summary: "Log in to this computer from other devices.",
+    title: "stored_ssh_server",
+    summary: "stored_log_in_to_this_computer_from_other",
     icon: "server",
     category: "Internet",
     scope: "system",
@@ -544,23 +546,23 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "services.openssh.settings.PasswordAuthentication",
-        label: "Allow password logins",
-        help: "Turn off once your SSH keys are set up.",
+        label: "stored_allow_password_logins",
+        help: "stored_turn_off_once_your_ssh_keys_are",
       },
       {
         option: "services.openssh.settings.PermitRootLogin",
-        label: "Root login",
+        label: "stored_root_login",
       },
       {
         option: "services.openssh.openFirewall",
-        label: "Open firewall for SSH",
+        label: "stored_open_firewall_for_ssh",
       },
     ],
   },
   {
     id: "localsend",
-    title: "LocalSend",
-    summary: "Share files with nearby phones and computers.",
+    title: "stored_localsend",
+    summary: "stored_share_files_with_nearby_phones_and_computers",
     icon: "share-2",
     category: "Internet",
     scope: "system",
@@ -570,14 +572,14 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.localsend.openFirewall",
-        label: "Open firewall for transfers",
+        label: "stored_open_firewall_for_transfers",
       },
     ],
   },
   {
     id: "obs-studio",
-    title: "OBS Studio",
-    summary: "Record and stream your screen, camera and games.",
+    title: "stored_obs_studio",
+    summary: "stored_record_and_stream_your_screen_camera_and",
     icon: "video",
     category: "Media",
     scope: "system",
@@ -587,15 +589,15 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.obs-studio.enableVirtualCamera",
-        label: "Virtual camera",
-        help: "Use OBS output as a webcam in calls.",
+        label: "stored_virtual_camera",
+        help: "stored_use_obs_output_as_a_webcam_in",
       },
     ],
   },
   {
     id: "power-profiles",
-    title: "Power profiles",
-    summary: "Switch between power saving and performance from the panel.",
+    title: "stored_power_profiles",
+    summary: "stored_switch_between_power_saving_and_performance_from",
     icon: "zap",
     category: "System",
     scope: "system",
@@ -606,8 +608,8 @@ export const experiences: Experience[] = [
   },
   {
     id: "nvidia",
-    title: "NVIDIA graphics driver",
-    summary: "Use NVIDIA's own driver for full speed in games, video and 3D apps. For GeForce 16 series and newer cards.",
+    title: "stored_nvidia_graphics_driver",
+    summary: "stored_use_nvidia_s_own_driver_for_full",
     icon: "monitor-cog",
     category: "System",
     scope: "system",
@@ -621,25 +623,25 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "hardware.nvidia.modesetting.enable",
-        label: "Kernel mode setting",
-        help: "Needed for Wayland desktops.",
+        label: "stored_kernel_mode_setting",
+        help: "stored_needed_for_wayland_desktops",
       },
       {
         option: "hardware.nvidia.powerManagement.enable",
-        label: "Save video memory on sleep",
-        help: "Turn on if apps show garbage after waking up.",
+        label: "stored_save_video_memory_on_sleep",
+        help: "stored_turn_on_if_apps_show_garbage_after",
       },
       {
         option: "hardware.nvidia.nvidiaSettings",
-        label: "NVIDIA Settings app",
+        label: "stored_nvidia_settings_app",
       },
     ],
     unfree: ["nvidia-x11", "nvidia-settings", "nvidia-persistenced"],
   },
   {
     id: "fingerprint",
-    title: "Fingerprint login",
-    summary: "Log in, unlock the screen and confirm admin actions with your finger.",
+    title: "stored_fingerprint_login",
+    summary: "stored_log_in_unlock_the_screen_and_confirm",
     icon: "fingerprint",
     category: "System",
     scope: "system",
@@ -650,8 +652,8 @@ export const experiences: Experience[] = [
   },
   {
     id: "earlyoom",
-    title: "Out-of-memory protection",
-    summary: "Stop the biggest program before the computer freezes when memory runs out.",
+    title: "stored_out_of_memory_protection",
+    summary: "stored_stop_the_biggest_program_before_the_computer",
     icon: "shield-alert",
     category: "System",
     scope: "system",
@@ -661,18 +663,18 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "services.earlyoom.freeMemThreshold",
-        label: "Act below this much free memory (%)",
+        label: "stored_act_below_this_much_free_memory",
       },
       {
         option: "services.earlyoom.enableNotifications",
-        label: "Notify me when a program is stopped",
+        label: "stored_notify_me_when_a_program_is_stopped",
       },
     ],
   },
   {
     id: "nix-cleanup",
-    title: "Automatic Nix cleanup",
-    summary: "Delete old generations and deduplicate the Nix store on a schedule.",
+    title: "stored_automatic_nix_cleanup",
+    summary: "stored_delete_old_generations_and_deduplicate_the_nix",
     icon: "recycle",
     category: "System",
     scope: "system",
@@ -683,23 +685,23 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "nix.gc.automatic",
-        label: "Delete unused store paths",
+        label: "stored_delete_unused_store_paths",
       },
       {
         option: "nix.gc.options",
-        label: "Cleanup options",
-        help: "For example --delete-older-than 14d.",
+        label: "stored_cleanup_options",
+        help: "stored_for_example_delete_older_than_14d",
       },
       {
         option: "nix.optimise.automatic",
-        label: "Deduplicate identical files",
+        label: "stored_deduplicate_identical_files",
       },
     ],
   },
   {
     id: "nh",
-    title: "nh",
-    summary: "Rebuild and clean up NixOS with clearer output.",
+    title: "stored_nh",
+    summary: "stored_rebuild_and_clean_up_nixos_with_clearer",
     icon: "square-terminal",
     category: "System",
     scope: "system",
@@ -709,17 +711,17 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.nh.clean.enable",
-        label: "Clean up periodically",
-        help: "Do not combine with automatic Nix cleanup.",
+        label: "stored_clean_up_periodically",
+        help: "stored_do_not_combine_with_automatic_nix_cleanup",
       },
       {
         option: "programs.nh.clean.dates",
-        label: "Cleanup schedule",
+        label: "stored_cleanup_schedule",
       },
       {
         option: "programs.nh.clean.extraArgs",
-        label: "Cleanup options",
-        help: "For example --keep-since 7d --keep 5.",
+        label: "stored_cleanup_options",
+        help: "stored_for_example_keep_since_7d_keep_5",
       },
     ],
   },
@@ -728,8 +730,8 @@ export const experiences: Experience[] = [
 
   {
     id: "non-free-home",
-    title: "Non-free software",
-    summary: "Allow apps whose license is not free, such as Discord, Spotify or Chrome, for your user.",
+    title: "stored_non_free_software",
+    summary: "stored_allow_apps_whose_license_is_not_free_2",
     icon: "lock-open",
     category: "System",
     scope: "home",
@@ -741,8 +743,8 @@ export const experiences: Experience[] = [
 
   {
     id: "git",
-    title: "Git",
-    summary: "Track changes in your projects with Git.",
+    title: "stored_git",
+    summary: "stored_track_changes_in_your_projects_with_git",
     icon: "git-branch",
     category: "Development",
     scope: "home",
@@ -752,38 +754,38 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.git.lfs.enable",
-        label: "Large file support",
-        help: "Stores large files outside the repository history.",
+        label: "stored_large_file_support",
+        help: "stored_stores_large_files_outside_the_repository_history",
       },
       {
         option: "programs.git.maintenance.enable",
-        label: "Background maintenance",
-        help: "Keeps registered repositories fast.",
+        label: "stored_background_maintenance",
+        help: "stored_keeps_registered_repositories_fast",
       },
       {
         option: "programs.git.ignores",
-        label: "Files to ignore everywhere",
-        help: "Patterns such as .direnv or *.swp.",
+        label: "stored_files_to_ignore_everywhere",
+        help: "stored_patterns_such_as_direnv_or_swp",
       },
       {
         option: "programs.git.signing.format",
-        label: "Signing format",
+        label: "stored_signing_format",
       },
       {
         option: "programs.git.signing.key",
-        label: "Signing key",
-        help: "A GPG key ID or the path to an SSH key.",
+        label: "stored_signing_key",
+        help: "stored_a_gpg_key_id_or_the_path",
       },
       {
         option: "programs.git.signing.signByDefault",
-        label: "Sign every commit",
+        label: "stored_sign_every_commit",
       },
     ],
   },
   {
     id: "github-cli",
-    title: "GitHub CLI",
-    summary: "Work with GitHub pull requests and issues from the terminal.",
+    title: "stored_github_cli",
+    summary: "stored_work_with_github_pull_requests_and_issues",
     icon: "git-pull-request",
     category: "Development",
     scope: "home",
@@ -793,29 +795,29 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.gh.gitCredentialHelper.enable",
-        label: "Sign in Git through GitHub CLI",
-        help: "Git uses your gh login for HTTPS pushes.",
+        label: "stored_sign_in_git_through_github_cli",
+        help: "stored_git_uses_your_gh_login_for_https",
       },
       {
         option: "programs.gh.gitCredentialHelper.hosts",
-        label: "Hosts for Git sign-in",
+        label: "stored_hosts_for_git_sign_in",
       },
       {
         option: "programs.gh.settings.git_protocol",
-        label: "Clone protocol",
-        help: "https or ssh.",
+        label: "stored_clone_protocol",
+        help: "stored_https_or_ssh",
       },
       {
         option: "programs.gh.settings.editor",
-        label: "Editor",
-        help: "Leave empty to use your default editor.",
+        label: "stored_editor",
+        help: "stored_leave_empty_to_use_your_default_editor",
       },
     ],
   },
   {
     id: "direnv",
-    title: "direnv",
-    summary: "Load each project's tools automatically when you enter its folder.",
+    title: "stored_direnv",
+    summary: "stored_load_each_project_s_tools_automatically_when",
     icon: "folder-cog",
     category: "Development",
     scope: "home",
@@ -825,23 +827,23 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.direnv.nix-direnv.enable",
-        label: "Cache Nix shells",
-        help: "Makes entering Nix projects fast and keeps shells from being collected.",
+        label: "stored_cache_nix_shells",
+        help: "stored_makes_entering_nix_projects_fast_and_keeps",
       },
       {
         option: "programs.direnv.silent",
-        label: "Hide loading messages",
+        label: "stored_hide_loading_messages",
       },
       {
         option: "programs.direnv.mise.enable",
-        label: "Support mise",
+        label: "stored_support_mise",
       },
     ],
   },
   {
     id: "zed",
-    title: "Zed",
-    summary: "Write code in a fast editor with built-in AI and collaboration.",
+    title: "stored_zed",
+    summary: "stored_write_code_in_a_fast_editor_with",
     icon: "code",
     category: "Development",
     scope: "home",
@@ -851,28 +853,28 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.zed-editor.extensions",
-        label: "Extensions",
-        help: "Extension names such as nix or toml.",
+        label: "stored_extensions",
+        help: "stored_extension_names_such_as_nix_or_toml",
       },
       {
         option: "programs.zed-editor.defaultEditor",
-        label: "Use as default editor",
+        label: "stored_use_as_default_editor",
       },
       {
         option: "programs.zed-editor.mutableUserSettings",
-        label: "Allow changes from the settings screen",
+        label: "stored_allow_changes_from_the_settings_screen",
       },
       {
         option: "programs.zed-editor.installRemoteServer",
-        label: "Install the remote server",
-        help: "Lets Zed on other computers edit files here over SSH.",
+        label: "stored_install_the_remote_server",
+        help: "stored_lets_zed_on_other_computers_edit_files",
       },
     ],
   },
   {
     id: "claude-code",
-    title: "Claude Code",
-    summary: "Use Anthropic's AI coding assistant in your terminal.",
+    title: "stored_claude_code",
+    summary: "stored_use_anthropic_s_ai_coding_assistant_in",
     icon: "sparkles",
     category: "Development",
     scope: "home",
@@ -882,19 +884,19 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.claude-code.mutableSettings",
-        label: "Allow changes from inside Claude Code",
+        label: "stored_allow_changes_from_inside_claude_code",
       },
       {
         option: "programs.claude-code.enableMcpIntegration",
-        label: "Share MCP servers",
-        help: "Uses MCP servers configured elsewhere in Home Manager.",
+        label: "stored_share_mcp_servers",
+        help: "stored_uses_mcp_servers_configured_elsewhere_in_home",
       },
     ],
   },
   {
     id: "neovim",
-    title: "Neovim",
-    summary: "Edit text and code in a fast, keyboard-driven editor.",
+    title: "stored_neovim",
+    summary: "stored_edit_text_and_code_in_a_fast",
     icon: "file-code",
     category: "Development",
     scope: "home",
@@ -904,34 +906,34 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.neovim.defaultEditor",
-        label: "Use as default editor",
+        label: "stored_use_as_default_editor",
       },
       {
         option: "programs.neovim.viAlias",
-        label: "Open with vi",
+        label: "stored_open_with_vi",
       },
       {
         option: "programs.neovim.vimAlias",
-        label: "Open with vim",
+        label: "stored_open_with_vim",
       },
       {
         option: "programs.neovim.vimdiffAlias",
-        label: "Use for vimdiff",
+        label: "stored_use_for_vimdiff",
       },
       {
         option: "programs.neovim.withNodeJs",
-        label: "Node.js plugin support",
+        label: "stored_node_js_plugin_support",
       },
       {
         option: "programs.neovim.withPython3",
-        label: "Python plugin support",
+        label: "stored_python_plugin_support",
       },
     ],
   },
   {
     id: "tmux",
-    title: "tmux",
-    summary: "Split your terminal into panes and keep sessions running.",
+    title: "stored_tmux",
+    summary: "stored_split_your_terminal_into_panes_and_keep",
     icon: "panels-top-left",
     category: "Productivity",
     scope: "home",
@@ -941,32 +943,32 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.tmux.mouse",
-        label: "Mouse support",
+        label: "stored_mouse_support",
       },
       {
         option: "programs.tmux.keyMode",
-        label: "Key bindings",
+        label: "stored_key_bindings",
       },
       {
         option: "programs.tmux.prefix",
-        label: "Prefix key",
-        help: "For example C-a. Leave empty for the default C-b.",
+        label: "stored_prefix_key",
+        help: "stored_for_example_c_a_leave_empty_for",
       },
       {
         option: "programs.tmux.clock24",
-        label: "24-hour clock",
+        label: "stored_n_24_hour_clock",
       },
       {
         option: "programs.tmux.terminal",
-        label: "Terminal type",
-        help: "tmux-256color gives the best color support.",
+        label: "stored_terminal_type",
+        help: "stored_tmux_256color_gives_the_best_color_support",
       },
     ],
   },
   {
     id: "zsh",
-    title: "Zsh",
-    summary: "Use a shell with suggestions as you type and highlighted commands.",
+    title: "stored_zsh",
+    summary: "stored_use_a_shell_with_suggestions_as_you",
     icon: "terminal",
     category: "Productivity",
     scope: "home",
@@ -978,26 +980,26 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.zsh.autosuggestion.enable",
-        label: "Suggest commands from history",
+        label: "stored_suggest_commands_from_history",
       },
       {
         option: "programs.zsh.syntaxHighlighting.enable",
-        label: "Highlight commands",
+        label: "stored_highlight_commands",
       },
       {
         option: "programs.zsh.enableCompletion",
-        label: "Tab completion",
+        label: "stored_tab_completion",
       },
       {
         option: "programs.zsh.enableVteIntegration",
-        label: "Open new tabs in the same folder",
+        label: "stored_open_new_tabs_in_the_same_folder",
       },
     ],
   },
   {
     id: "starship",
-    title: "Starship",
-    summary: "Show a fast prompt with Git status and tool versions in any shell.",
+    title: "stored_starship",
+    summary: "stored_show_a_fast_prompt_with_git_status",
     icon: "rocket",
     category: "Productivity",
     scope: "home",
@@ -1007,28 +1009,28 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.starship.presets",
-        label: "Presets",
-        help: "Built-in looks such as nerd-font-symbols or plain-text-symbols.",
+        label: "stored_presets",
+        help: "stored_built_in_looks_such_as_nerd_font",
       },
       {
         option: "programs.starship.enableTransience",
-        label: "Simplify previous prompts",
-        help: "Only works in fish.",
+        label: "stored_simplify_previous_prompts",
+        help: "stored_only_works_in_fish",
       },
       {
         option: "programs.starship.enableBashIntegration",
-        label: "Use in Bash",
+        label: "stored_use_in_bash",
       },
       {
         option: "programs.starship.enableZshIntegration",
-        label: "Use in Zsh",
+        label: "stored_use_in_zsh",
       },
     ],
   },
   {
     id: "fzf",
-    title: "fzf",
-    summary: "Find files and past commands quickly with fuzzy search.",
+    title: "stored_fzf",
+    summary: "stored_find_files_and_past_commands_quickly_with",
     icon: "search",
     category: "Productivity",
     scope: "home",
@@ -1038,32 +1040,32 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.fzf.defaultCommand",
-        label: "File search command",
-        help: "For example fd --type f.",
+        label: "stored_file_search_command",
+        help: "stored_for_example_fd_type_f",
       },
       {
         option: "programs.fzf.defaultOptions",
-        label: "Default options",
-        help: "For example --height 40% or --border.",
+        label: "stored_default_options",
+        help: "stored_for_example_height_40_or_border",
       },
       {
         option: "programs.fzf.tmux.enableShellIntegration",
-        label: "Open in a tmux pane",
+        label: "stored_open_in_a_tmux_pane",
       },
       {
         option: "programs.fzf.enableBashIntegration",
-        label: "Use in Bash",
+        label: "stored_use_in_bash",
       },
       {
         option: "programs.fzf.enableZshIntegration",
-        label: "Use in Zsh",
+        label: "stored_use_in_zsh",
       },
     ],
   },
   {
     id: "zoxide",
-    title: "zoxide",
-    summary: "Jump to folders you use often by typing part of their name.",
+    title: "stored_zoxide",
+    summary: "stored_jump_to_folders_you_use_often_by",
     icon: "folder-search",
     category: "Productivity",
     scope: "home",
@@ -1073,27 +1075,27 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.zoxide.options",
-        label: "Options",
-        help: "Use --cmd cd to replace the cd command.",
+        label: "stored_options",
+        help: "stored_use_cmd_cd_to_replace_the_cd",
       },
       {
         option: "programs.zoxide.enableBashIntegration",
-        label: "Use in Bash",
+        label: "stored_use_in_bash",
       },
       {
         option: "programs.zoxide.enableZshIntegration",
-        label: "Use in Zsh",
+        label: "stored_use_in_zsh",
       },
       {
         option: "programs.zoxide.enableFishIntegration",
-        label: "Use in fish",
+        label: "stored_use_in_fish",
       },
     ],
   },
   {
     id: "syncthing",
-    title: "Syncthing",
-    summary: "Keep folders in sync between your devices without a cloud service.",
+    title: "stored_syncthing",
+    summary: "stored_keep_folders_in_sync_between_your_devices",
     icon: "folder-sync",
     category: "Productivity",
     scope: "home",
@@ -1105,37 +1107,37 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "services.syncthing.tray.enable",
-        label: "Show a tray icon",
+        label: "stored_show_a_tray_icon",
       },
       {
         option: "services.syncthing.guiAddress",
-        label: "Web interface address",
+        label: "stored_web_interface_address",
       },
       {
         option: "services.syncthing.settings.options.relaysEnabled",
-        label: "Use relays",
-        help: "Helps devices connect through strict firewalls.",
+        label: "stored_use_relays",
+        help: "stored_helps_devices_connect_through_strict_firewalls",
       },
       {
         option: "services.syncthing.settings.options.localAnnounceEnabled",
-        label: "Find devices on your local network",
+        label: "stored_find_devices_on_your_local_network",
       },
       {
         option: "services.syncthing.overrideFolders",
-        label: "Remove folders not declared in Nix",
-        help: "Leave off if you add folders in the web interface.",
+        label: "stored_remove_folders_not_declared_in_nix",
+        help: "stored_leave_off_if_you_add_folders_in",
       },
       {
         option: "services.syncthing.overrideDevices",
-        label: "Remove devices not declared in Nix",
-        help: "Leave off if you add devices in the web interface.",
+        label: "stored_remove_devices_not_declared_in_nix",
+        help: "stored_leave_off_if_you_add_devices_in",
       },
     ],
   },
   {
     id: "bat",
-    title: "bat",
-    summary: "Read files with syntax highlighting and line numbers.",
+    title: "stored_bat",
+    summary: "stored_read_files_with_syntax_highlighting_and_line",
     icon: "file-text",
     category: "Productivity",
     scope: "home",
@@ -1146,8 +1148,8 @@ export const experiences: Experience[] = [
   },
   {
     id: "eza",
-    title: "eza",
-    summary: "List files with colors, icons and Git status.",
+    title: "stored_eza",
+    summary: "stored_list_files_with_colors_icons_and_git",
     icon: "list-tree",
     category: "Productivity",
     scope: "home",
@@ -1157,18 +1159,18 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.eza.icons",
-        label: "Icons",
+        label: "stored_icons",
       },
       {
         option: "programs.eza.git",
-        label: "Show Git status",
+        label: "stored_show_git_status",
       },
     ],
   },
   {
     id: "btop",
-    title: "btop",
-    summary: "Watch processor, memory, disk and network use.",
+    title: "stored_btop",
+    summary: "stored_watch_processor_memory_disk_and_network_use",
     icon: "activity",
     category: "System",
     scope: "home",
@@ -1179,8 +1181,8 @@ export const experiences: Experience[] = [
   },
   {
     id: "lazygit",
-    title: "lazygit",
-    summary: "Stage, commit and rebase in a terminal interface.",
+    title: "stored_lazygit",
+    summary: "stored_stage_commit_and_rebase_in_a_terminal",
     icon: "git-merge",
     category: "Development",
     scope: "home",
@@ -1191,8 +1193,8 @@ export const experiences: Experience[] = [
   },
   {
     id: "helix",
-    title: "Helix",
-    summary: "Edit code in a modal editor with language support built in.",
+    title: "stored_helix",
+    summary: "stored_edit_code_in_a_modal_editor_with",
     icon: "pen-line",
     category: "Development",
     scope: "home",
@@ -1202,14 +1204,14 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.helix.defaultEditor",
-        label: "Use as default editor",
+        label: "stored_use_as_default_editor",
       },
     ],
   },
   {
     id: "yazi",
-    title: "Yazi",
-    summary: "Browse files in the terminal with previews.",
+    title: "stored_yazi",
+    summary: "stored_browse_files_in_the_terminal_with_previews",
     icon: "folder-open",
     category: "Productivity",
     scope: "home",
@@ -1219,22 +1221,22 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.yazi.enableBashIntegration",
-        label: "Use in Bash",
+        label: "stored_use_in_bash",
       },
       {
         option: "programs.yazi.enableZshIntegration",
-        label: "Use in Zsh",
+        label: "stored_use_in_zsh",
       },
       {
         option: "programs.yazi.enableFishIntegration",
-        label: "Use in fish",
+        label: "stored_use_in_fish",
       },
     ],
   },
   {
     id: "atuin",
-    title: "Atuin",
-    summary: "Search your shell history across sessions and devices.",
+    title: "stored_atuin",
+    summary: "stored_search_your_shell_history_across_sessions_and",
     icon: "history",
     category: "Productivity",
     scope: "home",
@@ -1244,23 +1246,23 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.atuin.flags",
-        label: "Flags",
-        help: "Use --disable-up-arrow to keep the normal up arrow.",
+        label: "stored_flags",
+        help: "stored_use_disable_up_arrow_to_keep_the",
       },
       {
         option: "programs.atuin.enableBashIntegration",
-        label: "Use in Bash",
+        label: "stored_use_in_bash",
       },
       {
         option: "programs.atuin.enableZshIntegration",
-        label: "Use in Zsh",
+        label: "stored_use_in_zsh",
       },
     ],
   },
   {
     id: "nix-index",
-    title: "nix-index",
-    summary: "Find which package provides a missing command.",
+    title: "stored_nix_index",
+    summary: "stored_find_which_package_provides_a_missing_command",
     icon: "book-search",
     category: "Development",
     scope: "home",
@@ -1270,18 +1272,18 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.nix-index.enableBashIntegration",
-        label: "Suggest packages in Bash",
+        label: "stored_suggest_packages_in_bash",
       },
       {
         option: "programs.nix-index.enableZshIntegration",
-        label: "Suggest packages in Zsh",
+        label: "stored_suggest_packages_in_zsh",
       },
     ],
   },
   {
     id: "mpv",
-    title: "mpv",
-    summary: "Play almost any video or audio file.",
+    title: "stored_mpv",
+    summary: "stored_play_almost_any_video_or_audio_file",
     icon: "clapperboard",
     category: "Media",
     scope: "home",
@@ -1292,8 +1294,8 @@ export const experiences: Experience[] = [
   },
   {
     id: "yt-dlp",
-    title: "yt-dlp",
-    summary: "Download videos and audio from many websites.",
+    title: "stored_yt_dlp",
+    summary: "stored_download_videos_and_audio_from_many_websites",
     icon: "download",
     category: "Media",
     scope: "home",
@@ -1304,8 +1306,8 @@ export const experiences: Experience[] = [
   },
   {
     id: "easyeffects",
-    title: "EasyEffects",
-    summary: "Improve microphone and speaker sound with effects.",
+    title: "stored_easyeffects",
+    summary: "stored_improve_microphone_and_speaker_sound_with_effects",
     icon: "audio-lines",
     category: "Media",
     scope: "home",
@@ -1315,15 +1317,15 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "services.easyeffects.preset",
-        label: "Preset to load",
-        help: "The name of a preset you saved in EasyEffects.",
+        label: "stored_preset_to_load",
+        help: "stored_the_name_of_a_preset_you_saved",
       },
     ],
   },
   {
     id: "mangohud",
-    title: "MangoHud",
-    summary: "Show frame rate and temperatures over games.",
+    title: "stored_mangohud",
+    summary: "stored_show_frame_rate_and_temperatures_over_games",
     icon: "gauge",
     category: "Games",
     scope: "home",
@@ -1333,7 +1335,7 @@ export const experiences: Experience[] = [
     settings: [
       {
         option: "programs.mangohud.enableSessionWide",
-        label: "Show in every Vulkan and OpenGL program",
+        label: "stored_show_in_every_vulkan_and_opengl_program",
       },
     ],
   },

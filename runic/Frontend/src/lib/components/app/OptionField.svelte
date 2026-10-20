@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Switch } from "$lib/components/ui/switch";
-  import { m, stored } from "$lib/i18n";
+  import { m, say, type Phrase } from "$lib/i18n";
   import { field, localeName, parsePorts, timeZones } from "$lib/fields";
   import { showValue } from "$lib/changes";
   import { formatLocale, formatSettings, keyboardLayouts, locales, type ComputerInput } from "$lib/computer";
@@ -41,7 +41,7 @@
   const formats = $derived(input === "formats" ? formatLocale(value) : undefined);
   const layouts = $derived(
     input === "keyboard" && typeof value === "string" && value && !keyboardLayouts.some((layout) => layout.code === value)
-      ? [{ code: value, label: value }, ...keyboardLayouts]
+      ? [{ code: value, label: null as Phrase | null }, ...keyboardLayouts]
       : keyboardLayouts,
   );
 </script>
@@ -66,7 +66,7 @@
   </select>
 {:else if input === "keyboard"}
   <select class="{control} w-56" aria-label={label} value={String(value ?? "")} onchange={(event) => onchange(event.currentTarget.value)}>
-    {#each layouts as layout (layout.code)}<option value={layout.code}>{layout.code === layout.label ? layout.label : stored(layout.label)}</option>{/each}
+    {#each layouts as layout (layout.code)}<option value={layout.code}>{layout.label ? say(layout.label) : layout.code}</option>{/each}
   </select>
 {:else if input === "user"}
   <select class="{control} w-56" aria-label={label} value={String(value ?? "")} onchange={(event) => onchange(event.currentTarget.value || null)}>

@@ -94,19 +94,19 @@ public sealed class PackageUpdaterTests : IDisposable
             else if (args.EndsWith(".drvPath", StringComparison.Ordinal)) stdout = "/nix/store/expected.drv";
             else if (c.Argv[1] == "build" && c.AllowFailure == true)
             {
-                if (options.Fail == "hash") throw new ManagerException("Hash discovery failed");
+                if (options.Fail == "hash") throw new ManagerException(DisplayText.Plain("Hash discovery failed"));
                 stderr = $"hash mismatch in fixed-output derivation '/nix/store/expected.drv':\n  got: {Hash}";
                 code = 1;
             }
             else if (c.Argv[1] == "build")
             {
-                if (options.Fail == "build") throw new ManagerException("Build failed");
+                if (options.Fail == "build") throw new ManagerException(DisplayText.Plain("Build failed"));
                 if (options.ConcurrentEdit) File.WriteAllText(pinFile, "a concurrent edit");
             }
             else throw new InvalidOperationException($"Unhandled fixture command: {args}");
             return Task.FromResult(new CommandResult(code, stdout, stderr));
         }
-        var network = new ReleaseNetwork(url => options.Fail == "network" ? throw new ManagerException("Network failed") : Release(url));
+        var network = new ReleaseNetwork(url => options.Fail == "network" ? throw new ManagerException(DisplayText.Plain("Network failed")) : Release(url));
         var packages = options.Blocked is null
             ? null
             : PackageUpdater.Packages.ToDictionary(pair => pair.Key, pair => pair.Value with { BlockedVersions = options.Blocked });
@@ -189,7 +189,7 @@ public sealed class PackageUpdaterTests : IDisposable
         var pin = Pin(h);
         await Assert.That(pin["version"]!.GetValue<string>()).IsEqualTo("0.0.38");
         await Assert.That(h.Calls[^1].Argv[1]).IsEqualTo("build");
-        await Assert.That(h.Calls[^1].Label).IsEqualTo($"Build {name} 0.0.38 before saving pin");
+        await Assert.That(h.Calls[^1].Label.English).IsEqualTo($"Build {name} 0.0.38 before saving pin");
         await Assert.That(pin[name == "t3code" ? "cargoHash" : name == "opencode" ? "nodeHash" : "hash"]!.GetValue<string>()).IsEqualTo(Hash);
         if (name != "pince") await Assert.That(pin["nixpkgsRev"]!.GetValue<string>()).IsEqualTo(Rev);
         // Written as JSON.stringify(value, null, 2), members in the recorded order.
@@ -233,7 +233,7 @@ public sealed class PackageUpdaterTests : IDisposable
         await Assert.That(File.ReadAllText(h.PinFile)).IsEqualTo(h.Before);
         var edited = Create(name, new Options { ConcurrentEdit = true });
         await Assert.That(edited.Run).Throws<ManagerException>()
-            .WithMessage("Save validated pin: Error: Pin changed during the build; refusing to overwrite it. Retry with the new pin.");
+            .WithMessage("Save validated pin: Pin changed during the build; refusing to overwrite it. Retry with the new pin.");
         await Assert.That(File.ReadAllText(edited.PinFile)).IsEqualTo("a concurrent edit");
         await Assert.That(Directory.GetFiles(Path.GetDirectoryName(edited.PinFile)!, "*.tmp")).IsEmpty();
     }
@@ -268,7 +268,7 @@ public sealed class PackageUpdaterTests : IDisposable
     {
         var h = Create("t3code");
         await h.Run();
-        await Assert.That(h.Calls.Where(c => c.Argv[0] == "diff").Select(c => c.Label).ToArray()).IsEquivalentTo(
+        await Assert.That(h.Calls.Where(c => c.Argv[0] == "diff").Select(c => c.Label.English).ToArray()).IsEquivalentTo(
             new[] { "package.nix", "unwrapped.nix", "resource-monitor.nix" }.Select(recipe => $"Compare {recipe} against nixos-unstable {Rev}").ToArray(),
             TUnit.Assertions.Enums.CollectionOrdering.Matching);
         await Assert.That(h.Calls.Where(c => c.AllowFailure == true && c.Argv[1] == "build").Select(c => c.Argv[^1]).ToArray()).IsEquivalentTo(
@@ -283,23 +283,29 @@ public sealed class PackageUpdaterTests : IDisposable
     {
         var opencode = Create("opencode");
         await opencode.Run();
-        await Assert.That(opencode.Calls.Single(c => c.AllowFailure == true && c.Argv[1] == "build").Label)
+        await Assert.That(opencode.Calls.Single(c => c.AllowFailure == true && c.Argv[1] == "build").Label.English)
             .IsEqualTo("Compute OpenCode node_modules hash (may take several minutes)");
         var pince = Create("pince");
         await pince.Run();
-        await Assert.That(pince.Calls.Any(c => c.Argv[0] == "diff" || c.Label == "Inspect locked nixpkgs")).IsFalse();
+        await Assert.That(pince.Calls.Any(c => c.Argv[0] == "diff" || c.Label.English == "Inspect locked nixpkgs")).IsFalse();
         var fetch = pince.Calls.Single(c => c.Argv[0] == "nix-prefetch-url").Argv;
         await Assert.That(fetch).DoesNotContain("--unpack");
         await Assert.That(fetch[^1]).IsEqualTo("https://github.com/korcankaraokcu/PINCE/releases/download/v0.0.38/PINCE-x86_64.AppImage");
     }
 
     [Test]
-    public async Task Pins_are_validated_with_the_recorded_messages()
+    public async Task Pins_are_validated_with_messages_that_name_the_problem()
     {
-        await Assert.That(PackagePins.Parse("""{"version":"1.2.3","channel":"nightly","nixpkgsRev":"x"}""")).IsEqualTo(new PackagePin("1.2.3", "nightly", "x"));
-        await Assert.That(() => PackagePins.Parse("{}")).Throws<ManagerException>().WithMessageContaining("[\"version\"]\n         └─ is missing");
-        await Assert.That(() => PackagePins.Parse("")).Throws<ManagerException>().WithMessageContaining("JSON Parse error: Unexpected EOF");
-        await Assert.That(() => PackagePins.Parse("null")).Throws<ManagerException>().WithMessageContaining("}, actual null");
+        await Assert.That(PackagePins.Parse("""{"version":"1.2.3","channel":"nightly","nixpkgsRev":"x"}""", "t3code")).IsEqualTo(new PackagePin("1.2.3", "nightly", "x"));
+        await Assert.That(() => PackagePins.Parse("{}", "t3code")).Throws<ManagerException>().WithMessage("The t3code pin is not valid: version is missing.");
+        await Assert.That(() => PackagePins.Parse("", "t3code")).Throws<ManagerException>().WithMessage("The t3code pin is empty.");
+        await Assert.That(() => PackagePins.Parse("{", "t3code")).Throws<ManagerException>().WithMessageContaining("The t3code pin is not valid JSON: ");
+        await Assert.That(() => PackagePins.Parse("null", "t3code")).Throws<ManagerException>().WithMessage("The t3code pin is not valid: it must be an object, not null.");
+        await Assert.That(() => PackagePins.Parse("""{"version":1}""", "t3code")).Throws<ManagerException>().WithMessage("The t3code pin is not valid: version must be text, not 1.");
+        await Assert.That(() => PackagePins.Parse("""{"version":"1.2"}""", "t3code")).Throws<ManagerException>()
+            .WithMessage("The t3code pin is not valid: version must look like X.Y.Z or X.Y.Z-nightly.YYYYMMDD.N, not 1.2.");
+        await Assert.That(() => PackagePins.Parse("""{"version":"1.2.3","channel":"beta"}""", "t3code")).Throws<ManagerException>()
+            .WithMessage("The t3code pin is not valid: channel must be stable or nightly, not \"beta\".");
     }
 
     [Test]
@@ -315,16 +321,16 @@ public sealed class PackageUpdaterTests : IDisposable
 
         var dryRun = await service.Start(Request.Create() with { Action = Actions.PinceUpdate, Host = "test", DryRun = true }).Completion;
         await Assert.That(dryRun.Status).IsEqualTo(OperationStatuses.Succeeded);
-        await Assert.That(dryRun.Step).IsEqualTo("Preview complete");
+        await Assert.That(dryRun.Step.English).IsEqualTo("Preview complete");
         await Assert.That(runner.Calls).IsEmpty();
         var log = service.Log(dryRun.Id).Text;
         await Assert.That(log).Contains("→ pince: local pin 0.0.34 | stable release 0.0.38\n");
         await Assert.That(log).Contains("→ Would fetch, hash and build pince 0.0.38");
 
         var run = await service.Start(Request.Create() with { Action = Actions.PinceUpdate, Host = "test" }).Completion;
-        await Assert.That(run.Status).IsEqualTo(OperationStatuses.Succeeded).Because(run.Error ?? "");
+        await Assert.That(run.Status).IsEqualTo(OperationStatuses.Succeeded).Because(run.Error?.English ?? "");
         await Assert.That(run.Steps!.Single().Status).IsEqualTo(StepStatuses.Succeeded);
-        await Assert.That(runner.Calls.Select(c => c.Label).ToArray()).IsEquivalentTo(
+        await Assert.That(runner.Calls.Select(c => c.Label.English).ToArray()).IsEquivalentTo(
             new[] { "Fetch release", "Convert source hash", "Build pince 0.0.38 before saving pin" }, TUnit.Assertions.Enums.CollectionOrdering.Matching);
         // Each command is logged as a step with its command line.
         var text = service.Log(run.Id).Text;

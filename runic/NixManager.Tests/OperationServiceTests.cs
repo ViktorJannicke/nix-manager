@@ -21,7 +21,7 @@ internal sealed class FakeUpdates(UpdateReport report) : IUpdateChecker
 {
     public async Task<UpdateReport> CheckAsync(Config config, Func<Command, Task<CommandResult>> run, CancellationToken cancellationToken)
     {
-        await run(new Command { Label = "Check flake inputs without changing the checkout", Argv = ["nix", "flake", "update"] });
+        await run(new Command { Label = DisplayText.Of("stored_check_flake_inputs_without_changing_the_checkout"), Argv = ["nix", "flake", "update"] });
         return report;
     }
 }
@@ -57,8 +57,8 @@ public sealed class OperationServiceTests : IDisposable
         var operation = await run.Completion;
 
         await Assert.That(operation.Status).IsEqualTo(OperationStatuses.Succeeded);
-        await Assert.That(operation.Step).IsEqualTo("Complete");
-        await Assert.That(operation.Steps!.Select(s => (s.Id, s.Label, s.Status)))
+        await Assert.That(operation.Step.English).IsEqualTo("Complete");
+        await Assert.That(operation.Steps!.Select(s => (s.Id, s.Label.English, s.Status)))
             .IsEquivalentTo([("1-build-home-configuration", "Build home configuration", StepStatuses.Succeeded)]);
         await Assert.That(operation.Steps![0].Progress!.Builds.Expected).IsEqualTo(2);
         await Assert.That(events.Select(e => e.Sequence)).IsInOrder();
@@ -86,19 +86,19 @@ public sealed class OperationServiceTests : IDisposable
     [Arguments("Activate Home Manager")]
     public async Task A_failure_prevents_later_activation_and_cleanup(string failure)
     {
-        var runner = new FakeRunner((command, _, _) => command.Label == failure
-            ? throw new ManagerException("Test failure")
+        var runner = new FakeRunner((command, _, _) => command.Label.English == failure
+            ? throw new ManagerException(DisplayText.Plain("Test failure"))
             : Task.FromResult(new CommandResult(0, "", "")));
         await using var service = Service(runner);
 
         var operation = await service.Start(Switch(cleanup: true)).Completion;
 
         await Assert.That(operation.Status).IsEqualTo(OperationStatuses.Failed);
-        await Assert.That(operation.Error).IsEqualTo("Test failure");
+        await Assert.That(operation.Error?.English).IsEqualTo("Test failure");
         await Assert.That(operation.Steps!.Any(s => s.Status == StepStatuses.Failed)).IsTrue();
         await Assert.That(operation.Steps!.Any(s => s.Status == StepStatuses.Skipped)).IsTrue();
-        await Assert.That(runner.Calls[^1].Label).IsEqualTo(failure);
-        await Assert.That(runner.Calls.Any(c => c.Label.StartsWith("Activate system") || c.Label.StartsWith("Keep"))).IsFalse();
+        await Assert.That(runner.Calls[^1].Label.English).IsEqualTo(failure);
+        await Assert.That(runner.Calls.Any(c => c.Label.English.StartsWith("Activate system") || c.Label.English.StartsWith("Keep"))).IsFalse();
         await Assert.That(Directory.Exists(Paths.BuildRoot(Config))).IsFalse();
         await Assert.That(new OperationStore(Config).History()[0].Status).IsEqualTo(OperationStatuses.Failed);
     }
@@ -106,13 +106,13 @@ public sealed class OperationServiceTests : IDisposable
     [Test]
     public async Task A_failure_keeps_its_explanation()
     {
-        var runner = new FakeRunner((_, _, _) => throw new ManagerException("Build failed (exit 1). error: No space left on device",
+        var runner = new FakeRunner((_, _, _) => throw new ManagerException(DisplayText.Plain("Build failed (exit 1). error: No space left on device"),
             Explain.Explainer.Explain("No space left on device")));
         await using var service = Service(runner);
 
         var operation = await service.Start(Request.Create() with { Action = Actions.Build, Host = "test" }).Completion;
 
-        await Assert.That(operation.Explanation!.Title).IsEqualTo("The disk is full");
+        await Assert.That(operation.Explanation!.Title.English).IsEqualTo("The disk is full");
     }
 
     [Test]
@@ -124,7 +124,7 @@ public sealed class OperationServiceTests : IDisposable
         var operation = await service.Start(Switch(cleanup: true) with { Update = true, DryRun = true }).Completion;
 
         await Assert.That(operation.Status).IsEqualTo(OperationStatuses.Succeeded);
-        await Assert.That(operation.Step).IsEqualTo("Preview complete");
+        await Assert.That(operation.Step.English).IsEqualTo("Preview complete");
         await Assert.That(runner.Calls).IsEmpty();
         await Assert.That(service.Log(operation.Id).Text).Contains("nix flake update --flake");
     }
@@ -159,7 +159,7 @@ public sealed class OperationServiceTests : IDisposable
         var operation = await run.Completion;
 
         await Assert.That(operation.Status).IsEqualTo(OperationStatuses.Cancelled);
-        await Assert.That(operation.Error).IsEqualTo("Cancelled. Any completed activation or input update remains applied.");
+        await Assert.That(operation.Error?.English).IsEqualTo("Cancelled. Any completed activation or input update remains applied.");
         await Assert.That(operation.Steps![0].Status).IsEqualTo(StepStatuses.Cancelled);
         await Assert.That(operation.Steps!.Skip(1).All(s => s.Status == StepStatuses.Skipped)).IsTrue();
         await Assert.That(service.Busy).IsFalse();
@@ -187,7 +187,7 @@ public sealed class OperationServiceTests : IDisposable
         await Assert.That(service.Active!.FinishingPrivilegedStep == true).IsTrue();
 
         service.Cancel();
-        await Assert.That(service.Active!.Step).IsEqualTo("Stopping after privileged step");
+        await Assert.That(service.Active!.Step.English).IsEqualTo("Stopping after privileged step");
         await Task.Delay(20);
         await Assert.That(service.Busy).IsTrue();
         await Assert.That(() => new OperationStore(Config).AcquireLock()).Throws<ManagerException>();
@@ -197,7 +197,7 @@ public sealed class OperationServiceTests : IDisposable
         await Assert.That(operation.Status).IsEqualTo(OperationStatuses.Cancelled);
         await Assert.That(runner.Calls.Count).IsEqualTo(2);
         await Assert.That(runner.Calls.Any(c => c.Argv.Contains("gc"))).IsFalse();
-        await Assert.That(operation.Steps!.Single(s => s.Label == "Activate system").Status).IsEqualTo(StepStatuses.Succeeded);
+        await Assert.That(operation.Steps!.Single(s => s.Label.English == "Activate system").Status).IsEqualTo(StepStatuses.Succeeded);
     }
 
     [Test]
@@ -207,7 +207,7 @@ public sealed class OperationServiceTests : IDisposable
         {
             CheckedAt = "2026-10-15T08:04:43.249Z",
             Items = [new UpdateItem { Name = "nixpkgs", Current = "7fd4004d0511", Latest = "55bfb4d7437b", Kind = "input" }],
-            Errors = ["pince: Fetch failed: HTTP 403"],
+            Errors = [DisplayText.Plain("pince: Fetch failed: HTTP 403")],
         };
         var runner = new FakeRunner();
         await using var service = Service(runner, new FakeUpdates(report));
@@ -215,8 +215,8 @@ public sealed class OperationServiceTests : IDisposable
         var operation = await service.Start(Request.Create() with { Action = Actions.Check, Host = "test" }).Completion;
 
         await Assert.That(operation.Status).IsEqualTo(OperationStatuses.Failed);
-        await Assert.That(operation.Error).IsEqualTo("Some update checks failed. The report contains the successful results and errors.");
-        await Assert.That(operation.Steps!.Select(s => s.Label)).IsEquivalentTo(["Check inputs and package releases"]);
+        await Assert.That(operation.Error?.English).IsEqualTo("Some update checks failed. The report contains the successful results and errors.");
+        await Assert.That(operation.Steps!.Select(s => s.Label.English)).IsEquivalentTo(["Check inputs and package releases"]);
         await Assert.That(ManagerJson.Serialize(service.Updates())).IsEqualTo(ManagerJson.Serialize(report));
         var log = service.Log(operation.Id).Text;
         await Assert.That(log).Contains("→ Check flake inputs without changing the checkout\n  nix flake update\n");

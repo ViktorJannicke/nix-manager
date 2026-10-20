@@ -2,7 +2,7 @@
   import type { Operation } from "../../../generated/types.js";
   import { formatSeconds } from "$lib/format";
   import { app } from "$lib/app.svelte";
-  import { stored } from "$lib/i18n";
+  import { text } from "$lib/i18n";
   import StatusBadge from "./StatusBadge.svelte";
   import BuildProgress from "./BuildProgress.svelte";
 
@@ -18,7 +18,7 @@
         <div class="flex items-center gap-3">
           <span class="w-5 text-right text-xs text-muted-foreground tabular-nums">{index + 1}</span>
           <span class="min-w-0 flex-1 truncate {step.status === 'pending' || step.status === 'skipped' ? 'text-muted-foreground' : ''}">
-            {stored(step.label)}
+            {text(step.label)}
           </span>
           <span class="text-xs text-muted-foreground tabular-nums">{elapsed(step.startedAt, step.finishedAt)}</span>
           <StatusBadge status={step.status} />
@@ -31,5 +31,5 @@
     {/each}
   </ol>
 {:else}
-  <p class="px-3 text-muted-foreground">{stored(operation.step)}</p>
+  <p class="px-3 text-muted-foreground">{text(operation.step)}</p>
 {/if}

@@ -7,7 +7,7 @@
   import type { Operation } from "../../../generated/types.js";
   import { app } from "$lib/app.svelte";
   import { remaining } from "$lib/format";
-  import { m, stored } from "$lib/i18n";
+  import { m, text, textKey } from "$lib/i18n";
   import BuildProgress from "./BuildProgress.svelte";
   import StatusBadge from "./StatusBadge.svelte";
   import StepList from "./StepList.svelte";
@@ -36,7 +36,9 @@
     : prepare?.status === "succeeded" ? (prepare.held ? m.onestep_ready_for_review() : m.onestep_downloaded_and_checked())
     : m.onestep_downloading_and_checking(),
   );
-  const building = $derived(prepare?.steps?.find((item) => item.status === "running" && item.label.startsWith("Build")));
+  /** The steps that build a configuration (Domain/Plan.cs). */
+  const buildSteps = new Set(["stored_build_home_configuration", "stored_build_system_configuration"]);
+  const building = $derived(prepare?.steps?.find((item) => item.status === "running" && buildSteps.has(textKey(item.label) ?? "")));
   const lastChange = $derived(app.lastChange?.operation.id);
 
   function close() {
@@ -67,7 +69,7 @@
           {#if apply?.status === "succeeded"}
             {m.onestep_only_apps_changed()}
           {:else if prepare.held && prepare.status === "succeeded"}
-            {m.onestep_held({ reason: stored(prepare.held) })}
+            {m.onestep_held({ reason: text(prepare.held) })}
           {:else if failed && current}
             {#if current.request.action === "review-apply" && current.rollback?.done}
               {m.onestep_failed_went_back()}
@@ -97,7 +99,7 @@
         {#if building}
           <li class="pl-1"><BuildProgress progress={building.progress} /></li>
         {:else if prepare.status === "running"}
-          <li class="text-xs text-muted-foreground">{stored(prepare.step)}…</li>
+          <li class="text-xs text-muted-foreground">{text(prepare.step)}…</li>
         {/if}
         <li class="flex items-center gap-3">
           <span class="flex-1 {apply ? '' : 'text-muted-foreground'}">{m.onestep_install()}</span>
@@ -110,8 +112,8 @@
         <div class="flex gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs" role="alert">
           <TriangleAlertIcon class="mt-0.5 size-3.5 shrink-0 text-destructive" />
           <div class="space-y-1">
-            <p class="font-medium">{current.explanation ? stored(current.explanation.title) : m.common_something_went_wrong()}</p>
-            <p class="break-words text-muted-foreground">{stored(current.explanation?.body ?? current.error)}</p>
+            <p class="font-medium">{current.explanation ? text(current.explanation.title) : m.common_something_went_wrong()}</p>
+            <p class="break-words text-muted-foreground">{text(current.explanation?.body ?? current.error)}</p>
           </div>
         </div>
       {:else if apply?.status === "succeeded"}

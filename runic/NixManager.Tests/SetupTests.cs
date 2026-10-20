@@ -89,13 +89,13 @@ public sealed class SetupTests : IDisposable
         await Assert.That(SetupAssistant.TargetProblem(Path.Combine(home, "empty") + "/", home)).IsNull();
         Directory.CreateDirectory(Path.Combine(home, "full"));
         File.WriteAllText(Path.Combine(home, "full", "x"), "");
-        await Assert.That(SetupAssistant.TargetProblem(Path.Combine(home, "full"), home)).IsEqualTo("This folder is not empty.");
-        await Assert.That(SetupAssistant.TargetProblem("/etc/nixos", home)).IsEqualTo("Choose a folder inside your home folder, so you own the files.");
-        await Assert.That(SetupAssistant.TargetProblem(home, home)).IsEqualTo("Choose a new folder inside your home folder.");
-        await Assert.That(SetupAssistant.TargetProblem(home + "/", home)).IsEqualTo("Choose a new folder inside your home folder.");
-        await Assert.That(SetupAssistant.TargetProblem("config", home)).IsEqualTo("Use a full path, such as ~/nixos-config.");
-        await Assert.That(SetupAssistant.TargetProblem($"{home}/../elsewhere", home)).IsEqualTo("Choose a folder inside your home folder, so you own the files.");
-        await Assert.That(SetupAssistant.TargetProblem($"{home}x/config", home)).IsEqualTo("Choose a folder inside your home folder, so you own the files.");
+        await Assert.That(SetupAssistant.TargetProblem(Path.Combine(home, "full"), home)?.English).IsEqualTo("This folder is not empty.");
+        await Assert.That(SetupAssistant.TargetProblem("/etc/nixos", home)?.English).IsEqualTo("Choose a folder inside your home folder, so you own the files.");
+        await Assert.That(SetupAssistant.TargetProblem(home, home)?.English).IsEqualTo("Choose a new folder inside your home folder.");
+        await Assert.That(SetupAssistant.TargetProblem(home + "/", home)?.English).IsEqualTo("Choose a new folder inside your home folder.");
+        await Assert.That(SetupAssistant.TargetProblem("config", home)?.English).IsEqualTo("Use a full path, such as ~/nixos-config.");
+        await Assert.That(SetupAssistant.TargetProblem($"{home}/../elsewhere", home)?.English).IsEqualTo("Choose a folder inside your home folder, so you own the files.");
+        await Assert.That(SetupAssistant.TargetProblem($"{home}x/config", home)?.English).IsEqualTo("Choose a folder inside your home folder, so you own the files.");
     }
 
     [Test]
@@ -161,7 +161,7 @@ public sealed class SetupTests : IDisposable
         await Assert.That(info.HostName).IsEqualTo("alice-pc");
         await Assert.That(info.Suggested).IsEqualTo(Path.Combine(Home, "nixos-config"));
         // The flakes check asks the user's own configuration, without what this process added.
-        await Assert.That(runner.Calls.Single(c => c.Label == "Check flakes").Env!["NIX_CONFIG"]).IsEqualTo(SetupAssistant.UserNixConfig ?? "");
+        await Assert.That(runner.Calls.Single(c => c.Label.English == "Check flakes").Env!["NIX_CONFIG"]).IsEqualTo(SetupAssistant.UserNixConfig ?? "");
 
         var unstable = await SetupAssistant.ReadAsync(Computer("""{"nixosVersion":"25.11pre123.abc"}""", "nix-command"), Environment(), Source);
         await Assert.That(unstable.Unstable).IsTrue();
@@ -173,12 +173,12 @@ public sealed class SetupTests : IDisposable
     public async Task Setup_is_blocked_without_NixOS_a_configuration_or_with_a_flake()
     {
         var missing = await SetupAssistant.ReadAsync(Computer(), Environment(), Source);
-        await Assert.That(missing.Blocked).IsEqualTo($"There is no {Source}/configuration.nix to start from.");
+        await Assert.That(missing.Blocked?.English).IsEqualTo($"There is no {Source}/configuration.nix to start from.");
         await Assert.That(missing.Files).IsEmpty();
         var notNixos = new FakeRunner((command, _, _) => Task.FromResult(new CommandResult(command.Argv[0] == "nixos-version" ? 127 : 1, "", "")));
-        await Assert.That((await SetupAssistant.ReadAsync(notNixos, Environment(), Source)).Blocked).IsEqualTo("This does not look like NixOS: nixos-version is missing.");
+        await Assert.That((await SetupAssistant.ReadAsync(notNixos, Environment(), Source)).Blocked?.English).IsEqualTo("This does not look like NixOS: nixos-version is missing.");
         WriteSource(flake: true);
-        await Assert.That((await SetupAssistant.ReadAsync(Computer(), Environment(), Source)).Blocked).IsEqualTo(
+        await Assert.That((await SetupAssistant.ReadAsync(Computer(), Environment(), Source)).Blocked?.English).IsEqualTo(
             $"{Source} is a flake already. Copy it to a folder you own and add a homeConfigurations entry for your user, then choose that folder with --flake.");
     }
 
@@ -188,7 +188,7 @@ public sealed class SetupTests : IDisposable
         var locks = 0;
         return new FakeRunner((command, _, _) =>
         {
-            if (command.Label == failing) return Task.FromResult(new CommandResult(1, "", "warning\nerror: it broke\n"));
+            if (command.Label.English == failing) return Task.FromResult(new CommandResult(1, "", "warning\nerror: it broke\n"));
             if (command.Argv is ["nix", "flake", "lock", ..])
             {
                 if (locks++ < lockFailures) return Task.FromResult(new CommandResult(1, "", $"error: no branch {locks}\n"));
@@ -224,18 +224,18 @@ public sealed class SetupTests : IDisposable
         // The release branch could not be locked, so the flake follows nixos-unstable.
         await Assert.That(File.ReadAllText(Path.Combine(target, "flake.nix"))).IsEqualTo(SetupAssistant.FlakeTemplate(SourceInfo(), new SetupBranch("nixos-unstable", "master")));
         await Assert.That(File.ReadAllText(Path.Combine(target, "home.nix"))).IsEqualTo(SetupAssistant.HomeTemplate(SourceInfo()));
-        var locks = runner.Calls.Where(c => c.Label == "Pin the inputs").ToList();
+        var locks = runner.Calls.Where(c => c.Label.English == "Pin the inputs").ToList();
         await Assert.That(locks.Count).IsEqualTo(2);
         await Assert.That(locks[0].Argv).IsEquivalentTo(new[] { "nix", "flake", "lock", "--override-input", "nixpkgs", "github:NixOS/nixpkgs/abc" },
             TUnit.Assertions.Enums.CollectionOrdering.Matching);
-        await Assert.That(runner.Calls.Single(c => c.Label == "Add the files to Git").Argv).IsEquivalentTo(
+        await Assert.That(runner.Calls.Single(c => c.Label.English == "Add the files to Git").Argv).IsEquivalentTo(
             new[] { "git", "add", "--", "configuration.nix", "hardware-configuration.nix", "modules/extra.nix", "flake.nix", "home.nix" },
             TUnit.Assertions.Enums.CollectionOrdering.Matching);
-        await Assert.That(runner.Calls.Single(c => c.Label == "Evaluate the system").Argv[^1])
+        await Assert.That(runner.Calls.Single(c => c.Label.English == "Evaluate the system").Argv[^1])
             .IsEqualTo($"{target}#nixosConfigurations.alice-pc.config.system.build.toplevel.drvPath");
-        await Assert.That(runner.Calls.Single(c => c.Label == "Evaluate the home configuration").Argv[^1])
+        await Assert.That(runner.Calls.Single(c => c.Label.English == "Evaluate the home configuration").Argv[^1])
             .IsEqualTo($"{target}#homeConfigurations.\"alice@alice-pc\".activationPackage.drvPath");
-        await Assert.That(runner.Calls.Single(c => c.Label == "Commit").Argv[^1]).IsEqualTo($"Start from {Source}");
+        await Assert.That(runner.Calls.Single(c => c.Label.English == "Commit").Argv[^1]).IsEqualTo($"Start from {Source}");
         await Assert.That(runner.Calls.Where(c => c.Cwd is not null).All(c => c.Cwd == target)).IsTrue();
         await Assert.That(File.ReadAllText(new ConfigLoader(runner, environment).RememberedCheckout)).IsEqualTo($"{target}\n");
     }
@@ -251,7 +251,7 @@ public sealed class SetupTests : IDisposable
         await Assert.That(() => SetupAssistant.CreateCheckoutAsync(SourceInfo(), target, _ => { }, Creation(failing: "Evaluate the system"), Environment(), Source))
             .Throws<ManagerException>().WithMessage("Evaluate the system: error: it broke");
         await Assert.That(Directory.Exists(target)).IsFalse();
-        await Assert.That(() => SetupAssistant.CreateCheckoutAsync(SourceInfo() with { Blocked = "No." }, target, _ => { }, Creation(), Environment(), Source))
+        await Assert.That(() => SetupAssistant.CreateCheckoutAsync(SourceInfo() with { Blocked = DisplayText.Plain("No.") }, target, _ => { }, Creation(), Environment(), Source))
             .Throws<ManagerException>().WithMessage("No.");
         await Assert.That(() => SetupAssistant.CreateCheckoutAsync(SourceInfo(), "relative", _ => { }, Creation(), Environment(), Source))
             .Throws<ManagerException>().WithMessage("Use a full path, such as ~/nixos-config.");
@@ -266,8 +266,8 @@ public sealed class SetupTests : IDisposable
         var creation = Creation();
         var runner = new FakeRunner(async (command, output, token) =>
         {
-            if (command.Label is "Read NixOS version" or "Check flakes") return await computer.RunAsync(command, output, token);
-            if (command.Label == "Start Git") await release.Task;
+            if (command.Label.English is "Read NixOS version" or "Check flakes") return await computer.RunAsync(command, output, token);
+            if (command.Label.English == "Start Git") await release.Task;
             return await creation.RunAsync(command, output, token);
         });
         var service = new SetupAssistantService(runner, Environment(), source: Source);
@@ -303,21 +303,21 @@ public sealed class SetupTests : IDisposable
     public async Task A_failed_step_is_marked_and_a_problem_offers_nothing_else()
     {
         WriteSource();
-        var computer = Computer(more: command => command.Label == "Start Git" ? new CommandResult(128, "", "fatal: no git\n") : new CommandResult(0, "", ""));
+        var computer = Computer(more: command => command.Label.English == "Start Git" ? new CommandResult(128, "", "fatal: no git\n") : new CommandResult(0, "", ""));
         var service = new SetupAssistantService(computer, Environment(), source: Source);
         await service.Loaded;
         service.Create("~/nixos-config");
         await service.Completion;
-        await Assert.That(service.State.Error).IsEqualTo("Start Git: fatal: no git");
+        await Assert.That(service.State.Error?.English).IsEqualTo("Start Git: fatal: no git");
         await Assert.That(service.State.Steps.Select(step => step.Status).Take(3).ToArray()).IsEquivalentTo(
             new[] { "done", "done", "failed" }, TUnit.Assertions.Enums.CollectionOrdering.Matching);
         await Assert.That(Directory.Exists(Path.Combine(Home, "nixos-config"))).IsFalse();
         // Reading again clears the error.
         await Assert.That((await service.RefreshAsync()).Error).IsNull();
 
-        var problem = new SetupAssistantService(new FakeRunner(), Environment(), new SetupProblem("Broken flake.", "/home/alice/flake"), Source);
+        var problem = new SetupAssistantService(new FakeRunner(), Environment(), new SetupProblem(DisplayText.Plain("Broken flake."), "/home/alice/flake"), Source);
         await Assert.That(problem.State.Info).IsNull();
-        await Assert.That(problem.State.Problem!.Message).IsEqualTo("Broken flake.");
+        await Assert.That(problem.State.Problem!.Message.English).IsEqualTo("Broken flake.");
         await Assert.That(() => problem.Create("~/nixos-config")).Throws<ManagerException>().WithMessage("Nix Manager could not start.");
         await Assert.That(problem.RefreshAsync).Throws<ManagerException>().WithMessage("Nix Manager could not start.");
     }
@@ -334,7 +334,7 @@ public sealed class SetupTests : IDisposable
         await Assert.That(await context.InvokeAsync(() => viewModel.CanCreate)).IsTrue();
         await context.InvokeAsync(() => viewModel.Target = "relative");
         await context.InvokeAsync(() => viewModel.CreateCommand.Execute(null));
-        await Assert.That(await context.InvokeAsync(() => viewModel.RequestError)).IsEqualTo("Use a full path, such as ~/nixos-config.");
+        await Assert.That(await context.InvokeAsync(() => viewModel.RequestError?.English)).IsEqualTo("Use a full path, such as ~/nixos-config.");
     }
 
     [Test]
@@ -346,7 +346,7 @@ public sealed class SetupTests : IDisposable
         await Assert.That(checkout).IsEqualTo((Path.Combine(Home, "my-flakes"), false));
         await Assert.That(SetupLaunch.NeedsSetup(null, notGit, Environment())).IsTrue();
         // Nor is there one without Git, as on a computer the assistant has not set up yet.
-        var noGit = new FakeRunner((_, _, _) => throw new ManagerException("Cannot start git: No such file or directory"));
+        var noGit = new FakeRunner((_, _, _) => throw new ManagerException(DisplayText.Of("stored_cannot_start", ("command", "git"), ("error", "No such file or directory"))));
         await Assert.That(SetupLaunch.NeedsSetup(null, noGit, Environment())).IsTrue();
         // One asked for is used, whether it exists or not: loading it says what is wrong.
         await Assert.That(SetupLaunch.NeedsSetup("/nowhere", notGit, Environment())).IsFalse();

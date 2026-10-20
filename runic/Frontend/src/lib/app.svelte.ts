@@ -5,7 +5,7 @@ import type { AppListClient, AppListState } from "../generated/appList.js";
 import type { SoftwareClient, SoftwareState } from "../generated/software.js";
 import type { SystemClient, SystemState } from "../generated/system.js";
 import type { BuildReview, Fix, Operation, Plan, PreferenceChange, Request } from "../generated/types.js";
-import { actionLabel, m, stored } from "./i18n";
+import { actionLabel, m, message, text, TextError } from "./i18n";
 import { changesScope, oneStepProblem } from "./changes";
 import { request, sameRequest, type Action, type Scope } from "./requests";
 
@@ -55,7 +55,6 @@ export interface OneStep {
   reviewId: string;
 }
 
-const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
 /** Actions that change what is active. */
 const activations = new Set(["review-apply", "switch", "boot", "rollback"]);
 
@@ -219,7 +218,7 @@ class AppState {
     this.toasts = this.toasts.filter((toast) => toast.id !== id);
   }
   fail(error: unknown, title = m.common_something_went_wrong()) {
-    this.toast({ tone: "error", title, body: stored(message(error)) });
+    this.toast({ tone: "error", title, body: message(error) });
   }
 
   // --- Operations ----------------------------------------------------------
@@ -244,7 +243,7 @@ class AppState {
     if (!client) return undefined;
     try {
       const state = await client.start(next);
-      if (state.startError) throw new Error(state.startError);
+      if (state.startError) throw new TextError(state.startError);
       const operation = state.active ?? undefined;
       if (operation) {
         this.watched.add(operation.id);
@@ -311,7 +310,7 @@ class AppState {
   async hold(operationId: string) {
     try {
       const state = await this.reviewsView?.client?.hold(operationId);
-      if (state?.error) throw new Error(state.error);
+      if (state?.error) throw new TextError(state.error);
     } catch (error) {
       this.fail(error, m.changes_could_not_hold());
     }
@@ -325,7 +324,7 @@ class AppState {
   async discard(review: BuildReview) {
     try {
       const state = await this.reviewsView?.client?.remove(review.id);
-      if (state?.error) throw new Error(state.error);
+      if (state?.error) throw new TextError(state.error);
       if (this.selectedReview === review.id) this.selectedReview = undefined;
       this.toast({ tone: "info", title: m.changes_discarded() });
     } catch (error) {
@@ -374,7 +373,7 @@ class AppState {
     // The progress dialog tells what happened to a one-step change while it is open.
     const shown = Boolean(this.oneStep && (this.oneStep.prepare === operation.id || this.oneStep.reviewId === r.reviewId));
     if (operation.status === "cancelled") {
-      if (!shown) this.toast({ tone: "info", title: m.toast_cancelled({ label }), body: stored(operation.error) || undefined });
+      if (!shown) this.toast({ tone: "info", title: m.toast_cancelled({ label }), body: text(operation.error) || undefined });
       return;
     }
     if (operation.status !== "succeeded") {
@@ -383,9 +382,9 @@ class AppState {
       this.toast({
         tone: "error",
         title: operation.explanation
-          ? m.toast_failed_because({ label, reason: stored(operation.explanation.title) })
+          ? m.toast_failed_because({ label, reason: text(operation.explanation.title) })
           : m.toast_failed({ label }),
-        body: stored(operation.explanation?.body ?? operation.error) || undefined,
+        body: text(operation.explanation?.body ?? operation.error) || undefined,
         action: fix
           ? { label: m.toast_allow_non_free(), run: () => this.applyFix(fix, r.scope) }
           : { label: m.toast_view_log(), run: () => this.show(operation.id) },

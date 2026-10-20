@@ -7,7 +7,7 @@
   import { Button } from "$lib/components/ui/button";
   import type { BuildReview, ReviewOutput } from "../generated/types.js";
   import { app } from "$lib/app.svelte";
-  import { m, stored } from "$lib/i18n";
+  import { m, text } from "$lib/i18n";
   import { describeChange, showValue } from "$lib/changes";
   import { bytes, dateTime, day, editedPackages, relative, reviewSummary, scopeText, shortRev, signedBytes, summarize } from "$lib/format";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
@@ -164,7 +164,7 @@
         <div class="mt-4 rounded-lg bg-card px-3 py-2">
           <p id="undo-heading" class="font-medium">{m.changes_undo_before({ date: dateTime(review.undo.appliedAt) })}</p>
           <ul role="list" aria-labelledby="undo-heading" class="mt-1 list-disc pl-5 text-muted-foreground">
-            {#each review.undo.point.changes as change, index (index)}<li>{stored(change)}</li>{/each}
+            {#each review.undo.point.changes as change, index (index)}<li>{text(change)}</li>{/each}
           </ul>
           {#if review.undo.point.files.length}
             <p class="mt-1 text-xs text-muted-foreground">{m.changes_undo_restores({ files: review.undo.point.files.map((file) => file.path) })}</p>

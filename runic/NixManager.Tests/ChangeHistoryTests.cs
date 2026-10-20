@@ -52,15 +52,15 @@ public sealed class ChangeHistoryTests : IDisposable
 
     private static readonly ProcessCommandRunner Runner = new();
 
-    private static Task<string?> Record(Config config, string[] paths, string[] changes, bool backup = false) =>
-        ChangeHistory.RecordChangeAsync(config, paths, changes, backup,
-            command => Runner.RunAsync(command with { Quiet = true, Env = new Dictionary<string, string>(command.Env ?? new Dictionary<string, string>()).Concat(Isolated).ToDictionary() }, _ => { }, CancellationToken.None));
+    private static async Task<string?> Record(Config config, string[] paths, string[] changes, bool backup = false) =>
+        (await ChangeHistory.RecordChangeAsync(config, paths, changes.Select(DisplayText.Plain).ToArray(), backup,
+            command => Runner.RunAsync(command with { Quiet = true, Env = new Dictionary<string, string>(command.Env ?? new Dictionary<string, string>()).Concat(Isolated).ToDictionary() }, _ => { }, CancellationToken.None)))?.English;
 
     [Test]
     public async Task A_message_names_the_first_change_and_lists_all_of_them()
     {
-        await Assert.That(ChangeHistory.ChangeMessage(["Install steam"])).IsEqualTo("Install steam");
-        await Assert.That(ChangeHistory.ChangeMessage(["Install steam", "Bluetooth: hardware.bluetooth.enable true"]))
+        await Assert.That(ChangeHistory.ChangeMessage([DisplayText.Plain("Install steam")])).IsEqualTo("Install steam");
+        await Assert.That(ChangeHistory.ChangeMessage([DisplayText.Plain("Install steam"), DisplayText.Plain("Bluetooth: hardware.bluetooth.enable true")]))
             .IsEqualTo("Install steam and 1 more\n\n- Install steam\n- Bluetooth: hardware.bluetooth.enable true");
         await Assert.That(ChangeHistory.ChangeMessage([])).IsEqualTo("Apply the configuration");
     }

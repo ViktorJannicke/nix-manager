@@ -343,13 +343,13 @@ public sealed class SoftwareTests
         await Assert.That(await memo.Get("a", "1", Compute)).IsEqualTo(1);
         await Assert.That(await memo.Get("a", "1", Compute)).IsEqualTo(1);
         await Assert.That(await memo.Get("a", "2", Compute)).IsEqualTo(2);
-        var failed = memo.Get("b", "1", () => Task.FromException<int>(new ManagerException("no")));
+        var failed = memo.Get("b", "1", () => Task.FromException<int>(new ManagerException(DisplayText.Plain("no"))));
         await Assert.That(() => failed).Throws<ManagerException>();
         await Assert.That(await memo.Get("b", "1", Compute)).IsEqualTo(3);
         // A computation that fails later is forgotten as it fails.
         var later = new TaskCompletionSource<int>();
         var pending = memo.Get("c", "1", () => later.Task);
-        later.SetException(new ManagerException("later"));
+        later.SetException(new ManagerException(DisplayText.Plain("later")));
         await Assert.That(() => pending).Throws<ManagerException>();
         await Assert.That(await memo.Get("c", "1", Compute)).IsEqualTo(4);
     }

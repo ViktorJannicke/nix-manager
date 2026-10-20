@@ -196,7 +196,7 @@ public sealed class ObservationTests : IDisposable
         // With one kept, home generations 1 and 2 go; the shared path stays for generation 3.
         await Assert.That(await CleanupEstimator.EstimateAsync(Profiles, Scopes.Home, 1, Run)).IsEqualTo(new CleanupEstimate { Generations = 2, Bytes = 310 });
         var measure = commands.Single(c => c.Argv.Contains("--size"));
-        await Assert.That(measure.Label).IsEqualTo("Measure what cleaning up frees");
+        await Assert.That(measure.Label.English).IsEqualTo("Measure what cleaning up frees");
         await Assert.That(measure.Quiet == true && measure.FullOutput == true).IsTrue();
         await Assert.That(commands.Single(c => !c.Argv.Contains("--size")).Argv.Skip(3).ToArray())
             .IsEquivalentTo(new[] { "/h3", "/s2", "/s1" }, TUnit.Assertions.Enums.CollectionOrdering.Matching);

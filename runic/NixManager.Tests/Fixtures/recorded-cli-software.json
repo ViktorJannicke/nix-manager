@@ -20,7 +20,7 @@
       "json"
     ],
     "exitCode": 0,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"62f798860aad43d18fb6bdc4c0b7ea64\",\"command\":\"software search\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-search/1\",\"payload\":{\"query\":\"git\",\"packages\":[{\"a\":\"git\",\"n\":\"git\",\"v\":\"2.51.0\",\"d\":\"Distributed version control system\",\"h\":null,\"p\":\"git\",\"l\":[\"GPL-2.0-only\"],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"gitFull\",\"n\":\"git\",\"v\":\"2.51.0\",\"d\":\"Distributed version control system (full)\",\"h\":null,\"p\":\"git\",\"l\":[],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"gitui\",\"n\":\"gitui\",\"v\":\"0.27.0\",\"d\":\"Blazing fast terminal-ui for git written in Rust\",\"h\":null,\"p\":\"gitui\",\"l\":[],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"python313Packages.gitpython\",\"n\":\"gitpython\",\"v\":\"3.1.45\",\"d\":\"Python Git Library\",\"h\":null,\"p\":null,\"l\":[],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"lazygit\",\"n\":\"lazygit\",\"v\":\"0.55.1\",\"d\":\"Simple terminal UI for git commands\",\"h\":null,\"p\":\"lazygit\",\"l\":[],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"brokenthing\",\"n\":\"brokenthing\",\"v\":\"1.0\",\"d\":\"A git helper that does not build\",\"h\":null,\"p\":null,\"l\":[],\"f\":true,\"b\":true,\"g\":false}]},\"fault\":null,\"diagnostics\":[]}\n",
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"397d33d5cc77471fa4cb1e3a01a286ed\",\"command\":\"software search\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-search/1\",\"payload\":{\"query\":\"git\",\"packages\":[{\"a\":\"git\",\"n\":\"git\",\"v\":\"2.51.0\",\"d\":\"Distributed version control system\",\"h\":null,\"p\":\"git\",\"l\":[\"GPL-2.0-only\"],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"gitFull\",\"n\":\"git\",\"v\":\"2.51.0\",\"d\":\"Distributed version control system (full)\",\"h\":null,\"p\":\"git\",\"l\":[],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"gitui\",\"n\":\"gitui\",\"v\":\"0.27.0\",\"d\":\"Blazing fast terminal-ui for git written in Rust\",\"h\":null,\"p\":\"gitui\",\"l\":[],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"python313Packages.gitpython\",\"n\":\"gitpython\",\"v\":\"3.1.45\",\"d\":\"Python Git Library\",\"h\":null,\"p\":null,\"l\":[],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"lazygit\",\"n\":\"lazygit\",\"v\":\"0.55.1\",\"d\":\"Simple terminal UI for git commands\",\"h\":null,\"p\":\"lazygit\",\"l\":[],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"brokenthing\",\"n\":\"brokenthing\",\"v\":\"1.0\",\"d\":\"A git helper that does not build\",\"h\":null,\"p\":null,\"l\":[],\"f\":true,\"b\":true,\"g\":false}]},\"fault\":null,\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -150,7 +150,7 @@
       "json"
     ],
     "exitCode": 0,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"553e7a45f540410b9937661ae5dc44e5\",\"command\":\"software pending\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[],\"files\":[],\"problems\":[],\"hash\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\"},\"added\":[],\"dropped\":[]},\"fault\":null,\"diagnostics\":[]}\n",
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"ed42e43016c6477088a1acaf8d088d05\",\"command\":\"software pending\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[],\"files\":[],\"problems\":[],\"hash\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\"},\"added\":[],\"dropped\":[]},\"fault\":null,\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -183,7 +183,7 @@
       "json"
     ],
     "exitCode": 0,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"2f27ed0525f940fbacbc3d77ff36c81b\",\"command\":\"software pending\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"},{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true}],\"files\":[{\"path\":\"home.nix\",\"baseHash\":\"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\"hunks\":[{\"line\":4,\"lines\":[{\"kind\":\" \",\"text\":\"    git\"},{\"kind\":\" \",\"text\":\"    ripgrep\"},{\"kind\":\"\\u002B\",\"text\":\"    fzf\"},{\"kind\":\" \",\"text\":\"  ];\"},{\"kind\":\"\\u002B\",\"text\":\"  programs.git.enable = true;\"},{\"kind\":\" \",\"text\":\"}\"},{\"kind\":\" \",\"text\":\"\"}]}]}],\"problems\":[],\"hash\":\"a36b7b2fda68e863f275f5694466cb077f0ccc0f6bd7679237b932adc0016d9d\"},\"added\":[],\"dropped\":[]},\"fault\":null,\"diagnostics\":[]}\n",
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"1a785d97f4714f1895a3dea4b812ed9a\",\"command\":\"software pending\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"},{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true}],\"files\":[{\"path\":\"home.nix\",\"baseHash\":\"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\"hunks\":[{\"line\":4,\"lines\":[{\"kind\":\" \",\"text\":\"    git\"},{\"kind\":\" \",\"text\":\"    ripgrep\"},{\"kind\":\"\\u002B\",\"text\":\"    fzf\"},{\"kind\":\" \",\"text\":\"  ];\"},{\"kind\":\"\\u002B\",\"text\":\"  programs.git.enable = true;\"},{\"kind\":\" \",\"text\":\"}\"},{\"kind\":\" \",\"text\":\"\"}]}]}],\"problems\":[],\"hash\":\"a36b7b2fda68e863f275f5694466cb077f0ccc0f6bd7679237b932adc0016d9d\"},\"added\":[],\"dropped\":[]},\"fault\":null,\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -206,7 +206,7 @@
       "json"
     ],
     "exitCode": 0,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"08f3c9ba6cff4a608bafa7143c5c7577\",\"command\":\"software pending\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"},{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true},{\"kind\":\"remove-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.htop\"}],\"files\":[{\"path\":\"home.nix\",\"baseHash\":\"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\"hunks\":[{\"line\":4,\"lines\":[{\"kind\":\" \",\"text\":\"    git\"},{\"kind\":\" \",\"text\":\"    ripgrep\"},{\"kind\":\"\\u002B\",\"text\":\"    fzf\"},{\"kind\":\" \",\"text\":\"  ];\"},{\"kind\":\"\\u002B\",\"text\":\"  programs.git.enable = true;\"},{\"kind\":\" \",\"text\":\"}\"},{\"kind\":\" \",\"text\":\"\"}]}]}],\"problems\":[{\"index\":2,\"message\":\"pkgs.htop is not listed in this file.\"}],\"hash\":\"91c6743d3de4527696e13591435d4bee71b358eab27fd0d02eb9828562709daa\"},\"added\":[],\"dropped\":[]},\"fault\":null,\"diagnostics\":[]}\n",
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"4860da2479b34504922c5cbee6bc6838\",\"command\":\"software pending\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"},{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true},{\"kind\":\"remove-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.htop\"}],\"files\":[{\"path\":\"home.nix\",\"baseHash\":\"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\"hunks\":[{\"line\":4,\"lines\":[{\"kind\":\" \",\"text\":\"    git\"},{\"kind\":\" \",\"text\":\"    ripgrep\"},{\"kind\":\"\\u002B\",\"text\":\"    fzf\"},{\"kind\":\" \",\"text\":\"  ];\"},{\"kind\":\"\\u002B\",\"text\":\"  programs.git.enable = true;\"},{\"kind\":\" \",\"text\":\"}\"},{\"kind\":\" \",\"text\":\"\"}]}]}],\"problems\":[{\"index\":2,\"message\":{\"version\":2,\"catalog\":\"dashboard\",\"contractFingerprint\":\"sha256:5291da39f541b1ecd530c88124fb1ee83364e4132861e5a488b6f02ac2c1f135\",\"key\":\"stored_is_not_listed_in_this_file\",\"arguments\":{\"attr\":{\"type\":\"string\",\"value\":\"pkgs.htop\"}},\"fallbackText\":\"pkgs.htop is not listed in this file.\"}}],\"hash\":\"91c6743d3de4527696e13591435d4bee71b358eab27fd0d02eb9828562709daa\"},\"added\":[],\"dropped\":[]},\"fault\":null,\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -228,7 +228,7 @@
       "pending"
     ],
     "exitCode": 0,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"262f7dee9fc844beaae39f18039bc87e\",\"command\":\"software pending\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"},{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true}],\"files\":[{\"path\":\"home.nix\",\"baseHash\":\"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\"hunks\":[{\"line\":4,\"lines\":[{\"kind\":\" \",\"text\":\"    git\"},{\"kind\":\" \",\"text\":\"    ripgrep\"},{\"kind\":\"\\u002B\",\"text\":\"    fzf\"},{\"kind\":\" \",\"text\":\"  ];\"},{\"kind\":\"\\u002B\",\"text\":\"  programs.git.enable = true;\"},{\"kind\":\" \",\"text\":\"}\"},{\"kind\":\" \",\"text\":\"\"}]}]}],\"problems\":[],\"hash\":\"a36b7b2fda68e863f275f5694466cb077f0ccc0f6bd7679237b932adc0016d9d\"},\"added\":[],\"dropped\":[]},\"fault\":null,\"diagnostics\":[]}\n",
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"95b8de8a45bb427da9c7e355a9d9bf30\",\"command\":\"software pending\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"},{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true}],\"files\":[{\"path\":\"home.nix\",\"baseHash\":\"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\"hunks\":[{\"line\":4,\"lines\":[{\"kind\":\" \",\"text\":\"    git\"},{\"kind\":\" \",\"text\":\"    ripgrep\"},{\"kind\":\"\\u002B\",\"text\":\"    fzf\"},{\"kind\":\" \",\"text\":\"  ];\"},{\"kind\":\"\\u002B\",\"text\":\"  programs.git.enable = true;\"},{\"kind\":\" \",\"text\":\"}\"},{\"kind\":\" \",\"text\":\"\"}]}]}],\"problems\":[],\"hash\":\"a36b7b2fda68e863f275f5694466cb077f0ccc0f6bd7679237b932adc0016d9d\"},\"added\":[],\"dropped\":[]},\"fault\":null,\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -277,7 +277,7 @@
       "json"
     ],
     "exitCode": 0,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"247a8d47e12d4f56941cb6278e2b994b\",\"command\":\"software drop\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"}],\"files\":[{\"path\":\"home.nix\",\"baseHash\":\"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\"hunks\":[{\"line\":4,\"lines\":[{\"kind\":\" \",\"text\":\"    git\"},{\"kind\":\" \",\"text\":\"    ripgrep\"},{\"kind\":\"\\u002B\",\"text\":\"    fzf\"},{\"kind\":\" \",\"text\":\"  ];\"},{\"kind\":\" \",\"text\":\"}\"}]}]}],\"problems\":[],\"hash\":\"6e461506bea69338cd06fd4e543c375add614241a9717c7b7d5d8eef7be35f25\"},\"added\":[],\"dropped\":[{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true}]},\"fault\":null,\"diagnostics\":[]}\n",
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"84ca45dfe10644b8a919f81cac61b4c0\",\"command\":\"software drop\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"}],\"files\":[{\"path\":\"home.nix\",\"baseHash\":\"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\"hunks\":[{\"line\":4,\"lines\":[{\"kind\":\" \",\"text\":\"    git\"},{\"kind\":\" \",\"text\":\"    ripgrep\"},{\"kind\":\"\\u002B\",\"text\":\"    fzf\"},{\"kind\":\" \",\"text\":\"  ];\"},{\"kind\":\" \",\"text\":\"}\"}]}]}],\"problems\":[],\"hash\":\"6e461506bea69338cd06fd4e543c375add614241a9717c7b7d5d8eef7be35f25\"},\"added\":[],\"dropped\":[{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true}]},\"fault\":null,\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -373,7 +373,7 @@
       "json"
     ],
     "exitCode": 0,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"cc40f8dac33c4bae89c51bc7ad82d2fb\",\"command\":\"software clear\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[],\"files\":[],\"problems\":[],\"hash\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\"},\"added\":[],\"dropped\":[{\"kind\":\"add-package\",\"attr\":\"pkgs.fzf\",\"scope\":\"home\",\"file\":\"home.nix\"},{\"kind\":\"set-option\",\"option\":\"programs.git.enable\",\"value\":true,\"scope\":\"home\",\"file\":\"home.nix\"}]},\"fault\":null,\"diagnostics\":[]}\n",
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"8363e4c749bf4bfd8244c20025002f81\",\"command\":\"software clear\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[],\"files\":[],\"problems\":[],\"hash\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\"},\"added\":[],\"dropped\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"},{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true}]},\"fault\":null,\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -395,7 +395,7 @@
       "json"
     ],
     "exitCode": 10,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"11e0a34ba6c5491797abc78edba88a15\",\"command\":\"software prepare\",\"success\":false,\"exitCode\":10,\"payloadType\":null,\"payload\":null,\"fault\":{\"code\":\"NM0010\",\"message\":\"The operation could not run.\",\"details\":{},\"retryable\":false,\"data\":{\"type\":\"nix-manager.error/1\",\"payload\":{\"message\":\"There are no pending edits.\"}}},\"diagnostics\":[]}\n",
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"8399b6102cdb4c45bfe916c725997323\",\"command\":\"software prepare\",\"success\":false,\"exitCode\":10,\"payloadType\":null,\"payload\":null,\"fault\":{\"code\":\"NM0010\",\"message\":\"The operation could not run.\",\"details\":{},\"retryable\":false,\"data\":{\"type\":\"nix-manager.error/1\",\"payload\":{\"message\":\"There are no pending edits.\"}}},\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -440,7 +440,7 @@
       "json"
     ],
     "exitCode": 10,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"372421ad53554d3f8508c1c64caa3397\",\"command\":\"software apply\",\"success\":false,\"exitCode\":10,\"payloadType\":null,\"payload\":null,\"fault\":{\"code\":\"NM0010\",\"message\":\"The operation could not run.\",\"details\":{},\"retryable\":false,\"data\":{\"type\":\"nix-manager.error/1\",\"payload\":{\"message\":\"No prepared review matches the pending edits. Run nix-manager software prepare first.\"}}},\"diagnostics\":[]}\n",
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"07d2423983d542e6ab284da3fc26029b\",\"command\":\"software apply\",\"success\":false,\"exitCode\":10,\"payloadType\":null,\"payload\":null,\"fault\":{\"code\":\"NM0010\",\"message\":\"The operation could not run.\",\"details\":{},\"retryable\":false,\"data\":{\"type\":\"nix-manager.error/1\",\"payload\":{\"message\":\"No prepared review matches the pending edits. Run nix-manager software prepare first.\"}}},\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -454,7 +454,7 @@
       "json"
     ],
     "exitCode": 10,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"7050ff9c60024e4aa54df454a00ced62\",\"command\":\"software apply\",\"success\":false,\"exitCode\":10,\"payloadType\":null,\"payload\":null,\"fault\":{\"code\":\"NM0010\",\"message\":\"The operation could not run.\",\"details\":{},\"retryable\":false,\"data\":{\"type\":\"nix-manager.error/1\",\"payload\":{\"message\":\"No prepared review matches the pending edits. Run nix-manager software prepare first.\"}}},\"diagnostics\":[]}\n",
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"2c94aa700d7c4e6cb037c6082937df84\",\"command\":\"software apply\",\"success\":false,\"exitCode\":10,\"payloadType\":null,\"payload\":null,\"fault\":{\"code\":\"NM0010\",\"message\":\"The operation could not run.\",\"details\":{},\"retryable\":false,\"data\":{\"type\":\"nix-manager.error/1\",\"payload\":{\"message\":\"No prepared review matches the pending edits. Run nix-manager software prepare first.\"}}},\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {

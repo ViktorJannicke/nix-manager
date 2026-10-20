@@ -44,7 +44,7 @@ public static class TrayPresentation
         var m = text.Messages;
         var count = report?.Items.Count ?? 0;
         var busy = active is not null;
-        var tooltip = active is not null ? text.Stored(active.Step)
+        var tooltip = active is not null ? text.Show(active.Step)
             : report?.Errors.Count > 0 ? m.tray_checks_failed
             : count > 0 ? m.tray_updates_available(count)
             : m.tray_no_updates;
@@ -105,7 +105,7 @@ public static class TrayPresentation
         var action = operation.Request.Action;
         if (operation.Status == OperationStatuses.Failed)
         {
-            var error = operation.Error is { Length: > 0 } stored ? text.Stored(stored) : m.tray_operation_failed;
+            var error = operation.Error is { English.Length: > 0 } failure ? text.Show(failure) : m.tray_operation_failed;
             error = error[..Math.Min(error.Length, 300)];
             return new TrayNotice(Notice(m.tray_needs_attention, error));
         }
@@ -129,6 +129,6 @@ public static class TrayPresentation
             return new TrayNotice(Notice(m.tray_ready_to_review, m.tray_build_finished));
         if (action == Actions.Check) return null;
         var host = operation.Request.Host is { Length: > 0 } named ? named : config.HostKey;
-        return new TrayNotice(Notice(m.tray_finished, m.tray_completed_for(text.Stored(Actions.Label(action)), host)));
+        return new TrayNotice(Notice(m.tray_finished, m.tray_completed_for(text.Show(Actions.Label(action)), host)));
     }
 }

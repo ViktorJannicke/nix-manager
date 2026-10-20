@@ -3,7 +3,7 @@
 <!--
   The setup assistant in its own Window, before there is a checkout:
   what is on this computer, the folder to create and each step, or only why Nix Manager could not start. The
-  backend's SetupViewModel holds the state; text the backend stores in English goes through `stored`.
+  backend's SetupViewModel holds the state; its text for people is shown with `text`.
 -->
 <script lang="ts">
   import { useView } from "@runic-artifex/svelte/views";
@@ -18,7 +18,7 @@
   import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
   import { connectSetup } from "./generated/setup.js";
   import { Button } from "$lib/components/ui/button";
-  import { inline, m, stored } from "$lib/i18n";
+  import { inline, m, message, text } from "$lib/i18n";
 
   const setup = useView(() => ({ connect: connectSetup }));
 
@@ -80,7 +80,7 @@
       failure = "";
     } catch (error) {
       moveFocus = false;
-      failure = error instanceof Error ? error.message : String(error);
+      failure = message(error);
     } finally {
       sending = false;
     }
@@ -96,7 +96,7 @@
         <p class="flex items-center gap-2 font-bold tracking-tight"><SnowflakeIcon class="size-5 text-primary" aria-hidden="true" /> Nix Manager</p>
         <h1 class="title">{m.setup_could_not_start()}</h1>
       </header>
-      <p class="rounded-lg bg-destructive/10 px-4 py-3" role="alert">{stored(current.problem.message)}</p>
+      <p class="rounded-lg bg-destructive/10 px-4 py-3" role="alert">{text(current.problem.message)}</p>
       <p class="text-muted-foreground">
         <LocalizedInline nodes={inline.render(m.setup_problem_hint({ flake: current.problem.flake, command: "nix-manager ui --flake <folder>" }), { slots: {} })} />
       </p>
@@ -109,7 +109,7 @@
 
       {#if !info}
         <p class="flex items-center gap-2 text-muted-foreground" role="status">
-          {#if current?.error}{stored(current.error)}{:else if setup.error && !setup.state}{m.setup_not_connected()}{:else}<LoaderIcon class="size-4 animate-spin" aria-hidden="true" /> {m.setup_looking()}{/if}
+          {#if current?.error}{text(current.error)}{:else if setup.error && !setup.state}{m.setup_not_connected()}{:else}<LoaderIcon class="size-4 animate-spin" aria-hidden="true" /> {m.setup_looking()}{/if}
         </p>
       {:else}
         <section class="space-y-2" aria-labelledby="setup-found">
@@ -133,7 +133,7 @@
         </section>
 
         {#if info.blocked}
-          <p class="flex gap-2 rounded-lg bg-warning/10 px-4 py-3"><TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />{stored(info.blocked)}</p>
+          <p class="flex gap-2 rounded-lg bg-warning/10 px-4 py-3"><TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />{text(info.blocked)}</p>
         {:else}
           <form class="space-y-3" onsubmit={create} aria-labelledby="setup-folder">
             <h2 id="setup-folder" class="heading">{m.setup_where()}</h2>
@@ -144,7 +144,7 @@
               </label>
               <span id="setup-folder-help" class="block text-[0.85rem] text-muted-foreground">{m.setup_folder_help()}</span>
             </div>
-            {#if setup.state?.requestError}<p class="text-destructive" role="alert">{stored(setup.state.requestError)}</p>{/if}
+            {#if setup.state?.requestError}<p class="text-destructive" role="alert">{text(setup.state.requestError)}</p>{/if}
             {#if !started || current?.error}
               <Button type="submit" disabled={sending || !target.trim() || current?.running}>{current?.error ? m.setup_try_again() : m.setup_create()}</Button>
             {/if}
@@ -161,12 +161,12 @@
                   {:else if step.status === "done"}<CheckIcon class="size-4 shrink-0 text-success" aria-hidden="true" />
                   {:else if step.status === "failed"}<XIcon class="size-4 shrink-0 text-destructive" aria-hidden="true" />
                   {:else}<CircleIcon class="size-4 shrink-0 opacity-40" aria-hidden="true" />{/if}
-                  <span>{stored(step.label)}<span class="sr-only">: {stepState(step.status)}</span></span>
+                  <span>{text(step.label)}<span class="sr-only">: {stepState(step.status)}</span></span>
                 </li>
               {/each}
             </ol>
             {#if current?.error}
-              <p class="rounded-lg bg-destructive/10 px-4 py-3 text-[0.9rem]" role="alert">{stored(current.error)} {m.setup_removed()}</p>
+              <p class="rounded-lg bg-destructive/10 px-4 py-3 text-[0.9rem]" role="alert">{text(current.error)} {m.setup_removed()}</p>
             {/if}
             <p class="flex items-center gap-2" role="status">
               {#if !current?.error && (current?.next || !current?.running)}<LoaderIcon class="size-4 animate-spin" aria-hidden="true" /> {m.setup_opening()}{/if}
@@ -181,6 +181,6 @@
       {/if}
     {/if}
 
-    {#if failure}<p class="text-destructive" role="alert">{stored(failure)}</p>{/if}
+    {#if failure}<p class="text-destructive" role="alert">{failure}</p>{/if}
   </div>
 </main>
