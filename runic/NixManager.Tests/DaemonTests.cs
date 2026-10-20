@@ -137,7 +137,7 @@ public sealed class DaemonTests : IDisposable
         var runner = new FakeRunner(async (command, output, token) =>
         {
             output(new TextOutput("stdout", $"{command.Label}\n"));
-            if (command.Label.StartsWith("Build", StringComparison.Ordinal)) await _gate.Task.WaitAsync(token);
+            if (command.Label.English.StartsWith("Build", StringComparison.Ordinal)) await _gate.Task.WaitAsync(token);
             return new CommandResult(0, "", "");
         });
         _service = new OperationService(Config, runner, new FakeUpdates(new UpdateReport { CheckedAt = "2026-10-15T00:00:00.000Z" }));
@@ -346,10 +346,10 @@ public sealed class DaemonTests : IDisposable
         await Assert.That(idle.Status).IsEqualTo(DesktopStatusIconStatus.NeedsAttention);
         await Assert.That(idle.Menu.OfType<DesktopMenuCommand>().All(item => item.Enabled)).IsTrue();
 
-        var busy = TrayPresentation.Icon(new Operation { Id = "1", Flake = "", Request = Build, Status = "running", StartedAt = "", Step = "Build home configuration" }, null);
+        var busy = TrayPresentation.Icon(new Operation { Id = "1", Flake = "", Request = Build, Status = "running", StartedAt = "", Step = DisplayText.Of("stored_build_home_configuration") }, null);
         await Assert.That(busy.Tooltip).IsEqualTo("Build home configuration");
         await Assert.That(busy.Menu.OfType<DesktopMenuCommand>().Where(item => !item.Enabled).Select(item => item.Id)).IsEquivalentTo([TrayCommands.Check, TrayCommands.Prepare]);
-        await Assert.That(TrayPresentation.Icon(null, new UpdateReport { CheckedAt = "", Errors = ["x"] }).Tooltip).IsEqualTo("Some update checks failed");
+        await Assert.That(TrayPresentation.Icon(null, new UpdateReport { CheckedAt = "", Errors = [DisplayText.Plain("x")] }).Tooltip).IsEqualTo("Some update checks failed");
 
         var announced = "";
         await Assert.That(TrayPresentation.Updates(report, ref announced)?.Body).IsEqualTo("nixpkgs and home-manager");
@@ -361,14 +361,14 @@ public sealed class DaemonTests : IDisposable
     [Test]
     public async Task Notices_follow_the_tray()
     {
-        Operation Ended(string action, string status, string? error = null, bool dryRun = false) => new()
+        Operation Ended(string action, string status, DisplayText? error = null, bool dryRun = false) => new()
         {
             Id = "1", Flake = _flake, Status = status, StartedAt = "", Error = error,
             Request = Request.Create() with { Action = action, Host = "test", DryRun = dryRun, Scope = Scopes.Home },
         };
         TrayNotice? Notice(Operation operation) => TrayPresentation.Finished(operation, Config, _ => null, () => null);
 
-        await Assert.That(Notice(Ended(Actions.Switch, OperationStatuses.Failed, "Build failed"))!.Notification.Body).IsEqualTo("Build failed");
+        await Assert.That(Notice(Ended(Actions.Switch, OperationStatuses.Failed, DisplayText.Plain("Build failed")))!.Notification.Body).IsEqualTo("Build failed");
         await Assert.That(Notice(Ended(Actions.Switch, OperationStatuses.Failed))!.Notification.Body).IsEqualTo("An operation failed. Open the dashboard for its log.");
         await Assert.That(Notice(Ended(Actions.ReviewBuild, OperationStatuses.Succeeded))!.Notification.Title).IsEqualTo("Changes are ready to review");
         await Assert.That(Notice(Ended(Actions.Switch, OperationStatuses.Succeeded))!.Notification.Body).IsEqualTo("Build and switch completed for test.");
@@ -410,24 +410,27 @@ public sealed class DaemonTests : IDisposable
         await Assert.That(idle.Menu.OfType<DesktopMenuCommand>().Select(item => item.Label))
             .IsEquivalentTo(["Nix Manager öffnen", "Nach Aktualisierungen suchen", "Alle Aktualisierungen zur Prüfung vorbereiten…", "Nix Manager beenden"]);
         await Assert.That(TrayPresentation.Key(idle)).IsNotEqualTo(TrayPresentation.Key(TrayPresentation.Icon(null, report)));
-        // Step labels and errors are stored in English and translated where they are shown, values included.
-        var busy = TrayPresentation.Icon(new Operation { Id = "1", Flake = "", Request = Build, Status = "running", StartedAt = "", Step = "Build home configuration" }, null, german);
+        // Step labels and errors are text references, shown in the dashboard's language with their values; a message
+        // inside, such as the step that failed, is translated too.
+        var building = DisplayText.Of("stored_building_failed", ("name", "firefox"));
+        var busy = TrayPresentation.Icon(new Operation { Id = "1", Flake = "", Request = Build, Status = "running", StartedAt = "", Step = DisplayText.Of("stored_build_home_configuration") }, null, german);
         await Assert.That(busy.Tooltip).IsEqualTo("Benutzerkonfiguration bauen");
-        await Assert.That(german.Stored("Building firefox failed")).IsEqualTo("firefox konnte nicht gebaut werden");
-        await Assert.That(german.Stored("Build home configuration failed")).IsEqualTo("Fehlgeschlagen: Benutzerkonfiguration bauen");
-        await Assert.That(german.Stored("Text nobody translated")).IsEqualTo("Text nobody translated");
-        await Assert.That(TrayText.English.Stored("Building firefox failed")).IsEqualTo("Building firefox failed");
+        await Assert.That(german.Show(building)).IsEqualTo("firefox konnte nicht gebaut werden");
+        await Assert.That(german.Show(DisplayText.Of("stored_failed", ("label", DisplayText.Of("stored_build_home_configuration")))))
+            .IsEqualTo("Fehlgeschlagen: Benutzerkonfiguration bauen");
+        await Assert.That(german.Show(DisplayText.Plain("Text nobody translated"))).IsEqualTo("Text nobody translated");
+        await Assert.That(TrayText.English.Show(building)).IsEqualTo("Building firefox failed");
         var announced = "";
         await Assert.That(TrayPresentation.Updates(report, ref announced, german)?.Body).IsEqualTo("nixpkgs und home-manager");
 
-        Operation Ended(string action, string status, string? error = null) => new()
+        Operation Ended(string action, string status, DisplayText? error = null) => new()
         {
             Id = "1", Flake = _flake, Status = status, StartedAt = "", Error = error,
             Request = Request.Create() with { Action = action, Host = "test", Scope = Scopes.Home },
         };
         TrayNotice? Notice(Operation operation) => TrayPresentation.Finished(operation, Config, _ => null, () => null, german);
         await Assert.That(Notice(Ended(Actions.Switch, OperationStatuses.Succeeded))!.Notification.Body).IsEqualTo("Bauen und anwenden für test abgeschlossen.");
-        await Assert.That(Notice(Ended(Actions.Switch, OperationStatuses.Failed, "Building firefox failed"))!.Notification)
+        await Assert.That(Notice(Ended(Actions.Switch, OperationStatuses.Failed, building))!.Notification)
             .Satisfies(notification => notification.Title == "Nix Manager braucht Ihre Aufmerksamkeit" && notification.Body == "firefox konnte nicht gebaut werden", "German failure");
         await Assert.That(Notice(Ended(Actions.ReviewBuild, OperationStatuses.Succeeded))!.Notification.Title).IsEqualTo("Änderungen sind bereit zur Prüfung");
 
@@ -443,17 +446,27 @@ public sealed class DaemonTests : IDisposable
     }
 
     [Test]
-    [Arguments("en")]
-    [Arguments("de")]
-    public async Task The_daemon_finds_every_stored_text_in_the_generated_catalogue(string locale)
+    public async Task The_tray_shows_a_record_from_before_text_references_in_its_English()
     {
-        // The importer's base-text index names a message of the catalogue for each English text it stored.
-        var index = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(
-            File.ReadAllText(Path.Combine(TranslationCoverageTests.Root, "Frontend", "translations", "stored", "base-text.json")))!;
-        var snapshot = NixManager.Dashboard.DashboardTextCatalog.CreateManager(locale).Current;
-        await Assert.That(index).IsNotEmpty();
-        foreach (var (text, key) in index) await Assert.That(snapshot.TryGetKey(key, out _)).IsTrue().Because($"{key} ({text})");
-        await Assert.That(TrayText.English.Stored("Remove user {name}".Replace("{name}", "ada"))).IsEqualTo("Remove user ada");
+        // A failed apply recorded with English step labels, error and explanation, as the Bun version wrote them.
+        var record = File.ReadAllText(Path.Combine(RecordedFixtures.Directory, "recorded-state", "operations",
+            "1791817200000-3a9e5c71-2b84-4d6f-a0c3-9e8d7f6b5a41.json"));
+        var operation = ManagerJson.Deserialize<Operation>(record)!;
+        await Assert.That(operation.Step).IsEqualTo(DisplayText.Plain("Activate system"));
+        await Assert.That(operation.Explanation!.Title.Reference).IsNull();
+        var german = TrayText.For("de");
+        await Assert.That(german.Show(operation.Step)).IsEqualTo("Activate system");
+        var running = TrayPresentation.Icon(new Operation
+        {
+            Id = operation.Id, Flake = operation.Flake, Request = operation.Request, Status = OperationStatuses.Running,
+            StartedAt = operation.StartedAt, Step = operation.Step,
+        }, null, german);
+        await Assert.That(running.Tooltip).IsEqualTo("Activate system");
+        var notice = TrayPresentation.Finished(operation, Config, _ => null, () => null, german);
+        await Assert.That(notice!.Notification.Body)
+            .IsEqualTo("Activate system failed (exit 4). warning: the following units failed: home-manager-user.service");
+        // Written again, the English stays as it was read.
+        await Assert.That(ManagerJson.Serialize(operation.Step)).IsEqualTo("\"Activate system\"");
     }
 
     [Test]

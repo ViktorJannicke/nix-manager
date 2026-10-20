@@ -9,8 +9,8 @@ using Runic.Navigation;
 
 namespace NixManager.ViewModels;
 
-/// <summary>Why a Software page command could not do what it was asked, in English as the backend stores it.</summary>
-public sealed record SoftwareFailure(string Message);
+/// <summary>Why a Software page command could not do what it was asked.</summary>
+public sealed record SoftwareFailure(DisplayText Message);
 
 /// <summary>Options of one configuration: those to describe or read the values of.</summary>
 /// <param name="Scope"><c>home</c> or <c>system</c>; anything else is <c>home</c>.</param>
@@ -119,7 +119,7 @@ public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
 
     /// <summary>Why the last read of the draft or the inventory failed.</summary>
     [ObservableProperty]
-    public partial string? Error { get; private set; }
+    public partial DisplayText? Error { get; private set; }
 
     partial void OnQueryChanged(string value) => Search();
 
@@ -138,7 +138,7 @@ public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
 
     private static string ScopeOf(string scope) => scope == Targets.System ? Targets.System : Targets.Home;
 
-    private static RunicFailureException Failure(Exception error) => new(new SoftwareFailure(error.Message));
+    private static RunicFailureException Failure(Exception error) => new(new SoftwareFailure(DisplayText.From(error)));
 
     /// <summary>Reads the draft, the catalog and app status and the host's inventory for the current checkout state.</summary>
     [RelayCommand]
@@ -154,7 +154,7 @@ public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
         }
         catch (ManagerException error)
         {
-            Error = error.Message;
+            Error = error.Text;
         }
         finally
         {
@@ -166,7 +166,7 @@ public sealed partial class SoftwareViewModel : ObservableObject, IDisposable
     [RelayCommand, RunicFailure(typeof(SoftwareFailure))]
     private void BuildCatalog(bool rebuild)
     {
-        if (LockHash is not { Length: > 0 } hash) throw new RunicFailureException(new SoftwareFailure("The checkout has not been read yet."));
+        if (LockHash is not { Length: > 0 } hash) throw new RunicFailureException(new SoftwareFailure(DisplayText.Of("stored_the_checkout_has_not_been_read_yet")));
         _service.BuildCatalog(hash, rebuild);
         Catalog = _service.CatalogStatus(hash);
     }

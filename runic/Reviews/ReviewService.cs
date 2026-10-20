@@ -34,7 +34,7 @@ public sealed class ReviewService(IOperationService operations) : IReviewService
 
     public void Remove(string id)
     {
-        if (operations.Active?.Request.ReviewId == id) throw new ManagerException("This review is in use by the running operation.");
+        if (operations.Active?.Request.ReviewId == id) throw new ManagerException(DisplayText.Of("stored_this_review_is_in_use_by_the"));
         ReviewStore.Remove(Config, id);
     }
 

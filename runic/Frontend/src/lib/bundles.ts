@@ -1,10 +1,12 @@
 // Starting points: curated features and apps that are staged together, so a new computer is set up for one kind
-// of use with a single pending edit. Titles and summaries are English; `stored` translates them.
+// of use with a single pending edit. Titles and summaries are messages, named by key (`say`).
+
+import type { Phrase } from "./i18n";
 
 export interface Bundle {
   id: string;
-  title: string;
-  summary: string;
+  title: Phrase;
+  summary: Phrase;
   /** An ExperienceIcon name. */
   icon: string;
   /** Curated experience ids. */
@@ -16,32 +18,32 @@ export interface Bundle {
 export const bundles: Bundle[] = [
   {
     id: "gaming",
-    title: "Gaming",
-    summary: "Steam with Proton, a frame rate overlay, and launchers for other stores and Minecraft.",
+    title: "stored_gaming",
+    summary: "stored_steam_with_proton_a_frame_rate_overlay",
     icon: "gamepad-2",
     features: ["steam", "gamescope", "mangohud"],
     apps: ["heroic", "prismlauncher", "discord"],
   },
   {
     id: "office",
-    title: "Office and school",
-    summary: "Documents and spreadsheets, mail, handwritten notes, sources and printing.",
+    title: "stored_office_and_school",
+    summary: "stored_documents_and_spreadsheets_mail_handwritten_notes_sources",
     icon: "file-text",
     features: ["printing"],
     apps: ["libreoffice", "thunderbird", "xournalpp", "zotero", "keepassxc"],
   },
   {
     id: "creative",
-    title: "Photo and video",
-    summary: "Edit photos, draw, cut videos, record the screen and play anything.",
+    title: "stored_photo_and_video",
+    summary: "stored_edit_photos_draw_cut_videos_record_the",
     icon: "clapperboard",
     features: ["obs-studio", "mpv"],
     apps: ["gimp", "darktable", "krita", "inkscape", "kdePackages.kdenlive", "audacity"],
   },
   {
     id: "programming",
-    title: "Programming",
-    summary: "An editor, Git with GitHub, containers and per-project environments.",
+    title: "stored_programming",
+    summary: "stored_an_editor_git_with_github_containers_and",
     icon: "code",
     features: ["git", "github-cli", "direnv", "podman"],
     apps: ["vscode"],

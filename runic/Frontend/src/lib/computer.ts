@@ -1,5 +1,5 @@
 // Settings of the computer itself, shown on the Computer page as forms (Software/CuratedOptions.cs reads the same
-// options). Labels, help, reasons and problems are English; `stored` translates them.
+// options). Labels, help and reasons are messages, named by key (`say`).
 //
 // Like the curated experiences, every option is checked against the evaluated
 // option tree: a setting the configuration does not have is hidden. All of them
@@ -7,6 +7,7 @@
 
 import type { HardwareFeatures } from "../generated/types.js";
 import type { CuratedSetting } from "./curated";
+import { m, type Phrase } from "./i18n";
 
 /** Form controls the option type alone would not give. */
 export type ComputerInput = "timezone" | "locale" | "formats" | "keyboard" | "ports" | "user";
@@ -19,8 +20,8 @@ export interface ComputerSetting extends CuratedSetting {
 
 export interface ComputerSection {
   id: string;
-  title: string;
-  summary: string;
+  title: Phrase;
+  summary: Phrase;
   icon: string;
   settings: ComputerSetting[];
 }
@@ -28,102 +29,102 @@ export interface ComputerSection {
 export const computerSections: ComputerSection[] = [
   {
     id: "name",
-    title: "Name",
-    summary: "How this computer appears to other devices on your network.",
+    title: "stored_name",
+    summary: "stored_how_this_computer_appears_to_other_devices",
     icon: "monitor",
-    settings: [{ option: "networking.hostName", label: "Computer name", help: "Letters, digits and dashes." }],
+    settings: [{ option: "networking.hostName", label: "stored_computer_name", help: "stored_letters_digits_and_dashes" }],
   },
   {
     id: "time",
-    title: "Date and time",
-    summary: "The clock follows the time zone you pick.",
+    title: "stored_date_and_time",
+    summary: "stored_the_clock_follows_the_time_zone_you",
     icon: "clock",
     settings: [
-      { option: "time.timeZone", label: "Time zone", input: "timezone" },
+      { option: "time.timeZone", label: "stored_time_zone", input: "timezone" },
       {
         option: "services.automatic-timezoned.enable",
-        label: "Set the time zone automatically",
-        help: "Follows your location when you travel.",
+        label: "stored_set_the_time_zone_automatically",
+        help: "stored_follows_your_location_when_you_travel",
       },
     ],
   },
   {
     id: "language",
-    title: "Language and formats",
-    summary: "The language of menus and messages, and how dates, numbers and money are written.",
+    title: "stored_language_and_formats",
+    summary: "stored_the_language_of_menus_and_messages_and",
     icon: "languages",
     settings: [
-      { option: "i18n.defaultLocale", label: "Language", input: "locale" },
+      { option: "i18n.defaultLocale", label: "stored_language", input: "locale" },
       {
         option: "i18n.extraLocaleSettings",
-        label: "Formats",
-        help: "Dates, numbers, money, paper size and units.",
+        label: "stored_formats",
+        help: "stored_dates_numbers_money_paper_size_and_units",
         input: "formats",
       },
     ],
   },
   {
     id: "keyboard",
-    title: "Keyboard",
-    summary: "The layout used on the login screen and in the desktop.",
+    title: "stored_keyboard",
+    summary: "stored_the_layout_used_on_the_login_screen",
     icon: "keyboard",
     settings: [
-      { option: "services.xserver.xkb.layout", label: "Layout", input: "keyboard" },
-      { option: "services.xserver.xkb.variant", label: "Variant", help: "For example nodeadkeys or dvorak. Leave empty for the usual one." },
-      { option: "console.useXkbConfig", label: "Use it on text screens too" },
+      { option: "services.xserver.xkb.layout", label: "stored_layout", input: "keyboard" },
+      { option: "services.xserver.xkb.variant", label: "stored_variant", help: "stored_for_example_nodeadkeys_or_dvorak_leave_empty" },
+      { option: "console.useXkbConfig", label: "stored_use_it_on_text_screens_too" },
     ],
   },
   {
     id: "login",
-    title: "Login",
-    summary: "Start the desktop without asking for a password.",
+    title: "stored_login",
+    summary: "stored_start_the_desktop_without_asking_for_a",
     icon: "log-in",
     settings: [
-      { option: "services.displayManager.autoLogin.enable", label: "Log in automatically" },
-      { option: "services.displayManager.autoLogin.user", label: "User", input: "user", when: "services.displayManager.autoLogin.enable" },
+      { option: "services.displayManager.autoLogin.enable", label: "stored_log_in_automatically" },
+      { option: "services.displayManager.autoLogin.user", label: "stored_user_2", input: "user", when: "services.displayManager.autoLogin.enable" },
     ],
   },
   {
     id: "sound",
-    title: "Sound",
-    summary: "Speakers, headphones and microphones through PipeWire.",
+    title: "stored_sound",
+    summary: "stored_speakers_headphones_and_microphones_through_pipewire",
     icon: "volume-2",
     settings: [
-      { option: "services.pipewire.enable", label: "Sound" },
-      { option: "services.pipewire.pulse.enable", label: "Support apps made for PulseAudio", when: "services.pipewire.enable" },
-      { option: "services.pipewire.alsa.enable", label: "Support apps made for ALSA", when: "services.pipewire.enable" },
+      { option: "services.pipewire.enable", label: "stored_sound" },
+      { option: "services.pipewire.pulse.enable", label: "stored_support_apps_made_for_pulseaudio", when: "services.pipewire.enable" },
+      { option: "services.pipewire.alsa.enable", label: "stored_support_apps_made_for_alsa", when: "services.pipewire.enable" },
     ],
   },
   {
     id: "printing",
-    title: "Printing and scanning",
-    summary: "Printers on your network are found automatically.",
+    title: "stored_printing_and_scanning",
+    summary: "stored_printers_on_your_network_are_found_automatically",
     icon: "printer",
     settings: [
-      { option: "services.printing.enable", label: "Printing" },
-      { option: "services.avahi.enable", label: "Find printers on the network", help: "Also finds scanners and other shared devices." },
-      { option: "hardware.sane.enable", label: "Scanning" },
+      { option: "services.printing.enable", label: "stored_printing" },
+      { option: "services.avahi.enable", label: "stored_find_printers_on_the_network", help: "stored_also_finds_scanners_and_other_shared_devices" },
+      { option: "hardware.sane.enable", label: "stored_scanning" },
     ],
   },
   {
     id: "bluetooth",
-    title: "Bluetooth",
-    summary: "Headphones, controllers and other wireless devices.",
+    title: "stored_bluetooth",
+    summary: "stored_headphones_controllers_and_other_wireless_devices",
     icon: "bluetooth",
     settings: [
-      { option: "hardware.bluetooth.enable", label: "Bluetooth" },
-      { option: "hardware.bluetooth.powerOnBoot", label: "Turn on at startup", when: "hardware.bluetooth.enable" },
+      { option: "hardware.bluetooth.enable", label: "stored_bluetooth" },
+      { option: "hardware.bluetooth.powerOnBoot", label: "stored_turn_on_at_startup", when: "hardware.bluetooth.enable" },
     ],
   },
   {
     id: "firewall",
-    title: "Firewall",
-    summary: "Blocks connections from other computers unless you open a port for them.",
+    title: "stored_firewall",
+    summary: "stored_blocks_connections_from_other_computers_unless_you",
     icon: "shield",
     settings: [
-      { option: "networking.firewall.enable", label: "Firewall" },
-      { option: "networking.firewall.allowedTCPPorts", label: "Open TCP ports", help: "Includes ports that features such as Steam open; those stay open while the feature is on.", input: "ports", when: "networking.firewall.enable" },
-      { option: "networking.firewall.allowedUDPPorts", label: "Open UDP ports", help: "Includes ports that features such as Steam open; those stay open while the feature is on.", input: "ports", when: "networking.firewall.enable" },
+      { option: "networking.firewall.enable", label: "stored_firewall" },
+      { option: "networking.firewall.allowedTCPPorts", label: "stored_open_tcp_ports", help: "stored_includes_ports_that_features_such_as_steam", input: "ports", when: "networking.firewall.enable" },
+      { option: "networking.firewall.allowedUDPPorts", label: "stored_open_udp_ports", help: "stored_includes_ports_that_features_such_as_steam", input: "ports", when: "networking.firewall.enable" },
     ],
   },
 ];
@@ -148,13 +149,13 @@ export const ADMIN_GROUP = "wheel";
 /** Groups a new user starts in besides the administrators' group. */
 export const NEW_USER_GROUPS = ["networkmanager"];
 
-/** Why `name` is not a user name `useradd` accepts and a Nix attribute can be without quotes, in English. */
+/** Why `name` is not a user name `useradd` accepts and a Nix attribute can be without quotes. */
 export const userNameProblem = (name: string, taken: readonly string[]) => {
-  if (!name) return "Enter a user name.";
-  if (!/^[a-z_][a-z0-9_-]*$/.test(name)) return "Use lowercase letters, digits, dashes and underscores, starting with a letter.";
-  if (name.length > 32) return "Use at most 32 characters.";
-  if (taken.includes(name)) return `${name} already exists.`;
-  if (["root", "nobody", "admin"].includes(name)) return `${name} is reserved.`;
+  if (!name) return m.stored_enter_a_user_name();
+  if (!/^[a-z_][a-z0-9_-]*$/.test(name)) return m.stored_use_lowercase_letters_digits_dashes_and_underscores();
+  if (name.length > 32) return m.stored_use_at_most_32_characters();
+  if (taken.includes(name)) return m.stored_already_exists_2({ name });
+  if (["root", "nobody", "admin"].includes(name)) return m.stored_is_reserved({ name });
   return undefined;
 };
 
@@ -196,49 +197,49 @@ export const locales = [
 ];
 
 /** Common XKB layouts with their names. */
-export const keyboardLayouts: { code: string; label: string }[] = [
-  { code: "us", label: "English (US)" },
-  { code: "gb", label: "English (UK)" },
-  { code: "de", label: "German" },
-  { code: "ch", label: "German (Switzerland)" },
-  { code: "at", label: "German (Austria)" },
-  { code: "fr", label: "French" },
-  { code: "be", label: "Belgian" },
-  { code: "ca", label: "French (Canada)" },
-  { code: "es", label: "Spanish" },
-  { code: "latam", label: "Spanish (Latin America)" },
-  { code: "it", label: "Italian" },
-  { code: "pt", label: "Portuguese" },
-  { code: "br", label: "Portuguese (Brazil)" },
-  { code: "nl", label: "Dutch" },
-  { code: "dk", label: "Danish" },
-  { code: "se", label: "Swedish" },
-  { code: "no", label: "Norwegian" },
-  { code: "fi", label: "Finnish" },
-  { code: "is", label: "Icelandic" },
-  { code: "pl", label: "Polish" },
-  { code: "cz", label: "Czech" },
-  { code: "sk", label: "Slovak" },
-  { code: "hu", label: "Hungarian" },
-  { code: "ro", label: "Romanian" },
-  { code: "bg", label: "Bulgarian" },
-  { code: "gr", label: "Greek" },
-  { code: "tr", label: "Turkish" },
-  { code: "ru", label: "Russian" },
-  { code: "ua", label: "Ukrainian" },
-  { code: "ee", label: "Estonian" },
-  { code: "lv", label: "Latvian" },
-  { code: "lt", label: "Lithuanian" },
-  { code: "hr", label: "Croatian" },
-  { code: "si", label: "Slovenian" },
-  { code: "rs", label: "Serbian" },
-  { code: "il", label: "Hebrew" },
-  { code: "ara", label: "Arabic" },
-  { code: "in", label: "Indian" },
-  { code: "th", label: "Thai" },
-  { code: "jp", label: "Japanese" },
-  { code: "kr", label: "Korean" },
-  { code: "cn", label: "Chinese" },
+export const keyboardLayouts: { code: string; label: Phrase }[] = [
+  { code: "us", label: "stored_english_us" },
+  { code: "gb", label: "stored_english_uk" },
+  { code: "de", label: "stored_german" },
+  { code: "ch", label: "stored_german_switzerland" },
+  { code: "at", label: "stored_german_austria" },
+  { code: "fr", label: "stored_french" },
+  { code: "be", label: "stored_belgian" },
+  { code: "ca", label: "stored_french_canada" },
+  { code: "es", label: "stored_spanish" },
+  { code: "latam", label: "stored_spanish_latin_america" },
+  { code: "it", label: "stored_italian" },
+  { code: "pt", label: "stored_portuguese" },
+  { code: "br", label: "stored_portuguese_brazil" },
+  { code: "nl", label: "stored_dutch" },
+  { code: "dk", label: "stored_danish" },
+  { code: "se", label: "stored_swedish" },
+  { code: "no", label: "stored_norwegian" },
+  { code: "fi", label: "stored_finnish" },
+  { code: "is", label: "stored_icelandic" },
+  { code: "pl", label: "stored_polish" },
+  { code: "cz", label: "stored_czech" },
+  { code: "sk", label: "stored_slovak" },
+  { code: "hu", label: "stored_hungarian" },
+  { code: "ro", label: "stored_romanian" },
+  { code: "bg", label: "stored_bulgarian" },
+  { code: "gr", label: "stored_greek" },
+  { code: "tr", label: "stored_turkish" },
+  { code: "ru", label: "stored_russian" },
+  { code: "ua", label: "stored_ukrainian" },
+  { code: "ee", label: "stored_estonian" },
+  { code: "lv", label: "stored_latvian" },
+  { code: "lt", label: "stored_lithuanian" },
+  { code: "hr", label: "stored_croatian" },
+  { code: "si", label: "stored_slovenian" },
+  { code: "rs", label: "stored_serbian" },
+  { code: "il", label: "stored_hebrew" },
+  { code: "ara", label: "stored_arabic" },
+  { code: "in", label: "stored_indian" },
+  { code: "th", label: "stored_thai" },
+  { code: "jp", label: "stored_japanese" },
+  { code: "kr", label: "stored_korean" },
+  { code: "cn", label: "stored_chinese" },
 ];
 
 /**
@@ -248,10 +249,10 @@ export const keyboardLayouts: { code: string; label: string }[] = [
 export const inFlakeFile = (file: string) => /^\/nix\/store\/[a-z0-9]{32}-source\/flake\.nix$/.test(file);
 
 /** Features to suggest for detected hardware, by curated experience id, with the reason. */
-export const hardwareSuggestions: { hardware: keyof HardwareFeatures; experience: string; reason: string }[] = [
-  { hardware: "nvidia", experience: "nvidia", reason: "This computer has an NVIDIA graphics card. Its driver gives games and video full speed." },
-  { hardware: "laptop", experience: "power-profiles", reason: "This computer runs on a battery. Power profiles let you save power when you need to." },
-  { hardware: "bluetooth", experience: "bluetooth", reason: "This computer has Bluetooth." },
-  { hardware: "printer", experience: "printing", reason: "A printer is connected." },
-  { hardware: "fingerprint", experience: "fingerprint", reason: "This computer has a fingerprint reader. Use it to log in and unlock." },
+export const hardwareSuggestions: { hardware: keyof HardwareFeatures; experience: string; reason: Phrase }[] = [
+  { hardware: "nvidia", experience: "nvidia", reason: "stored_this_computer_has_an_nvidia_graphics_card" },
+  { hardware: "laptop", experience: "power-profiles", reason: "stored_this_computer_runs_on_a_battery_power" },
+  { hardware: "bluetooth", experience: "bluetooth", reason: "stored_this_computer_has_bluetooth" },
+  { hardware: "printer", experience: "printing", reason: "stored_a_printer_is_connected" },
+  { hardware: "fingerprint", experience: "fingerprint", reason: "stored_this_computer_has_a_fingerprint_reader_use" },
 ];

@@ -13,7 +13,7 @@ public sealed class ExecutionTests
     private static string Nix(object message) => "@nix " + JsonSerializer.Serialize(message);
 
     private static Command Shell(string script, bool progress = false) =>
-        new() { Label = "fixture", Argv = ["/bin/sh", "-c", script], Progress = progress ? true : null };
+        new() { Label = DisplayText.Plain("fixture"), Argv = ["/bin/sh", "-c", script], Progress = progress ? true : null };
 
     [Test]
     public async Task Structured_Nix_logs_become_readable_lines_and_aggregated_progress()
@@ -109,7 +109,7 @@ public sealed class ExecutionTests
             .Throws<ManagerException>();
 
         await Assert.That(error!.Message).IsEqualTo("fixture failed (exit 3). error: writing to file: No space left on device");
-        await Assert.That(error.Explanation!.Title).IsEqualTo("The disk is full");
+        await Assert.That(error.Explanation!.Title.English).IsEqualTo("The disk is full");
     }
 
     [Test]

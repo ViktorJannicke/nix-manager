@@ -41,11 +41,10 @@
     <PackageReference Include="Runic.Translations.Build" Version="0.7.0-preview.4" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
-    <!-- The dashboard's catalogue, generated as DashboardText for the daemon's own text and the text the backend
-         stores in English, which the daemon shows in the dashboard's language (Daemon/TrayText.cs). The stored text is
-         found by its English through the importer's base-text index. -->
+    <!-- The dashboard's catalogue, generated as DashboardText for the daemon's own text and the messages of the
+         text the backend writes for people (Domain/DisplayText.cs), which the daemon shows in the dashboard's
+         language (Daemon/TrayText.cs). -->
     <TranslationProject Include="Frontend/translations/runic.json" />
-    <EmbeddedResource Include="Frontend/translations/stored/base-text.json" LogicalName="NixManager.Translations.stored.base-text.json" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="NixManager.Tests" />

@@ -98,23 +98,23 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
                 else if (matching && Got().Match(line) is { Success: true } got) return got.Groups[1].Value;
             }
         throw new ManagerException(code == 0
-            ? "Expected a fake-hash build failure, but the build succeeded."
-            : $"Could not extract the hash for {expected}. See the operation log.");
+            ? DisplayText.Of("stored_fake_hash_build_succeeded")
+            : DisplayText.Of("stored_could_not_extract_the_hash", ("derivation", expected)));
     }
 
     /// <summary>Evaluates the fixed-output derivation, builds it with the fake hash and reads the real hash (<c>discoverHash</c>).</summary>
-    public static async Task<string> DiscoverHashAsync(string label, string expr, IReadOnlyDictionary<string, string> env, Func<Command, Task<CommandResult>> run)
+    public static async Task<string> DiscoverHashAsync(DisplayText label, string expr, IReadOnlyDictionary<string, string> env, Func<Command, Task<CommandResult>> run)
     {
         var expected = (await run(new Command
         {
-            Label = $"Evaluate {label}",
+            Label = DisplayText.Of("stored_evaluate_the_derivation", ("label", label)),
             Argv = ["nix", "eval", "--impure", "--raw", "--expr", $"({expr}).drvPath"],
             Env = env,
             Quiet = true,
         }).ConfigureAwait(false)).Stdout.Trim();
         var result = await run(new Command
         {
-            Label = $"Compute {label} hash (may take several minutes)",
+            Label = DisplayText.Of("stored_compute_the_hash", ("label", label)),
             Argv = ["nix", "build", "--no-link", "--impure", "--print-build-logs", "--expr", expr],
             Env = env,
             AllowFailure = true,
@@ -129,7 +129,7 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
     public static void AtomicPin(string path, string before, JsonNode value)
     {
         var candidate = $"{path}.{Guid.NewGuid()}.tmp";
-        NodeErrors.Attempt("Save validated pin", () =>
+        FileErrors.Attempt(DisplayText.Of("stored_save_validated_pin"), () =>
         {
             try
             {
@@ -138,7 +138,7 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
                     writer.Write(JsJson.Indented(value) + "\n");
                 if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(candidate, File.GetUnixFileMode(path) & (UnixFileMode)0b111_111_111);
                 if (File.ReadAllText(path) != before)
-                    throw new InvalidOperationException("Pin changed during the build; refusing to overwrite it. Retry with the new pin.");
+                    throw new ManagerException(DisplayText.Of("stored_pin_changed_during_the_build"));
                 File.Move(candidate, path, overwrite: true);
             }
             finally
@@ -149,7 +149,7 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
     }
 
     private static void SaveJson(string path, JsonNode data) =>
-        NodeErrors.Attempt($"Write {path}", () => File.WriteAllText(path, JsJson.Indented(data) + "\n"), path);
+        FileErrors.Attempt(DisplayText.Of("stored_write", ("file", path)), () => File.WriteAllText(path, JsJson.Indented(data) + "\n"), path);
 
     /// <summary>
     /// Updates the pin of <c>r.action</c>'s package. Commands go through <paramref name="run"/>, which runs each as a
@@ -158,19 +158,19 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
     public async Task UpdateAsync(Config config, Request r, Func<Command, Task<CommandResult>> run, Action<string> log, CancellationToken cancellationToken)
     {
         var name = r.Action.Replace("-update", "", StringComparison.Ordinal);
-        if (!_packages.TryGetValue(name, out var p)) throw new ManagerException($"Unknown action: {r.Action}.");
+        if (!_packages.TryGetValue(name, out var p)) throw new ManagerException(DisplayText.Of("stored_unknown_action", ("action", r.Action)));
         var pinFile = Path.Combine(config.Flake, "pkgs", name, "source.json");
-        var before = NodeErrors.Attempt("Read current pin", () => File.ReadAllText(pinFile), pinFile);
-        var pin = PackagePins.Parse(before);
+        var before = FileErrors.Attempt(DisplayText.Of("stored_read_current_pin"), () => File.ReadAllText(pinFile), pinFile);
+        var pin = PackagePins.Parse(before, name);
         var channel = pin.Channel ?? "stable";
         var version = await UpdateChecker.LatestAsync(network, name, p.Owner, p.Repo, channel, cancellationToken).ConfigureAwait(false);
         if (p.BlockedVersions.Contains(version))
-            throw new ManagerException($"{name} {version} is blocked because of a known upstream regression.");
+            throw new ManagerException(DisplayText.Of("stored_version_blocked_by_upstream_regression", ("name", name), ("version", version)));
         var order = UpdateChecker.CompareVersions(pin.Version, version);
         log($"{name}: local pin {pin.Version} | {channel} release {version}");
-        if (order > 0) throw new ManagerException($"Refusing a {name} downgrade.");
+        if (order > 0) throw new ManagerException(DisplayText.Of("stored_refusing_a_downgrade", ("name", name)));
 
-        var work = NodeErrors.Attempt("Create temporary workspace", () => Directory.CreateTempSubdirectory("nix-manager-").FullName);
+        var work = FileErrors.Attempt(DisplayText.Of("stored_create_temporary_workspace"), () => Directory.CreateTempSubdirectory("nix-manager-").FullName);
         try
         {
             var env = new Dictionary<string, string>
@@ -183,7 +183,7 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
             };
             async Task<string> Evaluate(string expr) => (await run(new Command
             {
-                Label = "Inspect locked nixpkgs",
+                Label = DisplayText.Of("stored_inspect_locked_nixpkgs"),
                 Argv = ["nix", "eval", "--impure", "--raw", "--expr", expr],
                 Env = env,
                 Quiet = true,
@@ -205,18 +205,18 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
                         $"https://raw.githubusercontent.com/NixOS/nixpkgs/{upstreamRev}/pkgs/by-name/{p.Prefix}/{name}/{recipe}", cancellationToken).ConfigureAwait(false);
                     var inherited = Path.Combine(path, "pkgs/by-name", p.Prefix, name, recipe);
                     var saved = Path.Combine(work, recipe);
-                    NodeErrors.Attempt("Save upstream recipe", () => File.WriteAllText(saved, text), saved);
+                    FileErrors.Attempt(DisplayText.Of("stored_save_upstream_recipe"), () => File.WriteAllText(saved, text), saved);
                     var compared = await run(new Command
                     {
-                        Label = $"Compare {recipe} against nixos-unstable {upstreamRev}",
+                        Label = DisplayText.Of("stored_compare_recipe_against_nixos_unstable", ("recipe", recipe), ("revision", upstreamRev)),
                         Argv = ["diff", "-u", inherited, saved],
                         AllowFailure = true,
                     }).ConfigureAwait(false);
-                    if (compared.Code > 1) throw new ManagerException("Could not compare inherited recipe.");
+                    if (compared.Code > 1) throw new ManagerException(DisplayText.Of("stored_could_not_compare_inherited_recipe"));
                     if (recipe == (name == "t3code" ? "unwrapped.nix" : "package.nix"))
                     {
                         var upstreamVersion = RecipeVersion().Match(text);
-                        if (!upstreamVersion.Success) throw new ManagerException("Upstream recipe layout changed; inspect it before updating.");
+                        if (!upstreamVersion.Success) throw new ManagerException(DisplayText.Of("stored_upstream_recipe_layout_changed"));
                         log($"Locked nixpkgs {locked} | nixos-unstable {upstreamVersion.Groups[1].Value}. Candidate uses the locked recipe.");
                     }
                 }
@@ -243,12 +243,12 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
                 : $"https://github.com/{p.Owner}/{p.Repo}/archive/refs/tags/v{version}.tar.gz";
             var rawHash = (await run(new Command
             {
-                Label = "Fetch release",
+                Label = DisplayText.Of("stored_fetch_release"),
                 Argv = ["nix-prefetch-url", .. name == "pince" ? Array.Empty<string>() : ["--unpack"], "--type", "sha256", url],
             }).ConfigureAwait(false)).Stdout.Trim();
             var hash = (await run(new Command
             {
-                Label = "Convert source hash",
+                Label = DisplayText.Of("stored_convert_source_hash"),
                 Argv = ["nix", "hash", "convert", "--hash-algo", "sha256", "--to", "sri", rawHash],
                 Quiet = true,
             }).ConfigureAwait(false)).Stdout.Trim();
@@ -271,17 +271,17 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
             var expr = name == "pince" ? PinceExpression : CandidateExpression;
             if (name == "t3code")
             {
-                candidate["pnpmHash"] = await DiscoverHashAsync("T3 Code pnpm dependencies", $"({expr}).unwrapped.pnpmDeps", env, run).ConfigureAwait(false);
+                candidate["pnpmHash"] = await DiscoverHashAsync(DisplayText.Of("stored_hash_t3_code_pnpm_dependencies"), $"({expr}).unwrapped.pnpmDeps", env, run).ConfigureAwait(false);
                 SaveJson(pinPath, candidate);
-                candidate["cargoHash"] = await DiscoverHashAsync("T3 Code Cargo dependencies", $"({expr}).resourceMonitor.cargoDeps.vendorStaging", env, run)
+                candidate["cargoHash"] = await DiscoverHashAsync(DisplayText.Of("stored_hash_t3_code_cargo_dependencies"), $"({expr}).resourceMonitor.cargoDeps.vendorStaging", env, run)
                     .ConfigureAwait(false);
             }
             else if (name == "opencode")
-                candidate["nodeHash"] = await DiscoverHashAsync("OpenCode node_modules", $"({expr}).node_modules", env, run).ConfigureAwait(false);
+                candidate["nodeHash"] = await DiscoverHashAsync(DisplayText.Of("stored_hash_opencode_node_modules"), $"({expr}).node_modules", env, run).ConfigureAwait(false);
             SaveJson(pinPath, candidate);
             await run(new Command
             {
-                Label = $"Build {name} {version} before saving pin",
+                Label = DisplayText.Of("stored_build_before_saving_pin", ("name", name), ("version", version)),
                 Argv = ["nix", "build", "--no-link", "--impure", "--print-build-logs", "--expr", expr],
                 Env = env,
             }).ConfigureAwait(false);
@@ -295,7 +295,7 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
         }
     }
 
-    /// <summary>The commit of nixos-unstable from GitHub's answer (<c>Parse upstream revision</c>).</summary>
+    /// <summary>The commit of nixos-unstable from GitHub's answer.</summary>
     private static string UpstreamRevision(string text)
     {
         string? sha;
@@ -307,8 +307,8 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
         }
         catch (JsonException e)
         {
-            throw new ManagerException($"Parse upstream revision: SyntaxError: JSON Parse error: {e.Message}");
+            throw new ManagerException(DisplayText.Of("stored_upstream_revision_not_valid_json", ("reason", e.Message)));
         }
-        return sha is not null && Revision().IsMatch(sha) ? sha : throw new ManagerException("Parse upstream revision: Error: Invalid nixpkgs revision");
+        return sha is not null && Revision().IsMatch(sha) ? sha : throw new ManagerException(DisplayText.Of("stored_upstream_revision_invalid"));
     }
 }

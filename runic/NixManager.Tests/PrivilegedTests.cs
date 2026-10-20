@@ -84,11 +84,11 @@ public sealed class PrivilegedTests
         var runner = new PrivilegedCommandRunner(Config(), actions, PrivilegedActions.Privileged, inner);
         var output = new List<OutputEvent>();
 
-        await runner.RunAsync(new Command { Label = "Keep 3 system generations and collect garbage", Argv = [.. CliPrefix, "gc", "3"] }, output.Add, CancellationToken.None);
-        await runner.RunAsync(new Command { Label = "Collect unreferenced store paths", Argv = ["nix-store", "--gc"] }, output.Add, CancellationToken.None);
+        await runner.RunAsync(new Command { Label = DisplayText.Of("stored_keep_system_generations_and_collect_garbage", ("count", 3)), Argv = [.. CliPrefix, "gc", "3"] }, output.Add, CancellationToken.None);
+        await runner.RunAsync(new Command { Label = DisplayText.Of("stored_collect_unreferenced_store_paths"), Argv = ["nix-store", "--gc"] }, output.Add, CancellationToken.None);
 
         await Assert.That(actions.Requests.Single().Arguments).IsEquivalentTo(ImmutableArray.Create("gc", "3"));
-        await Assert.That(inner.Calls.Single().Label).IsEqualTo("Collect unreferenced store paths");
+        await Assert.That(inner.Calls.Single().Label.English).IsEqualTo("Collect unreferenced store paths");
         await Assert.That(output.OfType<TextOutput>().Select(o => (o.Stream, o.Text)))
             .IsEquivalentTo([("stdout", "switching to the new configuration\n"), ("stderr", "warning: something\n")]);
     }
@@ -99,11 +99,11 @@ public sealed class PrivilegedTests
         var actions = new FakePrivilegedActions(_ => new PlatformResult<PrivilegedActionCompletion>.Failed(PlatformFailureCode.UserDismissed));
         var runner = new PrivilegedCommandRunner(Config(), actions, PrivilegedActions.Privileged, new FakeRunner());
 
-        var error = await Assert.That(async () => _ = await runner.RunAsync(new Command { Label = "Roll back system configuration", Argv = [.. CliPrefix, "rollback"] }, _ => { }, CancellationToken.None))
+        var error = await Assert.That(async () => _ = await runner.RunAsync(new Command { Label = DisplayText.Of("stored_roll_back_system_configuration"), Argv = [.. CliPrefix, "rollback"] }, _ => { }, CancellationToken.None))
             .Throws<ManagerException>();
 
         await Assert.That(error!.Message).StartsWith("Roll back system configuration failed (exit 126).");
-        await Assert.That(error.Explanation!.Title).IsEqualTo("Authentication was cancelled");
+        await Assert.That(error.Explanation!.Title.English).IsEqualTo("Authentication was cancelled");
     }
 
     [Test]
@@ -112,7 +112,7 @@ public sealed class PrivilegedTests
         var actions = new FakePrivilegedActions(_ => new PlatformResult<PrivilegedActionCompletion>.Success(new PrivilegedActionCompletion(1)));
         var runner = new PrivilegedCommandRunner(Config(), actions, PrivilegedActions.Privileged, new FakeRunner());
 
-        var error = await Assert.That(async () => _ = await runner.RunAsync(new Command { Label = "Roll back system configuration", Argv = [.. CliPrefix, "rollback"] }, _ => { }, CancellationToken.None))
+        var error = await Assert.That(async () => _ = await runner.RunAsync(new Command { Label = DisplayText.Of("stored_roll_back_system_configuration"), Argv = [.. CliPrefix, "rollback"] }, _ => { }, CancellationToken.None))
             .Throws<ManagerException>();
 
         await Assert.That(error!.Message).IsEqualTo("Roll back system configuration failed (exit 1). warning: something");

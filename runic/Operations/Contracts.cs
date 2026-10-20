@@ -56,7 +56,7 @@ public sealed record ByteCounts
 public sealed class StepOutcome
 {
     public required string Id { get; set; }
-    public required string Label { get; set; }
+    public required DisplayText Label { get; set; }
     public required string Status { get; set; }
     public string? StartedAt { get; set; }
     public string? FinishedAt { get; set; }
@@ -67,8 +67,8 @@ public sealed class StepOutcome
 /// <summary>A failure in plain words.</summary>
 public sealed record Explanation
 {
-    public required string Title { get; init; }
-    public required string Body { get; init; }
+    public required DisplayText Title { get; init; }
+    public required DisplayText Body { get; init; }
     public Fix? Fix { get; init; }
 }
 
@@ -82,7 +82,7 @@ public sealed record Fix
 /// <summary>The state an applied change replaced.</summary>
 public sealed record UndoPoint
 {
-    public IReadOnlyList<string> Changes { get; init; } = [];
+    public IReadOnlyList<DisplayText> Changes { get; init; } = [];
     public UndoGenerations Generations { get; init; } = new();
     public IReadOnlyList<UndoFile> Files { get; init; } = [];
 }
@@ -105,7 +105,7 @@ public sealed record UndoFile
 public sealed record RollbackOutcome
 {
     public bool Done { get; init; }
-    public string? Error { get; init; }
+    public DisplayText? Error { get; init; }
 }
 
 /// <summary>One operation as stored in <c>operations/ID.json</c> and sent to the dashboard.</summary>
@@ -118,13 +118,13 @@ public sealed class Operation
     public required string Status { get; set; }
     public required string StartedAt { get; set; }
     public string? FinishedAt { get; set; }
-    public string Step { get; set; } = "";
+    public DisplayText Step { get; set; } = DisplayText.Plain("");
     public List<StepOutcome>? Steps { get; set; }
-    public string? Error { get; set; }
+    public DisplayText? Error { get; set; }
     public Explanation? Explanation { get; set; }
     public bool? FinishingPrivilegedStep { get; set; }
     public UndoPoint? Undo { get; set; }
-    public string? Held { get; set; }
+    public DisplayText? Held { get; set; }
     public RollbackOutcome? Rollback { get; set; }
     [JsonExtensionData] public Dictionary<string, JsonElement>? Unknown { get; set; }
 
@@ -152,7 +152,7 @@ public sealed record UpdateReport
 {
     public required string CheckedAt { get; init; }
     public List<UpdateItem> Items { get; init; } = [];
-    public List<string> Errors { get; init; } = [];
+    public List<DisplayText> Errors { get; init; } = [];
 }
 
 /// <summary><c>updates.json</c>: the last report, for the checkout it was made for.</summary>

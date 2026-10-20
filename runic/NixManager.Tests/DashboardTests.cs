@@ -54,6 +54,12 @@ public sealed class DashboardTests : IAsyncDisposable
         await Assert.That(history.Count).IsGreaterThan(10);
         await Assert.That(history.All(operation => operation.GetProperty("flake").GetString() == _fixtures.Root)).IsTrue();
         await Assert.That(operations.Get(vm => vm.Updates).GetProperty("items").GetArrayLength()).IsGreaterThan(0);
+
+        // Its records hold English text without a text reference, which the page shows as it is (text() in i18n.ts).
+        var failed = history.Single(operation => operation.GetProperty("id").GetString() == "1791817200000-3a9e5c71-2b84-4d6f-a0c3-9e8d7f6b5a41");
+        await Assert.That(failed.GetProperty("step").GetRawText()).IsEqualTo("""{"english":"Activate system","reference":null}""");
+        await Assert.That(failed.GetProperty("explanation").GetProperty("title").GetProperty("english").GetString()).IsEqualTo("Activate system failed");
+        await Assert.That(failed.GetProperty("steps")[0].GetProperty("label").GetProperty("reference").ValueKind).IsEqualTo(JsonValueKind.Null);
     }
 
     [Test]
@@ -80,7 +86,7 @@ public sealed class DashboardTests : IAsyncDisposable
         var preview = _window.Root.Snapshot().Get(vm => vm.Preview);
         await Assert.That(preview.GetProperty("request").GetProperty("retention").GetInt32()).IsEqualTo(4);
         await Assert.That(preview.GetProperty("error").ValueKind).IsEqualTo(JsonValueKind.Null);
-        await Assert.That(preview.GetProperty("plan").GetProperty("steps").EnumerateArray().Select(step => step.GetProperty("label").GetString()))
+        await Assert.That(preview.GetProperty("plan").GetProperty("steps").EnumerateArray().Select(step => step.GetProperty("label").GetProperty("english").GetString()))
             .IsEquivalentTo(["Keep 4 home generations", "Collect unreferenced store paths"]);
         await Assert.That(Directory.GetFiles(_fixtures.Operations, "*.json").Length).IsEqualTo(before);
     }
@@ -92,7 +98,7 @@ public sealed class DashboardTests : IAsyncDisposable
 
         var preview = _window.Root.Snapshot().Get(vm => vm.Preview);
         await Assert.That(preview.GetProperty("plan").ValueKind).IsEqualTo(JsonValueKind.Null);
-        await Assert.That(preview.GetProperty("error").GetString()).IsEqualTo("boot requires system scope.");
+        await Assert.That(preview.GetProperty("error").GetProperty("english").GetString()).IsEqualTo("boot requires system scope.");
     }
 
     [Test]
@@ -232,24 +238,35 @@ public sealed class DashboardTests : IAsyncDisposable
         var software = _window.Root.View<SoftwareViewModel>(vm => vm.Software);
 
         (await software.ExecuteAsync(vm => vm.SetDraftCommand, """
-            [{"$case":"set-option","scope":"system","file":"home.nix","option":"o.p","value":{"a":[1.5,null]},"label":"L"},
+            [{"$case":"set-option","scope":"system","file":"home.nix","option":"o.p","value":{"a":[1.5,null]},"label":{"english":"L","reference":null}},
              {"$case":"add-package","scope":"home","file":"home.nix","attr":"pkgs.hello"}]
             """)).EnsureOk();
 
         var changes = software.Snapshot().Get(vm => vm.Draft).GetProperty("changes");
         await Assert.That(changes.GetRawText()).IsEqualTo("""
-            [{"$case":"set-option","scope":"system","file":"home.nix","label":"L","option":"o.p","value":{"a":[1.5,null]}},{"$case":"add-package","scope":"home","file":"home.nix","label":null,"attr":"pkgs.hello"}]
+            [{"$case":"set-option","scope":"system","file":"home.nix","label":{"english":"L","reference":null},"option":"o.p","value":{"a":[1.5,null]}},{"$case":"add-package","scope":"home","file":"home.nix","label":null,"attr":"pkgs.hello"}]
             """.Trim());
+        // A label without a text reference is stored as its text, as draft.json held labels before.
         var saved = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(_fixtures.StateDir, "draft.json")))!;
         await Assert.That(saved["changes"]!.ToJsonString()).IsEqualTo("""
             [{"kind":"set-option","scope":"system","file":"home.nix","option":"o.p","value":{"a":[1.5,null]},"label":"L"},{"kind":"add-package","scope":"home","file":"home.nix","attr":"pkgs.hello"}]
             """.Trim());
 
+        // A label the page made from a message is stored as its text reference.
+        var label = DisplayText.Of("stored_steam");
+        (await software.ExecuteAsync(vm => vm.SetDraftCommand, $$"""
+            [{"$case":"set-option","scope":"system","file":"home.nix","option":"programs.steam.enable","value":true,"label":{{JsonSerializer.Serialize(new { english = label.English, reference = label.Reference })}}}]
+            """)).EnsureOk();
+        saved = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(_fixtures.StateDir, "draft.json")))!;
+        await Assert.That(saved["changes"]![0]!["label"]!.ToJsonString()).IsEqualTo(label.Reference);
+        await Assert.That(software.Snapshot().Get(vm => vm.Draft).GetProperty("changes")[0].GetProperty("label").GetProperty("reference").GetString())
+            .IsEqualTo(label.Reference);
+
         var invalid = await software.ExecuteAsync(vm => vm.SetDraftCommand, """
             [{"$case":"add-package","scope":"elsewhere","file":"home.nix","attr":"pkgs.hello","label":null}]
             """);
         await Assert.That(invalid.ErrorKind).IsEqualTo("domain-failed");
-        await Assert.That(invalid.Failure!.Value.GetProperty("message").GetString()).IsEqualTo("Invalid edit: unknown scope elsewhere.");
+        await Assert.That(invalid.Failure!.Value.GetProperty("message").GetProperty("english").GetString()).IsEqualTo("Invalid edit: unknown scope elsewhere.");
         var unknown = await software.ExecuteAsync(vm => vm.SetDraftCommand, """[{"$case":"rename-package","scope":"home","file":"home.nix"}]""");
         await Assert.That(unknown.Ok).IsFalse();
     }
@@ -305,7 +322,7 @@ public sealed class DashboardTests : IAsyncDisposable
 
         var summaries = operations.Snapshot().Get(vm => vm.Operations).EnumerateArray()
             .Where(operation => operation.GetProperty("id").GetString() == id)
-            .Select(operation => operation.GetProperty("step").GetString());
+            .Select(operation => operation.GetProperty("step").GetProperty("english").GetString());
         await Assert.That(summaries.Single()).IsEqualTo("Replaced by another process");
     }
 

@@ -26,7 +26,7 @@ internal sealed class FlathubNetwork : INetwork
     {
         lock (Requests) Requests.Add(url);
         if (Gate is { } gate) await gate.Task.WaitAsync(cancellationToken);
-        return Answers.TryGetValue(url, out var answer) ? answer : throw new ManagerException("Fetch failed: connection refused");
+        return Answers.TryGetValue(url, out var answer) ? answer : throw new ManagerException(DisplayText.Of("stored_fetch_failed", ("reason", "connection refused")));
     }
 
     public static NetworkResponse Gzip(string text)
@@ -137,7 +137,7 @@ public sealed class StoreTests : IDisposable
         await Until(changed, () => service.AppsStatus(true).State != "fetching");
         var failed = service.AppsStatus(true);
         await Assert.That(failed.State).IsEqualTo("failed");
-        await Assert.That(failed.Error).IsEqualTo("App details could not be downloaded from Flathub. Fetch failed: connection refused");
+        await Assert.That(failed.Error?.English).IsEqualTo("App details could not be downloaded from Flathub. Fetch failed: connection refused");
         service.FetchApps();
         await Assert.That(_network.Requests.Count).IsEqualTo(1);
         _clock.Now += TimeSpan.FromMinutes(61);
@@ -262,7 +262,7 @@ public sealed class StoreTests : IDisposable
                 return failure.Failure;
             }
         });
-        await Assert.That(refused).IsEqualTo(new SoftwareFailure("The checkout has not been read yet."));
+        await Assert.That(refused).IsEqualTo(new SoftwareFailure(DisplayText.Of("stored_the_checkout_has_not_been_read_yet")));
     }
 
     [Test]

@@ -82,6 +82,7 @@ public sealed record StatusDocument(string Host, string Flake, Host Config,
 [JsonSerializable(typeof(Software.AppsStatus))]
 [JsonSerializable(typeof(List<Software.OptionDoc>))]
 [JsonSerializable(typeof(UndoPoint))]
+[JsonSerializable(typeof(DisplayText))]
 [JsonSerializable(typeof(JsonNode))]
 [JsonSerializable(typeof(JsonArray))]
 [JsonSerializable(typeof(JsonObject))]

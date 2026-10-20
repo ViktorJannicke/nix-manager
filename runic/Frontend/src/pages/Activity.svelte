@@ -4,7 +4,7 @@
   import type { Operation } from "../generated/types.js";
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
-  import { actionLabel, m, stored } from "$lib/i18n";
+  import { actionLabel, m, text } from "$lib/i18n";
   import { dateTime, duration, relative, scopeLabel } from "$lib/format";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
   import Segmented from "$lib/components/app/Segmented.svelte";
@@ -93,8 +93,8 @@
         </div>
         {#if selected.explanation}
           <div class="mt-3 rounded-lg bg-destructive/10 px-3 py-2">
-            <p class="font-medium text-destructive">{stored(selected.explanation.title)}</p>
-            <p class="mt-0.5 text-xs">{stored(selected.explanation.body)}</p>
+            <p class="font-medium text-destructive">{text(selected.explanation.title)}</p>
+            <p class="mt-0.5 text-xs">{text(selected.explanation.body)}</p>
             {#if selected.explanation.fix}
               {@const fix = selected.explanation.fix}
               <Button size="sm" class="mt-2" disabled={app.busy} onclick={() => app.applyFix(fix, selected.request.scope)}>{m.toast_allow_non_free()}</Button>
@@ -107,7 +107,7 @@
             {/if}
           </div>
         {:else if selected.error}
-          <p class="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs break-words text-destructive">{stored(selected.error)}</p>
+          <p class="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs break-words text-destructive">{text(selected.error)}</p>
         {/if}
       </div>
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->

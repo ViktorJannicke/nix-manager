@@ -1,4 +1,6 @@
-# Imported by `runic-translations import-text`. The next import rewrites this file; edit the source tables instead.
+# Text the backend writes for people: step labels, notes, errors and failure explanations, which it stores and sends
+# as text references to these messages (runic/Domain/DisplayText.cs), and the curated features and Computer page
+# settings of the dashboard. The messages' inputs are text, as the backend fills them in. German is in de.rmf2.
 
 remove_user = Remove user {$name}
 add_user = Add user {$name}
@@ -297,7 +299,7 @@ shows_media_controls_and_tabs_in_plasma = Shows media controls and tabs in Plasm
 home_page = Home page
 use_a_custom_search_engine = Use a custom search engine
 search_url = Search URL
-use_where_the_query_goes = Use {$searchTerms} where the query goes.
+use_where_the_query_goes = Use \{searchTerms\} where the query goes.
 printing = Printing
 print_to_local_and_network_printers_which = Print to local and network printers, which are found automatically.
 add_a_print_to_pdf_printer = Add a Print to PDF printer
@@ -617,3 +619,283 @@ flathub_answered = Flathub answered {$status} {$reason}.
 the_manager_exited_before_recording_completion_check = The manager exited before recording completion. Check the log and active generations before retrying.
 polkit_is_unavailable_an_authentication_agent_and = {$label}: Polkit is unavailable ({$reason}). An authentication agent and pkexec are required.
 the_privileged_helper_does_not_accept_these = {$label}: the privileged helper does not accept these arguments.
+
+# Edits (runic/Edits/Change.cs)
+@param $reason - Why, such as "unknown scope elsewhere."
+invalid_edit = Invalid edit: {$reason}
+invalid_edit_not_an_object = expected an object.
+@param $name - A member of the edit, such as attr
+invalid_edit_missing = {$name} is missing.
+invalid_edit_too_long = {$name} is longer than {$limit} characters.
+invalid_edit_label = the label is not a valid text reference.
+invalid_edit_unknown_kind = unknown kind {$kind}.
+invalid_edit_unknown_scope = unknown scope {$scope}.
+invalid_edits_not_a_list = Invalid edits: expected a list.
+invalid_edits_too_many = Invalid edits: at most {$limit} are allowed.
+
+# File system failures (runic/Execution/FileErrors.cs)
+@param $step - What was being done, such as "Remember the folder"
+@param $reason - Why it failed
+step_failed_because = {$step}: {$reason}
+path_does_not_exist = {$path} does not exist.
+path_permission_denied = Access to {$path} was denied.
+
+# Updates, setup and configuration (runic/Updates/UpdateChecker.cs, PackageUpdater.cs, PackagePin.cs, runic/Setup/SetupAssistant.cs, runic/Configuration/ConfigLoader.cs)
+@param $reason - The network library's reason
+fetch_failed = Fetch failed: {$reason}
+the_operation_timed_out = The operation timed out.
+check_flake_inputs_without_changing_the_checkout = Check flake inputs without changing the checkout
+read_file = Read {$path}
+invalid_lock_file = Invalid lock file {$path}: {$reason}
+invalid_lock_file_no_nodes = Invalid lock file {$path}: no nodes.
+@param $name - A package, such as t3code
+read_package_pin = Read {$name} pin
+release_list_not_valid_json = The release list of {$name} is not valid JSON: {$reason}
+release_list_not_a_list = The release list of {$name} is not a list of releases.
+latest_release_not_valid_json = The latest release of {$name} is not valid JSON: {$reason}
+latest_release_not_an_object = The latest release of {$name} is not a release object.
+no_stable_or_nightly_release_tags = {$name} has no stable or nightly release tags.
+latest_release_has_no_stable_tag = The latest release of {$name} does not have a stable vX.Y.Z tag.
+versions_not_comparable = Expected X.Y.Z or X.Y.Z-nightly.YYYYMMDD.N versions: {$first}, {$second}
+@param $reason - Why checking the package failed
+package_check_failed = {$name}: {$reason}
+pin_empty = The {$name} pin is empty.
+pin_not_valid_json = The {$name} pin is not valid JSON: {$reason}
+@param $value - The value in JSON
+pin_not_an_object = The {$name} pin is not valid: it must be an object, not {$value}.
+@param $field - A field of the pin, such as version
+pin_field_missing = The {$name} pin is not valid: {$field} is missing.
+pin_field_not_text = The {$name} pin is not valid: {$field} must be text, not {$value}.
+pin_version_format = The {$name} pin is not valid: version must look like X.Y.Z or X.Y.Z-nightly.YYYYMMDD.N, not {$value}.
+pin_channel_invalid = The {$name} pin is not valid: channel must be stable or nightly, not {$value}.
+fake_hash_build_succeeded = Expected a fake-hash build failure, but the build succeeded.
+@param $derivation - A store path of a derivation
+could_not_extract_the_hash = Could not extract the hash for {$derivation}. See the operation log.
+@param $label - What is hashed, such as "T3 Code pnpm dependencies"
+evaluate_the_derivation = Evaluate {$label}
+compute_the_hash = Compute {$label} hash (may take several minutes)
+hash_t3_code_pnpm_dependencies = T3 Code pnpm dependencies
+hash_t3_code_cargo_dependencies = T3 Code Cargo dependencies
+hash_opencode_node_modules = OpenCode node_modules
+save_validated_pin = Save validated pin
+pin_changed_during_the_build = Pin changed during the build; refusing to overwrite it. Retry with the new pin.
+unknown_action = Unknown action: {$action}.
+version_blocked_by_upstream_regression = {$name} {$version} is blocked because of a known upstream regression.
+refusing_a_downgrade = Refusing a {$name} downgrade.
+read_current_pin = Read current pin
+create_temporary_workspace = Create temporary workspace
+inspect_locked_nixpkgs = Inspect locked nixpkgs
+save_upstream_recipe = Save upstream recipe
+@param $recipe - A recipe file, such as package.nix
+@param $revision - A nixpkgs commit
+compare_recipe_against_nixos_unstable = Compare {$recipe} against nixos-unstable {$revision}
+could_not_compare_inherited_recipe = Could not compare inherited recipe.
+upstream_recipe_layout_changed = Upstream recipe layout changed; inspect it before updating.
+fetch_release = Fetch release
+convert_source_hash = Convert source hash
+build_before_saving_pin = Build {$name} {$version} before saving pin
+upstream_revision_not_valid_json = The upstream revision is not valid JSON: {$reason}
+upstream_revision_invalid = The upstream revision is not a valid nixpkgs revision.
+check_flakes = Check flakes
+read_nixos_version = Read NixOS version
+nixos_version_not_valid_json = The output of nixos-version is not valid JSON: {$reason}
+read_the_configuration = Read the configuration
+copy_the_configuration = Copy the configuration
+write_the_new_files = Write the new files
+start_git = Start Git
+add_the_files_to_git = Add the files to Git
+pin_the_inputs = Pin the inputs
+add_the_lock_file_to_git = Add the lock file to Git
+evaluate_the_system = Evaluate the system
+evaluate_the_home_configuration = Evaluate the home configuration
+commit = Commit
+@param $names - Configuration names, separated by commas
+cannot_tell_which_nixos_configuration = Cannot tell which NixOS configuration belongs to this computer: {$names}. Choose one with --host, or list the hosts in data/hosts.nix.
+cannot_tell_which_home_configuration = Cannot tell which Home Manager configuration belongs to this computer: {$names}. Choose one with --host, or list the hosts in data/hosts.nix.
+the_flake_has_no_nixos_configurations = The flake has no nixosConfigurations.
+the_flake_has_no_home_configurations = The flake has no homeConfigurations. Nix Manager needs a standalone Home Manager configuration for your user.
+list_nixos_configurations = List NixOS configurations
+list_home_manager_configurations = List Home Manager configurations
+read_host_names = Read host names
+read_home_manager_users = Read Home Manager users
+find_checkout = Find checkout
+resolve_flake_directory = Resolve flake directory
+flake_directory_does_not_exist = The flake directory {$path} does not exist.
+required_file_not_found = Required file not found: {$path}
+read_host_registry = Read host registry
+host_registry_not_an_object = Invalid host registry: expected an object of hosts.
+invalid_host_registry = Invalid host registry: {$reason}
+
+# Software, reviews, change history and dashboard preferences (runic/Software/*.cs, runic/Reviews/*.cs, runic/Dashboard/DashboardPreferences.cs)
+preferences_unknown_theme = Unknown theme: {$theme}.
+preferences_unknown_language = Unknown language: {$language}.
+preferences_unknown_detail = Unknown detail level: {$detail}.
+read_flake_source = Read flake source
+flake_metadata_path_missing = Invalid flake metadata: the path is missing.
+evaluate_configuration = Evaluate configuration
+@param $reason - Why the evaluation's output could not be read, as .NET reports it
+configuration_evaluation_invalid = Invalid configuration evaluation: {$reason}
+read_option_documentation = Read option documentation
+@param $reason - Why the documentation could not be read, as .NET reports it
+option_documentation_invalid = Invalid option documentation: {$reason}
+read_the_running_generation = Read the running generation
+invalid_option_list = Invalid option list.
+read_package_catalog = Read package catalog
+@param $reason - Why, such as the evaluator's failure
+catalog_build_failed = Building the package catalog failed: {$reason}
+@param $output - The end of Nix's error output
+catalog_evaluation_failed = Package catalog evaluation failed. {$output}
+invalid_review = Invalid review.
+measure_closure_sizes = Measure closure sizes
+compare_package_versions = Compare package versions
+build_produced_no_output_to_review = The build did not produce any output to review.
+save_review = Save review
+write_flake_lock = Write flake.lock
+flake_lock_changed_after_review = flake.lock changed after this review was prepared. Prepare the update again.
+find_the_git_repository = Find the Git repository
+stage_the_changed_files = Stage the changed files
+find_the_last_commit = Find the last commit
+look_for_changes = Look for changes
+read_the_git_identity = Read the Git identity
+keep_the_change_in_the_history = Keep the change in the history
+find_the_backup = Find the backup
+back_up_the_configuration = Back up the configuration
+history_not_a_git_repository = The configuration is not in a Git repository, so this change is not kept in a history.
+@param $reason - The last line of Git's output
+history_not_kept = The change is applied, but not kept in the history: {$reason}
+@param $subject - The commit's subject, such as "Install steam"
+history_kept = Kept "{$subject}" in the history.
+@param $recorded - The history_kept message
+history_kept_no_remote = {$recorded} It is not backed up, because the branch has no remote.
+@param $upstream - The upstream branch, such as origin/main
+history_kept_backed_up = {$recorded} Backed up to {$upstream}.
+history_kept_backup_failed = {$recorded} The backup failed: {$reason}
+
+# Edits (runic/Edits/ChangeRules.cs, SourceEdits.cs, Drafts.cs, PackageLists.cs, ModuleOptions.cs)
+@param $option - An option path, such as programs.git.extraConfig
+@param $value - The value, as JSON or a list of items
+option_value = {$option} {$value}
+@param $label - What the change belongs to, such as an experience title
+labelled_option_value = {$label}: {$option} {$value}
+@param $subject - The edited package, option or file
+@param $problem - Why the edit cannot be applied
+edit_problem = {$subject}: {$problem}
+show_value_nothing = nothing
+inline_flake_module = a module written directly in flake.nix
+inline_flake_module_first = A module written directly in flake.nix
+two_items = {$first} and {$second}
+items_comma = {$first}, {$rest}
+host_home_configuration = {$host}'s home configuration
+host_system = {$host}'s system
+the_packages_the_flake_adds = the packages the flake adds
+copy_flake_source = Copy flake source
+evaluate_package = Evaluate package
+add_created_files_to_git = Add created files to Git
+remove_created_files_from_git = Remove created files from Git
+add_restored_files_to_git = Add restored files to Git
+unknown_scope = Unknown scope {$scope}.
+invalid_file = Invalid file: {$file}
+file_is_outside_the_flake = {$file} is outside the flake.
+cannot_be_written_as_a_nix_path = {$path} cannot be written as a Nix path.
+a_file_cannot_import_itself = A file cannot import itself.
+the_file_has_syntax_errors = The file has syntax errors.
+no_editable_package_list_was_found = No editable package list was found.
+is_already_listed_in_this_file = {$attr} is already listed in this file.
+is_not_listed_in_this_file = {$attr} is not listed in this file.
+is_listed_times_in_this_file = {$attr} is listed {$count} times in this file.
+numbers_must_be_finite = Numbers must be finite.
+option_written_as_separate_parts = {$option} is written as separate parts here. Edit it in the file.
+file_is_not_an_editable_module = This file is not a module Nix Manager can edit.
+unsupported_option_path = Unsupported option path: {$option}
+@param $code - The start of the Nix code that computes it
+option_is_computed_here_as = {$option} is computed here ({$code}). Edit it in the file.
+option_is_computed_here = {$option} is computed here. Edit it in the file.
+file_computes_its_imports = This file computes its imports. Add the import in the file.
+file_already_imports = The file already imports {$path}.
+option_is_not_set_in_this_file = {$option} is not set in this file.
+
+# Nix parser (runic/Nix/Syntax/NixSyntax.cs)
+environment_variable_is_not_set = {$name} is not set.
+nix_grammar_did_not_load = The Nix grammar did not load.
+nix_grammar_does_not_match_runtime = The Nix grammar does not match the tree-sitter runtime.
+nix_parser_returned_no_tree = The Nix parser returned no tree.
+
+# Command line (runic/Cli/CliArguments.cs, CliHandler.cs, SoftwareCli.cs)
+cli_specify_one_scope = Specify one scope.
+cli_specify_one_action = Specify one action.
+cli_unknown_word = Unknown word: {$word}.
+cli_interval_out_of_range = --interval must be 5–10080 minutes.
+cli_specify_an_action = Specify an action; see --help.
+cli_window_options_require_ui_or_tray = Window and interval options require ui or tray.
+cli_modifiers_require_an_action = Action modifiers require a build, activation, maintenance, or package action.
+cli_dashboard_options = The dashboard takes only --flake, --host, --no-open and --browser.
+cli_tray_options = The tray takes only --flake, --host and --interval.
+cli_not_a_package_attribute = {$name} is not a package attribute.
+cli_read_package_catalog = Read package catalog
+cli_no_importer_for_new_file = No file {$host} imports has an imports list to add {$file} to. Use --import-from.
+cli_not_in_locked_nixpkgs = {$attr} is not in the locked nixpkgs. Find packages with nix-manager software search.
+cli_already_listed_in = {$attr} is already listed in {$file}.
+cli_already_installed_by = {$attr} is already installed by {$origin}.
+cli_no_package_list = No file of {$name} has a package list. Choose one with --file, or create one with --new-file.
+cli_added_by_setting = {$attr} is added by {$origin}, not a package list. Turn off the setting that adds it instead.
+cli_not_listed_in_configuration = {$attr} is not listed in a file of {$name}.
+cli_not_listed_in_home_configuration = {$attr} is not listed in a file of {$name}. For system packages, add --system.
+cli_option_set_in_several_files = {$option} is set in {$files}. Choose one with --file.
+cli_option_not_set_in_flake = {$option} is not set in the flake yet. Choose where to write it with --file <path> or --new-file <path>.
+cli_option_is_already = {$option} is already {$value}.
+cli_option_not_set_in_file = {$option} is not set in {$path}.
+cli_choose_an_edit = Choose an edit from 1 to {$count}.
+cli_no_prepared_review = No prepared review matches the pending edits. Run nix-manager software prepare first.
+
+# Operations, requests and privileged steps (runic/Operations/OperationService.cs, Domain/Request.cs, Domain/Config.cs, Execution/*.cs, Privileged/PrivilegedHelper.cs, Daemon/RoutingOperationClient.cs, Observation/CleanupEstimator.cs)
+@param $first - The changes so far, such as "Add hello"
+@param $rest - The next change
+changes_joined = {$first}; {$rest}
+operation_preparing = Preparing
+operation_cancelling = Cancelling
+operation_stopping_after_privileged_step = Stopping after privileged step
+operation_preview_complete = Preview complete
+operation_complete = Complete
+operation_cancelled_completed_parts_remain = Cancelled. Any completed activation or input update remains applied.
+operation_could_not_start = The operation could not start.
+daemon_ended_before_operation_finished = Nix Manager's daemon ended before the operation finished. Its record shows how far it got: nix-manager history.
+cleanup_measure_what_it_frees = Measure what cleaning up frees
+@param $label - The step, such as "Build home configuration"
+command_nothing_to_run = {$label}: nothing to run.
+@param $reason - The failure code and the platform's diagnostic
+privileged_helper_could_not_run = {$label}: the privileged helper could not run ({$reason}).
+privileged_unexpected_result = {$label}: unexpected result {$result}.
+privileged_operation_failed_exit = Privileged operation failed (exit {$code}).
+privileged_cannot_resolve = Cannot resolve {$path}.
+privileged_invalid_system_output = Invalid NixOS system output.
+privileged_invalid_system_generation = Invalid system generation.
+privileged_invalid_generation_retention = Invalid generation retention.
+privileged_unknown_operation = Unknown privileged operation or unexpected arguments.
+@param $hosts - The known hosts, separated by commas
+host_unknown_or_ambiguous = Unknown or ambiguous host: {$name}. Available: {$hosts}
+request_unknown_scope = Unknown scope: {$scope}.
+request_boot_requires_system_scope = boot requires system scope.
+request_package_updates_apply_to_home = Package updates apply to home packages.
+request_package_updates_cannot_combine = Package updates cannot combine with update, cleanup or extra arguments.
+request_force_applies_to_package_updates = --force applies to package updates.
+request_cannot_update_inputs_during = Cannot update inputs during {$action}.
+request_cleanup_requires_activation = Cleanup requires successful activation or the gc action.
+request_action_takes_no_extra_arguments = {$action} takes no extra arguments.
+request_system_rollback_takes_no_extra_arguments = System rollback takes no extra arguments.
+request_retention_out_of_range = Retention must be between 1 and 100 generations.
+request_inputs_apply_to_reviewed_builds = Input selection applies to reviewed builds.
+request_invalid_flake_input_name = Invalid flake input name.
+request_activation_applies_to_reviewed_changes = The activation mode applies to reviewed changes.
+request_edits_are_built_into_reviews = Pending edits are built into reviews.
+request_generation_review_cannot_include_edits = A generation review cannot include edits.
+request_generation_only_for_review = A generation can only be selected for review.
+request_undo_is_prepared_as_review = Undoing a change is prepared as a review.
+request_valid_operation_id_required = A valid operation ID is required.
+request_undo_review_cannot_include = An undo review cannot include edits, generations or input updates.
+request_only_home_edits_in_one_step = Only edits of the home configuration are applied in one step.
+request_valid_review_id_required = A valid review ID is required.
+request_reviews_cannot_combine = Reviewed workflows cannot combine with cleanup or extra arguments.
+request_applying_review_cannot_update_inputs = Applying a review cannot update inputs.
+request_invalid_generation_number = Invalid generation number.
+request_select_home_or_system_generation = Select either the home or the system generation.
+request_generation_review_cannot_update_inputs = A generation review cannot update inputs.

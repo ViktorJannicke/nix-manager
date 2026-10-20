@@ -32,7 +32,7 @@ public static partial class Drafts
     {
         Targets.Home => "home.packages",
         Targets.System => "environment.systemPackages",
-        _ => throw new ManagerException($"Unknown scope {scope}."),
+        _ => throw new ManagerException(DisplayText.Of("stored_unknown_scope", ("scope", scope))),
     };
 
     /// <summary>The path an importer writes for a file, such as <c>./fzf.nix</c> or <c>../programs/fzf.nix</c> (<c>importPath</c>).</summary>
@@ -47,14 +47,14 @@ public static partial class Drafts
     {
         var clean = PosixPath.Normalize(file);
         if (PosixPath.IsAbsolute(clean) || clean.StartsWith("..", StringComparison.Ordinal) || !clean.EndsWith(".nix", StringComparison.Ordinal) || clean != file)
-            throw new ManagerException($"Invalid file: {file}");
+            throw new ManagerException(DisplayText.Of("stored_invalid_file", ("file", file)));
         var path = PosixPath.Join(flake, clean);
         // existsSync follows links: a dangling one does not exist.
         if (Native.RealPath(path) is { } target)
         {
             var real = PosixPath.Relative(Native.RealPath(flake) ?? flake, target);
             if (real.StartsWith("..", StringComparison.Ordinal) || PosixPath.IsAbsolute(real))
-                throw new ManagerException($"{file} is outside the flake.");
+                throw new ManagerException(DisplayText.Of("stored_file_is_outside_the_flake", ("file", file)));
         }
         return path;
     }
@@ -65,14 +65,8 @@ public static partial class Drafts
         switch (change)
         {
             case AddPackage add:
-                try
-                {
-                    return PackageLists.AddPackage(source, add.Attr, ScopeBindings(add.Scope));
-                }
-                catch (ManagerException error) when (error.Message.StartsWith("No editable package list", StringComparison.Ordinal))
-                {
-                    return ModuleOptions.StartList(source, PackagesOption(add.Scope), add.Attr);
-                }
+                return PackageLists.TryAddPackage(source, add.Attr, ScopeBindings(add.Scope))
+                    ?? ModuleOptions.StartList(source, PackagesOption(add.Scope), add.Attr);
             case RemovePackage remove:
                 return PackageLists.RemovePackage(source, remove.Attr);
             case SetOption set:
@@ -164,7 +158,7 @@ public static partial class Drafts
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException)
             {
-                throw new ManagerException($"{name} does not exist.");
+                throw new ManagerException(DisplayText.Of("stored_path_does_not_exist", ("path", name)));
             }
             return new EditedFile { Path = name, BaseHash = Repository.HashText(before), Before = before, After = before };
         }
@@ -175,10 +169,10 @@ public static partial class Drafts
             {
                 if (change is CreateModule create)
                 {
-                    if (!WritablePath().IsMatch(change.File)) throw new ManagerException($"{change.File} cannot be written as a Nix path.");
+                    if (!WritablePath().IsMatch(change.File)) throw new ManagerException(DisplayText.Of("stored_cannot_be_written_as_a_nix_path", ("path", change.File)));
                     if (files.ContainsKey(change.File) || Native.RealPath(SourcePath(flake, change.File)) is not null)
-                        throw new ManagerException($"{change.File} already exists.");
-                    if (create.Importer == change.File) throw new ManagerException("A file cannot import itself.");
+                        throw new ManagerException(DisplayText.Of("stored_already_exists", ("path", change.File)));
+                    if (create.Importer == change.File) throw new ManagerException(DisplayText.Of("stored_a_file_cannot_import_itself"));
                     var importer = Open(create.Importer);
                     importer.After = ModuleOptions.AddImport(importer.After, ImportPath(create.Importer, change.File)).Source;
                     files[create.Importer] = importer;
@@ -191,7 +185,7 @@ public static partial class Drafts
             }
             catch (Exception error)
             {
-                problems.Add(new DraftProblem { Index = index, Message = error.Message });
+                problems.Add(new DraftProblem { Index = index, Message = DisplayText.From(error) });
             }
         }
         foreach (var file in files.Values) file.Hunks = DiffLines(file.Before, file.After);

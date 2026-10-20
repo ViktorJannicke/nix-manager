@@ -1,16 +1,18 @@
-// Pending edits in words and in combination. The backend keeps the English text of these phrases in its rules
-// (Edits/ChangeRules.cs); the stored catalogue translates them, so `stored` turns each into the current language.
-// Problems are returned in English, for `stored` where they are shown.
+// Pending edits in words and in combination, in the current language. The backend describes them with the same
+// messages (Edits/ChangeRules.cs).
 
 import type { Change, ModuleFile, UnfreePolicy } from "../generated/types.js";
-import { stored, storedTemplate } from "./i18n";
+import { m, text, type DisplayText } from "./i18n";
 
 export type { Change };
 export type Target = "home" | "system";
 
+/** Whether two labels are the same text. */
+const sameLabel = (a: DisplayText | null, b: DisplayText | null) => a?.english === b?.english && a?.reference === b?.reference;
+
 /** Whether two package edits are the same: every member matches. */
 const same = (a: Change, b: Change) =>
-  a.$case === b.$case && a.scope === b.scope && a.file === b.file && a.label === b.label && "attr" in a && "attr" in b && a.attr === b.attr;
+  a.$case === b.$case && a.scope === b.scope && a.file === b.file && sameLabel(a.label, b.label) && "attr" in a && "attr" in b && a.attr === b.attr;
 
 /** Whether a policy accepts a non-free package by its name; a predicate counts as accepting. */
 export const acceptsUnfree = (policy: UnfreePolicy | null | undefined, name: string | null) =>
@@ -115,11 +117,11 @@ export function featureModule(modules: readonly { file: string; active?: boolean
   return siblings >= 3 ? undefined : best.file;
 }
 
-/** Why a path cannot be a new module file, in English, if it cannot. */
+/** Why a path cannot be a new module file, if it cannot. */
 export function newFileProblem(known: ReadonlySet<string>, file: string) {
   if (!/^([A-Za-z0-9_+-][A-Za-z0-9._+-]*\/)*[A-Za-z0-9_+-][A-Za-z0-9._+-]*\.nix$/.test(file))
-    return "Use a path inside the flake ending in .nix, with letters, digits, dots, dashes and slashes.";
-  if (known.has(file)) return "This file exists already.";
+    return m.stored_use_a_path_inside_the_flake_ending();
+  if (known.has(file)) return m.stored_this_file_exists_already();
   return undefined;
 }
 
@@ -130,52 +132,48 @@ export function origin(file: string) {
   return inner.startsWith("nixos/modules/") ? `NixOS: ${inner.slice(14)}` : `Home Manager: ${inner.replace(/^modules\//, "")}`;
 }
 
-/** Stored English text in the current language, with values filled in; a label is stored text itself. */
-const say = (text: string, values: Record<string, string> = {}) =>
-  storedTemplate(text, "label" in values ? { ...values, label: stored(values.label) } : values);
-
 /** An option's value in words: on, off, not set, a list or JSON. */
 export function showValue(value: unknown) {
-  if (value === true) return say("on");
-  if (value === false) return say("off");
-  if (value === null || value === undefined) return say("not set");
-  if (Array.isArray(value)) return value.length ? value.join(", ") : say("empty");
+  if (value === true) return m.stored_on();
+  if (value === false) return m.stored_off();
+  if (value === null || value === undefined) return m.stored_not_set();
+  if (Array.isArray(value)) return value.length ? value.join(", ") : m.stored_empty();
   return typeof value === "string" ? `"${value}"` : JSON.stringify(value);
 }
 
 /** An option edit in words; the value's phrase has its own keys so it can be translated. */
-function describeOption(option: string, value: unknown, label: string | null) {
-  const values = { option, label: label ?? "" };
+function describeOption(option: string, value: unknown, label: DisplayText | null) {
   const empty = Array.isArray(value) && !value.length;
   if (!label) {
-    if (value === true) return say("{option} on", values);
-    if (value === false) return say("{option} off", values);
-    if (value === null || value === undefined) return say("{option} not set", values);
-    if (empty) return say("{option} empty", values);
+    if (value === true) return m.stored_on_2({ option });
+    if (value === false) return m.stored_off_2({ option });
+    if (value === null || value === undefined) return m.stored_not_set_2({ option });
+    if (empty) return m.stored_empty_2({ option });
     return `${option} ${showValue(value)}`;
   }
-  if (value === true) return say("{label}: {option} on", values);
-  if (value === false) return say("{label}: {option} off", values);
-  if (value === null || value === undefined) return say("{label}: {option} not set", values);
-  if (empty) return say("{label}: {option} empty", values);
-  return `${stored(label)}: ${option} ${showValue(value)}`;
+  const values = { option, label: text(label) };
+  if (value === true) return m.stored_on_3(values);
+  if (value === false) return m.stored_off_3(values);
+  if (value === null || value === undefined) return m.stored_not_set_3(values);
+  if (empty) return m.stored_empty_3(values);
+  return `${values.label}: ${option} ${showValue(value)}`;
 }
 
 /** A pending edit in words: what it does, and where. */
 export function describeChange(change: Change) {
   switch (change.$case) {
     case "add-package":
-      return { title: say("Install {name}", { name: change.attr.replace(/^pkgs\./, "") }), detail: change.file };
+      return { title: m.stored_install({ name: change.attr.replace(/^pkgs\./, "") }), detail: change.file };
     case "remove-package":
-      return { title: say("Remove {name}", { name: change.attr.replace(/^pkgs\./, "") }), detail: change.file };
+      return { title: m.stored_remove({ name: change.attr.replace(/^pkgs\./, "") }), detail: change.file };
     case "set-option":
       return { title: describeOption(change.option, change.value, change.label), detail: change.file };
     case "unset-option":
-      return { title: say("Reset {option} to its default", { option: change.option }), detail: change.file };
+      return { title: m.stored_reset_to_its_default({ option: change.option }), detail: change.file };
     case "create-module":
       return {
-        title: say("Create {name}", { name: change.file.split("/").at(-1)! }),
-        detail: say("{file}, imported from {importer}", { file: change.file, importer: change.importer }),
+        title: m.stored_create({ name: change.file.split("/").at(-1)! }),
+        detail: m.stored_imported_from({ file: change.file, importer: change.importer }),
       };
   }
 }
@@ -186,10 +184,10 @@ export function changesScope(changes: readonly Change[]): "all" | "home" | "syst
   return scopes.size > 1 ? "all" : scopes.has("system") ? "system" : "home";
 }
 
-/** Why `changes` cannot be installed in one step, in English; undefined when they can (`oneStepProblem`). */
+/** Why `changes` cannot be installed in one step; undefined when they can (`oneStepProblem`). */
 export function oneStepProblem(changes: readonly Change[]): string | undefined {
-  if (!changes.length) return "There is nothing to install.";
-  if (changes.some((change) => change.scope !== "home")) return "It changes the computer itself, not just your apps.";
+  if (!changes.length) return m.stored_there_is_nothing_to_install();
+  if (changes.some((change) => change.scope !== "home")) return m.stored_it_changes_the_computer_itself_not_just();
   const simple = changes.every(
     (change) =>
       change.$case === "add-package" ||
@@ -197,5 +195,5 @@ export function oneStepProblem(changes: readonly Change[]): string | undefined {
       change.$case === "create-module" ||
       (change.$case === "set-option" && change.option === "nixpkgs.config.allowUnfree" && change.value === true),
   );
-  return simple ? undefined : "It changes settings, which can restart programs you are using.";
+  return simple ? undefined : m.stored_it_changes_settings_which_can_restart_programs();
 }

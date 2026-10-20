@@ -54,7 +54,7 @@ public sealed class StoreCompatibilityTests : IDisposable
         await Assert.That(old.Steps).IsNull();
         await Assert.That(old.Status).IsEqualTo(OperationStatuses.Succeeded);
         await Assert.That(old.Request.Action).IsEqualTo(Actions.Switch);
-        await Assert.That(Actions.Label(old.Request.Action)).IsEqualTo("Build and switch");
+        await Assert.That(Actions.Label(old.Request.Action).English).IsEqualTo("Build and switch");
         await Assert.That(old.FinishingPrivilegedStep == false).IsTrue();
     }
 
@@ -84,7 +84,7 @@ public sealed class StoreCompatibilityTests : IDisposable
         await Assert.That(build.Steps!.Any(step => step.Progress is { Evaluating: false })).IsTrue();
 
         var failed = history.Single(o => o.Id == "1791817200000-3a9e5c71-2b84-4d6f-a0c3-9e8d7f6b5a41");
-        await Assert.That(failed.Explanation!.Title).IsEqualTo("Activate system failed");
+        await Assert.That(failed.Explanation!.Title.English).IsEqualTo("Activate system failed");
         await Assert.That(failed.Rollback).IsEqualTo(new RollbackOutcome { Done = true });
     }
 

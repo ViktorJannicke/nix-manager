@@ -29,8 +29,11 @@ public sealed class CliContractTests
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    /// <summary>The envelope's request ID differs in every run.</summary>
-    private static readonly string[] EnvelopeVolatile = ["requestId"];
+    /// <summary>
+    /// The envelope's request ID differs in every run, and a text reference names the catalogue contract it was
+    /// written with, which changes with every message added.
+    /// </summary>
+    private static readonly string[] EnvelopeVolatile = ["requestId", "contractFingerprint"];
 
     /// <summary>Every recorded case of every <c>recorded-cli*.json</c>.</summary>
     private static readonly Dictionary<string, Recorded> Recordings = System.IO.Directory

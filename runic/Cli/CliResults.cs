@@ -158,7 +158,7 @@ internal static class CliPresenters
         builder.Present<SoftwareDraftResult>("software drop", (result, console, _, token) =>
         {
             var left = result.Draft.Changes.Count;
-            return Write(console, $"Dropped: {ChangeRules.Describe(result.Dropped[0]).Title}. {left} pending {Plural(left, "edit", "edits")} left.\n", token);
+            return Write(console, $"Dropped: {ChangeRules.Describe(result.Dropped[0]).Title.English}. {left} pending {Plural(left, "edit", "edits")} left.\n", token);
         });
         builder.Present<SoftwareDraftResult>("software clear", (result, console, _, token) =>
         {
@@ -205,7 +205,7 @@ internal static class CliPresenters
         foreach (var number in result.Added)
         {
             var described = ChangeRules.Describe(result.Draft.Changes[number - 1]);
-            text.Append($"+ {described.Title} ({described.Detail})\n");
+            text.Append($"+ {described.Title.English} ({described.Detail.English})\n");
         }
         var count = result.Draft.Changes.Count;
         text.Append($"{count} pending {Plural(count, "edit", "edits")}. Run nix-manager software prepare to build {Plural(count, "it", "them")}.\n");

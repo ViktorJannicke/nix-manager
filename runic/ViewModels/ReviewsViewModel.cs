@@ -42,7 +42,7 @@ public sealed partial class ReviewsViewModel : ObservableObject, IDisposable
 
     /// <summary>Why the last command failed, such as a review in use or another operation running.</summary>
     [ObservableProperty]
-    public partial string? Error { get; private set; }
+    public partial DisplayText? Error { get; private set; }
 
     /// <summary>The operation the last prepare, apply or undo started.</summary>
     [ObservableProperty]
@@ -75,7 +75,7 @@ public sealed partial class ReviewsViewModel : ObservableObject, IDisposable
     /// <summary>Keeps edits being prepared in one step from being applied, so they wait for review.</summary>
     [RelayCommand]
     private void Hold(string operationId) =>
-        Error = _operations.Hold(operationId) ? null : "Those changes are no longer being prepared.";
+        Error = _operations.Hold(operationId) ? null : DisplayText.Of("stored_those_changes_are_no_longer_being_prepared");
 
     /// <summary>Discards a review and its GC roots.</summary>
     [RelayCommand]
@@ -88,7 +88,7 @@ public sealed partial class ReviewsViewModel : ObservableObject, IDisposable
         }
         catch (ManagerException error)
         {
-            Error = error.Message;
+            Error = error.Text;
         }
         Reviews = _reviews.Reviews();
     }
@@ -110,7 +110,7 @@ public sealed partial class ReviewsViewModel : ObservableObject, IDisposable
         }
         catch (ManagerException error)
         {
-            Error = error.Message;
+            Error = error.Text;
         }
     }
 

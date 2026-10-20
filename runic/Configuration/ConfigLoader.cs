@@ -42,8 +42,9 @@ public sealed partial class ConfigLoader(ICommandRunner runner, ManagerEnvironme
         return Words(a).Count(other.Contains);
     }
 
-    private static ManagerException Ambiguous(string what, IEnumerable<string> names) =>
-        new($"Cannot tell which {what} belongs to this computer: {string.Join(", ", names)}. Choose one with --host, or list the hosts in data/hosts.nix.");
+    /// <param name="key">The message naming the kind of configuration.</param>
+    private static ManagerException Ambiguous(string key, IEnumerable<string> names) =>
+        new(DisplayText.Of(key, ("names", string.Join(", ", names))));
 
     /// <summary>"evaluate": the names do not decide, and the host names must be read.</summary>
     public const string Evaluate = "evaluate";
@@ -56,11 +57,11 @@ public sealed partial class ConfigLoader(ICommandRunner runner, ManagerEnvironme
     {
         if (names.Contains(target)) return target;
         if (names.Count == 1) return names[0];
-        if (names.Count == 0) throw new ManagerException("The flake has no nixosConfigurations.");
+        if (names.Count == 0) throw new ManagerException(DisplayText.Of("stored_the_flake_has_no_nixos_configurations"));
         if (hostNames is null) return Evaluate;
         var matches = names.Where(name => hostNames.GetValueOrDefault(name) == target).ToList();
         if (matches.Count == 1) return matches[0];
-        throw Ambiguous("NixOS configuration", names);
+        throw Ambiguous("stored_cannot_tell_which_nixos_configuration", names);
     }
 
     /// <summary>
@@ -73,7 +74,7 @@ public sealed partial class ConfigLoader(ICommandRunner runner, ManagerEnvironme
             if (names.Contains(name)) return name;
         if (names.Count == 1) return names[0];
         if (names.Count == 0)
-            throw new ManagerException("The flake has no homeConfigurations. Nix Manager needs a standalone Home Manager configuration for your user.");
+            throw new ManagerException(DisplayText.Of("stored_the_flake_has_no_home_configurations"));
         if (userNames is null) return Evaluate;
         var own = names.Where(name => userNames.GetValueOrDefault(name) == user).ToList();
         if (own.Count == 1) return own[0];
@@ -81,7 +82,7 @@ public sealed partial class ConfigLoader(ICommandRunner runner, ManagerEnvironme
         var best = own.Select(Score).Append(0).Max();
         var closest = own.Where(name => Score(name) == best).ToList();
         if (best > 0 && closest.Count == 1) return closest[0];
-        throw Ambiguous("Home Manager configuration", own.Count > 0 ? own : names);
+        throw Ambiguous("stored_cannot_tell_which_home_configuration", own.Count > 0 ? own : names);
     }
 
     /// <summary>The running machine's platform, without evaluating a configuration.</summary>
@@ -111,11 +112,11 @@ public sealed partial class ConfigLoader(ICommandRunner runner, ManagerEnvironme
     /// <summary>Where the setup assistant remembers the checkout it created.</summary>
     public string RememberedCheckout => Path.Combine(_env.StateDir, "checkout");
 
-    private async Task<CommandResult> Quiet(string label, string[] argv, bool allowFailure = false, CancellationToken cancellationToken = default) =>
+    private async Task<CommandResult> Quiet(DisplayText label, string[] argv, bool allowFailure = false, CancellationToken cancellationToken = default) =>
         await runner.RunAsync(new Command { Label = label, Argv = argv, Quiet = true, AllowFailure = allowFailure ? true : null }, _ => { }, cancellationToken)
             .ConfigureAwait(false);
 
-    private async Task<JsonElement?> EvalJson(string label, string installable, string apply, bool allowFailure = false)
+    private async Task<JsonElement?> EvalJson(DisplayText label, string installable, string apply, bool allowFailure = false)
     {
         var result = await Quiet(label, ["nix", "eval", "--json", installable, "--apply", apply], allowFailure: true).ConfigureAwait(false);
         if (result.Code == 0)
@@ -124,7 +125,7 @@ public sealed partial class ConfigLoader(ICommandRunner runner, ManagerEnvironme
             return document.RootElement.Clone();
         }
         if (allowFailure) return null;
-        throw new ManagerException($"{label}: {result.Stderr.Trim().Split('\n')[^1]}");
+        throw new ManagerException(DisplayText.Of("stored_step_failed_because", ("step", label), ("reason", DisplayText.Plain(result.Stderr.Trim().Split('\n')[^1]))));
     }
 
     private static List<string> Strings(JsonElement? element) =>
@@ -138,15 +139,15 @@ public sealed partial class ConfigLoader(ICommandRunner runner, ManagerEnvironme
     /// <summary>A registry with one host, read from the flake's own configurations (<c>detectHosts</c>).</summary>
     public async Task<Dictionary<string, Host>> DetectHostsAsync(string flake, string target, string user)
     {
-        var systemsTask = EvalJson("List NixOS configurations", $"{flake}#nixosConfigurations", "builtins.attrNames");
-        var homesTask = EvalJson("List Home Manager configurations", $"{flake}#homeConfigurations", "builtins.attrNames", allowFailure: true);
+        var systemsTask = EvalJson(DisplayText.Of("stored_list_nixos_configurations"), $"{flake}#nixosConfigurations", "builtins.attrNames");
+        var homesTask = EvalJson(DisplayText.Of("stored_list_home_manager_configurations"), $"{flake}#homeConfigurations", "builtins.attrNames", allowFailure: true);
         var systems = Strings(await systemsTask.ConfigureAwait(false));
         var homes = Strings(await homesTask.ConfigureAwait(false));
         var system = PickSystem(target, systems);
         var hostName = system;
         if (system == Evaluate)
         {
-            var hostNames = StringMap(await EvalJson("Read host names", $"{flake}#nixosConfigurations",
+            var hostNames = StringMap(await EvalJson(DisplayText.Of("stored_read_host_names"), $"{flake}#nixosConfigurations",
                 "builtins.mapAttrs (_: c: c.config.networking.hostName)").ConfigureAwait(false));
             system = PickSystem(target, systems, hostNames);
             hostName = hostNames.GetValueOrDefault(system) ?? system;
@@ -155,7 +156,7 @@ public sealed partial class ConfigLoader(ICommandRunner runner, ManagerEnvironme
         var home = PickHome(user, hosts, homes);
         if (home == Evaluate)
         {
-            var userNames = StringMap(await EvalJson("Read Home Manager users", $"{flake}#homeConfigurations",
+            var userNames = StringMap(await EvalJson(DisplayText.Of("stored_read_home_manager_users"), $"{flake}#homeConfigurations",
                 "builtins.mapAttrs (_: c: c.config.home.username)").ConfigureAwait(false));
             home = PickHome(user, hosts, homes, userNames);
         }
@@ -188,7 +189,7 @@ public sealed partial class ConfigLoader(ICommandRunner runner, ManagerEnvironme
         CommandResult repo;
         try
         {
-            repo = await Quiet("Find checkout", ["git", "rev-parse", "--show-toplevel"], allowFailure: true).ConfigureAwait(false);
+            repo = await Quiet(DisplayText.Of("stored_find_checkout"), ["git", "rev-parse", "--show-toplevel"], allowFailure: true).ConfigureAwait(false);
         }
         catch (ManagerException)
         {
@@ -213,24 +214,29 @@ public sealed partial class ConfigLoader(ICommandRunner runner, ManagerEnvironme
         }
         catch (Exception e) when (e is IOException or ArgumentException)
         {
-            throw new ManagerException($"Resolve flake directory: {e.Message}");
+            throw new ManagerException(DisplayText.Of("stored_step_failed_because",
+                ("step", DisplayText.Of("stored_resolve_flake_directory")), ("reason", DisplayText.Plain(e.Message))));
         }
         if (!Directory.Exists(path))
-            throw new ManagerException($"Resolve flake directory: ENOENT: no such file or directory, realpath '{selected}'");
+            throw new ManagerException(DisplayText.Of("stored_flake_directory_does_not_exist", ("path", selected)));
         if (!File.Exists(Path.Combine(path, "flake.nix")))
-            throw new ManagerException($"Required file not found: {path}/flake.nix");
+            throw new ManagerException(DisplayText.Of("stored_required_file_not_found", ("path", $"{path}/flake.nix")));
         var target = host is { Length: > 0 } ? host : _env.Variable("NIX_MANAGER_HOST") is { Length: > 0 } fromEnv ? fromEnv : _env.HostName;
         // Without a registry the host is read from the flake's configurations.
         string? registry = null;
         if (_env.Variable("NIX_MANAGER_HOSTS") is { Length: > 0 } registryPath)
         {
             try { registry = await File.ReadAllTextAsync(registryPath).ConfigureAwait(false); }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { throw new ManagerException($"Read host registry: {e.Message}"); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                throw new ManagerException(DisplayText.Of("stored_step_failed_because",
+                    ("step", DisplayText.Of("stored_read_host_registry")), ("reason", DisplayText.Plain(e.Message))));
+            }
         }
         else if (File.Exists(Path.Combine(path, "data/hosts.nix")))
             registry = (await runner.RunAsync(new Command
             {
-                Label = "Read host registry",
+                Label = DisplayText.Of("stored_read_host_registry"),
                 Argv = ["nix", "eval", "--json", "--file", Path.Combine(path, "data/hosts.nix")],
                 Quiet = true,
             }, _ => { }, CancellationToken.None).ConfigureAwait(false)).Stdout;
@@ -266,12 +272,12 @@ public sealed partial class ConfigLoader(ICommandRunner runner, ManagerEnvironme
         try
         {
             var hosts = ManagerJson.Deserialize<Dictionary<string, Host>>(json)
-                ?? throw new ManagerException("Invalid host registry: expected an object of hosts.");
+                ?? throw new ManagerException(DisplayText.Of("stored_host_registry_not_an_object"));
             return hosts;
         }
         catch (JsonException e)
         {
-            throw new ManagerException($"Invalid host registry: {e.Message}");
+            throw new ManagerException(DisplayText.Of("stored_invalid_host_registry", ("reason", e.Message)));
         }
     }
 }

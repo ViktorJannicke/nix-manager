@@ -317,11 +317,11 @@ public static partial class SoftwareCli
         var text = new StringBuilder();
         if (draft.Changes.Count == 0) return "No pending edits.\n";
         var problems = new Dictionary<int, string>();
-        foreach (var problem in draft.Problems) problems[problem.Index] = problem.Message;
+        foreach (var problem in draft.Problems) problems[problem.Index] = problem.Message.English;
         for (var index = 0; index < draft.Changes.Count; index++)
         {
             var described = ChangeRules.Describe(draft.Changes[index]);
-            text.Append($"{(index + 1).ToString(CultureInfo.InvariantCulture),3}  {described.Title}\n     {described.Detail}\n");
+            text.Append($"{(index + 1).ToString(CultureInfo.InvariantCulture),3}  {described.Title.English}\n     {described.Detail.English}\n");
             if (problems.TryGetValue(index, out var message)) text.Append($"     Cannot apply: {message}\n");
         }
         if (!diff) return text.ToString();
@@ -347,18 +347,18 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
 {
     private readonly string _host = command.Host is { Length: > 0 } host ? host : config.HostKey;
     private readonly string _scope = command.System ? Targets.System : Targets.Home;
-    private string Name => _scope == Targets.Home ? $"{_host}'s home configuration" : $"{_host}'s system";
+    private DisplayText Name => DisplayText.Of(_scope == Targets.Home ? "stored_host_home_configuration" : "stored_host_system", ("host", _host));
     private List<Change> _changes = [];
     private ScopeInventory? _inventory;
 
-    private static ManagerException Fail(string message) => new(message);
+    private static ManagerException Fail(string key, params ReadOnlySpan<(string Name, object Value)> inputs) => new(DisplayText.Of(key, inputs));
 
     private static string Plural(int count, string one, string many) => count == 1 ? one : many;
 
     private async Task<ScopeInventory> InventoryAsync()
     {
         if (_inventory is not null) return _inventory;
-        await note($"Reading {Name}...").ConfigureAwait(false);
+        await note($"Reading {Name.English}...").ConfigureAwait(false);
         return _inventory = await Inventory.ReadAsync(config, _host, _scope, run).ConfigureAwait(false);
     }
 
@@ -373,7 +373,7 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
     private static string AttrOf(string name)
     {
         var attr = name.StartsWith("pkgs.", StringComparison.Ordinal) ? name : $"pkgs.{name}";
-        if (SoftwareCli.SplitAttr(attr) is not ["pkgs", _, ..]) throw Fail($"{name} is not a package attribute.");
+        if (SoftwareCli.SplitAttr(attr) is not ["pkgs", _, ..]) throw Fail("stored_cli_not_a_package_attribute", ("name", name));
         return attr;
     }
 
@@ -393,7 +393,7 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
         }
         catch (JsonException error)
         {
-            throw Fail($"Read package catalog: {error.Message}");
+            throw Fail("stored_step_failed_because", ("step", DisplayText.Of("stored_cli_read_package_catalog")), ("reason", DisplayText.Plain(error.Message)));
         }
     }
 
@@ -403,21 +403,21 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
         if (command.File is { Length: > 0 } file) return (file, []);
         if (command.NewFile is not { Length: > 0 } newFile) return null;
         var state = await InventoryAsync().ConfigureAwait(false);
-        if (ChangeRules.NewFileProblem(Known(state), newFile) is { } problem) throw Fail($"{newFile}: {problem}");
+        if (ChangeRules.NewFileProblem(Known(state), newFile) is { } problem) throw Fail("stored_edit_problem", ("subject", newFile), ("problem", problem));
         var importer = command.ImportFrom ?? ChangeRules.RankImporters(state.Importers, newFile, state.Imports).FirstOrDefault();
         if (string.IsNullOrEmpty(importer))
-            throw Fail($"No file {_host} imports has an imports list to add {newFile} to. Use --import-from.");
+            throw Fail("stored_cli_no_importer_for_new_file", ("host", _host), ("file", newFile));
         return (newFile, [new CreateModule(_scope, newFile, importer)]);
     }
 
     /// <summary>Current value and defining flake files of an option.</summary>
     private async Task<OptionValue> OptionStateAsync(string option)
     {
-        await note($"Reading {option} in {Name}...").ConfigureAwait(false);
+        await note($"Reading {option} in {Name.English}...").ConfigureAwait(false);
         var source = await Evaluation.FlakeSourceAsync(config.Flake, run).ConfigureAwait(false);
         var state = await Evaluation.EvaluateStateAsync(source, Evaluation.ConfigurationAttr(config, _host, _scope), _scope,
             new StateRequest { Options = [option] }, run).ConfigureAwait(false);
-        if (!state.Options.TryGetValue(option, out var value) || !value.Exists) throw Fail($"{option} is not an option of {Name}.");
+        if (!state.Options.TryGetValue(option, out var value) || !value.Exists) throw Fail("stored_is_not_an_option_of", ("option", option), ("name", Name));
         return value with { Files = value.Files.Where(file => !file.StartsWith('/')).ToList() };
     }
 
@@ -427,7 +427,7 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
         var draft = Drafts.Public(config.Flake, changes);
         var added = Enumerable.Range(0, changes.Count).Where(index => !before.Any(change => ReferenceEquals(change, changes[index]))).ToList();
         if (draft.Problems.FirstOrDefault(item => added.Contains(item.Index)) is { } problem)
-            throw Fail($"{ChangeRules.Describe(changes[problem.Index]).Title}: {problem.Message}");
+            throw Fail("stored_edit_problem", ("subject", ChangeRules.Describe(changes[problem.Index]).Title), ("problem", problem.Message));
         Drafts.Write(config, changes);
         return new SoftwareDraftResult { Draft = draft, Added = added.Select(index => index + 1).ToList() };
     }
@@ -452,16 +452,16 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
         {
             var names = index.Select(entry => $"pkgs.{entry.A}").ToHashSet();
             if (attrs.FirstOrDefault(attr => !names.Contains(attr)) is { } missing)
-                throw Fail($"{missing} is not in the locked nixpkgs. Find packages with nix-manager software search.");
+                throw Fail("stored_cli_not_in_locked_nixpkgs", ("attr", missing));
         }
         var state = await InventoryAsync().ConfigureAwait(false);
         foreach (var attr in attrs)
         {
             var installed = state.Packages.FirstOrDefault(item => item.Attr == attr || (string.IsNullOrEmpty(item.Attr) && $"pkgs.{item.Name}" == attr));
             if (installed is not null)
-                throw Fail(!string.IsNullOrEmpty(installed.Attr)
-                    ? $"{attr} is already listed in {installed.File}."
-                    : $"{attr} is already installed by {ChangeRules.Origin(installed.File)}.");
+                throw !string.IsNullOrEmpty(installed.Attr)
+                    ? Fail("stored_cli_already_listed_in", ("attr", attr), ("file", installed.File))
+                    : Fail("stored_cli_already_installed_by", ("attr", attr), ("origin", ChangeRules.Origin(installed.File)));
         }
         // By default packages join the used list holding the most packages.
         var best = state.Files
@@ -471,7 +471,7 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
             .FirstOrDefault();
         var target = await ChosenAsync().ConfigureAwait(false) ?? (best is { Active: true } ? (best.File, []) : null);
         if (target is not { } chosen)
-            throw Fail($"No file of {Name} has a package list. Choose one with --file, or create one with --new-file.");
+            throw Fail("stored_cli_no_package_list", ("name", Name));
         var next = chosen.Create.Concat(attrs.Select(attr => new AddPackage(_scope, chosen.File, attr))).ToList();
         var result = Save(changes, ChangeRules.Merge(changes, next));
         // Prepare would refuse these; say so now, with the edit that allows them.
@@ -480,7 +480,7 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
         var refused = allowed ? [] : (index ?? [])
             .Where(entry => attrs.Contains($"pkgs.{entry.A}") && !entry.F && !ChangeRules.AcceptsUnfree(state.Unfree, entry.N)).ToList();
         if (refused.Count > 0)
-            await note($"{string.Join(", ", refused.Select(entry => entry.N ?? entry.A))} {Plural(refused.Count, "is", "are")} not free software, which {Name} does not allow. To allow it: {TerminalRenderer.FixCommand(new Fix { Kind = "allow-unfree", Packages = [], Scope = _scope })}")
+            await note($"{string.Join(", ", refused.Select(entry => entry.N ?? entry.A))} {Plural(refused.Count, "is", "are")} not free software, which {Name.English} does not allow. To allow it: {TerminalRenderer.FixCommand(new Fix { Kind = "allow-unfree", Packages = [], Scope = _scope })}")
                 .ConfigureAwait(false);
         return result;
     }
@@ -494,9 +494,9 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
             var listed = state.Packages.FirstOrDefault(item => item.Attr == attr && (string.IsNullOrEmpty(command.File) || item.File == command.File));
             if (listed is not null) return new RemovePackage(_scope, listed.File, attr);
             var added = state.Packages.FirstOrDefault(item => $"pkgs.{item.Name}" == attr && item.External);
-            throw Fail(added is not null
-                ? $"{attr} is added by {ChangeRules.Origin(added.File)}, not a package list. Turn off the setting that adds it instead."
-                : $"{attr} is not listed in a file of {Name}.{(command.System ? "" : " For system packages, add --system.")}");
+            throw added is not null
+                ? Fail("stored_cli_added_by_setting", ("attr", attr), ("origin", ChangeRules.Origin(added.File)))
+                : Fail(command.System ? "stored_cli_not_listed_in_configuration" : "stored_cli_not_listed_in_home_configuration", ("attr", attr), ("name", Name));
         }).ToList();
         return Save(changes, ChangeRules.Merge(changes, next));
     }
@@ -526,9 +526,9 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
         }
         var path = target?.File ?? (current.Files.Count == 1 ? current.Files[0] : null);
         if (path is null)
-            throw Fail(current.Files.Count > 0
-                ? $"{command.Option} is set in {string.Join(", ", current.Files)}. Choose one with --file."
-                : $"{command.Option} is not set in the flake yet. Choose where to write it with --file <path> or --new-file <path>.");
+            throw current.Files.Count > 0
+                ? Fail("stored_cli_option_set_in_several_files", ("option", command.Option), ("files", string.Join(", ", current.Files)))
+                : Fail("stored_cli_option_not_set_in_flake", ("option", command.Option));
         List<Change> next;
         if (command.Action == SoftwareAction.Set)
         {
@@ -542,12 +542,12 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
                 value = JsonValue.Create(command.Value);
             }
             if (current.Error != true && current.HasValue && JsJson.Stringify(current.Value) == JsJson.Stringify(value) && current.Files.Contains(path))
-                throw Fail($"{command.Option} is already {ChangeRules.ShowValue(value)}.");
+                throw Fail("stored_cli_option_is_already", ("option", command.Option), ("value", ChangeRules.ShowValue(value)));
             next = [.. target?.Create ?? [], new SetOption(_scope, path, command.Option, value)];
         }
         else
         {
-            if (!current.Files.Contains(path)) throw Fail($"{command.Option} is not set in {path}.");
+            if (!current.Files.Contains(path)) throw Fail("stored_cli_option_not_set_in_file", ("option", command.Option), ("path", path));
             next = [new UnsetOption(_scope, path, command.Option)];
         }
         return Save(changes, ChangeRules.Merge(changes, next));
@@ -560,7 +560,7 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
     {
         var changes = Changes();
         if (command.Index < 1 || command.Index > changes.Count)
-            throw Fail(changes.Count > 0 ? $"Choose an edit from 1 to {changes.Count}." : "There are no pending edits.");
+            throw changes.Count > 0 ? Fail("stored_cli_choose_an_edit", ("count", changes.Count)) : Fail("stored_there_are_no_pending_edits");
         var rest = ChangeRules.Drop(changes, command.Index - 1);
         Drafts.Write(config, rest);
         return new SoftwareDraftResult { Draft = Drafts.Public(config.Flake, rest), Dropped = [changes[command.Index - 1]] };
@@ -577,7 +577,7 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
     public Request Prepare()
     {
         var changes = Changes();
-        if (changes.Count == 0) throw Fail("There are no pending edits.");
+        if (changes.Count == 0) throw Fail("stored_there_are_no_pending_edits");
         return Request.Create() with { Action = Actions.ReviewBuild, Scope = ChangeRules.ChangesScope(changes), Host = _host, Edits = true };
     }
 
@@ -589,7 +589,7 @@ internal sealed class SoftwareRunner(Config config, SoftwareCommand command, Fun
         var review = SoftwareCli.ListReviews(config).FirstOrDefault(item =>
             item.Edits?.Hash == hash && (item.Host is { Length: > 0 } h ? h : config.HostKey) == _host);
         if (changes.Count == 0 || review is null)
-            throw Fail("No prepared review matches the pending edits. Run nix-manager software prepare first.");
+            throw Fail("stored_cli_no_prepared_review");
         return Request.Create() with
         {
             Action = Actions.ReviewApply,

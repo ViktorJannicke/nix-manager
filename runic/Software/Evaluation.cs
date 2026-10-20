@@ -105,13 +105,13 @@ public static class Evaluation
     /// <summary>Store copy of the flake's tracked files, uncommitted edits included (<c>flakeSource</c>).</summary>
     public static async Task<string> FlakeSourceAsync(string flake, Func<Command, Task<CommandResult>> run)
     {
-        var result = await run(new Command { Label = "Read flake source", Argv = ["nix", "flake", "metadata", "--json", flake], Quiet = true }).ConfigureAwait(false);
+        var result = await run(new Command { Label = DisplayText.Of("stored_read_flake_source"), Argv = ["nix", "flake", "metadata", "--json", flake], Quiet = true }).ConfigureAwait(false);
         try
         {
             if (JsonNode.Parse(result.Stdout)?["path"] is JsonValue path && path.TryGetValue<string>(out var text)) return text;
         }
         catch (Exception e) when (e is JsonException or InvalidOperationException) { }
-        throw new ManagerException("Invalid flake metadata: the path is missing.");
+        throw new ManagerException(DisplayText.Of("stored_flake_metadata_path_missing"));
     }
 
     private static string NixString(string text) =>
@@ -270,7 +270,7 @@ public static class Evaluation
         var options = request.Options.Distinct().ToList();
         var result = await run(new Command
         {
-            Label = "Evaluate configuration",
+            Label = DisplayText.Of("stored_evaluate_configuration"),
             Argv = ["nix", "eval", "--json", $"path:{source}#{configuration}", "--apply", StateExpression(source, scope, request, options)],
             Quiet = true,
         }).ConfigureAwait(false);
@@ -281,7 +281,7 @@ public static class Evaluation
         }
         catch (JsonException e)
         {
-            throw new ManagerException($"Invalid configuration evaluation: {e.Message}");
+            throw new ManagerException(DisplayText.Of("stored_configuration_evaluation_invalid", ("reason", e.Message)));
         }
         string Local(string file)
         {

@@ -5,7 +5,7 @@ namespace NixManager.Domain;
 /// <summary>One step of a plan: a process to start, or an internal step.</summary>
 public sealed record Command
 {
-    public required string Label { get; init; }
+    public required DisplayText Label { get; init; }
     public required IReadOnlyList<string> Argv { get; init; }
     public string? Cwd { get; init; }
     public IReadOnlyDictionary<string, string>? Env { get; init; }
@@ -18,7 +18,7 @@ public sealed record Command
     public string? Internal { get; init; }
 }
 
-public sealed record Plan(IReadOnlyList<Command> Steps, IReadOnlyList<string> Notes);
+public sealed record Plan(IReadOnlyList<Command> Steps, IReadOnlyList<DisplayText> Notes);
 
 /// <summary>Steps the manager performs itself instead of starting a process (<c>InternalStep</c>).</summary>
 public static class InternalSteps
@@ -39,10 +39,11 @@ public static partial class Planner
         RequestValidation.Validate(r);
         var host = HostResolution.Resolve(config.Hosts, r.Host is { Length: > 0 } ? r.Host : config.HostKey).Value;
         var steps = new List<Command>();
-        var notes = new List<string>();
-        void Add(string label, IReadOnlyList<string> argv, bool progress = false, IReadOnlyDictionary<string, string>? env = null, string? @internal = null) =>
+        var notes = new List<DisplayText>();
+        void Add(DisplayText label, IReadOnlyList<string> argv, bool progress = false, IReadOnlyDictionary<string, string>? env = null, string? @internal = null) =>
             steps.Add(new Command { Label = label, Argv = argv, Cwd = config.Flake, Env = env, Progress = progress ? true : null, Internal = @internal });
-        void PrivilegedStep(string label, params string[] args) => Add(label, [.. config.Privileged, .. args]);
+        void PrivilegedStep(DisplayText label, params string[] args) => Add(label, [.. config.Privileged, .. args]);
+        bool activatesHome = false, activatesSystem = false;
         var home = r.IncludesHome;
         var system = r.IncludesSystem;
         // Edited reviews build a copy of the flake's files with the edits applied.
@@ -51,31 +52,35 @@ public static partial class Planner
             : config.Flake;
         var homeAttr = $"{flake}#homeConfigurations.{Nix.NixText.Attr(host.HomeConfiguration)}.activationPackage";
         var systemAttr = $"{flake}#nixosConfigurations.{Nix.NixText.Attr(host.NixosConfiguration)}.config.system.build.toplevel";
-        void Build(string label, string installable, string? link, IReadOnlyList<string>? extra = null) =>
+        void Build(DisplayText label, string installable, string? link, IReadOnlyList<string>? extra = null) =>
             Add(label, ["nix", "build", .. link is null ? ["--no-link"] : new[] { "--out-link", link }, .. NixFlags, .. extra ?? [], installable, .. r.Extra],
                 progress: true);
         void ActivateHome(string output)
         {
             // A user's first home generation: nix-env needs the profile's folder.
             if (!config.HomeProfileExists)
-                Add("Create the folder for home generations", ["mkdir", "-p", Parent(config.HomeProfile)]);
-            Add("Select Home Manager generation", ["nix-env", "--profile", config.HomeProfile, "--set", output]);
-            Add("Activate Home Manager", [$"{output}/activate", "--driver-version", "1"],
+                Add(DisplayText.Of("stored_create_the_folder_for_home_generations"), ["mkdir", "-p", Parent(config.HomeProfile)]);
+            Add(DisplayText.Of("stored_select_home_manager_generation"), ["nix-env", "--profile", config.HomeProfile, "--set", output]);
+            activatesHome = true;
+            Add(DisplayText.Of("stored_activate_home_manager"), [$"{output}/activate", "--driver-version", "1"],
                 env: new Dictionary<string, string> { ["HOME_MANAGER_BACKUP_EXT"] = "hm-backup" });
         }
-        void ActivateSystem(string output, string mode) =>
-            PrivilegedStep(mode == "boot" ? "Activate system on next boot" : "Activate system", "activate-output", mode, output);
+        void ActivateSystem(string output, string mode)
+        {
+            activatesSystem = true;
+            PrivilegedStep(DisplayText.Of(mode == "boot" ? "stored_activate_system_on_next_boot" : "stored_activate_system"), "activate-output", mode, output);
+        }
         void Cleanup()
         {
             var retention = r.Retention ?? 3;
             if (home && config.HomeProfileExists)
-                Add($"Keep {retention} home generations", ["nix-env", "--profile", config.HomeProfile, "--delete-generations", $"+{retention}"]);
+                Add(DisplayText.Of("stored_keep_home_generations", ("count", retention)), ["nix-env", "--profile", config.HomeProfile, "--delete-generations", $"+{retention}"]);
             else if (home)
-                notes.Add($"No Home Manager profile at {config.HomeProfile}; generation deletion is skipped.");
+                notes.Add(DisplayText.Of("stored_no_home_manager_profile_at_generation_deletion", ("path", config.HomeProfile)));
             if (system)
-                PrivilegedStep($"Keep {retention} system generations and collect garbage", "gc", retention.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            else Add("Collect unreferenced store paths", ["nix-store", "--gc"]);
-            notes.Add("Garbage collection deletes unreferenced store paths and older generations; these cannot be rolled back afterward.");
+                PrivilegedStep(DisplayText.Of("stored_keep_system_generations_and_collect_garbage", ("count", retention)), "gc", retention.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            else Add(DisplayText.Of("stored_collect_unreferenced_store_paths"), ["nix-store", "--gc"]);
+            notes.Add(DisplayText.Of("stored_garbage_collection_deletes_unreferenced_store_paths_and"));
         }
 
         if (r.Action == Actions.ReviewBuild)
@@ -84,104 +89,103 @@ public static partial class Planner
             if (r.Generation is { } generation)
             {
                 var profile = home ? config.HomeProfile : Paths.SystemProfile;
-                Build(home ? $"Retain home generation {generation}" : $"Retain system generation {generation}",
+                Build(DisplayText.Of(home ? "stored_retain_home_generation" : "stored_retain_system_generation", ("generation", generation)),
                     $"{profile}-{generation}-link", $"{root}/{r.Scope}");
             }
             else if (r.Undo is not null)
             {
-                if (undo is null) throw new ManagerException("The change to undo is unavailable.");
+                if (undo is null) throw new ManagerException(DisplayText.Of("stored_the_change_to_undo_is_unavailable"));
                 foreach (var scope in new[] { Scopes.Home, Scopes.System })
                 {
                     if (scope == Scopes.Home ? !home : !system) continue;
                     var number = scope == Scopes.Home ? undo.Generations.Home : undo.Generations.System;
                     if (number is null)
-                        throw new ManagerException(scope == Scopes.Home
-                            ? "The change did not record the home generation it replaced."
-                            : "The change did not record the system generation it replaced.");
-                    Build(scope == Scopes.Home ? $"Retain home generation {number}" : $"Retain system generation {number}",
+                        throw new ManagerException(DisplayText.Of(scope == Scopes.Home
+                            ? "stored_the_change_did_not_record_the_home"
+                            : "stored_the_change_did_not_record_the_system"));
+                    Build(DisplayText.Of(scope == Scopes.Home ? "stored_retain_home_generation" : "stored_retain_system_generation", ("generation", number.Value)),
                         $"{(scope == Scopes.Home ? config.HomeProfile : Paths.SystemProfile)}-{number}-link", $"{root}/{scope}");
                 }
                 if (undo.Files.Count > 0)
-                    notes.Add("Applying the undo also restores the configuration files the change wrote.");
+                    notes.Add(DisplayText.Of("stored_applying_the_undo_also_restores_the_configuration"));
             }
             else
             {
                 if (r.Edits == true)
                 {
-                    Add("Stage the edited files", [], @internal: InternalSteps.StageSources);
-                    Add("Check the edits", [], @internal: InternalSteps.VerifyEdits);
+                    Add(DisplayText.Of("stored_stage_the_edited_files"), [], @internal: InternalSteps.StageSources);
+                    Add(DisplayText.Of("stored_check_the_edits"), [], @internal: InternalSteps.VerifyEdits);
                 }
                 var inputs = r.Inputs ?? [];
                 var lockFile = r.Update || inputs.Count > 0 ? $"{root}/flake.lock" : null;
                 if (lockFile is not null)
                     Add(inputs.Count > 0
-                            ? inputs.Count == 1 ? $"Resolve {inputs[0]}" : $"Resolve {inputs.Count} inputs"
-                            : "Resolve all flake inputs",
+                            ? inputs.Count == 1 ? DisplayText.Of("stored_resolve", ("input", inputs[0])) : DisplayText.Of("stored_resolve_inputs", ("count", inputs.Count))
+                            : DisplayText.Of("stored_resolve_all_flake_inputs"),
                         ["nix", "flake", "update", .. inputs, "--flake", config.Flake, "--output-lock-file", lockFile, "--log-format", "internal-json"],
                         progress: true);
                 string[] lockFlags = lockFile is not null ? ["--reference-lock-file", lockFile, "--no-write-lock-file"] : ["--no-write-lock-file"];
-                if (home) Build("Build home configuration", homeAttr, $"{root}/home", lockFlags);
-                if (system) Build("Build system configuration", systemAttr, $"{root}/system", lockFlags);
+                if (home) Build(DisplayText.Of("stored_build_home_configuration"), homeAttr, $"{root}/home", lockFlags);
+                if (system) Build(DisplayText.Of("stored_build_system_configuration"), systemAttr, $"{root}/system", lockFlags);
                 if (lockFile is not null)
-                    notes.Add("Inputs are resolved into a separate lock file. The checkout's flake.lock changes only when you apply this review.");
+                    notes.Add(DisplayText.Of("stored_inputs_are_resolved_into_a_separate_lock"));
                 if (r.Edits == true)
-                    notes.Add("Edits are built from a copy of the checkout. Your files change only when you apply this review.");
+                    notes.Add(DisplayText.Of("stored_edits_are_built_from_a_copy_of"));
             }
-            Add("Compare with the active configuration", [], @internal: InternalSteps.Compare);
-            notes.Add("Nothing is activated. The build is kept until you apply or discard it.");
+            Add(DisplayText.Of("stored_compare_with_the_active_configuration"), [], @internal: InternalSteps.Compare);
+            notes.Add(DisplayText.Of("stored_nothing_is_activated_the_build_is_kept"));
             return new Plan(steps, notes);
         }
         if (r.Action == Actions.ReviewApply)
         {
-            if (review is null || review.Id != r.ReviewId) throw new ManagerException("The selected review is unavailable.");
+            if (review is null || review.Id != r.ReviewId) throw new ManagerException(DisplayText.Of("stored_the_selected_review_is_unavailable"));
             var mode = r.Activation ?? "switch";
             if (review.Edits is { } edits)
-                Add(edits.Files.Count == 1 ? $"Write {edits.Files[0].Path}" : $"Write {edits.Files.Count} edited files", [],
+                Add(edits.Files.Count == 1 ? DisplayText.Of("stored_write", ("file", edits.Files[0].Path)) : DisplayText.Of("stored_write_edited_files", ("count", edits.Files.Count)), [],
                     @internal: InternalSteps.WriteSources);
-            if (review.Inputs is not null) Add("Write the reviewed flake.lock", [], @internal: InternalSteps.WriteLock);
+            if (review.Inputs is not null) Add(DisplayText.Of("stored_write_the_reviewed_flake_lock"), [], @internal: InternalSteps.WriteLock);
             if (review.Undo?.Point.Files is { Count: > 0 } files)
-                Add(files.Count == 1 ? $"Restore {files[0].Path}" : $"Restore {files.Count} files", [], @internal: InternalSteps.RestoreSources);
+                Add(files.Count == 1 ? DisplayText.Of("stored_restore", ("file", files[0].Path)) : DisplayText.Of("stored_restore_files", ("count", files.Count)), [], @internal: InternalSteps.RestoreSources);
             if (home && review.Home is not null && mode == "switch") ActivateHome(review.Home.Path);
             if (system && review.System is not null) ActivateSystem(review.System.Path, mode);
             if (!steps.Any(step => step.Internal is null))
-                throw new ManagerException(mode == "boot"
-                    ? "Only a system configuration can be applied on next boot."
-                    : "This review does not contain the selected configuration.");
-            if (steps.Any(step => step.Label.StartsWith("Activate Home", StringComparison.Ordinal))
-                && steps.Any(step => step.Label.StartsWith("Activate system", StringComparison.Ordinal)))
-                notes.Add("Home activates before system. If system activation fails, home remains active.");
-            notes.Add("The exact reviewed outputs are activated; the checkout is not evaluated again.");
+                throw new ManagerException(DisplayText.Of(mode == "boot"
+                    ? "stored_only_a_system_configuration_can_be_applied"
+                    : "stored_this_review_does_not_contain_the_selected"));
+            if (activatesHome && activatesSystem)
+                notes.Add(DisplayText.Of("stored_home_activates_before_system_if_system_activation"));
+            notes.Add(DisplayText.Of("stored_the_exact_reviewed_outputs_are_activated_the"));
             return new Plan(steps, notes);
         }
         if (r.Update)
-            Add("Update flake inputs", ["nix", "flake", "update", "--flake", config.Flake]);
+            Add(DisplayText.Of("stored_update_flake_inputs"), ["nix", "flake", "update", "--flake", config.Flake]);
         if (r.Action == Actions.Check)
-            notes.Add("Resolve inputs in a temporary copy and compare package releases on each pin's channel. The checkout is unchanged.");
+            notes.Add(DisplayText.Of("stored_resolve_inputs_in_a_temporary_copy_and"));
         else if (Actions.IsPackage(r.Action))
-            notes.Add("Compare the latest release on the pin's channel and inherited recipes, discover hashes, then build before atomically replacing the pin.");
+            notes.Add(DisplayText.Of("stored_compare_the_latest_release_on_the_pin"));
         else
         {
             if (r.Action == Actions.Build)
             {
-                if (home) Build("Build home configuration", homeAttr, null);
-                if (system) Build("Build system configuration", systemAttr, null);
+                if (home) Build(DisplayText.Of("stored_build_home_configuration"), homeAttr, null);
+                if (system) Build(DisplayText.Of("stored_build_system_configuration"), systemAttr, null);
             }
             if (r.Action is Actions.Switch or Actions.Boot)
             {
                 var root = Paths.BuildRoot(config);
-                if (home) Build("Build home configuration", homeAttr, $"{root}/home");
-                if (system) Build("Build system configuration", systemAttr, $"{root}/system");
+                if (home) Build(DisplayText.Of("stored_build_home_configuration"), homeAttr, $"{root}/home");
+                if (system) Build(DisplayText.Of("stored_build_system_configuration"), systemAttr, $"{root}/system");
                 if (home) ActivateHome($"{root}/home");
                 if (system) ActivateSystem($"{root}/system", r.Action);
                 if (home && system)
-                    notes.Add("Home activates before system. If system activation fails, home may already be active.");
+                    notes.Add(DisplayText.Of("stored_home_activates_before_system_if_system_activation_2"));
                 if (system)
-                    notes.Add("Once the privileged step starts, cancellation waits for it to finish before stopping subsequent steps.");
+                    notes.Add(DisplayText.Of("stored_once_the_privileged_step_starts_cancellation_waits"));
             }
             else if (r.Action == Actions.Rollback)
             {
-                if (home) Add("Roll back home configuration", ["home-manager", "switch", "--rollback", .. r.Extra]);
-                if (system) PrivilegedStep("Roll back system configuration", "rollback");
+                if (home) Add(DisplayText.Of("stored_roll_back_home_configuration"), ["home-manager", "switch", "--rollback", .. r.Extra]);
+                if (system) PrivilegedStep(DisplayText.Of("stored_roll_back_system_configuration"), "rollback");
             }
             if (r.Cleanup || r.Action == Actions.Gc) Cleanup();
         }
@@ -198,7 +202,7 @@ public static partial class Planner
         if (system is { } systemGeneration)
             steps.Add(new Command
             {
-                Label = $"Go back to system generation {systemGeneration}",
+                Label = DisplayText.Of("stored_go_back_to_system_generation", ("generation", systemGeneration)),
                 Argv = [.. config.Privileged, "activate-generation", Nix.NixText.Invariant(systemGeneration)],
                 Cwd = config.Flake,
             });
@@ -206,13 +210,13 @@ public static partial class Planner
         {
             steps.Add(new Command
             {
-                Label = $"Go back to home generation {homeGeneration}",
+                Label = DisplayText.Of("stored_go_back_to_home_generation", ("generation", homeGeneration)),
                 Argv = ["nix-env", "--profile", config.HomeProfile, "--switch-generation", Nix.NixText.Invariant(homeGeneration)],
                 Cwd = config.Flake,
             });
             steps.Add(new Command
             {
-                Label = "Activate the earlier home generation",
+                Label = DisplayText.Of("stored_activate_the_earlier_home_generation"),
                 Argv = [$"{config.HomeProfile}-{homeGeneration}-link/activate", "--driver-version", "1"],
                 Cwd = config.Flake,
                 Env = new Dictionary<string, string> { ["HOME_MANAGER_BACKUP_EXT"] = "hm-backup" },

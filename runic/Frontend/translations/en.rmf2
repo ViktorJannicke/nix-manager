@@ -1,5 +1,5 @@
-# The dashboard's English text. German is in de.rmf2; scripts/import-bun-catalog.py fills in German for new
-# messages from the Bun version's catalogue (src/locales/de). Text the backend stores is in stored/.
+# The dashboard's English text. German is in de.rmf2. Text the backend writes for people, and the curated features
+# and Computer page settings, are in stored/; the daemon's own text is in tray/.
 
 common {
   @param $items - Items in the order given

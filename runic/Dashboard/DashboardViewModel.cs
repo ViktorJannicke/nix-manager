@@ -46,8 +46,8 @@ public sealed record Announcement(string Message);
 /// <summary>What a request would run, without running it: the dry run behind a confirmation.</summary>
 /// <param name="Request">The request this answers.</param>
 /// <param name="Plan">Its steps and notes, or null when it cannot run.</param>
-/// <param name="Error">Why it cannot run, in English.</param>
-public sealed record PlanPreview(Request Request, Plan? Plan, string? Error);
+/// <param name="Error">Why it cannot run.</param>
+public sealed record PlanPreview(Request Request, Plan? Plan, DisplayText? Error);
 
 /// <summary>
 /// The dashboard Window: the operations of the checkout, its reviews, the computer's state, the Software page, its
@@ -235,7 +235,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         }
         catch (ManagerException error)
         {
-            Preview = new PlanPreview(request, null, error.Message);
+            Preview = new PlanPreview(request, null, error.Text);
         }
     }
 

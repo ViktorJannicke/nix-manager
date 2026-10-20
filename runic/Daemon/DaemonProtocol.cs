@@ -44,12 +44,15 @@ public sealed record DaemonMessage
     public required string Kind { get; init; }
     public ManagerEvent? Event { get; init; }
     public Operation? Operation { get; init; }
+    /// <summary>The English of an error, or the text of a note.</summary>
     public string? Message { get; init; }
+    /// <summary>An error as its text reference, so the launching process shows it in its reader's language.</summary>
+    public DisplayText? Text { get; init; }
     public Explanation? Explanation { get; init; }
 
     public static DaemonMessage Of(ManagerEvent e) => new() { Kind = "event", Event = e };
     public static DaemonMessage Result(Operation operation) => new() { Kind = "result", Operation = operation };
-    public static DaemonMessage Error(ManagerException error) => new() { Kind = "error", Message = error.Message, Explanation = error.Explanation };
+    public static DaemonMessage Error(ManagerException error) => new() { Kind = "error", Message = error.Message, Text = error.Text, Explanation = error.Explanation };
     /// <summary>The instance runs another configuration; the launching process runs the request itself.</summary>
     public static DaemonMessage Elsewhere(string why) => new() { Kind = "elsewhere", Message = why };
     /// <summary>A line for the launching process to print on standard error.</summary>

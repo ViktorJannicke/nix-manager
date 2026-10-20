@@ -5,13 +5,13 @@
   import { Button } from "$lib/components/ui/button";
   import { formatCommand } from "$lib/requests";
   import { app } from "$lib/app.svelte";
-  import { m, stored } from "$lib/i18n";
+  import { m, text } from "$lib/i18n";
 
   let details = $state(false);
   const confirmation = $derived(app.confirmation);
   // The dry run: what the request would run, planned by the backend without running it.
   const preview = $derived(app.preview);
-  const error = $derived(confirmation?.failed ?? preview?.error ?? undefined);
+  const error = $derived(confirmation?.failed ?? (text(preview?.error) || undefined));
 </script>
 
 <Dialog.Root
@@ -42,11 +42,11 @@
         </Dialog.Description>
       </Dialog.Header>
       {#if error}
-        <p class="rounded-lg bg-destructive/10 px-3 py-2 text-destructive" role="alert">{stored(error)}</p>
+        <p class="rounded-lg bg-destructive/10 px-3 py-2 text-destructive" role="alert">{error}</p>
       {/if}
       {#if preview?.plan?.notes.length}
         <ul role="list" class="space-y-1 rounded-lg bg-warning/10 px-3 py-2 text-xs">
-          {#each preview.plan.notes as note, index (index)}<li>{stored(note)}</li>{/each}
+          {#each preview.plan.notes as note, index (index)}<li>{text(note)}</li>{/each}
         </ul>
       {/if}
       <div>
@@ -64,7 +64,7 @@
             {#if preview?.plan}
               {#each preview.plan.steps as command, index (index)}
                 <li>
-                  <p class="font-medium">{index + 1}. {stored(command.label)}</p>
+                  <p class="font-medium">{index + 1}. {text(command.label)}</p>
                   <code class="block break-all text-muted-foreground">{formatCommand(command, m.confirm_performed_by_nix_manager())}</code>
                 </li>
               {/each}

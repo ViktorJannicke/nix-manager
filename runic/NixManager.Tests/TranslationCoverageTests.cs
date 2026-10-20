@@ -1,70 +1,37 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using NixManager.Daemon;
+using NixManager.Domain;
+using NixManager.Operations;
 
 namespace NixManager.Tests;
 
 /// <summary>
-/// Text the backend sends the dashboard, the setup assistant or the tray in English is translated where it is shown,
-/// through the stored catalogue (Frontend/translations/stored, which <see cref="TrayText.Stored"/> reads as the page's
-/// <c>stored()</c> does). These tests read the backend's sources for the errors its requests answer with, so an error
-/// added without German fails here instead of reaching a German page in English.
+/// Text the backend writes for people is a text reference to a message of the dashboard's catalogue
+/// (<see cref="DisplayText"/>), shown in the reader's language by the page and by <see cref="TrayText.Show"/>. These
+/// tests read the backend's sources for the messages it names, so a message that is missing, or named with other
+/// inputs than it has, fails here instead of when the backend first writes it.
 /// </summary>
 public sealed partial class TranslationCoverageTests
 {
     private static readonly TrayText German = TrayText.For("de");
 
-    /// <summary>The sources whose errors reach the page: its requests, and what they call that fails on its own.</summary>
-    private static readonly string[] PageSources =
-    [
-        "ViewModels",
-        "Dashboard",
-        "Setup/SetupAssistantService.cs",
-        "Reviews/ReviewService.cs",
-        "Software/Apps.cs",
-        "Execution/PrivilegedCommandRunner.cs",
-        "Operations/OperationService.cs",
-        "Operations/OperationStore.cs",
-    ];
-
-    /// <summary>
-    /// Errors that stay English, each with why: they answer requests the page never makes, or they carry a message from
-    /// the system, which is English anyway.
-    /// </summary>
-    private static readonly Dictionary<string, string> English = new()
-    {
-        ["Unknown theme: x."] = "the page offers only the known themes",
-        ["Unknown language: x."] = "the page offers only the known languages",
-        ["Unknown detail level: x."] = "the page offers only the known detail levels",
-        ["x: unexpected result x."] = "a Polkit result the platform does not define",
-        ["Save update report: x"] = "the system's I/O error",
-    };
-
     [Test]
-    public async Task Every_error_the_pages_requests_answer_with_is_translated()
+    public async Task Every_message_the_backend_names_is_in_the_catalogue_with_its_inputs()
     {
-        var untranslated = new List<string>();
-        foreach (var (file, line, text) in Errors())
-        {
-            if (English.ContainsKey(text) || German.Stored(text) != text) continue;
-            untranslated.Add($"{file}:{line}: {text}");
-        }
-        await Assert.That(untranslated).IsEmpty();
-        // The list holds only errors that still exist.
-        await Assert.That(English.Keys.Except(Errors().Select(error => error.Text))).IsEmpty();
-    }
-
-    [Test]
-    public async Task Holding_changes_that_are_no_longer_prepared_says_so_in_German()
-    {
-        await Assert.That(German.Stored("Those changes are no longer being prepared."))
-            .IsEqualTo("Diese Änderungen werden nicht mehr vorbereitet.");
-        await Assert.That(TrayText.English.Stored("Those changes are no longer being prepared."))
-            .IsEqualTo("Those changes are no longer being prepared.");
-        // A value inside is kept, and translated itself where it is stored text.
-        var step = German.Stored("Activate system");
-        await Assert.That(step).IsNotEqualTo("Activate system");
-        await Assert.That(German.Stored("Activate system: Polkit is unavailable (no agent). An authentication agent and pkexec are required."))
-            .IsEqualTo($"{step}: Polkit ist nicht verfügbar (no agent). Ein Authentifizierungsprogramm und pkexec werden benötigt.");
+        var messages = Messages();
+        var calls = Calls().ToList();
+        // The scan finds the calls: Plan.cs alone names a few dozen messages.
+        await Assert.That(calls.Count).IsGreaterThan(300);
+        var problems = new List<string>();
+        foreach (var (file, line, keys, inputs) in calls)
+            foreach (var key in keys)
+            {
+                if (!messages.TryGetValue(key, out var placeholders)) problems.Add($"{file}:{line}: {key} is not in the catalogue");
+                else if (inputs is not null && !placeholders.SetEquals(inputs))
+                    problems.Add($"{file}:{line}: {key} takes {string.Join(", ", placeholders.Order())}, not {string.Join(", ", inputs.Order())}");
+            }
+        await Assert.That(problems).IsEmpty();
     }
 
     [Test]
@@ -78,30 +45,146 @@ public sealed partial class TranslationCoverageTests
         }
     }
 
-    /// <summary>The literal errors of <see cref="PageSources"/>, with each interpolated value as "x".</summary>
-    private static IEnumerable<(string File, int Line, string Text)> Errors()
+    [Test]
+    public async Task A_message_is_shown_in_German_with_a_message_inside_translated_too()
     {
-        foreach (var source in PageSources)
+        var held = DisplayText.Of("stored_those_changes_are_no_longer_being_prepared");
+        await Assert.That(German.Show(held)).IsEqualTo("Diese Änderungen werden nicht mehr vorbereitet.");
+        await Assert.That(TrayText.English.Show(held)).IsEqualTo("Those changes are no longer being prepared.");
+        await Assert.That(held.English).IsEqualTo("Those changes are no longer being prepared.");
+
+        // The step label inside is a message itself; a value from the system stays as it is.
+        var step = DisplayText.Of("stored_activate_system");
+        var polkit = DisplayText.Of("stored_polkit_is_unavailable_an_authentication_agent_and", ("label", step), ("reason", "no agent"));
+        await Assert.That(polkit.English).IsEqualTo("Activate system: Polkit is unavailable (no agent). An authentication agent and pkexec are required.");
+        await Assert.That(German.Show(polkit))
+            .IsEqualTo($"{German.Show(step)}: Polkit ist nicht verfügbar (no agent). Ein Authentifizierungsprogramm und pkexec werden benötigt.");
+        await Assert.That(German.Show(step)).IsNotEqualTo("Activate system");
+    }
+
+    [Test]
+    public async Task A_reference_survives_storing_and_a_record_without_one_reads_as_its_English()
+    {
+        var failed = DisplayText.Of("stored_failed", ("label", DisplayText.Of("stored_build_home_configuration")));
+        var json = ManagerJson.Serialize(failed);
+        await Assert.That(json).StartsWith("{");
+        var read = ManagerJson.Deserialize<DisplayText>(json)!;
+        await Assert.That(read).IsEqualTo(failed);
+        await Assert.That(German.Show(read)).IsEqualTo("Fehlgeschlagen: Benutzerkonfiguration bauen");
+
+        // Records written before text references hold English, which every language shows as it is.
+        var legacy = ManagerJson.Deserialize<DisplayText>("\"Build home configuration failed\"")!;
+        await Assert.That(legacy).IsEqualTo(DisplayText.Plain("Build home configuration failed"));
+        await Assert.That(German.Show(legacy)).IsEqualTo("Build home configuration failed");
+        await Assert.That(ManagerJson.Serialize(legacy)).IsEqualTo("\"Build home configuration failed\"");
+    }
+
+    [Test]
+    public async Task A_message_named_wrongly_fails_where_it_is_written()
+    {
+        await Assert.That(() => DisplayText.Of("stored_no_such_message")).Throws<ArgumentException>();
+        await Assert.That(() => DisplayText.Of("stored_failed", ("step", "x"))).Throws<ArgumentException>();
+    }
+
+    /// <summary>The placeholders of every message of the catalogue, by generated key (<c>group_name</c>).</summary>
+    private static Dictionary<string, HashSet<string>> Messages()
+    {
+        var messages = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        foreach (var catalogue in new[] { "", "stored", "tray" })
         {
-            var path = Path.Combine(Root, source);
-            var files = Directory.Exists(path) ? Directory.EnumerateFiles(path, "*.cs") : [path];
-            foreach (var file in files.Order(StringComparer.Ordinal))
+            string? group = null;
+            HashSet<string>? current = null;
+            foreach (var line in File.ReadAllLines(Path.Combine(Root, "Frontend", "translations", catalogue, "en.rmf2")))
             {
-                var lines = File.ReadAllLines(file);
-                for (var i = 0; i < lines.Length; i++)
+                if (GroupStart().Match(line) is { Success: true } start) (group, current) = (start.Groups[1].Value, null);
+                else if (line == "}") (group, current) = (null, null);
+                else if (Entry().Match(line) is { Success: true } entry && (entry.Groups[1].Length == 0) == (group is null))
                 {
-                    if (!Raises().IsMatch(lines[i])) continue;
-                    foreach (Match literal in Literal().Matches(lines[i]))
+                    var name = entry.Groups[2].Value;
+                    var key = (catalogue, group) switch
                     {
-                        // A literal with a conditional literal inside, which this simple reading cannot take apart.
-                        if (literal.Groups[2].Value.Contains("{(", StringComparison.Ordinal)) continue;
-                        var text = literal.Groups[1].Success ? Hole().Replace(literal.Groups[2].Value, "x") : literal.Groups[2].Value;
-                        // Words, not names, keys or separators.
-                        if (Words().IsMatch(text)) yield return (Path.GetRelativePath(Root, file), i + 1, text);
-                    }
+                        ("", null) => name,
+                        ("", _) => $"{group}_{name}",
+                        _ => $"{catalogue}_{name}",
+                    };
+                    messages[key] = current = [];
+                    Add(line[entry.Length..]);
+                }
+                else if (!line.TrimStart().StartsWith('#') && !line.TrimStart().StartsWith('@')) Add(line);
+
+                void Add(string text)
+                {
+                    foreach (Match placeholder in Placeholder().Matches(text)) current?.Add(placeholder.Groups[1].Value);
                 }
             }
         }
+        return messages;
+    }
+
+    /// <summary>
+    /// The calls <c>DisplayText.Of("key", ("input", value), ...)</c> in the application's sources: the keys named in
+    /// the first argument (both of a conditional), and the input names, or null when they are not all written out.
+    /// </summary>
+    private static IEnumerable<(string File, int Line, IReadOnlyList<string> Keys, IReadOnlyList<string>? Inputs)> Calls()
+    {
+        var sources = Directory.EnumerateFiles(Root, "*.cs", SearchOption.AllDirectories)
+            .Where(file => Path.GetRelativePath(Root, file).Split(Path.DirectorySeparatorChar) is var parts
+                && parts[0] is not ("NixManager.Tests" or "obj" or "bin"))
+            .Order(StringComparer.Ordinal);
+        foreach (var file in sources)
+        {
+            var text = File.ReadAllText(file);
+            foreach (Match call in Call().Matches(text))
+            {
+                var arguments = Arguments(text, call.Index + call.Length);
+                if (arguments.Count == 0) continue;
+                var keys = KeyLiteral().Matches(arguments[0]).Select(match => match.Groups[1].Value).ToList();
+                // A key chosen at run time, such as in DisplayText itself.
+                if (keys.Count == 0) continue;
+                var names = arguments.Skip(1).Select(argument => InputName().Match(argument)).ToList();
+                var inputs = names.All(name => name.Success) ? names.Select(name => name.Groups[1].Value).ToList() : null;
+                yield return (Path.GetRelativePath(Root, file), text[..call.Index].Count(c => c == '\n') + 1, keys, inputs);
+            }
+        }
+    }
+
+    /// <summary>The top-level arguments of the call whose argument list starts at <paramref name="start"/>.</summary>
+    private static List<string> Arguments(string text, int start)
+    {
+        var arguments = new List<string>();
+        var depth = 0;
+        var from = start;
+        for (var i = start; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c == '"')
+            {
+                // A literal, verbatim or not; the braces and parentheses inside do not count.
+                var verbatim = i > 0 && (text[i - 1] == '@' || (i > 1 && text[i - 1] == '$' && text[i - 2] == '@'));
+                for (i++; i < text.Length; i++)
+                {
+                    if (!verbatim && text[i] == '\\') i++;
+                    else if (text[i] == '"' && !(verbatim && i + 1 < text.Length && text[i + 1] == '"')) break;
+                    else if (verbatim && text[i] == '"') i++;
+                }
+            }
+            else if (c == '\'') i = text.IndexOf('\'', i + (text[i + 1] == '\\' ? 3 : 2));
+            else if (c is '(' or '[' or '{') depth++;
+            else if (c is ')' or ']' or '}')
+            {
+                if (depth-- == 0)
+                {
+                    if (text[from..i].Trim().Length > 0) arguments.Add(text[from..i]);
+                    return arguments;
+                }
+            }
+            else if (c == ',' && depth == 0)
+            {
+                arguments.Add(text[from..i]);
+                from = i + 1;
+            }
+        }
+        return [];
     }
 
     private static HashSet<string> Keys(string file)
@@ -128,19 +211,20 @@ public sealed partial class TranslationCoverageTests
         throw new InvalidOperationException("The application's sources are not above the tests.");
     }
 
-    // A line that raises an error or sets the error a View shows.
-    [GeneratedRegex(@"ManagerException\(|SoftwareFailure\(|\bError = ")]
-    private static partial Regex Raises();
+    [GeneratedRegex(@"\bDisplayText\.Of\(")]
+    private static partial Regex Call();
 
-    // A regular or interpolated string literal without nested literals.
-    [GeneratedRegex(@"(\$)?""((?:[^""\\\n]|\\.)*)""")]
-    private static partial Regex Literal();
+    // A key literal, such as "stored_failed"; not a value the condition of a conditional compares with, as "boot" in
+    // DisplayText.Of(mode == "boot" ? "stored_a" : "stored_b").
+    [GeneratedRegex(@"(?<!(?:==|!=|\bis|\bor|\band|\bnot)\s*)""([a-z][a-z0-9_]*)""")]
+    private static partial Regex KeyLiteral();
 
-    [GeneratedRegex(@"\{[^{}]*\}")]
-    private static partial Regex Hole();
+    // An input, such as ("label", step).
+    [GeneratedRegex(@"^\s*\(\s*""(\w+)""\s*,", RegexOptions.Singleline)]
+    private static partial Regex InputName();
 
-    [GeneratedRegex(@"\p{L}{2,} \p{L}{2,}")]
-    private static partial Regex Words();
+    [GeneratedRegex(@"\{\$(\w+)")]
+    private static partial Regex Placeholder();
 
     [GeneratedRegex(@"^([A-Za-z_]\w*) \{$")]
     private static partial Regex GroupStart();

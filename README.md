@@ -355,21 +355,32 @@ shown as Nix wrote it.
 
 One Runic Translations catalogue serves the page and the daemon, in
 `runic/Frontend/translations`: keyed messages (`en.rmf2`, `de.rmf2`), the text
-the backend stores in English, such as step labels and failure explanations
-(`stored/`, whose `base-text.json` maps each English text to its message key),
-and the daemon's status icon, menu and notifications (`tray/`). The page reads
-it through the Vite plugin as `m.*()`, in the language the ViewModel says
-(`useMessageLocale`), and translates stored text with `stored()` from
-`runic/Frontend/src/lib/i18n.ts`. Messages with markup, such as
-`Detected as {#highlight}{$host}{/highlight}.`, render with `LocalizedInline`;
-the page's own tags are declared in `runic.json`. The daemon formats the same
-catalogue through the C# that Runic.Translations.Build generates for it,
-`DashboardText` (`runic/Daemon/TrayText.cs`): its `tray_*` messages, and
-stored text found by its English through `base-text.json`, as the page's
-`stored()` does. The generated catalogue reads a language only when it is
-first used. The tray follows the dashboard's language setting while it runs.
-`TranslationCoverageTests` reads the backend's sources and fails when an error
-that reaches the page has no German.
+the backend writes for people, such as step labels, notes, errors and failure
+explanations, together with the curated features and the Computer page's
+settings (`stored/`), and the daemon's status icon, menu and notifications
+(`tray/`). The page reads it through the Vite plugin as `m.*()`, in the
+language the ViewModel says (`useMessageLocale`). Messages with markup, such
+as `Detected as {#highlight}{$host}{/highlight}.`, render with
+`LocalizedInline`; the page's own tags are declared in `runic.json`. The daemon
+formats the same catalogue through the C# that Runic.Translations.Build
+generates for it, `DashboardText` (`runic/Daemon/TrayText.cs`). The generated
+catalogue reads a language only when it is first used. The tray follows the
+dashboard's language setting while it runs.
+
+The backend does not store or send filled-in English: its text for people is
+a `DisplayText` (`runic/Domain/DisplayText.cs`), a text reference to a message
+of `stored/` with its inputs, built with `DisplayText.Of("stored_<key>",
+("name", value), ...)`, whose English comes from the catalogue. A value that
+is itself a message, such as the step in "{$label} failed", is a nested
+reference; text that is not a message, such as Nix's output, a path or a
+package name, is `DisplayText.Plain`. Records keep the reference's JSON, so a
+record written months ago is shown in the language of the day it is read; the
+page shows it with `text()` from `runic/Frontend/src/lib/i18n.ts`, the tray
+with `TrayText.Show`, and the command line prints its English. Records written
+before text references hold English text, which every language shows as it
+is. Give a message a new key when its meaning changes. `TranslationCoverageTests`
+reads the backend's sources and fails when a message they name is missing or
+named with other inputs than it has, or when a message has no German.
 
 German uses the formal "Sie", „these quotes“ and the same word for the same
 thing everywhere:
@@ -425,7 +436,12 @@ member of that name; `check` adds `updates`), `nix-manager.software-search/1` fo
 `software search` and `nix-manager.software-draft/1` for the other software
 commands that change or list pending edits. A failed command's `fault.data`
 holds the failed operation (`nix-manager.run/1`) or the exact error with its
-explanation (`nix-manager.error/1`).
+explanation (`nix-manager.error/1`). Text written for people in these records,
+such as step labels, notes, errors and explanations, is a Runic Translations
+text reference: a JSON object with the message `key`, its `arguments` and the
+English as `fallbackText` (transport version 2). Text that is not a message,
+such as Nix's output, and records written before text references, are JSON
+strings. The error's `message` is English.
 
 Exit codes are Runic Command Line's: 0 on success, 2 for invalid arguments or
 combinations, 4 after cancellation, 5 when the configuration or host cannot be

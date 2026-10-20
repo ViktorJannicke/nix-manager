@@ -46,7 +46,7 @@ public sealed class ProcessCommandRunner(IProcessRunner? runner = null, TimeProv
 
     public async Task<CommandResult> RunAsync(Command command, Action<OutputEvent> output, CancellationToken cancellationToken)
     {
-        if (command.Argv.Count == 0) throw new ManagerException($"{command.Label}: nothing to run.");
+        if (command.Argv.Count == 0) throw new ManagerException(DisplayText.Of("stored_command_nothing_to_run", ("label", command.Label)));
         // The process runner keeps no capture of its own: the handler keeps the converted text.
         var options = new ProcessExecutionOptions(standardOutputLimitBytes: 0, standardErrorLimitBytes: 0, drainGracePeriod: GracePeriod)
         {
@@ -73,8 +73,8 @@ public sealed class ProcessCommandRunner(IProcessRunner? runner = null, TimeProv
             case ProcessState.Exited:
                 break;
             default:
-                throw new ManagerException(
-                    $"Cannot start {command.Argv[0]}: {result.Fault?.Message ?? result.State.ToString()}");
+                throw new ManagerException(DisplayText.Of("stored_cannot_start",
+                    ("command", command.Argv[0]), ("error", DisplayText.Plain(result.Fault?.Message ?? result.State.ToString()))));
         }
         var code = result.ExitCode ?? -1;
         var stdout = handler.Stdout;
@@ -82,7 +82,9 @@ public sealed class ProcessCommandRunner(IProcessRunner? runner = null, TimeProv
         if (code != 0 && command.AllowFailure != true)
         {
             var tail = stderr.Length > 1500 ? stderr[^1500..] : stderr;
-            throw new ManagerException($"{command.Label} failed (exit {code}). {tail.Trim()}", Explain.Explainer.Explain(stderr));
+            throw new ManagerException(
+                    DisplayText.Of("stored_failed_exit", ("label", command.Label), ("code", code), ("output", DisplayText.Plain(tail.Trim()))),
+                    Explain.Explainer.Explain(stderr));
         }
         return new CommandResult(code, stdout, stderr);
     }

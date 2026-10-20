@@ -587,10 +587,11 @@ class SetupTests(unittest.TestCase):
 
     def test_a_configuration_that_does_not_load_is_shown_in_the_assistant_s_window_from_the_menu(self):
         broken = {"NIX_MANAGER_FLAKE": str(self.sandbox.root / "missing")}
+        missing = f"Error: The flake directory {broken['NIX_MANAGER_FLAKE']} does not exist."
         # Started from the menu, standard output is not a terminal: the Window says why until it is closed.
         problem = self.served(["ui"], broken)
         self.assertEqual(problem.page(), "setup.html")
-        problem.wait_for("stderr", "Error: Resolve flake directory:")
+        problem.wait_for("stderr", missing)
         problem.close_window()
         self.assertEqual(problem.process.wait(TIMEOUT), 1)
         problem.close()
@@ -603,7 +604,7 @@ class SetupTests(unittest.TestCase):
             os.close(secondary)
             os.close(primary)
         self.assertEqual(in_terminal.returncode, 1)
-        self.assertIn("Error: Resolve flake directory:", in_terminal.stderr)
+        self.assertIn(missing, in_terminal.stderr)
         no_open = self.sandbox.run(["ui", "--no-open"], broken)
         self.assertEqual(no_open.returncode, 1)
         self.assertNotIn("RUNIC_APPLICATION_URL=", no_open.stdout)

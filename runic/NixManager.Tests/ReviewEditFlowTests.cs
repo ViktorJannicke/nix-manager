@@ -81,7 +81,7 @@ public sealed class ReviewEditFlowTests : IDisposable
             if (calls is not null) lock (calls) calls.Add(command);
             var argv = command.Argv;
             if (argv[0] == "cp") return await Processes.RunAsync(command, output, token);
-            if (fails?.Invoke(command) == true) throw new ManagerException($"{command.Label} failed (exit 1).");
+            if (fails?.Invoke(command) == true) throw new ManagerException(DisplayText.Plain($"{command.Label} failed (exit 1)."));
             if (argv.Count > 4 && argv[1] == "flake" && argv[2] == "metadata")
                 return new CommandResult(0, JsJson.Stringify(new JsonObject { ["path"] = argv[4] == _flake ? _snapshot : argv[4][5..] }), "");
             if (argv.Count > 3 && argv[1] == "eval")
@@ -215,12 +215,9 @@ public sealed class ReviewEditFlowTests : IDisposable
 
         await Assert.That(failed.Status).IsEqualTo(OperationStatuses.Failed);
         await Assert.That(failed.Rollback).IsEqualTo(new RollbackOutcome { Done = true });
-        await Assert.That(failed.Explanation).IsEqualTo(new Explanation
-        {
-            Title = "Activate Home Manager failed",
-            Body = "Activate Home Manager failed (exit 1). Everything went back to how it was before, files included.",
-        });
-        await Assert.That(failed.Steps!.Select(s => (s.Label, s.Status))).IsEquivalentTo([
+        await Assert.That((failed.Explanation!.Title.English, failed.Explanation.Body.English, failed.Explanation.Fix))
+            .IsEqualTo(("Activate Home Manager failed", "Activate Home Manager failed (exit 1). Everything went back to how it was before, files included.", (Fix?)null));
+        await Assert.That(failed.Steps!.Select(s => (s.Label.English, s.Status))).IsEquivalentTo([
             ("Write modules/apps.nix", StepStatuses.Succeeded),
             ("Select Home Manager generation", StepStatuses.Succeeded),
             ("Activate Home Manager", StepStatuses.Failed),
@@ -244,7 +241,7 @@ public sealed class ReviewEditFlowTests : IDisposable
         var built = await service.Start(Build(then: "apply")).Completion;
 
         await Assert.That(built.Status).IsEqualTo(OperationStatuses.Succeeded);
-        await Assert.That(built.Held).IsEqualTo("It changes settings, which can restart programs you are using.");
+        await Assert.That(built.Held?.English).IsEqualTo("It changes settings, which can restart programs you are using.");
         await Assert.That(service.Active).IsNull();
         await Assert.That(AppsNow).DoesNotContain("btop");
         await Assert.That(ReviewStore.List(Config).Select(r => r.Id)).IsEquivalentTo([built.Request.ReviewId!]);
@@ -259,7 +256,7 @@ public sealed class ReviewEditFlowTests : IDisposable
         var release = new TaskCompletionSource();
         await using var service = Service(fails: c =>
         {
-            if (c.Label == "Compare with the active configuration" || c.Argv.Contains("path-info"))
+            if (c.Label.English == "Compare with the active configuration" || c.Argv.Contains("path-info"))
             {
                 entered.TrySetResult();
                 release.Task.Wait();
@@ -274,7 +271,7 @@ public sealed class ReviewEditFlowTests : IDisposable
         await Assert.That(service.Hold(run.Operation.Id)).IsTrue();
         release.SetResult();
 
-        await Assert.That((await run.Completion).Held).IsEqualTo("You chose to review it first.");
+        await Assert.That((await run.Completion).Held?.English).IsEqualTo("You chose to review it first.");
         await Assert.That(service.Active).IsNull();
     }
 
@@ -300,12 +297,9 @@ public sealed class ReviewEditFlowTests : IDisposable
 
         var failed = await service.Start(Build("ffffffff")).Completion;
 
-        await Assert.That(failed.Explanation).IsEqualTo(new Explanation
-        {
-            Title = "nixpkgs.config.allowUnfree is also set elsewhere",
-            Body = "A module written directly in flake.nix sets nixpkgs.config.allowUnfree too, and that value wins. Change it there instead of adding a new definition.",
-        });
-        await Assert.That(failed.Error).IsEqualTo(
+        await Assert.That((failed.Explanation!.Title.English, failed.Explanation.Body.English, failed.Explanation.Fix))
+            .IsEqualTo(("nixpkgs.config.allowUnfree is also set elsewhere", "A module written directly in flake.nix sets nixpkgs.config.allowUnfree too, and that value wins. Change it there instead of adding a new definition.", (Fix?)null));
+        await Assert.That(failed.Error?.English).IsEqualTo(
             "nixpkgs.config.allowUnfree is false instead of true. Another definition takes precedence, or modules/apps.nix is not part of test's home configuration.");
         await Assert.That(calls.Any(c => c.Argv[^1].EndsWith(".pkgs.steam.outPath", StringComparison.Ordinal))).IsFalse();
     }
@@ -321,7 +315,7 @@ public sealed class ReviewEditFlowTests : IDisposable
         await service.Start(Build("aaaaaaaa")).Completion;
         var applied = await service.Start(Apply("aaaaaaaa")).Completion;
 
-        await Assert.That(applied.Undo!.Changes).IsEquivalentTo(["Install btop"]);
+        await Assert.That(applied.Undo!.Changes.Select(change => change.English)).IsEquivalentTo(["Install btop"]);
         await Assert.That(applied.Undo.Generations).IsEqualTo(new UndoGenerations { Home = 5 });
         await Assert.That(applied.Undo.Files.Single().Path).IsEqualTo("modules/apps.nix");
         var edited = AppsNow;
@@ -329,12 +323,12 @@ public sealed class ReviewEditFlowTests : IDisposable
 
         await service.Start(Request.Create() with { Action = Actions.ReviewBuild, ReviewId = "bbbbbbbb", Undo = applied.Id }).Completion;
         var restore = service.Plan(Apply("bbbbbbbb")).Steps[0];
-        await Assert.That((restore.Label, restore.Internal)).IsEqualTo(("Restore modules/apps.nix", InternalSteps.RestoreSources));
+        await Assert.That((restore.Label.English, restore.Internal)).IsEqualTo(("Restore modules/apps.nix", InternalSteps.RestoreSources));
 
         // A file edited since is not overwritten.
         File.WriteAllText(Path.Combine(_flake, "modules/apps.nix"), $"{edited}# mine\n");
         var refused = await service.Start(Apply("bbbbbbbb")).Completion;
-        await Assert.That(refused.Explanation!.Title).IsEqualTo("modules/apps.nix was edited since");
+        await Assert.That(refused.Explanation!.Title.English).IsEqualTo("modules/apps.nix was edited since");
         await Assert.That(AppsNow).EndsWith("# mine\n");
 
         File.WriteAllText(Path.Combine(_flake, "modules/apps.nix"), edited);
@@ -342,7 +336,7 @@ public sealed class ReviewEditFlowTests : IDisposable
         var undone = await service.Start(Apply("cccccccc")).Completion;
         await Assert.That(undone.Status).IsEqualTo(OperationStatuses.Succeeded);
         await Assert.That(AppsNow).IsEqualTo(original);
-        await Assert.That(undone.Undo!.Changes).IsEquivalentTo(["Undo: Install btop"]);
+        await Assert.That(undone.Undo!.Changes.Select(change => change.English)).IsEquivalentTo(["Undo: Install btop"]);
 
         await service.Start(Request.Create() with { Action = Actions.ReviewBuild, ReviewId = "dddddddd", Undo = undone.Id }).Completion;
         await Assert.That((await service.Start(Apply("dddddddd")).Completion).Status).IsEqualTo(OperationStatuses.Succeeded);

@@ -112,7 +112,7 @@ public static partial class PackageLists
     internal static SyntaxTree ParseValid(string source)
     {
         var tree = NixSyntax.Parse(source);
-        if (tree.Root.HasError) throw new ManagerException("The file has syntax errors.");
+        if (tree.Root.HasError) throw new ManagerException(DisplayText.Of("stored_the_file_has_syntax_errors"));
         return tree;
     }
 
@@ -121,21 +121,27 @@ public static partial class PackageLists
     /// matching <c>with</c> scope wins, so <c>pkgs.kdePackages.kate</c> goes into
     /// <c>with pkgs.kdePackages; [ ... ]</c> when the file has such a list.
     /// </summary>
-    public static SourceEdit AddPackage(string source, string attr, IReadOnlyList<string>? bindings = null)
+    /// <exception cref="ManagerException">The file has no editable package list, or one of the problems of <see cref="TryAddPackage"/>.</exception>
+    public static SourceEdit AddPackage(string source, string attr, IReadOnlyList<string>? bindings = null) =>
+        TryAddPackage(source, attr, bindings) ?? throw new ManagerException(DisplayText.Of("stored_no_editable_package_list_was_found"));
+
+    /// <summary>Adds a package as <see cref="AddPackage"/> does, or returns null when the file has no editable package list.</summary>
+    /// <exception cref="ManagerException">The file has syntax errors, or already lists the package.</exception>
+    public static SourceEdit? TryAddPackage(string source, string attr, IReadOnlyList<string>? bindings = null)
     {
         bindings ??= Bindings;
         var tree = ParseValid(source);
         var lists = Find(tree.Root).Where(list => bindings.Contains(list.Binding)).ToList();
         if (lists.Any(list => list.Items.Any(item => item.Attr == attr)))
-            throw new ManagerException($"{attr} is already listed in this file.");
+            throw new ManagerException(DisplayText.Of("stored_is_already_listed_in_this_file", ("attr", attr)));
         var target = lists
             .Where(list => !list.Conditional)
             .Select(list => (List: list,
                 Score: !string.IsNullOrEmpty(list.Scope) && attr.StartsWith($"{list.Scope}.", StringComparison.Ordinal) ? list.Scope.Length : -1))
             .OrderByDescending(candidate => candidate.Score)
             .Select(candidate => candidate.List)
-            .FirstOrDefault()
-            ?? throw new ManagerException("No editable package list was found.");
+            .FirstOrDefault();
+        if (target is null) return null;
         var last = target.Items.Count > 0 ? target.Items[^1] : null;
         return AppendItem(source, (target.Start, target.End), last is null ? null : (last.Start, last.End), Spelling(target, attr));
     }
@@ -189,8 +195,8 @@ public static partial class PackageLists
     {
         var tree = NixSyntax.Parse(source);
         var items = Find(tree.Root).SelectMany(list => list.Items).Where(item => item.Attr == attr).ToList();
-        if (items.Count == 0) throw new ManagerException($"{attr} is not listed in this file.");
-        if (items.Count > 1) throw new ManagerException($"{attr} is listed {items.Count} times in this file.");
+        if (items.Count == 0) throw new ManagerException(DisplayText.Of("stored_is_not_listed_in_this_file", ("attr", attr)));
+        if (items.Count > 1) throw new ManagerException(DisplayText.Of("stored_is_listed_times_in_this_file", ("attr", attr), ("count", items.Count)));
         var found = items[0];
         var start = LineStart(source, found.Start);
         var end = LineEnd(source, found.End);

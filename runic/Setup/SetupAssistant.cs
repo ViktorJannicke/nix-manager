@@ -29,7 +29,7 @@ public sealed record SetupInfo
     /// <summary>Imports that only work with channels, such as &lt;home-manager/nixos&gt;.</summary>
     public IReadOnlyList<string> ChannelImports { get; init; } = [];
     /// <summary>Why setup cannot continue, if it cannot.</summary>
-    public string? Blocked { get; init; }
+    public DisplayText? Blocked { get; init; }
     public required string Suggested { get; init; }
 }
 
@@ -47,14 +47,14 @@ public static class SetupSteps
     public const string Remember = "remember";
 
     /// <summary>Each step with its label, in order (<c>setupSteps</c>).</summary>
-    public static readonly IReadOnlyList<(string Id, string Label)> All =
+    public static readonly IReadOnlyList<(string Id, DisplayText Label)> All =
     [
-        (Copy, "Copy the configuration from /etc/nixos"),
-        (Write, "Add flake.nix and home.nix"),
-        (Git, "Start a Git history"),
-        (Lock, "Pin nixpkgs to the version this computer runs"),
-        (Check, "Check that the configuration still describes this computer"),
-        (Remember, "Remember the folder"),
+        (Copy, DisplayText.Of("stored_copy_the_configuration_from_etc_nixos")),
+        (Write, DisplayText.Of("stored_add_flake_nix_and_home_nix")),
+        (Git, DisplayText.Of("stored_start_a_git_history")),
+        (Lock, DisplayText.Of("stored_pin_nixpkgs_to_the_version_this_computer")),
+        (Check, DisplayText.Of("stored_check_that_the_configuration_still_describes_this")),
+        (Remember, DisplayText.Of("stored_remember_the_folder")),
     ];
 }
 
@@ -109,7 +109,7 @@ public static partial class SetupAssistant
     {
         var result = await runner.RunAsync(new Command
         {
-            Label = "Check flakes",
+            Label = DisplayText.Of("stored_check_flakes"),
             Argv = ["nix", "config", "show", "experimental-features"],
             Quiet = true,
             AllowFailure = true,
@@ -196,7 +196,7 @@ public static partial class SetupAssistant
         source ??= Source(environment);
         var version = await runner.RunAsync(new Command
         {
-            Label = "Read NixOS version",
+            Label = DisplayText.Of("stored_read_nixos_version"),
             Argv = ["nixos-version", "--json"],
             Quiet = true,
             AllowFailure = true,
@@ -215,15 +215,15 @@ public static partial class SetupAssistant
             }
             catch (JsonException e)
             {
-                throw new ManagerException($"SyntaxError: JSON Parse error: {e.Message}");
+                throw new ManagerException(DisplayText.Of("stored_nixos_version_not_valid_json", ("reason", e.Message)));
             }
         }
         full ??= "";
         var release = ReleasePattern().Match(full) is { Success: true } match ? match.Value : "";
         var (files, unreadable) = Directory.Exists(source)
-            ? NodeErrors.Attempt("Read /etc/nixos", () => Walk(source), source, "scandir")
+            ? FileErrors.Attempt(DisplayText.Of("stored_read_file", ("path", "/etc/nixos")), () => Walk(source), source)
             : ([], []);
-        var nix = NodeErrors.Attempt("Read the configuration", () => files
+        var nix = FileErrors.Attempt(DisplayText.Of("stored_read_the_configuration"), () => files
             .Where(file => file.EndsWith(".nix", StringComparison.Ordinal))
             .Select(file => (File: file, Text: File.ReadAllText(Path.Combine(source, file))))
             .ToList());
@@ -231,11 +231,11 @@ public static partial class SetupAssistant
         var stateVersion = configuration is not null && StateVersion().Match(configuration) is { Success: true } state ? state.Groups[1].Value : release;
         var channelImports = nix.SelectMany(entry => ChannelPaths(entry.Text)).Distinct().Order(StringComparer.Ordinal).ToList();
         var blocked = release.Length == 0
-            ? "This does not look like NixOS: nixos-version is missing."
+            ? DisplayText.Of("stored_this_does_not_look_like_nixos_nixos")
             : !files.Contains("configuration.nix")
-                ? $"There is no {source}/configuration.nix to start from."
+                ? DisplayText.Of("stored_there_is_no_to_start_from", ("file", $"{source}/configuration.nix"))
                 : files.Contains("flake.nix")
-                    ? $"{source} is a flake already. Copy it to a folder you own and add a homeConfigurations entry for your user, then choose that folder with --flake."
+                    ? DisplayText.Of("stored_is_a_flake_already_copy_it_to", ("folder", source))
                     : null;
         return new SetupInfo
         {
@@ -314,14 +314,14 @@ public static partial class SetupAssistant
     /// Why a folder cannot hold the new checkout, if it cannot. An existing file counts as a
     /// folder that is not empty.
     /// </summary>
-    public static string? TargetProblem(string target, string home)
+    public static DisplayText? TargetProblem(string target, string home)
     {
-        if (!target.StartsWith('/')) return "Use a full path, such as ~/nixos-config.";
+        if (!target.StartsWith('/')) return DisplayText.Of("stored_use_a_full_path_such_as_nixos");
         var path = Resolve(target);
-        if (path != home && !path.StartsWith($"{home}/", StringComparison.Ordinal)) return "Choose a folder inside your home folder, so you own the files.";
-        if (path == home) return "Choose a new folder inside your home folder.";
-        if (File.Exists(path)) return "This folder is not empty.";
-        if (Directory.Exists(path) && Directory.EnumerateFileSystemEntries(path).Any()) return "This folder is not empty.";
+        if (path != home && !path.StartsWith($"{home}/", StringComparison.Ordinal)) return DisplayText.Of("stored_choose_a_folder_inside_your_home_folder");
+        if (path == home) return DisplayText.Of("stored_choose_a_new_folder_inside_your_home");
+        if (File.Exists(path)) return DisplayText.Of("stored_this_folder_is_not_empty");
+        if (Directory.Exists(path) && Directory.EnumerateFileSystemEntries(path).Any()) return DisplayText.Of("stored_this_folder_is_not_empty");
         return null;
     }
 
@@ -362,7 +362,7 @@ public static partial class SetupAssistant
     private static async Task CreateAsync(SetupInfo info, string path, Action<string> progress, ICommandRunner runner,
         ManagerEnvironment environment, string source, CancellationToken cancellationToken)
     {
-        Task<CommandResult> Command(string label, IReadOnlyList<string> argv) => runner.RunAsync(new Command
+        Task<CommandResult> Command(DisplayText label, IReadOnlyList<string> argv) => runner.RunAsync(new Command
         {
             Label = label,
             Argv = argv,
@@ -370,14 +370,17 @@ public static partial class SetupAssistant
             Quiet = true,
             AllowFailure = true,
         }, _ => { }, cancellationToken);
-        async Task Run(string label, IReadOnlyList<string> argv)
+        async Task Run(DisplayText label, IReadOnlyList<string> argv)
         {
             var result = await Command(label, argv).ConfigureAwait(false);
-            if (result.Code != 0) throw new ManagerException($"{label}: {(LastLine(result.Stderr) is { Length: > 0 } line ? line : "failed")}");
+            if (result.Code != 0)
+                throw new ManagerException(LastLine(result.Stderr) is { Length: > 0 } line
+                    ? DisplayText.Of("stored_step_failed_because", ("step", label), ("reason", DisplayText.Plain(line)))
+                    : DisplayText.Of("stored_failed", ("label", label)));
         }
 
         progress(SetupSteps.Copy);
-        NodeErrors.Attempt("Copy the configuration", () =>
+        FileErrors.Attempt(DisplayText.Of("stored_copy_the_configuration"), () =>
         {
             Directory.CreateDirectory(path);
             foreach (var file in info.Files)
@@ -390,15 +393,15 @@ public static partial class SetupAssistant
 
         progress(SetupSteps.Write);
         var tried = Branches(info.Release, info.Unstable);
-        NodeErrors.Attempt("Write the new files", () =>
+        FileErrors.Attempt(DisplayText.Of("stored_write_the_new_files"), () =>
         {
             WriteNew(Path.Combine(path, "flake.nix"), FlakeTemplate(info, tried[0]));
             WriteNew(Path.Combine(path, "home.nix"), HomeTemplate(info));
         });
 
         progress(SetupSteps.Git);
-        await Run("Start Git", ["git", "init", "--quiet"]).ConfigureAwait(false);
-        await Run("Add the files to Git", ["git", "add", "--", .. info.Files, "flake.nix", "home.nix"]).ConfigureAwait(false);
+        await Run(DisplayText.Of("stored_start_git"), ["git", "init", "--quiet"]).ConfigureAwait(false);
+        await Run(DisplayText.Of("stored_add_the_files_to_git"), ["git", "add", "--", .. info.Files, "flake.nix", "home.nix"]).ConfigureAwait(false);
 
         progress(SetupSteps.Lock);
         // The running revision keeps the first build close to the running system; updates later follow the branch
@@ -411,9 +414,9 @@ public static partial class SetupAssistant
             if (index > 0)
             {
                 var branch = tried[index];
-                NodeErrors.Attempt("Write flake.nix", () => File.WriteAllText(Path.Combine(path, "flake.nix"), FlakeTemplate(info, branch)));
+                FileErrors.Attempt(DisplayText.Of("stored_write", ("file", "flake.nix")), () => File.WriteAllText(Path.Combine(path, "flake.nix"), FlakeTemplate(info, branch)));
             }
-            var result = await Command("Pin the inputs", ["nix", "flake", "lock", .. pin]).ConfigureAwait(false);
+            var result = await Command(DisplayText.Of("stored_pin_the_inputs"), ["nix", "flake", "lock", .. pin]).ConfigureAwait(false);
             if (result.Code == 0)
             {
                 locked = true;
@@ -421,21 +424,21 @@ public static partial class SetupAssistant
             }
             failure = LastLine(result.Stderr);
         }
-        if (!locked) throw new ManagerException($"Could not pin the inputs: {failure}");
-        await Run("Add the lock file to Git", ["git", "add", "--", "flake.nix", "flake.lock"]).ConfigureAwait(false);
+        if (!locked) throw new ManagerException(DisplayText.Of("stored_could_not_pin_the_inputs", ("reason", DisplayText.Plain(failure))));
+        await Run(DisplayText.Of("stored_add_the_lock_file_to_git"), ["git", "add", "--", "flake.nix", "flake.lock"]).ConfigureAwait(false);
 
         progress(SetupSteps.Check);
         var hosts = await new ConfigLoader(runner, environment).DetectHostsAsync(path, info.HostName, info.User).ConfigureAwait(false);
         var host = hosts.Values.First();
-        await Run("Evaluate the system",
+        await Run(DisplayText.Of("stored_evaluate_the_system"),
             ["nix", "eval", "--raw", $"{path}#nixosConfigurations.{NixText.Attr(host.NixosConfiguration)}.config.system.build.toplevel.drvPath"]).ConfigureAwait(false);
-        await Run("Evaluate the home configuration",
+        await Run(DisplayText.Of("stored_evaluate_the_home_configuration"),
             ["nix", "eval", "--raw", $"{path}#homeConfigurations.{NixText.Attr(host.HomeConfiguration)}.activationPackage.drvPath"]).ConfigureAwait(false);
         // A first commit when Git knows who the user is; staged files are enough for flakes.
-        await Command("Commit", ["git", "commit", "--quiet", "-m", $"Start from {source}"]).ConfigureAwait(false);
+        await Command(DisplayText.Of("stored_commit"), ["git", "commit", "--quiet", "-m", $"Start from {source}"]).ConfigureAwait(false);
 
         progress(SetupSteps.Remember);
-        NodeErrors.Attempt("Remember the folder", () =>
+        FileErrors.Attempt(DisplayText.Of("stored_remember_the_folder"), () =>
         {
             var file = new ConfigLoader(runner, environment).RememberedCheckout;
             Directory.CreateDirectory(Path.GetDirectoryName(file)!);

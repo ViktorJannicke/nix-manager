@@ -55,6 +55,7 @@ public sealed class EditDifferentialTests
     private static string? Text(JsonNode? node) => node?.GetValue<string>();
 
     private static JsonNode? Optional(string? text) => text is null ? null : JsonValue.Create(text);
+    private static JsonNode? Optional(DisplayText? text) => Optional(text?.English);
 
     private static ModuleFile Module(JsonNode? node) =>
         new(Text(node!["file"])!, node["names"] is { } names ? StringList(names) : [], node["active"]?.GetValue<bool>());
@@ -107,11 +108,11 @@ public sealed class EditDifferentialTests
             case "featureModule": return Optional(ChangeRules.FeatureModule(args[0]!.AsArray().Select(Module).ToList(), Text(args[1])!));
             case "newFileProblem": return Optional(ChangeRules.NewFileProblem(StringList(args[0]).ToHashSet(), Text(args[1])!));
             case "origin": return ChangeRules.Origin(source);
-            case "showValue": return ChangeRules.ShowValue(args[0]?.DeepClone());
+            case "showValue": return ChangeRules.ShowValue(args[0]?.DeepClone()).English;
             case "describeChange":
             {
                 var described = ChangeRules.Describe(ChangeList(new JsonArray(args[0]!.DeepClone()))[0]);
-                return new JsonObject { ["title"] = described.Title, ["detail"] = described.Detail };
+                return new JsonObject { ["title"] = described.Title.English, ["detail"] = described.Detail.English };
             }
             case "mergeChanges":
                 return Changes(ChangeRules.Merge(ChangeList(args[0]), ChangeList(args[1]), args[2]!.GetValue<bool>() ? _ => true : null));
@@ -140,7 +141,7 @@ public sealed class EditDifferentialTests
                             ["path"] = file.Path, ["baseHash"] = file.BaseHash, ["created"] = file.Created is { } created ? JsonValue.Create(created) : null,
                             ["before"] = file.Before, ["after"] = file.After, ["hunks"] = Hunks(file.Hunks),
                         })]),
-                        ["problems"] = new JsonArray([.. problems.Select(problem => (JsonNode)new JsonObject { ["index"] = problem.Index, ["message"] = problem.Message })]),
+                        ["problems"] = new JsonArray([.. problems.Select(problem => (JsonNode)new JsonObject { ["index"] = problem.Index, ["message"] = problem.Message.English })]),
                         ["hash"] = Change.Hash(changes),
                     };
                 }

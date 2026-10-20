@@ -5,8 +5,12 @@ using System.Text.RegularExpressions;
 namespace NixManager.Domain;
 
 /// <summary>A failure the manager reports to the user, optionally explained in plain words.</summary>
-public sealed class ManagerException(string message, Explanation? explanation = null) : Exception(message)
+/// <param name="text">The failure, shown in the reader's language; <see cref="Exception.Message"/> is its English.</param>
+public sealed class ManagerException(DisplayText text, Explanation? explanation = null) : Exception(text.English)
 {
+    /// <summary>The failure, shown in the reader's language.</summary>
+    public DisplayText Text { get; } = text;
+
     /// <summary>The failure in plain words, when it is a known one.</summary>
     public Explanation? Explanation { get; } = explanation;
 }
@@ -29,23 +33,24 @@ public static class Actions
     public static readonly IReadOnlyList<string> All =
         [Build, Switch, Boot, Rollback, Gc, T3codeUpdate, OpencodeUpdate, PinceUpdate, Check, ReviewBuild, ReviewApply];
 
-    /// <summary>English labels, as they are stored and shown.</summary>
-    public static readonly IReadOnlyDictionary<string, string> Labels = new Dictionary<string, string>
+    /// <summary>The catalogue messages that name the actions.</summary>
+    private static readonly IReadOnlyDictionary<string, string> LabelKeys = new Dictionary<string, string>
     {
-        [Build] = "Build configuration",
-        [Switch] = "Build and switch",
-        [Boot] = "Apply on next boot",
-        [Rollback] = "Go back to the previous version",
-        [Gc] = "Remove old restore points",
-        [Check] = "Check for updates",
-        [T3codeUpdate] = "Update T3 Code",
-        [OpencodeUpdate] = "Update OpenCode",
-        [PinceUpdate] = "Update PINCE",
-        [ReviewBuild] = "Prepare changes",
-        [ReviewApply] = "Apply changes",
+        [Build] = "stored_build_configuration",
+        [Switch] = "stored_build_and_switch",
+        [Boot] = "stored_apply_on_next_boot",
+        [Rollback] = "stored_go_back_to_the_previous_version",
+        [Gc] = "stored_remove_old_restore_points",
+        [Check] = "stored_check_for_updates",
+        [T3codeUpdate] = "stored_update_t3_code",
+        [OpencodeUpdate] = "stored_update_opencode",
+        [PinceUpdate] = "stored_update_pince",
+        [ReviewBuild] = "stored_prepare_changes",
+        [ReviewApply] = "stored_apply_changes",
     };
 
-    public static string Label(string action) => Labels.TryGetValue(action, out var label) ? label : action;
+    /// <summary>The action's name for a person; an action this version does not know is named as it is stored.</summary>
+    public static DisplayText Label(string action) => LabelKeys.TryGetValue(action, out var key) ? DisplayText.Of(key) : DisplayText.Plain(action);
     public static bool IsPackage(string action) => action.EndsWith("-update", StringComparison.Ordinal);
     public static bool IsReview(string action) => action is ReviewBuild or ReviewApply;
 }
@@ -111,62 +116,62 @@ public static partial class RequestValidation
     /// <summary>Checks a request, failing with a message when it is invalid.</summary>
     public static void Validate(Request r)
     {
-        static void Fail(string message) => throw new ManagerException(message);
-        if (!Actions.All.Contains(r.Action)) Fail($"Unknown action: {r.Action}.");
-        if (!Scopes.Values.Contains(r.Scope)) Fail($"Unknown scope: {r.Scope}.");
+        static void Fail(DisplayText message) => throw new ManagerException(message);
+        if (!Actions.All.Contains(r.Action)) Fail(DisplayText.Of("stored_unknown_action", ("action", r.Action)));
+        if (!Scopes.Values.Contains(r.Scope)) Fail(DisplayText.Of("stored_request_unknown_scope", ("scope", r.Scope)));
         if (r.Action == Actions.Boot && r.Scope != Scopes.System)
-            Fail("boot requires system scope.");
+            Fail(DisplayText.Of("stored_request_boot_requires_system_scope"));
         if (Actions.IsPackage(r.Action))
         {
-            if (r.Scope == Scopes.System) Fail("Package updates apply to home packages.");
+            if (r.Scope == Scopes.System) Fail(DisplayText.Of("stored_request_package_updates_apply_to_home"));
             if (r.Update || r.Cleanup || r.Extra.Count > 0)
-                Fail("Package updates cannot combine with update, cleanup or extra arguments.");
+                Fail(DisplayText.Of("stored_request_package_updates_cannot_combine"));
         }
-        else if (r.Force) Fail("--force applies to package updates.");
+        else if (r.Force) Fail(DisplayText.Of("stored_request_force_applies_to_package_updates"));
         if (r.Action is Actions.Rollback or Actions.Gc or Actions.Check && r.Update)
-            Fail($"Cannot update inputs during {r.Action}.");
+            Fail(DisplayText.Of("stored_request_cannot_update_inputs_during", ("action", r.Action)));
         if (r.Action is Actions.Rollback or Actions.Build or Actions.Check && r.Cleanup)
-            Fail("Cleanup requires successful activation or the gc action.");
+            Fail(DisplayText.Of("stored_request_cleanup_requires_activation"));
         if (r.Action is Actions.Gc or Actions.Check && r.Extra.Count > 0)
-            Fail($"{r.Action} takes no extra arguments.");
+            Fail(DisplayText.Of("stored_request_action_takes_no_extra_arguments", ("action", r.Action)));
         if (r.Action == Actions.Rollback && r.Scope != Scopes.Home && r.Extra.Count > 0)
-            Fail("System rollback takes no extra arguments.");
+            Fail(DisplayText.Of("stored_request_system_rollback_takes_no_extra_arguments"));
         var retention = r.Retention ?? 3;
         if (retention is < 1 or > 100)
-            Fail("Retention must be between 1 and 100 generations.");
+            Fail(DisplayText.Of("stored_request_retention_out_of_range"));
         if (r.Inputs is not null && r.Action != Actions.ReviewBuild)
-            Fail("Input selection applies to reviewed builds.");
+            Fail(DisplayText.Of("stored_request_inputs_apply_to_reviewed_builds"));
         if (r.Inputs?.Any(name => !InputPattern().IsMatch(name)) == true)
-            Fail("Invalid flake input name.");
+            Fail(DisplayText.Of("stored_request_invalid_flake_input_name"));
         if (r.Activation is not null && r.Action != Actions.ReviewApply)
-            Fail("The activation mode applies to reviewed changes.");
+            Fail(DisplayText.Of("stored_request_activation_applies_to_reviewed_changes"));
         if (r.Edits == true && r.Action != Actions.ReviewBuild)
-            Fail("Pending edits are built into reviews.");
+            Fail(DisplayText.Of("stored_request_edits_are_built_into_reviews"));
         if (r.Edits == true && r.Generation is not null)
-            Fail("A generation review cannot include edits.");
+            Fail(DisplayText.Of("stored_request_generation_review_cannot_include_edits"));
         if (r.Generation is not null && r.Action != Actions.ReviewBuild)
-            Fail("A generation can only be selected for review.");
+            Fail(DisplayText.Of("stored_request_generation_only_for_review"));
         if (r.Undo is not null)
         {
-            if (r.Action != Actions.ReviewBuild) Fail("Undoing a change is prepared as a review.");
-            if (!ValidId(r.Undo)) Fail("A valid operation ID is required.");
+            if (r.Action != Actions.ReviewBuild) Fail(DisplayText.Of("stored_request_undo_is_prepared_as_review"));
+            if (!ValidId(r.Undo)) Fail(DisplayText.Of("stored_request_valid_operation_id_required"));
             if (r.Edits == true || r.Generation is not null || r.Update || r.Inputs?.Count > 0)
-                Fail("An undo review cannot include edits, generations or input updates.");
+                Fail(DisplayText.Of("stored_request_undo_review_cannot_include"));
         }
         if (r.Then is not null && (r.Action != Actions.ReviewBuild || r.Edits != true || r.Scope != Scopes.Home || r.Update || r.Inputs?.Count > 0))
-            Fail("Only edits of the home configuration are applied in one step.");
+            Fail(DisplayText.Of("stored_request_only_home_edits_in_one_step"));
         if (Actions.IsReview(r.Action))
         {
-            if (r.ReviewId is not null && !ValidId(r.ReviewId)) Fail("A valid review ID is required.");
-            if (r.Action == Actions.ReviewApply && r.ReviewId is null) Fail("A valid review ID is required.");
+            if (r.ReviewId is not null && !ValidId(r.ReviewId)) Fail(DisplayText.Of("stored_request_valid_review_id_required"));
+            if (r.Action == Actions.ReviewApply && r.ReviewId is null) Fail(DisplayText.Of("stored_request_valid_review_id_required"));
             if (r.Cleanup || r.Extra.Count > 0)
-                Fail("Reviewed workflows cannot combine with cleanup or extra arguments.");
-            if (r.Action == Actions.ReviewApply && r.Update) Fail("Applying a review cannot update inputs.");
+                Fail(DisplayText.Of("stored_request_reviews_cannot_combine"));
+            if (r.Action == Actions.ReviewApply && r.Update) Fail(DisplayText.Of("stored_request_applying_review_cannot_update_inputs"));
             if (r.Generation is { } generation)
             {
-                if (generation < 1) Fail("Invalid generation number.");
-                if (r.Scope == Scopes.All) Fail("Select either the home or the system generation.");
-                if (r.Update || r.Inputs?.Count > 0) Fail("A generation review cannot update inputs.");
+                if (generation < 1) Fail(DisplayText.Of("stored_request_invalid_generation_number"));
+                if (r.Scope == Scopes.All) Fail(DisplayText.Of("stored_request_select_home_or_system_generation"));
+                if (r.Update || r.Inputs?.Count > 0) Fail(DisplayText.Of("stored_request_generation_review_cannot_update_inputs"));
             }
         }
     }

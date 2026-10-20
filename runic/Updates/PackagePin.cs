@@ -21,17 +21,12 @@ public static partial class PackagePins
 
     public static bool ValidVersion(string version) => StableVersion().IsMatch(version) || NightlyVersion().IsMatch(version);
 
-    private const string Struct =
-        """{ readonly version: { string | filter }; readonly channel?: "stable" | "nightly" | undefined; readonly nixpkgsRev?: string | undefined }""";
-
-    private const string Header = $"Invalid source pin: (parseJson <-> {Struct})";
-
     /// <summary>
-    /// The pin in <paramref name="text"/>, or a <see cref="ManagerException"/> whose message is Effect Schema's
-    /// error tree for <c>Schema.parseJson(Pin)</c>. JSON syntax errors name the
-    /// .NET parser's reason.
+    /// The pin in <paramref name="text"/>, or a <see cref="ManagerException"/> naming the first problem: the text is
+    /// not JSON (with the .NET parser's reason), not an object, or a field is missing or not valid.
     /// </summary>
-    public static PackagePin Parse(string text)
+    /// <param name="name">The package, named in the failure.</param>
+    public static PackagePin Parse(string text, string name)
     {
         JsonNode? root;
         try
@@ -40,50 +35,37 @@ public static partial class PackagePins
         }
         catch (JsonException e)
         {
-            var reason = string.IsNullOrWhiteSpace(text) ? "Unexpected EOF" : e.Message;
-            throw new ManagerException($"{Header}\n└─ Encoded side transformation failure\n   └─ parseJson\n      └─ Transformation process failure\n         └─ JSON Parse error: {reason}");
+            throw new ManagerException(string.IsNullOrWhiteSpace(text)
+                ? DisplayText.Of("stored_pin_empty", ("name", name))
+                : DisplayText.Of("stored_pin_not_valid_json", ("name", name), ("reason", e.Message)));
         }
         if (root is not JsonObject pin)
-            throw new ManagerException($"{Header}\n└─ Type side transformation failure\n   └─ Expected {Struct}, actual {Format(root)}");
-        string Field(string name, string tree) =>
-            $"{Header}\n└─ Type side transformation failure\n   └─ {Struct}\n      └─ [\"{name}\"]\n         └─ {tree}";
+            throw new ManagerException(DisplayText.Of("stored_pin_not_an_object", ("name", name), ("value", Format(root))));
+        ManagerException NotText(string field, JsonNode? value) =>
+            new(DisplayText.Of("stored_pin_field_not_text", ("name", name), ("field", field), ("value", Format(value))));
 
-        if (!pin.TryGetPropertyValue("version", out var versionNode)) throw new ManagerException(Field("version", "is missing"));
-        if (versionNode is not JsonValue versionValue || !versionValue.TryGetValue<string>(out var version))
-            throw new ManagerException(Field("version",
-                $"{{ string | filter }}\n            └─ From side refinement failure\n               └─ Expected string, actual {Format(versionNode)}"));
-        if (!ValidVersion(version)) throw new ManagerException(Field("version", "Expected X.Y.Z or X.Y.Z-nightly.YYYYMMDD.N"));
+        if (!pin.TryGetPropertyValue("version", out var versionNode))
+            throw new ManagerException(DisplayText.Of("stored_pin_field_missing", ("name", name), ("field", "version")));
+        if (versionNode is not JsonValue versionValue || !versionValue.TryGetValue<string>(out var version)) throw NotText("version", versionNode);
+        if (!ValidVersion(version))
+            throw new ManagerException(DisplayText.Of("stored_pin_version_format", ("name", name), ("value", version)));
 
         string? channel = null;
         if (pin.TryGetPropertyValue("channel", out var channelNode))
         {
             if (channelNode is JsonValue c && c.TryGetValue<string>(out var value) && value is "stable" or "nightly") channel = value;
-            else
-            {
-                var actual = Format(channelNode);
-                throw new ManagerException(Field("channel",
-                    $"\"stable\" | \"nightly\" | undefined\n" +
-                    $"            ├─ \"stable\" | \"nightly\"\n" +
-                    $"            │  ├─ Expected \"stable\", actual {actual}\n" +
-                    $"            │  └─ Expected \"nightly\", actual {actual}\n" +
-                    $"            └─ Expected undefined, actual {actual}"));
-            }
+            else throw new ManagerException(DisplayText.Of("stored_pin_channel_invalid", ("name", name), ("value", Format(channelNode))));
         }
 
         string? rev = null;
         if (pin.TryGetPropertyValue("nixpkgsRev", out var revNode))
         {
             if (revNode is JsonValue r && r.TryGetValue<string>(out var value)) rev = value;
-            else
-            {
-                var actual = Format(revNode);
-                throw new ManagerException(Field("nixpkgsRev",
-                    $"string | undefined\n            ├─ Expected string, actual {actual}\n            └─ Expected undefined, actual {actual}"));
-            }
+            else throw NotText("nixpkgsRev", revNode);
         }
         return new PackagePin(version, channel, rev);
     }
 
-    /// <summary>A value as Effect's <c>formatUnknown</c> writes it.</summary>
+    /// <summary>A value as JSON, as the failure names it.</summary>
     private static string Format(JsonNode? node) => JsJson.Stringify(node);
 }

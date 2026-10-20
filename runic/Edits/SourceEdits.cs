@@ -61,36 +61,36 @@ public static partial class SourceEdits
     /// </summary>
     public static async Task<Staged> StageSourcesAsync(Config config, Request r, IReadOnlyList<Change> changes, Func<Command, Task<CommandResult>> run)
     {
-        if (changes.Count == 0) throw new ManagerException("There are no pending edits.");
+        if (changes.Count == 0) throw new ManagerException(DisplayText.Of("stored_there_are_no_pending_edits"));
         foreach (var change in changes)
             if (change is PackageEdit { Attr: var attr } && SplitAttr(attr)?[0] != "pkgs")
-                throw new ManagerException($"{attr} is not a package from pkgs.");
+                throw new ManagerException(DisplayText.Of("stored_is_not_a_package_from_pkgs", ("attr", attr)));
         var (files, problems) = Drafts.Render(config.Flake, changes);
         if (problems.Count > 0)
         {
-            var first = $"{changes[problems[0].Index].Subject}: {problems[0].Message}";
-            throw new ManagerException(problems.Count > 1 ? $"{first} (and {problems.Count - 1} more problems)" : first);
+            var first = DisplayText.Of("stored_edit_problem", ("subject", changes[problems[0].Index].Subject), ("problem", problems[0].Message));
+            throw new ManagerException(problems.Count > 1 ? DisplayText.Of("stored_and_more_problems", ("problem", first), ("count", problems.Count - 1)) : first);
         }
-        if (files.Count == 0) throw new ManagerException("The pending edits do not change any file.");
+        if (files.Count == 0) throw new ManagerException(DisplayText.Of("stored_the_pending_edits_do_not_change_any"));
         var original = await Evaluation.FlakeSourceAsync(config.Flake, run).ConfigureAwait(false);
         foreach (var file in files)
         {
             if (file.Created == true)
             {
                 if (Exists(Path.Combine(original, file.Path)) || Exists(Path.Combine(config.Flake, file.Path)))
-                    throw new ManagerException($"{file.Path} already exists.");
+                    throw new ManagerException(DisplayText.Of("stored_already_exists", ("path", file.Path)));
                 continue;
             }
             string? tracked;
             try { tracked = File.ReadAllText(Path.Combine(original, file.Path)); }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { tracked = null; }
             if (tracked is null)
-                throw new ManagerException($"{file.Path} is not tracked by Git, so Nix cannot read it. Add it with git add first.");
+                throw new ManagerException(DisplayText.Of("stored_is_not_tracked_by_git_so_nix", ("path", file.Path)));
             if (Repository.HashText(tracked) != file.BaseHash)
-                throw new ManagerException($"{file.Path} changed while the edits were being prepared.");
+                throw new ManagerException(DisplayText.Of("stored_changed_while_the_edits_were_being_prepared", ("path", file.Path)));
         }
         var copy = Path.Combine(Paths.ReviewRoot(config, r.ReviewId!), "source");
-        await run(new Command { Label = "Copy flake source", Argv = ["cp", "-rT", "--no-preserve=mode", original, copy], Quiet = true }).ConfigureAwait(false);
+        await run(new Command { Label = DisplayText.Of("stored_copy_flake_source"), Argv = ["cp", "-rT", "--no-preserve=mode", original, copy], Quiet = true }).ConfigureAwait(false);
         foreach (var file in files)
         {
             try
@@ -101,7 +101,8 @@ public static partial class SourceEdits
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
-                throw new ManagerException($"Write {file.Path}: {e.Message}");
+                throw new ManagerException(DisplayText.Of("stored_step_failed_because",
+                    ("step", DisplayText.Of("stored_write", ("file", file.Path))), ("reason", FileErrors.Describe(e))));
             }
         }
         return new Staged(original, files);
@@ -156,22 +157,35 @@ public static partial class SourceEdits
         || (after.Node is JsonArray items && wanted.Node is JsonArray want && want.All(item => items.Any(x => DeepEqual(x, item))));
 
     /// <summary>A value for a message: its JSON, shortened to 80 characters, or "nothing" (<c>show</c>).</summary>
-    private static string Show(Js value)
+    private static DisplayText Show(Js value)
     {
-        if (!value.Present) return "nothing";
+        if (!value.Present) return DisplayText.Of("stored_show_value_nothing");
         var text = JsJson.Stringify(value.Node);
-        return text.Length > 80 ? $"{text[..77]}..." : text;
+        return DisplayText.Plain(text.Length > 80 ? $"{text[..77]}..." : text);
     }
 
     [GeneratedRegex("^/nix/store/[a-z0-9]{32}-source/flake\\.nix$")]
     private static partial Regex InlineModule();
 
     // lib.nixosSystem and homeManagerConfiguration attribute modules written inline in the flake to the input's
-    // own flake.nix.
-    private static string Origin(string file) => InlineModule().IsMatch(file) ? "a module written directly in flake.nix" : file;
+    // own flake.nix. The first file of a sentence starts with a capital letter.
+    private static DisplayText Origin(string file, bool first) => InlineModule().IsMatch(file)
+        ? DisplayText.Of(first ? "stored_inline_flake_module_first" : "stored_inline_flake_module")
+        : DisplayText.Plain(first ? Sentence(file) : file);
 
-    private static string Joined(IReadOnlyList<string> items) =>
-        items.Count <= 1 ? items.FirstOrDefault() ?? "" : $"{string.Join(", ", items.Take(items.Count - 1))} and {items[^1]}";
+    // "a, b and c".
+    private static DisplayText Joined(IReadOnlyList<DisplayText> items) => items.Count switch
+    {
+        0 => DisplayText.Plain(""),
+        1 => items[0],
+        2 => DisplayText.Of("stored_two_items", ("first", items[0]), ("second", items[1])),
+        _ => DisplayText.Of("stored_items_comma", ("first", items[0]), ("rest", Joined(items.Skip(1).ToList()))),
+    };
+
+    // "a, b, c".
+    private static DisplayText Commas(IReadOnlyList<DisplayText> items) =>
+        items.Count <= 1 ? items.FirstOrDefault() ?? DisplayText.Plain("")
+            : DisplayText.Of("stored_items_comma", ("first", items[0]), ("rest", Commas(items.Skip(1).ToList())));
 
     private static string Sentence(string text) => text.Length == 0 ? text : $"{char.ToUpperInvariant(text[0])}{text[1..]}";
 
@@ -186,7 +200,7 @@ public static partial class SourceEdits
         var edited = await Evaluation.FlakeSourceAsync($"path:{Path.Combine(Paths.ReviewRoot(config, r.ReviewId!), "source")}", run).ConfigureAwait(false);
         var scopes = new[] { Targets.Home, Targets.System }.Where(scope => changes.Any(change => change.Scope == scope)).ToList();
         if (scopes.Any(scope => scope != r.Scope && r.Scope != Scopes.All))
-            throw new ManagerException("The pending edits change a configuration this review does not build.");
+            throw new ManagerException(DisplayText.Of("stored_the_pending_edits_change_a_configuration_this"));
         var host = r.Host is { Length: > 0 } ? r.Host : config.HostKey;
 
         async Task<EditEffect> Verify(string scope)
@@ -207,19 +221,20 @@ public static partial class SourceEdits
             var (before, after) = (evaluations[0], evaluations[1]);
             var added = Minus(Packages(after), Packages(before));
             var removed = Minus(Packages(before), Packages(after));
-            var name = scope == Targets.Home ? $"{host}'s home configuration" : $"{host}'s system";
+            var name = DisplayText.Of(scope == Targets.Home ? "stored_host_home_configuration" : "stored_host_system", ("host", host));
             if (before.Nixpkgs is { } beforeSet && after.Nixpkgs is { } afterSet)
             {
                 var keys = beforeSet.Config.AsObject().Select(pair => pair.Key).Concat(afterSet.Config.AsObject().Select(pair => pair.Key)).Distinct().ToList();
                 Js Member(JsonNode set, string key) => set.AsObject().TryGetPropertyValue(key, out var value) ? new(true, value) : default;
                 var changed = keys.Where(key => !key.StartsWith('_') && !settings.Contains(key)
-                    && !DeepEqual(Member(beforeSet.Config, key), Member(afterSet.Config, key))).ToList();
-                if (beforeSet.Names != afterSet.Names) changed.Add("the packages the flake adds");
+                    && !DeepEqual(Member(beforeSet.Config, key), Member(afterSet.Config, key))).Select(DisplayText.Plain).ToList();
+                if (beforeSet.Names != afterSet.Names) changed.Add(DisplayText.Of("stored_the_packages_the_flake_adds"));
                 if (changed.Count > 0)
-                    throw new ManagerException($"Setting nixpkgs.config in {name} also changes {string.Join(", ", changed)}.", new Explanation
+                    throw new ManagerException(DisplayText.Of("stored_setting_nixpkgs_config_in_also_changes", ("name", name), ("changed", Commas(changed))), new Explanation
                     {
-                        Title = "This setting would change more than it says",
-                        Body = $"In {name}, nixpkgs.config in a module makes the configuration import nixpkgs again, which also changes {string.Join(", ", changed)}. Set {string.Join(", ", settings)} where the flake imports nixpkgs instead, for example import nixpkgs {{ config.{settings[0]} = true; }} in flake.nix.",
+                        Title = DisplayText.Of("stored_this_setting_would_change_more_than_it"),
+                        Body = DisplayText.Of("stored_in_nixpkgs_config_in_a_module_makes", ("name", name), ("changed", Commas(changed)),
+                            ("settings", string.Join(", ", settings)), ("setting", settings[0])),
                     });
             }
             // Settings are checked first: a setting without effect explains a package that is still refused better
@@ -230,43 +245,43 @@ public static partial class SourceEdits
                 var now = after.Options.GetValueOrDefault(option);
                 // Removing an entry, such as a user from users.users, leaves no setting behind.
                 if (change is UnsetOption && now?.Exists != true && before.Options.GetValueOrDefault(option)?.Exists == true) continue;
-                if (now is not { Exists: true }) throw new ManagerException($"{option} is not an option of {name}.");
+                if (now is not { Exists: true }) throw new ManagerException(DisplayText.Of("stored_is_not_an_option_of", ("option", option), ("name", name)));
                 if (change is SetOption set)
                 {
-                    if (now.Error == true) throw new ManagerException($"{option} no longer evaluates after the edit.");
+                    if (now.Error == true) throw new ManagerException(DisplayText.Of("stored_no_longer_evaluates_after_the_edit", ("option", option)));
                     var others = now.Files.Where(file => file != change.File).ToList();
                     var wanted = new Js(true, set.Value);
                     if (!Includes(Js.Of(now.Value), wanted))
                     {
-                        var files = Sentence(Joined(others.Select(Origin).ToList()));
+                        var files = Joined(others.Select((file, at) => Origin(file, at == 0)).ToList());
                         throw new ManagerException(
-                            $"{option} is {Show(Js.Of(now.Value))} instead of {Show(wanted)}. Another definition takes precedence, or {change.File} is not part of {name}.",
+                            DisplayText.Of("stored_is_instead_of_another_definition_takes_precedence", ("option", option), ("now", Show(Js.Of(now.Value))),
+                                ("wanted", Show(wanted)), ("file", change.File), ("name", name)),
                             now.Files.Contains(change.File) && others.Count > 0
                                 ? new Explanation
                                 {
-                                    Title = $"{option} is also set elsewhere",
-                                    Body = others.Count == 1
-                                        ? $"{files} sets {option} too, and that value wins. Change it there instead of adding a new definition."
-                                        : $"{files} set {option} too, and that value wins. Change it there instead of adding a new definition.",
+                                    Title = DisplayText.Of("stored_is_also_set_elsewhere", ("option", option)),
+                                    Body = DisplayText.Of(others.Count == 1 ? "stored_sets_too_and_that_value_wins_change" : "stored_set_too_and_that_value_wins_change",
+                                        ("files", files), ("option", option)),
                                 }
                                 : null);
                     }
                     if (!now.Files.Contains(change.File))
-                        throw new ManagerException($"{change.File} is not part of {name}, so {option} is unchanged.");
+                        throw new ManagerException(DisplayText.Of("stored_is_not_part_of_so_is_unchanged", ("file", change.File), ("name", name), ("option", option)));
                     if (now.HasEffective && !Includes(Js.Of(now.Effective), wanted))
                     {
                         var setting = option.Length > "nixpkgs.config.".Length ? option["nixpkgs.config.".Length..] : "";
                         throw new ManagerException(
-                            $"{option} is set in {change.File}, but {name} takes its packages from a nixpkgs the flake imports itself.",
+                            DisplayText.Of("stored_is_set_in_but_takes_its_packages", ("option", option), ("file", change.File), ("name", name)),
                             new Explanation
                             {
-                                Title = "This setting does not reach your packages",
-                                Body = $"{name} gets its packages from a nixpkgs that the flake imports itself, so nixpkgs.config in modules has no effect. Set {setting} where nixpkgs is imported instead, for example import nixpkgs {{ config.{setting} = {Show(wanted)}; }} in flake.nix.",
+                                Title = DisplayText.Of("stored_this_setting_does_not_reach_your_packages"),
+                                Body = DisplayText.Of("stored_gets_its_packages_from_a_nixpkgs_that", ("name", name), ("setting", setting), ("value", Show(wanted))),
                             });
                     }
                 }
                 else if (now.Files.Contains(change.File))
-                    throw new ManagerException($"{option} is still set in {change.File}.");
+                    throw new ManagerException(DisplayText.Of("stored_is_still_set_in", ("option", option), ("file", change.File)));
             }
             var index = 0;
             foreach (var change in own.OfType<PackageEdit>())
@@ -281,7 +296,7 @@ public static partial class SourceEdits
                     var path = string.Join('.', SplitAttr(change.Attr)!.Skip(1).Select(NixText.Attr));
                     var result = await run(new Command
                     {
-                        Label = "Evaluate package",
+                        Label = DisplayText.Of("stored_evaluate_package"),
                         Argv = ["nix", "eval", "--raw", $"path:{(adding ? edited : staged.Original)}#{attribute}.pkgs.{path}.outPath"],
                         Quiet = true,
                         AllowFailure = true,
@@ -290,15 +305,15 @@ public static partial class SourceEdits
                     var explanation = found?.Fix is { } fix ? found with { Fix = fix with { Scope = scope } } : found;
                     throw new ManagerException(
                         explanation is not null
-                            ? $"{change.Attr} cannot be added to {name}: {explanation.Title}."
-                            : $"{change.Attr} does not exist in {name}'s packages.",
+                            ? DisplayText.Of("stored_cannot_be_added_to", ("attr", change.Attr), ("name", name), ("reason", explanation.Title))
+                            : DisplayText.Of("stored_does_not_exist_in_s_packages", ("attr", change.Attr), ("name", name)),
                         explanation);
                 }
                 var list = adding ? added : removed;
                 if (!list.Any(item => item.Out == output && item.File == change.File))
                     throw new ManagerException(adding
-                        ? $"{change.Attr} was added to {change.File}, but {name} does not include it. Is the file part of this configuration?"
-                        : $"Removing {change.Attr} from {change.File} does not remove it from {name}.");
+                        ? DisplayText.Of("stored_was_added_to_but_does_not_include", ("attr", change.Attr), ("file", change.File), ("name", name))
+                        : DisplayText.Of("stored_removing_from_does_not_remove_it_from", ("attr", change.Attr), ("file", change.File), ("name", name)));
             }
             return new EditEffect
             {
@@ -339,8 +354,8 @@ public static partial class SourceEdits
                 var current = File.Exists(path) ? File.ReadAllText(path) : null;
                 if (file.Created == true ? current is not null : current is null || Repository.HashText(current) != file.BaseHash)
                     throw new ManagerException(file.Created == true
-                        ? $"{file.Path} was created after this review was prepared. Prepare the edits again."
-                        : $"{file.Path} changed after this review was prepared. Prepare the edits again.");
+                        ? DisplayText.Of("stored_was_created_after_this_review_was_prepared", ("path", file.Path))
+                        : DisplayText.Of("stored_changed_after_this_review_was_prepared_prepare", ("path", file.Path)));
                 return (Path: path, Data: File.ReadAllBytes(Path.Combine(root, file.Path)), Mode: file.Created == true ? ReviewStore.NewFileMode : ReviewStore.ModeOf(path));
             }).ToList();
             foreach (var write in writes)
@@ -351,11 +366,11 @@ public static partial class SourceEdits
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            throw new ManagerException($"Write edited files: {e.Message}");
+            throw new ManagerException(DisplayText.Of("stored_write_edited_files_2", ("error", FileErrors.Describe(e))));
         }
         var created = edits.Files.Where(file => file.Created == true).Select(file => file.Path).ToList();
         if (created.Count > 0 && Exists(Path.Combine(config.Flake, ".git")))
-            await run(new Command { Label = "Add created files to Git", Argv = ["git", "-C", config.Flake, "add", "--intent-to-add", "--", .. created], Quiet = true })
+            await run(new Command { Label = DisplayText.Of("stored_add_created_files_to_git"), Argv = ["git", "-C", config.Flake, "add", "--intent-to-add", "--", .. created], Quiet = true })
                 .ConfigureAwait(false);
     }
 
@@ -403,13 +418,13 @@ public static partial class SourceEdits
             foreach (var file in point.Files)
             {
                 if (!file.Created && !contents.ContainsKey(file.Path))
-                    throw new ManagerException($"The earlier content of {file.Path} is missing.");
+                    throw new ManagerException(DisplayText.Of("stored_the_earlier_content_of_is_missing", ("path", file.Path)));
                 var current = now[file.Path];
                 if (current is null ? file.Written is not null : Repository.HashText(current) != file.Written)
-                    throw new ManagerException($"{file.Path} changed after the change was applied, so it cannot be put back automatically.", new Explanation
+                    throw new ManagerException(DisplayText.Of("stored_changed_after_the_change_was_applied_so", ("path", file.Path)), new Explanation
                     {
-                        Title = $"{file.Path} was edited since",
-                        Body = "Undo puts back the files exactly as they were and would lose those edits. Go back on the Restore points page instead, which leaves your files as they are.",
+                        Title = DisplayText.Of("stored_was_edited_since", ("path", file.Path)),
+                        Body = DisplayText.Of("stored_undo_puts_back_the_files_exactly_as"),
                     });
             }
             foreach (var file in point.Files)
@@ -428,7 +443,7 @@ public static partial class SourceEdits
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            throw new ManagerException($"Restore files: {e.Message}");
+            throw new ManagerException(DisplayText.Of("stored_restore_files_2", ("error", FileErrors.Describe(e))));
         }
         // Git's index follows, so the flake sees exactly the files it saw before.
         var removed = point.Files.Where(file => file.Created).Select(file => file.Path).ToList();
@@ -438,12 +453,12 @@ public static partial class SourceEdits
             if (removed.Count > 0)
                 await run(new Command
                 {
-                    Label = "Remove created files from Git",
+                    Label = DisplayText.Of("stored_remove_created_files_from_git"),
                     Argv = ["git", "-C", config.Flake, "rm", "--cached", "--quiet", "--ignore-unmatch", "--", .. removed],
                     Quiet = true,
                 }).ConfigureAwait(false);
             if (recreated.Count > 0)
-                await run(new Command { Label = "Add restored files to Git", Argv = ["git", "-C", config.Flake, "add", "--intent-to-add", "--", .. recreated], Quiet = true })
+                await run(new Command { Label = DisplayText.Of("stored_add_restored_files_to_git"), Argv = ["git", "-C", config.Flake, "add", "--intent-to-add", "--", .. recreated], Quiet = true })
                     .ConfigureAwait(false);
         }
     }

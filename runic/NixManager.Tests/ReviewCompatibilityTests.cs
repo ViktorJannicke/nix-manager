@@ -39,7 +39,7 @@ public sealed class ReviewCompatibilityTests : IDisposable
         await Assert.That(latest.System!.Kernel!.After).IsEqualTo("7.2.10");
         await Assert.That(latest.Downloaded).IsEqualTo(12081594264);
         var apply = Planner.Plan(config, Request.Create() with { Action = Actions.ReviewApply, ReviewId = latest.Id, Host = "test" }, latest);
-        await Assert.That(apply.Steps.Select(s => s.Label)).IsEquivalentTo(
+        await Assert.That(apply.Steps.Select(s => s.Label.English)).IsEquivalentTo(
             ["Write the reviewed flake.lock", "Select Home Manager generation", "Activate Home Manager", "Activate system"]);
     }
 
@@ -120,14 +120,14 @@ public sealed class ReviewCompatibilityTests : IDisposable
 
         var plan = service.Plan(Request.Create() with { Action = Actions.ReviewBuild, Undo = id });
 
-        await Assert.That(plan.Steps.Select(s => s.Label)).IsEquivalentTo(["Retain home generation 5", "Compare with the active configuration"]);
-        await Assert.That(plan.Notes[0]).IsEqualTo("Applying the undo also restores the configuration files the change wrote.");
+        await Assert.That(plan.Steps.Select(s => s.Label.English)).IsEquivalentTo(["Retain home generation 5", "Compare with the active configuration"]);
+        await Assert.That(plan.Notes[0].English).IsEqualTo("Applying the undo also restores the configuration files the change wrote.");
         // The real .undo contents read too; that change was applied on the host desktop.
         var host = config.Hosts["test"];
         await using var desktop = new OperationService(config with { Hosts = new Dictionary<string, Host> { ["test"] = host, ["desktop"] = host with { NixosHostName = "desktop" } } },
             new FakeRunner(), new FakeUpdates(new UpdateReport { CheckedAt = "" }));
         var real = desktop.Plan(Request.Create() with { Action = Actions.ReviewBuild, Undo = "1791817192010-c45c9d14-1d7b-4b9c-81d7-f0ced48b0947" });
-        await Assert.That(real.Steps.Select(s => s.Label)).IsEquivalentTo(
+        await Assert.That(real.Steps.Select(s => s.Label.English)).IsEquivalentTo(
             ["Retain home generation 99", "Retain system generation 81", "Compare with the active configuration"]);
     }
 }

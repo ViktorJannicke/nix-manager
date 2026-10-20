@@ -84,7 +84,7 @@ public sealed class ConfigTests
 internal sealed class FakeNetwork(Dictionary<string, string> answers) : INetwork
 {
     public Task<string> TextAsync(string url, CancellationToken cancellationToken) =>
-        answers.TryGetValue(url, out var text) ? Task.FromResult(text) : throw new ManagerException($"Fetch failed: HTTP 404 from {url}");
+        answers.TryGetValue(url, out var text) ? Task.FromResult(text) : throw new ManagerException(DisplayText.Of("stored_fetch_failed", ("reason", $"HTTP 404 from {url}")));
 
     public Task<NetworkResponse> GetAsync(string url, bool followRedirects, CancellationToken cancellationToken) =>
         throw new NotSupportedException(url);
@@ -148,7 +148,7 @@ public sealed class UpdateCheckerTests
             await Assert.That(input.LatestDate).IsEqualTo("2026-10-12T10:13:20.000Z");
             await Assert.That(report.Items[1].Url).IsEqualTo("https://github.com/pingdotgg/t3code/releases/tag/v0.0.46-nightly.20261015.3145");
             // A pin that is missing is an error of its own; the other checks still report.
-            await Assert.That(report.Errors.Single()).StartsWith("opencode: Read opencode pin:");
+            await Assert.That(report.Errors.Single().English).StartsWith("opencode: Read opencode pin:");
         }
         finally
         {
@@ -189,7 +189,7 @@ public sealed class OperationsViewModelTests : IAsyncDisposable
 
         // A second start while one runs is refused, and the reason shown.
         await _context.InvokeAsync(() => viewModel.StartCommand.Execute(Request.Create() with { Action = Actions.Build }));
-        await Assert.That(await _context.InvokeAsync(() => viewModel.StartError)).IsEqualTo("An operation is already running.");
+        await Assert.That(await _context.InvokeAsync(() => viewModel.StartError?.English)).IsEqualTo("An operation is already running.");
 
         release.SetResult();
         await Until(() => !viewModel.Busy);

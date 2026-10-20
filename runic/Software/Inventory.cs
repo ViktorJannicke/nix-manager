@@ -132,7 +132,7 @@ public static partial class Inventory
         {
             var result = await run(new Command
             {
-                Label = "Read the running generation",
+                Label = DisplayText.Of("stored_read_the_running_generation"),
                 Argv = ["nix-store", "--query", "--requisites", profile],
                 Quiet = true,
                 AllowFailure = true,

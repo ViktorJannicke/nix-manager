@@ -4,7 +4,7 @@
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
   import { software } from "$lib/software.svelte";
-  import { m, stored } from "$lib/i18n";
+  import { m, say, text } from "$lib/i18n";
   import { experiences } from "$lib/curated";
   import type { AppEntry } from "../../../generated/types.js";
   import type { Bundle } from "$lib/bundles";
@@ -56,7 +56,7 @@
 
   async function add() {
     if (!bundle || !plan.changes.length) return;
-    const title = stored(bundle.title);
+    const title = say(bundle.title);
     await software.stage(plan.changes);
     app.toast({
       tone: "success",
@@ -90,14 +90,14 @@
   <Dialog.Content class="scroll-thin max-h-[90vh] overflow-x-hidden overflow-y-auto sm:max-w-lg">
     {#if bundle}
       <Dialog.Header>
-        <Dialog.Title>{stored(bundle.title)}</Dialog.Title>
-        <Dialog.Description>{stored(bundle.summary)} {m.bundle_untick_what_you_do_not_want()}</Dialog.Description>
+        <Dialog.Title>{say(bundle.title)}</Dialog.Title>
+        <Dialog.Description>{say(bundle.summary)} {m.bundle_untick_what_you_do_not_want()}</Dialog.Description>
       </Dialog.Header>
 
       {#if !ready}
         <p class="flex items-center gap-2 text-muted-foreground" role="status">
           <LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
-          {software.catalog?.state === "failed" ? m.bundle_the_package_index_could_not_be({ error: stored(software.catalog.error) }) : m.bundle_reading_the_package_index()}
+          {software.catalog?.state === "failed" ? m.bundle_the_package_index_could_not_be({ error: text(software.catalog.error) }) : m.bundle_reading_the_package_index()}
         </p>
       {:else}
         {#if features.length}
@@ -108,7 +108,7 @@
                 {#snippet icon()}
                   <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground"><ExperienceIcon name={item.icon} class="size-4" /></span>
                 {/snippet}
-                {@render row(item.id, stored(item.title), stored(item.summary), software.enabled(item) ? m.setup_flakes_on() : undefined, icon)}
+                {@render row(item.id, say(item.title), say(item.summary), software.enabled(item) ? m.setup_flakes_on() : undefined, icon)}
               {/each}
             </ul>
           </section>

@@ -17,7 +17,7 @@
   import { app } from "$lib/app.svelte";
   import { parseDefault } from "$lib/fields";
   import { LocalizedInline } from "@runic-artifex/translations-svelte/inline";
-  import { getLocale, inline, m, stored } from "$lib/i18n";
+  import { display, getLocale, inline, m, sameText, say, text } from "$lib/i18n";
   import { showValue } from "$lib/changes";
   import { local, NEW_FILE, software, type Change } from "$lib/software.svelte";
   import ExperienceDialog from "$lib/components/app/ExperienceDialog.svelte";
@@ -30,8 +30,6 @@
   import { experiences, type Experience } from "$lib/curated";
 
   const SCOPE = "system";
-  /** English text with values, as the pending edits' labels are stored; `stored` translates them where shown. */
-  const msg = (text: string, values: Record<string, string> = {}) => text.replace(/\{(\w+)\}/g, (_, name: string) => values[name] ?? "");
   /** The user running the dashboard. */
   const me = $derived(software.state?.user);
   const icons: Record<string, typeof MonitorIcon> = {
@@ -97,7 +95,7 @@
       : hardwareSuggestions.flatMap(({ hardware, experience: id, reason }) => {
           const item = experiences.find((candidate) => candidate.id === id);
           if (!item || !software.state?.hardware[hardware] || dismissed.includes(id) || !software.available(item) || software.enabled(item)) return [];
-          const pending = software.changes.some((change) => change.scope === SCOPE && change.label === item.title);
+          const pending = software.changes.some((change) => change.scope === SCOPE && sameText(change.label, display(item.title)));
           return [{ item, reason, pending }];
         }),
   );
@@ -201,10 +199,14 @@
     const name = option.match(/^users\.users\.([^.]+)/)?.[1];
     if (name) {
       const user = accounts.find((item) => item.name === name);
-      return edits[userOption(name)] ? msg("Remove user {name}", { name }) : user?.added ? msg("Add user {name}", { name }) : msg("User {name}", { name });
+      return edits[userOption(name)]
+        ? display("stored_remove_user", { name })
+        : user?.added
+          ? display("stored_add_user", { name })
+          : display("stored_user", { name });
     }
     const title = computerSections.find((section) => section.settings.some((setting) => setting.option === option))?.title;
-    return title ?? msg("Computer");
+    return display(title ?? "nav_computer");
   }
 
   /** A setting as the page names it: its label, or the user it belongs to. */
@@ -213,12 +215,12 @@
     if (user) return m.computer_user({ name: user });
     const label = computerSections.flatMap((section) => section.settings).find((setting) => setting.option === option)?.label;
     if (!label) return option;
-    return getLocale() === "en" ? label.toLowerCase() : stored(label);
+    return getLocale() === "en" ? say(label).toLowerCase() : say(label);
   }
 
   async function save() {
     const file = creating ? newFile : target;
-    const changes: Change[] = creating && homeless.length ? [{ $case: "create-module", scope: SCOPE, file, importer, label: msg("Computer") }] : [];
+    const changes: Change[] = creating && homeless.length ? [{ $case: "create-module", scope: SCOPE, file, importer, label: display("nav_computer") }] : [];
     for (const [option, edit] of Object.entries(edits)) {
       const where = home(option) ?? file;
       changes.push(
@@ -256,7 +258,7 @@
   {#if software.error}
     <p class="flex gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-destructive">
       <TriangleAlertIcon class="mt-0.5 size-4 shrink-0" />
-      <span class="flex-1">{m.software_could_not_read_s_configuration({ host: app.host })} {stored(software.error)}</span>
+      <span class="flex-1">{m.software_could_not_read_s_configuration({ host: app.host })} {text(software.error)}</span>
       <Button variant="ghost" size="sm" onclick={() => software.load(true)}>{m.activity_try_again()}</Button>
     </p>
   {:else if !inventory}
@@ -273,8 +275,8 @@
             <li class="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
               <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground"><ExperienceIcon name={item.icon} class="size-4.5" /></span>
               <div class="min-w-48 flex-1">
-                <p class="font-medium">{stored(item.title)}{#if pending}<span class="ml-2 text-xs font-normal text-prepared-foreground">{m.feature_pending()}</span>{/if}</p>
-                <p class="text-xs text-muted-foreground">{stored(reason)}</p>
+                <p class="font-medium">{say(item.title)}{#if pending}<span class="ml-2 text-xs font-normal text-prepared-foreground">{m.feature_pending()}</span>{/if}</p>
+                <p class="text-xs text-muted-foreground">{say(reason)}</p>
               </div>
               {#if !pending}
                 <Button variant="ghost" size="sm" onclick={() => dismiss(item.id)}>{m.computer_not_now()}</Button>
@@ -292,8 +294,8 @@
         <header class="flex items-start gap-3 p-4 pb-2">
           <Icon class="mt-0.5 size-5 shrink-0 text-muted-foreground" />
           <div>
-            <h2 id="computer-{item.id}" class="font-semibold">{stored(item.title)}</h2>
-            <p class="text-xs text-muted-foreground">{stored(item.summary)}</p>
+            <h2 id="computer-{item.id}" class="font-semibold">{say(item.title)}</h2>
+            <p class="text-xs text-muted-foreground">{say(item.summary)}</p>
           </div>
         </header>
         <div class="divide-y px-4">
@@ -303,17 +305,17 @@
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
               <div class="min-w-48 flex-1">
                 <p class="font-medium">
-                  {stored(setting.label)}
+                  {say(setting.label)}
                   {#if edits[setting.option]}<span class="ml-2 text-xs font-normal text-primary">{m.computer_changed()}</span>
                   {:else if software.value(SCOPE, setting.option).pending}<span class="ml-2 text-xs font-normal text-prepared-foreground">{m.feature_pending()}</span>{/if}
                 </p>
-                {#if setting.help}<p class="text-xs text-muted-foreground">{stored(setting.help)}</p>{/if}
+                {#if setting.help}<p class="text-xs text-muted-foreground">{say(setting.help)}</p>{/if}
                 {#if fixed}<p class="text-[0.7rem] break-all text-muted-foreground">{inFlakeFile(fixed) ? m.computer_set_directly_in_flake_nix_change() : m.computer_set_in_which_nix_manager_cannot({ file: fixed })}</p>
                 {:else if files.length}<p class="text-[0.7rem] break-all text-muted-foreground">{m.computer_set_in({ files: files.join(", ") })}</p>{/if}
               </div>
-              {#if fixed}<span class="max-w-56 truncate text-xs">{setting.input === "keyboard" ? (((layout) => (layout ? stored(layout.label) : shown(setting.option)))(keyboardLayouts.find((layout) => layout.code === shown(setting.option)))) : stored(showValue(shown(setting.option))).replace(/^"(.*)"$/, "$1")}</span>
+              {#if fixed}<span class="max-w-56 truncate text-xs">{setting.input === "keyboard" ? (((layout) => (layout ? say(layout.label) : shown(setting.option)))(keyboardLayouts.find((layout) => layout.code === shown(setting.option)))) : showValue(shown(setting.option)).replace(/^"(.*)"$/, "$1")}</span>
               {:else}<OptionField
-                label={stored(setting.label)}
+                label={say(setting.label)}
                 doc={software.doc(SCOPE, setting.option)}
                 value={shown(setting.option)}
                 input={setting.input}
@@ -381,7 +383,7 @@
                   <input class="focus-ring h-8 w-full rounded-md border bg-card px-2 font-mono text-xs" bind:value={newName} spellcheck="false" autocapitalize="off" placeholder="alex"
                     aria-invalid={Boolean(newName && nameProblem)} aria-describedby={newName && nameProblem ? "computer-new-user-problem" : undefined} />
                 </label>
-                {#if newName && nameProblem}<span id="computer-new-user-problem" class="block text-xs text-destructive">{stored(nameProblem)}</span>{/if}
+                {#if newName && nameProblem}<span id="computer-new-user-problem" class="block text-xs text-destructive">{nameProblem}</span>{/if}
               </div>
             </div>
             <label class="flex items-center gap-2 text-xs"><Switch bind:checked={newAdmin} aria-label={m.computer_administrator()} /> {m.computer_administrator()}</label>

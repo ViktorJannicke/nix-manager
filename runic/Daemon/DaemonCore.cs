@@ -394,7 +394,7 @@ public sealed class DaemonCore
             if (show.Reply is { } reply) Track(AnswerAsync(reply, (DaemonMessage.Note($"The dashboard could not open: {error.Message}"), 1)));
             // A click on the icon or a notification has no terminal to say why, so the reason is shown as
             // a notification.
-            else await NotifyAsync(NeedsAttention(error.Message));
+            else await NotifyAsync(NeedsAttention(DisplayText.From(error)));
         }
     }
 
@@ -439,7 +439,7 @@ public sealed class DaemonCore
     private void Start(Request request)
     {
         try { _service.Start(request); }
-        catch (ManagerException error) { _ = NotifyAsync(NeedsAttention(error.Message)); }
+        catch (ManagerException error) { _ = NotifyAsync(NeedsAttention(DisplayText.From(error))); }
     }
 
     /// <summary>Observes the computer again: at start, when the dashboard opens and after each operation.</summary>
@@ -485,10 +485,10 @@ public sealed class DaemonCore
         await NotifyAsync(notice.Notification);
     }
 
-    private DesktopNotification NeedsAttention(string error)
+    private DesktopNotification NeedsAttention(DisplayText error)
     {
         var text = Text;
-        return new DesktopNotification(TrayPresentation.OperationNotice, text.Messages.tray_needs_attention, text.Stored(error));
+        return new DesktopNotification(TrayPresentation.OperationNotice, text.Messages.tray_needs_attention, text.Show(error));
     }
 
     private async Task NotifyAsync(DesktopNotification notification)
@@ -534,7 +534,7 @@ public sealed class DaemonCore
         catch (ManagerException error) when (_service.Busy) { _log.WriteLine($"Not checking now: {error.Message}"); }
         catch (ManagerException error)
         {
-            await NotifyAsync(NeedsAttention(error.Message)).ConfigureAwait(false);
+            await NotifyAsync(NeedsAttention(DisplayText.From(error))).ConfigureAwait(false);
         }
     }
 

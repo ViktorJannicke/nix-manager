@@ -6,7 +6,7 @@
   import { parseDefault } from "$lib/fields";
   import { app } from "$lib/app.svelte";
   import { LocalizedInline } from "@runic-artifex/translations-svelte/inline";
-  import { inline, m, stored } from "$lib/i18n";
+  import { display, inline, m, say } from "$lib/i18n";
   import { local, NEW_FILE, software, type Change } from "$lib/software.svelte";
   import NewModuleFields from "./NewModuleFields.svelte";
   import OptionField from "./OptionField.svelte";
@@ -66,7 +66,7 @@
 
   async function save() {
     if (!experience) return;
-    const label = experience.title;
+    const label = display(experience.title);
     const file = creating ? newFile : target;
     const where = (option: string) => software.editableIn(scope, option) ?? file;
     const edits: Change[] = [...(allowing ?? []), ...(creating ? [{ $case: "create-module", scope, file, importer, label } as const] : [])];
@@ -94,7 +94,7 @@
     }
     if (needsTarget && !creating) software.remember(scope, target);
     await software.stage(edits);
-    const title = stored(experience.title);
+    const title = say(experience.title);
     app.toast({
       tone: "success",
       title: edits.length === 1 ? m.feature_edit_pending({ title }) : m.feature_edits_pending({ title, count: edits.length }),
@@ -110,8 +110,8 @@
   <Dialog.Content class="scroll-thin max-h-[90vh] overflow-y-auto sm:max-w-xl">
     {#if experience}
       <Dialog.Header>
-        <Dialog.Title>{stored(experience.title)}</Dialog.Title>
-        <Dialog.Description>{stored(experience.summary)}</Dialog.Description>
+        <Dialog.Title>{say(experience.title)}</Dialog.Title>
+        <Dialog.Description>{say(experience.summary)}</Dialog.Description>
       </Dialog.Header>
 
       <label class="flex items-center justify-between gap-4 rounded-lg bg-muted px-3 py-2.5">
@@ -122,7 +122,7 @@
             {#if software.definedIn(scope, Object.keys(experience.enable)[0])}{m.feature_set_in({ file: software.definedIn(scope, Object.keys(experience.enable)[0])! })}{/if}
           </span>
         </span>
-        <Switch bind:checked={on} aria-label={m.feature_turn_on({ title: stored(experience.title) })} />
+        <Switch bind:checked={on} aria-label={m.feature_turn_on({ title: say(experience.title) })} />
       </label>
 
       <div class="divide-y">
@@ -132,11 +132,11 @@
           {@const pending = software.value(scope, setting.option).pending}
           <div class="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 {on ? '' : 'opacity-60'}">
             <div class="min-w-48 flex-1">
-              <p class="font-medium">{stored(setting.label)}{#if pending}<span class="ml-2 text-xs font-normal text-prepared-foreground">{m.feature_pending()}</span>{/if}</p>
-              {#if setting.help}<p class="text-xs text-muted-foreground">{stored(setting.help)}</p>{/if}
+              <p class="font-medium">{say(setting.label)}{#if pending}<span class="ml-2 text-xs font-normal text-prepared-foreground">{m.feature_pending()}</span>{/if}</p>
+              {#if setting.help}<p class="text-xs text-muted-foreground">{say(setting.help)}</p>{/if}
               <p class="font-mono text-[0.7rem] break-all text-muted-foreground">{files.length ? m.feature_set_in_2({ option: setting.option, files: files.join(", ") }) : setting.option}</p>
             </div>
-            <OptionField label={stored(setting.label)} {doc} value={shown(setting.option)} onchange={(value) => (values[setting.option] = value)} />
+            <OptionField label={say(setting.label)} {doc} value={shown(setting.option)} onchange={(value) => (values[setting.option] = value)} />
           </div>
         {/each}
       </div>
@@ -170,7 +170,7 @@
         <div class="flex gap-2 rounded-lg bg-muted px-3 py-2 text-xs">
           <LockOpenIcon class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
           <div class="space-y-1">
-            <p class="font-medium">{m.feature_is_not_free_software({ title: stored(experience.title) })}</p>
+            <p class="font-medium">{m.feature_is_not_free_software({ title: say(experience.title) })}</p>
             {#if allowing}
               <p class="text-muted-foreground">{m.feature_this_computer_only_installs_software_with({ file: allowing.at(-1)!.file })}</p>
             {:else}

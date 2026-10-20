@@ -6,7 +6,7 @@
   import { app } from "$lib/app.svelte";
   import { describeChange } from "$lib/changes";
   import { software } from "$lib/software.svelte";
-  import { m, stored } from "$lib/i18n";
+  import { m, text } from "$lib/i18n";
   import DiffView from "./DiffView.svelte";
   import PendingButton from "./PendingButton.svelte";
 
@@ -30,18 +30,18 @@
     </div>
     <ul role="list" aria-labelledby="pending-title" class="mt-3 divide-y divide-prepared/30">
       {#each draft.changes as change, index (index)}
-        {@const text = describeChange(change)}
+        {@const described = describeChange(change)}
         <li class="flex items-start gap-2 py-1.5">
           <div class="min-w-0 flex-1">
-            <p class="font-medium break-words">{text.title}</p>
-            {#if !simple}<p class="font-mono text-[0.72rem] break-all text-muted-foreground">{text.detail}</p>{/if}
+            <p class="font-medium break-words">{described.title}</p>
+            {#if !simple}<p class="font-mono text-[0.72rem] break-all text-muted-foreground">{described.detail}</p>{/if}
             {#if problems.has(index)}
-              <p class="mt-0.5 flex gap-1.5 text-xs text-destructive"><TriangleAlertIcon class="mt-0.5 size-3.5 shrink-0" />{stored(problems.get(index))}</p>
+              <p class="mt-0.5 flex gap-1.5 text-xs text-destructive"><TriangleAlertIcon class="mt-0.5 size-3.5 shrink-0" />{text(problems.get(index))}</p>
             {/if}
           </div>
           <button
             class="focus-ring grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:bg-card hover:text-foreground"
-            aria-label={m.pending_remove({ name: text.title })}
+            aria-label={m.pending_remove({ name: described.title })}
             disabled={software.saving}
             onclick={() => software.unstage(index)}
           ><XIcon class="size-3.5" /></button>

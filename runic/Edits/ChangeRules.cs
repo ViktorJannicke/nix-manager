@@ -1,18 +1,18 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using NixManager.Domain;
 using NixManager.Nix;
 using NixManager.Reviews;
 using NixManager.Software;
 
 namespace NixManager.Edits;
 
-/// <summary>A pending edit in words (<c>describeChange</c>): English text, translated where it is shown.</summary>
-public sealed record ChangeText(string Title, string Detail);
+/// <summary>A pending edit in words (<c>describeChange</c>).</summary>
+public sealed record ChangeText(DisplayText Title, DisplayText Detail);
 
 /// <summary>
-/// Pending edits in words and in combination, shared by the dashboard and the command line. Texts are English; the
-/// dashboard translates them where it shows them.
+/// Pending edits in words and in combination, shared by the dashboard and the command line.
 /// </summary>
 public static partial class ChangeRules
 {
@@ -78,33 +78,33 @@ public static partial class ChangeRules
     private static bool Is(JsonNode? value, JsonValueKind kind) => value is JsonValue && value.GetValueKind() == kind;
 
     /// <summary>A value as a short phrase: on, off, not set, or its JSON (<c>showValue</c>).</summary>
-    public static string ShowValue(JsonNode? value)
+    public static DisplayText ShowValue(JsonNode? value)
     {
-        if (Is(value, JsonValueKind.True)) return "on";
-        if (Is(value, JsonValueKind.False)) return "off";
-        if (value is null || Is(value, JsonValueKind.Null)) return "not set";
-        if (value is JsonArray items) return items.Count > 0 ? string.Join(", ", items.Select(JsString)) : "empty";
-        return Is(value, JsonValueKind.String) ? $"\"{value.GetValue<string>()}\"" : JsJson.Stringify(JsOrder.Normalize(value));
+        if (Is(value, JsonValueKind.True)) return DisplayText.Of("stored_on");
+        if (Is(value, JsonValueKind.False)) return DisplayText.Of("stored_off");
+        if (value is null || Is(value, JsonValueKind.Null)) return DisplayText.Of("stored_not_set");
+        if (value is JsonArray items) return items.Count > 0 ? DisplayText.Plain(string.Join(", ", items.Select(JsString))) : DisplayText.Of("stored_empty");
+        return DisplayText.Plain(Is(value, JsonValueKind.String) ? $"\"{value.GetValue<string>()}\"" : JsJson.Stringify(JsOrder.Normalize(value)));
     }
 
     /// <summary>An option edit in words (<c>describeOption</c>).</summary>
-    private static string DescribeOption(string option, JsonNode? value, string? label)
+    private static DisplayText DescribeOption(string option, JsonNode? value, DisplayText? label)
     {
         var empty = value is JsonArray { Count: 0 };
         var unset = value is null || Is(value, JsonValueKind.Null);
-        if (string.IsNullOrEmpty(label))
+        if (label is null || label.English.Length == 0)
         {
-            if (Is(value, JsonValueKind.True)) return $"{option} on";
-            if (Is(value, JsonValueKind.False)) return $"{option} off";
-            if (unset) return $"{option} not set";
-            if (empty) return $"{option} empty";
-            return $"{option} {ShowValue(value)}";
+            if (Is(value, JsonValueKind.True)) return DisplayText.Of("stored_on_2", ("option", option));
+            if (Is(value, JsonValueKind.False)) return DisplayText.Of("stored_off_2", ("option", option));
+            if (unset) return DisplayText.Of("stored_not_set_2", ("option", option));
+            if (empty) return DisplayText.Of("stored_empty_2", ("option", option));
+            return DisplayText.Of("stored_option_value", ("option", option), ("value", ShowValue(value)));
         }
-        if (Is(value, JsonValueKind.True)) return $"{label}: {option} on";
-        if (Is(value, JsonValueKind.False)) return $"{label}: {option} off";
-        if (unset) return $"{label}: {option} not set";
-        if (empty) return $"{label}: {option} empty";
-        return $"{label}: {option} {ShowValue(value)}";
+        if (Is(value, JsonValueKind.True)) return DisplayText.Of("stored_on_3", ("label", label), ("option", option));
+        if (Is(value, JsonValueKind.False)) return DisplayText.Of("stored_off_3", ("label", label), ("option", option));
+        if (unset) return DisplayText.Of("stored_not_set_3", ("label", label), ("option", option));
+        if (empty) return DisplayText.Of("stored_empty_3", ("label", label), ("option", option));
+        return DisplayText.Of("stored_labelled_option_value", ("label", label), ("option", option), ("value", ShowValue(value)));
     }
 
     [GeneratedRegex(@"^pkgs\.")]
@@ -113,11 +113,12 @@ public static partial class ChangeRules
     /// <summary>A pending edit in words: what it does, and where (<c>describeChange</c>).</summary>
     public static ChangeText Describe(Change change) => change switch
     {
-        AddPackage add => new($"Install {PkgsPrefix().Replace(add.Attr, "", 1)}", add.File),
-        RemovePackage remove => new($"Remove {PkgsPrefix().Replace(remove.Attr, "", 1)}", remove.File),
-        SetOption set => new(DescribeOption(set.Option, set.Value, set.Label), set.File),
-        UnsetOption unset => new($"Reset {unset.Option} to its default", unset.File),
-        CreateModule create => new($"Create {create.File.Split('/')[^1]}", $"{create.File}, imported from {create.Importer}"),
+        AddPackage add => new(DisplayText.Of("stored_install", ("name", PkgsPrefix().Replace(add.Attr, "", 1))), DisplayText.Plain(add.File)),
+        RemovePackage remove => new(DisplayText.Of("stored_remove", ("name", PkgsPrefix().Replace(remove.Attr, "", 1))), DisplayText.Plain(remove.File)),
+        SetOption set => new(DescribeOption(set.Option, set.Value, set.Label), DisplayText.Plain(set.File)),
+        UnsetOption unset => new(DisplayText.Of("stored_reset_to_its_default", ("option", unset.Option)), DisplayText.Plain(unset.File)),
+        CreateModule create => new(DisplayText.Of("stored_create", ("name", create.File.Split('/')[^1])),
+            DisplayText.Of("stored_imported_from", ("file", create.File), ("importer", create.Importer))),
         _ => throw new ArgumentOutOfRangeException(nameof(change)),
     };
 
@@ -243,10 +244,10 @@ public static partial class ChangeRules
     private static partial Regex NewFile();
 
     /// <summary>Why a path cannot be a new module file, if it cannot (<c>newFileProblem</c>).</summary>
-    public static string? NewFileProblem(IReadOnlySet<string> known, string file)
+    public static DisplayText? NewFileProblem(IReadOnlySet<string> known, string file)
     {
-        if (!NewFile().IsMatch(file)) return "Use a path inside the flake ending in .nix, with letters, digits, dots, dashes and slashes.";
-        if (known.Contains(file)) return "This file exists already.";
+        if (!NewFile().IsMatch(file)) return DisplayText.Of("stored_use_a_path_inside_the_flake_ending");
+        if (known.Contains(file)) return DisplayText.Of("stored_this_file_exists_already");
         return null;
     }
 
@@ -271,24 +272,24 @@ public static partial class ChangeRules
     /// installing and removing your own apps (and allowing non-free software for them) qualifies. Those change
     /// no kernel, boot loader or service, and Undo takes them back.
     /// </summary>
-    public static string? OneStepProblem(IReadOnlyList<Change> changes)
+    public static DisplayText? OneStepProblem(IReadOnlyList<Change> changes)
     {
-        if (changes.Count == 0) return "There is nothing to install.";
-        if (changes.Any(change => change.Scope != Targets.Home)) return "It changes the computer itself, not just your apps.";
+        if (changes.Count == 0) return DisplayText.Of("stored_there_is_nothing_to_install");
+        if (changes.Any(change => change.Scope != Targets.Home)) return DisplayText.Of("stored_it_changes_the_computer_itself_not_just");
         var simple = changes.All(change =>
             change is PackageEdit or CreateModule ||
             (change is SetOption { Option: "nixpkgs.config.allowUnfree" } set && Is(set.Value, JsonValueKind.True)));
-        return simple ? null : "It changes settings, which can restart programs you are using.";
+        return simple ? null : DisplayText.Of("stored_it_changes_settings_which_can_restart_programs");
     }
 
     /// <summary>Why a prepared review is not applied in one step, checking what it turned out to change (<c>oneStepReviewProblem</c>).</summary>
-    public static string? OneStepReviewProblem(BuildReview review)
+    public static DisplayText? OneStepReviewProblem(BuildReview review)
     {
         if (review.Edits is null || review.Inputs is not null || review.Undo is not null || review.Source != ReviewSources.Checkout)
-            return "It is not a change of your apps.";
-        if (review.System is not null) return "It changes the computer itself, not just your apps.";
+            return DisplayText.Of("stored_it_is_not_a_change_of_your");
+        if (review.System is not null) return DisplayText.Of("stored_it_changes_the_computer_itself_not_just");
         var changed = review.Edits.Effects.SelectMany(effect => effect.Options.Select(option => option.Option));
-        if (changed.Any(option => option != "nixpkgs.config.allowUnfree")) return "It changes settings, which can restart programs you are using.";
+        if (changed.Any(option => option != "nixpkgs.config.allowUnfree")) return DisplayText.Of("stored_it_changes_settings_which_can_restart_programs");
         return OneStepProblem(review.Edits.Changes);
     }
 }

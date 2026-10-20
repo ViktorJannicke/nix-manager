@@ -19,7 +19,7 @@
   import { connectDashboard } from "./generated/dashboard.js";
   import { Button } from "$lib/components/ui/button";
   import { app, type Page } from "$lib/app.svelte";
-  import { actionLabel, m, plain, stored } from "$lib/i18n";
+  import { actionLabel, m, plain, text } from "$lib/i18n";
   import Toasts from "$lib/components/app/Toasts.svelte";
   import ConfirmDialog from "$lib/components/app/ConfirmDialog.svelte";
   import BuildProgress from "$lib/components/app/BuildProgress.svelte";
@@ -87,10 +87,10 @@
   const running = $derived(app.active);
   const runningStep = $derived(running?.steps?.find((step) => step.status === "running"));
   // The running operation's step, which the status line below and the Window announce as it changes.
-  const status = $derived(running ? `${actionLabel(running.request.action)}: ${stored(runningStep?.label ?? running.step)}` : "");
+  const status = $derived(running ? `${actionLabel(running.request.action)}: ${text(runningStep?.label ?? running.step)}` : "");
   $effect(() => {
-    const text = status;
-    untrack(() => app.announce(text));
+    const said = status;
+    untrack(() => app.announce(said));
   });
   const title = $derived.by(() => {
     // A soft hyphen lets a long label wrap in the navigation; the Window title has room for the whole word.
@@ -152,7 +152,7 @@
     {#if running && app.page !== "overview" && app.page !== "activity"}
       <div class="flex items-center gap-4 border-b bg-card px-6 py-2">
         <span class="font-semibold">{actionLabel(running.request.action)}</span>
-        <span class="min-w-0 flex-1 truncate text-muted-foreground">{stored(runningStep?.label ?? running.step)}</span>
+        <span class="min-w-0 flex-1 truncate text-muted-foreground">{text(runningStep?.label ?? running.step)}</span>
         {#if runningStep}<div class="w-56"><BuildProgress compact progress={runningStep.progress} /></div>{/if}
         <Button variant="ghost" size="sm" onclick={() => app.show(running.id)}>{m.nav_show()}</Button>
       </div>

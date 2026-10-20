@@ -95,14 +95,14 @@ public static class DaemonApplication
 
     /// <inheritdoc cref="Load(string?, string?)"/>
     /// <param name="error">Why it could not be loaded, as reported.</param>
-    internal static Config? Load(string? flake, string? host, out string? error)
+    internal static Config? Load(string? flake, string? host, out DisplayText? error)
     {
         (var config, error) = LoadAsync(flake, host).GetAwaiter().GetResult();
         return config;
     }
 
     /// <summary>Loads the configuration as the command line does; on failure, reports why and returns the reason.</summary>
-    internal static async Task<(Config? Config, string? Error)> LoadAsync(string? flake, string? host)
+    internal static async Task<(Config? Config, DisplayText? Error)> LoadAsync(string? flake, string? host)
     {
         try
         {
@@ -111,7 +111,7 @@ public static class DaemonApplication
         catch (ManagerException error)
         {
             Console.Error.WriteLine($"Error: {error.Message}");
-            return (null, error.Message);
+            return (null, error.Text);
         }
     }
 }

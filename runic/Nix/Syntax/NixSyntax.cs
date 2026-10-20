@@ -139,7 +139,7 @@ public static unsafe partial class NixSyntax
             if (_runtime is not null) return _runtime;
             var grammar = Environment.GetEnvironmentVariable(ParserVariable);
             if (string.IsNullOrEmpty(grammar))
-                throw new ManagerException($"{ParserVariable} is not set.");
+                throw new ManagerException(DisplayText.Of("stored_environment_variable_is_not_set", ("name", ParserVariable)));
             var library = Environment.GetEnvironmentVariable(RuntimeVariable) is { Length: > 0 } path
                 ? NativeLibrary.Load(path)
                 : NativeLibrary.TryLoad("libtree-sitter.so.0", out var found) ? found : NativeLibrary.Load("libtree-sitter.so");
@@ -167,7 +167,7 @@ public static unsafe partial class NixSyntax
                 CursorGotoNextSibling = (delegate* unmanaged[Cdecl]<TSTreeCursor*, byte>)Export("ts_tree_cursor_goto_next_sibling"),
                 CursorGotoParent = (delegate* unmanaged[Cdecl]<TSTreeCursor*, byte>)Export("ts_tree_cursor_goto_parent"),
             };
-            if (runtime.Language == 0) throw new ManagerException("The Nix grammar did not load.");
+            if (runtime.Language == 0) throw new ManagerException(DisplayText.Of("stored_nix_grammar_did_not_load"));
             return _runtime = runtime;
         }
     }
@@ -191,15 +191,15 @@ public static unsafe partial class NixSyntax
     {
         var runtime = Load();
         var parser = runtime.ParserNew();
-        if (parser == 0) throw new ManagerException("The Nix parser returned no tree.");
+        if (parser == 0) throw new ManagerException(DisplayText.Of("stored_nix_parser_returned_no_tree"));
         try
         {
             if (runtime.ParserSetLanguage(parser, runtime.Language) == 0)
-                throw new ManagerException("The Nix grammar does not match the tree-sitter runtime.");
+                throw new ManagerException(DisplayText.Of("stored_nix_grammar_does_not_match_runtime"));
             nint tree;
             fixed (char* text = source)
                 tree = runtime.ParseStringEncoding(parser, 0, text, (uint)(source.Length * 2), Utf16LittleEndian);
-            if (tree == 0) throw new ManagerException("The Nix parser returned no tree.");
+            if (tree == 0) throw new ManagerException(DisplayText.Of("stored_nix_parser_returned_no_tree"));
             try
             {
                 return new SyntaxTree(source, Copy(runtime, source, runtime.TreeRootNode(tree)));

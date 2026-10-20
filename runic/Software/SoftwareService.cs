@@ -100,11 +100,11 @@ public sealed partial class SoftwareService(Config config, ICommandRunner runner
     private (string Key, Task<RenderedDraft> Draft)? _rendered;
     private (string Key, List<CatalogEntry> Entries, string BuiltAt)? _catalog;
     private (string Key, Task Task)? _building;
-    private (string Key, string Error)? _failure;
+    private (string Key, DisplayText Error)? _failure;
     private Task? _loading;
     private (bool Read, AppStream? Value) _appStream;
     private Task? _fetchingApps;
-    private (string Error, DateTimeOffset At)? _appsFailure;
+    private (DisplayText Error, DateTimeOffset At)? _appsFailure;
     private (string Key, Dictionary<string, AppInfo> Apps)? _matched;
 
     public Config Config => config;
@@ -169,7 +169,7 @@ public sealed partial class SoftwareService(Config config, ICommandRunner runner
 
     public async Task<IReadOnlyDictionary<string, OptionValue>> ValuesAsync(string host, string scope, IReadOnlyList<string> options)
     {
-        if (options.Count > 200 || options.Any(option => !OptionName().IsMatch(option))) throw new ManagerException("Invalid option list.");
+        if (options.Count > 200 || options.Any(option => !OptionName().IsMatch(option))) throw new ManagerException(DisplayText.Of("stored_invalid_option_list"));
         var source = await Evaluation.FlakeSourceAsync(config.Flake, Run).ConfigureAwait(false);
         var state = await Evaluation.EvaluateStateAsync(source, Evaluation.ConfigurationAttr(config, host, scope), scope,
             new StateRequest { Options = options }, Run).ConfigureAwait(false);
@@ -208,7 +208,7 @@ public sealed partial class SoftwareService(Config config, ICommandRunner runner
                 }
                 catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
                 {
-                    lock (_lock) _failure = (lockHash, $"Read package catalog: {error.Message}");
+                    lock (_lock) _failure = (lockHash, DisplayText.Of("stored_step_failed_because", ("step", DisplayText.Of("stored_read_package_catalog")), ("reason", DisplayText.From(error))));
                 }
                 finally
                 {
@@ -242,7 +242,7 @@ public sealed partial class SoftwareService(Config config, ICommandRunner runner
                     lock (_lock)
                     {
                         _building = null;
-                        _failure = (lockHash, error.Message);
+                        _failure = (lockHash, DisplayText.From(error));
                     }
                 }
                 finally
@@ -329,7 +329,7 @@ public sealed partial class SoftwareService(Config config, ICommandRunner runner
                 }
                 catch (Exception error)
                 {
-                    lock (_lock) _appsFailure = ($"App details could not be downloaded from Flathub. {error.Message}", _clock.GetUtcNow());
+                    lock (_lock) _appsFailure = (DisplayText.Of("stored_app_details_could_not_be_downloaded_from", ("error", DisplayText.From(error))), _clock.GetUtcNow());
                 }
                 finally
                 {

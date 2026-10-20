@@ -59,7 +59,7 @@ public sealed partial class SystemViewModel : ObservableObject, IDisposable
 
     /// <summary>Why the last refresh or estimate failed.</summary>
     [ObservableProperty]
-    public partial string? Error { get; private set; }
+    public partial DisplayText? Error { get; private set; }
 
     partial void OnSystemChanged(SystemState? value)
     {
@@ -87,7 +87,7 @@ public sealed partial class SystemViewModel : ObservableObject, IDisposable
         }
         catch (Exception error) when (error is ManagerException or IOException)
         {
-            _context.TryPost(() => Error = error.Message);
+            _context.TryPost(() => Error = DisplayText.From(error));
         }
     }
 
@@ -114,7 +114,7 @@ public sealed partial class SystemViewModel : ObservableObject, IDisposable
         {
             _context.TryPost(() =>
             {
-                Error = error.Message;
+                Error = error.Text;
                 Estimating = false;
             });
         }

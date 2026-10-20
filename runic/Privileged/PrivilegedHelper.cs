@@ -47,8 +47,9 @@ public static partial class PrivilegedHelper
         }
         catch (ManagerException e)
         {
-            // Never 126 or 127: pkexec reports dismissed and refused authorization with them.
-            await Console.Error.WriteLineAsync($"Error: {e.Message}").ConfigureAwait(false);
+            // Never 126 or 127: pkexec reports dismissed and refused authorization with them. The caller shows this
+            // standard error as the tool's output, in English.
+            await Console.Error.WriteLineAsync($"Error: {e.Text.English}").ConfigureAwait(false);
             return 1;
         }
     }
@@ -59,8 +60,9 @@ public static partial class PrivilegedHelper
         var options = new ProcessExecutionOptions(standardOutputLimitBytes: 0, standardErrorLimitBytes: 0) { StandardInput = ProcessStandardInput.Closed };
         var result = await runner.RunAsync(new ProcessRequest(argv[0], argv[1..], options: options), new ConsoleLines(), CancellationToken.None)
             .ConfigureAwait(false);
-        if (result.State != ProcessState.Exited) throw new ManagerException($"Cannot start {argv[0]}: {result.Fault?.Message ?? result.State.ToString()}");
-        if (result.ExitCode != 0) throw new ManagerException($"Privileged operation failed (exit {result.ExitCode}).");
+        if (result.State != ProcessState.Exited) throw new ManagerException(DisplayText.Of("stored_cannot_start",
+            ("command", argv[0]), ("error", DisplayText.Plain(result.Fault?.Message ?? result.State.ToString()))));
+        if (result.ExitCode != 0) throw new ManagerException(DisplayText.Of("stored_privileged_operation_failed_exit", ("code", result.ExitCode ?? -1)));
     }
 
     /// <summary>The commands, after <see cref="PolkitHelper.Match"/>. Tests pass their own process runner and file checks.</summary>
@@ -80,7 +82,7 @@ public static partial class PrivilegedHelper
                     "--pipe", "--quiet", "--service-type=exec", "--unit=nix-manager-switch-to-configuration", .. command]).ConfigureAwait(false);
             else await Run(command).ConfigureAwait(false);
         }
-        string Resolved(string path) => realPath(path) ?? throw new ManagerException($"Cannot resolve {path}.");
+        string Resolved(string path) => realPath(path) ?? throw new ManagerException(DisplayText.Of("stored_privileged_cannot_resolve", ("path", path)));
 
         switch (arguments)
         {
@@ -93,7 +95,7 @@ public static partial class PrivilegedHelper
                 // Only the resolved store path is trusted, and used from here on.
                 var output = exists(requested) || Directory.Exists(requested) ? realPath(requested) ?? "" : "";
                 if (!SystemOutput().IsMatch(output) || !exists($"{output}/bin/switch-to-configuration"))
-                    throw new ManagerException("Invalid NixOS system output.");
+                    throw new ManagerException(DisplayText.Of("stored_privileged_invalid_system_output"));
                 await Run("nix-env", "--profile", Profile, "--set", output).ConfigureAwait(false);
                 await SwitchTo(output, mode).ConfigureAwait(false);
                 break;
@@ -104,7 +106,7 @@ public static partial class PrivilegedHelper
                 var link = $"{Profile}-{text}-link";
                 if (!int.TryParse(text, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var number)
                     || number < 1 || !(exists(link) || Directory.Exists(link)))
-                    throw new ManagerException("Invalid system generation.");
+                    throw new ManagerException(DisplayText.Of("stored_privileged_invalid_system_generation"));
                 await Run("nix-env", "--profile", Profile, "--switch-generation", number.ToString(System.Globalization.CultureInfo.InvariantCulture)).ConfigureAwait(false);
                 await SwitchTo(Resolved(link), "switch").ConfigureAwait(false);
                 break;
@@ -114,7 +116,7 @@ public static partial class PrivilegedHelper
                 var retention = 3;
                 if (arguments.Count == 2 && (!int.TryParse(arguments[1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out retention)
                     || retention is < 1 or > 100))
-                    throw new ManagerException("Invalid generation retention.");
+                    throw new ManagerException(DisplayText.Of("stored_privileged_invalid_generation_retention"));
                 await Run("nix-env", "--profile", Profile, "--delete-generations", $"+{retention}").ConfigureAwait(false);
                 // Like nixos-rebuild boot after collecting garbage: the boot menu lists only the kept generations,
                 // so no entry starts a system the collection deletes.
@@ -124,7 +126,7 @@ public static partial class PrivilegedHelper
             }
             default:
                 // PolkitHelper.Match admits only the declared commands.
-                throw new ManagerException("Unknown privileged operation or unexpected arguments.");
+                throw new ManagerException(DisplayText.Of("stored_privileged_unknown_operation"));
         }
     }
 
