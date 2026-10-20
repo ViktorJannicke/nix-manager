@@ -52,16 +52,17 @@
       "locked": {
         "lastModified": 1792437102,
         "narHash": "sha256-Ylqyh6UybE0mR22xDcpSQjOCj7yULx7mF5ZmezMJltI=",
-        "owner": "Runic-Artifex",
-        "repo": "runic-sdk",
+        "ref": "refs/tags/v0.8.0-preview.6",
         "rev": "9840f55faf97e0258af065eaa75c380802bc69ff",
-        "type": "github"
+        "shallow": true,
+        "type": "git",
+        "url": "https://github.com/Runic-Artifex/runic-sdk"
       },
       "original": {
-        "owner": "Runic-Artifex",
-        "ref": "v0.8.0-preview.6",
-        "repo": "runic-sdk",
-        "type": "github"
+        "ref": "refs/tags/v0.8.0-preview.6",
+        "shallow": true,
+        "type": "git",
+        "url": "https://github.com/Runic-Artifex/runic-sdk"
       }
     }
   },
