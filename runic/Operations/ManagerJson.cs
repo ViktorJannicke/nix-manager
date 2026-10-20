@@ -7,8 +7,8 @@ using NixManager.Domain;
 namespace NixManager.Operations;
 
 /// <summary>
-/// JSON as the Bun version writes it with <c>JSON.stringify(value, null, 2)</c>: camelCase, absent members
-/// omitted, two-space indentation, and no escaping of text that JSON does not require.
+/// The JSON of the state directory's files: camelCase, absent members omitted, two-space indentation, and no
+/// escaping of text that JSON does not require.
 /// </summary>
 public static class ManagerJson
 {
@@ -23,7 +23,7 @@ public static class ManagerJson
         AllowOutOfOrderMetadataProperties = true,
     };
 
-    /// <summary>Indented, as stored files and <c>--json</c> output are written.</summary>
+    /// <summary>Indented, as stored files are written.</summary>
     public static ManagerJsonContext Default { get; } = new(Options(indented: true));
 
     /// <summary>One line, for events streamed to a dashboard or a forwarded command line.</summary>
@@ -36,14 +36,18 @@ public static class ManagerJson
         JsonSerializer.Deserialize(json, (System.Text.Json.Serialization.Metadata.JsonTypeInfo<T>)(context ?? Default).GetTypeInfo(typeof(T))!);
 }
 
-/// <summary>The <c>status --json</c> document.</summary>
+/// <summary>The <c>status</c> command's document.</summary>
 public sealed record StatusDocument(string Host, string Flake, Host Config,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] UpdateReport? Updates,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] Operation? Latest);
 
-/// <summary>The <c>check --json</c> document.</summary>
-public sealed record CheckDocument(Operation? Operation, UpdateReport? Updates);
 
+/// <summary>
+/// The serializer context. <see cref="ManagerJson"/> creates its instances with the full options; <c>Default</c>
+/// carries the same naming and omission rules, for the command line's results and failure data.
+/// </summary>
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, AllowOutOfOrderMetadataProperties = true)]
 [JsonSerializable(typeof(Operation))]
 [JsonSerializable(typeof(List<Operation>))]
 [JsonSerializable(typeof(Plan))]
@@ -54,7 +58,10 @@ public sealed record CheckDocument(Operation? Operation, UpdateReport? Updates);
 [JsonSerializable(typeof(ManagerEvent))]
 [JsonSerializable(typeof(LogResult))]
 [JsonSerializable(typeof(StatusDocument))]
-[JsonSerializable(typeof(CheckDocument))]
+[JsonSerializable(typeof(Cli.RunResult))]
+[JsonSerializable(typeof(Cli.SoftwareSearchResult))]
+[JsonSerializable(typeof(Cli.SoftwareDraftResult))]
+[JsonSerializable(typeof(Cli.CliError))]
 [JsonSerializable(typeof(Reviews.BuildReview))]
 [JsonSerializable(typeof(List<Reviews.BuildReview>))]
 [JsonSerializable(typeof(Edits.RenderedDraft))]

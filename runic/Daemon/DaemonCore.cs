@@ -17,7 +17,7 @@ public enum DaemonMode
     Tray,
     /// <summary>
     /// <c>nix-manager ui</c> while no daemon runs: the same process with its Window open, which ends once the Window is
-    /// closed and nothing runs, as the Bun version's dashboard did.
+    /// closed and nothing runs.
     /// </summary>
     Ui,
 }
@@ -49,8 +49,7 @@ public interface IDashboardWindows
 
 /// <summary>
 /// The per-user daemon of D025: one process that owns every operation, opens and raises the dashboard, answers later
-/// launches over the instance socket, shows the status icon and notifications, and schedules the work the Bun tray
-/// did (<c>src/tray.ts</c>, <c>startTray</c> and <c>main</c> in <c>src/main.ts</c>).
+/// launches over the instance socket, shows the status icon and notifications, and schedules the background work.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -393,8 +392,8 @@ public sealed class DaemonCore
         {
             _log.WriteLine($"The dashboard could not open: {error.Message}");
             if (show.Reply is { } reply) Track(AnswerAsync(reply, (DaemonMessage.Note($"The dashboard could not open: {error.Message}"), 1)));
-            // A click on the icon or a notification has no terminal to say why; the Bun tray notified it (invoke in
-            // src/tray.ts).
+            // A click on the icon or a notification has no terminal to say why, so the reason is shown as
+            // a notification.
             else await NotifyAsync(NeedsAttention(error.Message));
         }
     }
@@ -516,7 +515,7 @@ public sealed class DaemonCore
 
     /// <summary>
     /// Checks for updates, then prepares the input updates it found or, when that does not start, cleans up once a
-    /// week, as the preferences allow (<c>check</c> in <c>src/tray.ts</c>).
+    /// week, as the preferences allow.
     /// </summary>
     private async Task CheckAsync()
     {

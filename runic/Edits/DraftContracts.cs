@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace NixManager.Edits;
 
-// The draft's shapes (src/draft.ts): pending edits rendered into the files they change.
+// The draft's shapes: pending edits rendered into the files they change.
 
 /// <summary>One line of a diff: <c>" "</c> kept, <c>"+"</c> added, <c>"-"</c> removed.</summary>
 public sealed record DiffLine(string Kind, string Text);
@@ -48,7 +48,7 @@ public sealed record DraftProblem
     public required string Message { get; init; }
 }
 
-/// <summary>The draft as the dashboard and <c>software pending --json</c> show it (<c>RenderedDraft</c>).</summary>
+/// <summary>The draft as the dashboard and <c>software pending</c> show it (<c>RenderedDraft</c>).</summary>
 public sealed record RenderedDraft
 {
     public IReadOnlyList<Change> Changes { get; init; } = [];

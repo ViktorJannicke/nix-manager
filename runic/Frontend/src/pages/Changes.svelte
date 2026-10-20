@@ -7,7 +7,7 @@
   import { Button } from "$lib/components/ui/button";
   import type { BuildReview, ReviewOutput } from "../generated/types.js";
   import { app } from "$lib/app.svelte";
-  import { list, m, stored } from "$lib/i18n";
+  import { m, stored } from "$lib/i18n";
   import { describeChange, showValue } from "$lib/changes";
   import { bytes, dateTime, day, editedPackages, relative, reviewSummary, scopeText, shortRev, signedBytes, summarize } from "$lib/format";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
@@ -43,13 +43,13 @@
           : m.changes_writes_files({ count: review.edits.files.length }),
       );
     const created = review.edits?.files.filter((file) => file.created) ?? [];
-    if (created.length) points.push(m.changes_creates_files({ count: created.length, files: list(created.map((file) => file.path)) }));
+    if (created.length) points.push(m.changes_creates_files({ count: created.length, files: created.map((file) => file.path) }));
     if (review.inputs) points.push(m.changes_saves_lock());
     const restored = review.undo?.point.files ?? [];
     const deleted = restored.filter((file) => file.created).map((file) => file.path);
     const put = restored.filter((file) => !file.created).map((file) => file.path);
-    if (put.length) points.push(m.changes_puts_back({ count: put.length, files: list(put) }));
-    if (deleted.length) points.push(m.changes_deletes({ files: list(deleted) }));
+    if (put.length) points.push(m.changes_puts_back({ count: put.length, files: put }));
+    if (deleted.length) points.push(m.changes_deletes({ files: deleted }));
     if (review.home && activation === "switch") points.push(m.changes_switches_home());
     if (review.home && review.system && review.scope !== "system" && activation === "boot") points.push(m.changes_home_after_restart());
     if (review.system) points.push(activation === "boot" ? m.changes_boot_default() : m.changes_switches_system());
@@ -167,7 +167,7 @@
             {#each review.undo.point.changes as change, index (index)}<li>{stored(change)}</li>{/each}
           </ul>
           {#if review.undo.point.files.length}
-            <p class="mt-1 text-xs text-muted-foreground">{m.changes_undo_restores({ files: list(review.undo.point.files.map((file) => file.path)) })}</p>
+            <p class="mt-1 text-xs text-muted-foreground">{m.changes_undo_restores({ files: review.undo.point.files.map((file) => file.path) })}</p>
           {/if}
         </div>
       {/if}

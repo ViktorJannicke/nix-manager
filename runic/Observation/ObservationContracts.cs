@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace NixManager.Observation;
 
-// The observed state of the computer and the checkout (src/contracts.ts), as the dashboard reads it.
+// The observed state of the computer and the checkout, as the dashboard reads it.
 
 /// <summary>One generation (restore point) of a profile (<c>Generation</c>).</summary>
 public sealed record Generation

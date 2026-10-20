@@ -6,7 +6,7 @@ namespace NixManager.Tests;
 
 /// <summary>
 /// The dashboard's curated features and Computer page settings (Frontend/src/lib/curated.ts and computer.ts) name
-/// the options that <see cref="CuratedOptions"/> has the inventory read; once the Bun version is removed, these
+/// the options that <see cref="CuratedOptions"/> has the inventory read; these
 /// files are the source of both, so a feature or setting added to one must be added to the other.
 /// </summary>
 public sealed partial class FrontendDataTests

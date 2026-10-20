@@ -21,7 +21,7 @@ internal sealed class ReleaseNetwork(Func<string, string> answer) : INetwork
         throw new NotSupportedException(url);
 }
 
-/// <summary>The package pin updaters with a fake network and runner (the updatePackage parts of <c>test/updates.test.ts</c>).</summary>
+/// <summary>The package pin updaters with a fake network and runner.</summary>
 public sealed class PackageUpdaterTests : IDisposable
 {
     private static readonly string Hash = "sha256-" + new string('B', 43) + "=";
@@ -192,7 +192,7 @@ public sealed class PackageUpdaterTests : IDisposable
         await Assert.That(h.Calls[^1].Label).IsEqualTo($"Build {name} 0.0.38 before saving pin");
         await Assert.That(pin[name == "t3code" ? "cargoHash" : name == "opencode" ? "nodeHash" : "hash"]!.GetValue<string>()).IsEqualTo(Hash);
         if (name != "pince") await Assert.That(pin["nixpkgsRev"]!.GetValue<string>()).IsEqualTo(Rev);
-        // Written as JSON.stringify(value, null, 2), members in the Bun version's order.
+        // Written as JSON.stringify(value, null, 2), members in the recorded order.
         string[] members = name switch
         {
             "t3code" => ["version", "srcHash", "nixpkgsRev", "pnpmHash", "cargoHash"],
@@ -294,7 +294,7 @@ public sealed class PackageUpdaterTests : IDisposable
     }
 
     [Test]
-    public async Task Pins_are_validated_with_the_Bun_version_s_messages()
+    public async Task Pins_are_validated_with_the_recorded_messages()
     {
         await Assert.That(PackagePins.Parse("""{"version":"1.2.3","channel":"nightly","nixpkgsRev":"x"}""")).IsEqualTo(new PackagePin("1.2.3", "nightly", "x"));
         await Assert.That(() => PackagePins.Parse("{}")).Throws<ManagerException>().WithMessageContaining("[\"version\"]\n         └─ is missing");

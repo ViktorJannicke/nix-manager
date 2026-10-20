@@ -5,7 +5,7 @@ using NixManager.Operations;
 namespace NixManager.Tests;
 
 /// <summary>
-/// Operations the Bun version stored still load and display: real records of every kind it wrote (with and
+/// Operations stored by earlier versions still load and display: real records of every kind (with and
 /// without step outcomes, failed, cancelled, reviews, an applied change with an undo point), plus records in the
 /// same format for members the real ones lack.
 /// </summary>
@@ -109,7 +109,7 @@ public sealed class StoreCompatibilityTests : IDisposable
     }
 
     [Test]
-    public async Task A_new_record_has_the_members_the_Bun_version_reads()
+    public async Task A_new_record_has_the_members_the_stored_format_reads()
     {
         var flake = TestConfig.TemporaryFlake();
         try

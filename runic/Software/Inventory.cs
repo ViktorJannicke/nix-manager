@@ -57,10 +57,10 @@ public sealed record ScopeInventory
     public IReadOnlyList<UserAccount>? Users { get; init; }
 }
 
-/// <summary>What a host's configuration installs, mapped back to the lines that install it (<c>src/software.ts</c>).</summary>
+/// <summary>What a host's configuration installs, mapped back to the lines that install it.</summary>
 public static partial class Inventory
 {
-    /// <summary><c>.nix</c> files of a flake source, relative to it, sorted (<c>nixFiles</c>).</summary>
+    /// <summary><c>.nix</c> files of a flake source, relative to it, sorted.</summary>
     public static List<string> NixFiles(string source)
     {
         var found = new List<string>();

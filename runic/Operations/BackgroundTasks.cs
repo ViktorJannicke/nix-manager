@@ -20,7 +20,7 @@ public sealed record PreparedUpdates(string Signature, string ReviewId);
 public sealed record AutomaticCleanup(string At, string OperationId, long? Free);
 
 /// <summary>
-/// Work the daemon (W300-031) starts unasked (<c>src/background.ts</c>): preparing the input updates the last check
+/// Work the daemon (W300-031) starts unasked: preparing the input updates the last check
 /// found, and a weekly cleanup of the apps' restore points, each only when the preferences allow it and the computer
 /// is plugged in and not busy. Each call returns the started operation or why nothing started.
 /// </summary>

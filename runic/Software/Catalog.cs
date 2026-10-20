@@ -7,7 +7,7 @@ using Runic.CommandLine.Processes;
 
 namespace NixManager.Software;
 
-/// <summary>A searchable package of the locked nixpkgs (<c>CatalogEntry</c>), with the Bun version's short member names.</summary>
+/// <summary>A searchable package of the locked nixpkgs, with short JSON member names.</summary>
 public record CatalogEntry
 {
     /// <summary>Attribute path below <c>pkgs</c>.</summary>
@@ -27,7 +27,7 @@ public record CatalogEntry
     [JsonPropertyName("g")] public bool? G { get; init; }
 }
 
-/// <summary>What Flathub says about an app (<c>AppInfo</c> in <c>src/apps.ts</c>).</summary>
+/// <summary>What Flathub says about an app.</summary>
 public sealed record AppInfo
 {
     /// <summary>AppStream id, such as <c>org.gimp.GIMP</c>.</summary>
@@ -53,10 +53,10 @@ public sealed record CatalogStatus
     public string? Error { get; init; }
 }
 
-/// <summary>The package catalog of a configuration's <c>pkgs</c> (<c>src/software.ts</c>).</summary>
+/// <summary>The package catalog of a configuration's <c>pkgs</c>.</summary>
 public static partial class Catalog
 {
-    /// <summary>Raised when catalog entries gain fields, so older files are built again (<c>catalogVersion</c>).</summary>
+    /// <summary>Raised when catalog entries gain fields, so older files are built again.</summary>
     public const int Version = 2;
 
     /// <summary>Where the catalog of a lock file is kept (<c>catalogPath</c>).</summary>

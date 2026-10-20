@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using NixManager.Domain;
 using NixManager.Edits;
@@ -14,7 +13,7 @@ namespace NixManager.Software;
 public sealed record SoftwareInventory(ScopeInventory Home, ScopeInventory System);
 
 /// <summary>
-/// The Software page's server side (<c>Store</c> in <c>src/store.ts</c>): the pending draft, what each host
+/// The Software page's server side: the pending draft, what each host
 /// installs, the package catalog with Flathub's app details, and option documentation. Evaluations are cached by the
 /// checkout state they read (the fingerprint and lock hash the caller observed); the dashboard (W300-030) and the
 /// daemon (W300-031) share one.
@@ -30,8 +29,8 @@ public interface ISoftwareService
     Task<RenderedDraft> DraftAsync(string fingerprint = "");
 
     /// <summary>Replaces the draft with the dashboard's edits (<c>setDraft</c>).</summary>
-    /// <exception cref="ManagerException">The edits do not decode.</exception>
-    Task<RenderedDraft> SetDraftAsync(JsonNode? changes);
+    /// <exception cref="ManagerException">The edits are not valid (<see cref="Change.DecodeList(IReadOnlyList{Change})"/>).</exception>
+    Task<RenderedDraft> SetDraftAsync(IReadOnlyList<Change> changes);
 
     /// <summary>What a host's home and system configurations install, cached by checkout fingerprint (<c>inventory</c>).</summary>
     Task<SoftwareInventory> InventoryAsync(string host, string fingerprint);
@@ -129,7 +128,7 @@ public sealed partial class SoftwareService(Config config, ICommandRunner runner
         }
     }
 
-    public Task<RenderedDraft> SetDraftAsync(JsonNode? changes)
+    public Task<RenderedDraft> SetDraftAsync(IReadOnlyList<Change> changes)
     {
         var decoded = Change.DecodeList(changes);
         Drafts.Write(config, decoded);

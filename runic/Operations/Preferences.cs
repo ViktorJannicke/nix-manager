@@ -5,9 +5,9 @@ using NixManager.Domain;
 namespace NixManager.Operations;
 
 /// <summary>
-/// <c>preferences.json</c> in the state directory, shared with the Bun version. The backend only needs the first
-/// choice: someone who has run operations before keeps the detailed view, everyone else starts simple, with a
-/// kept history. It is written before the first operation is recorded, as <c>readPreferences</c> does.
+/// <c>preferences.json</c> in the state directory, which earlier versions also wrote. The backend only needs the
+/// first choice: someone who has run operations before keeps the detailed view, everyone else starts simple, with a
+/// kept history. It is written before the first operation is recorded.
 /// </summary>
 public static class Preferences
 {

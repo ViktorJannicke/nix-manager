@@ -5,7 +5,7 @@ namespace NixManager.Nix;
 
 /// <summary>
 /// Converts Nix's structured log (<c>--log-format internal-json</c>) into readable log text and aggregated
-/// progress, with the same accounting as Nix's own progress bar (<c>NixProgress</c> in <c>src/nix.ts</c>).
+/// progress, with the same accounting as Nix's own progress bar.
 /// </summary>
 public sealed class NixProgress
 {

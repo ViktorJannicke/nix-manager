@@ -1,4 +1,4 @@
-// The app list's categories and the apps shown first (the frontend part of src/apps.ts). Fetching and matching
+// The app list's categories and the apps shown first. Fetching and matching
 // Flathub's catalogue is the backend's (Software/Apps.cs).
 
 import { m } from "./i18n";
@@ -18,7 +18,7 @@ export const appCategories = {
 } as const;
 export type AppCategory = keyof typeof appCategories;
 
-/** A category's name in the current language; the Bun version showed them in English only. */
+/** A category's name in the current language. */
 export const appCategoryLabel = (id: string) =>
   (<Record<string, () => string>>{
     AudioVideo: m.apps_audio_video,

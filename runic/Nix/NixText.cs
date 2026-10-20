@@ -5,7 +5,7 @@ using NixManager.Operations;
 
 namespace NixManager.Nix;
 
-/// <summary>Text helpers of <c>src/nix.ts</c>.</summary>
+/// <summary>Text helpers for Nix's output.</summary>
 public static partial class NixText
 {
     [GeneratedRegex(@"\x1b\[[0-9;]*[a-zA-Z]")]

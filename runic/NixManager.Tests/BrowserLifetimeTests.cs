@@ -3,7 +3,7 @@ using NixManager.Dashboard;
 namespace NixManager.Tests;
 
 /// <summary>
-/// <c>ui --browser</c> ends with its last tab, as the Bun version's <c>ui</c> did (<c>main</c> in <c>src/main.ts</c>): a
+/// <c>ui --browser</c> ends with its last tab: a
 /// second after the last tab closed, so a reload keeps it, after three minutes without any tab, and never while an
 /// operation runs. The surface counts the tabs (<c>DesktopSurface.ConnectionCount</c>), which these tests pass in.
 /// <c>checks.daemon-runic</c> runs the same with real processes and connections.

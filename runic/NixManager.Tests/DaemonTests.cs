@@ -311,7 +311,7 @@ public sealed class DaemonTests : IDisposable
         await Task.Delay(300);
         await Assert.That(_notifications.Shown.Reader.TryRead(out _)).IsFalse();
 
-        // The icon shows the menu of the Bun tray, with commands that start work disabled while one runs.
+        // The icon shows the tray menu, with commands that start work disabled while one runs.
         var menu = _icon.Shown[^1].Menu.OfType<DesktopMenuCommand>().Select(item => item.Label).ToList();
         await Assert.That(menu).IsEquivalentTo(["Open Nix Manager", "Check for updates", "Prepare all updates for review…", "Quit Nix Manager"],
             TUnit.Assertions.Enums.CollectionOrdering.Matching);
@@ -359,7 +359,7 @@ public sealed class DaemonTests : IDisposable
     }
 
     [Test]
-    public async Task Notices_follow_the_Bun_tray()
+    public async Task Notices_follow_the_tray()
     {
         Operation Ended(string action, string status, string? error = null, bool dryRun = false) => new()
         {
@@ -378,7 +378,7 @@ public sealed class DaemonTests : IDisposable
     }
 
     [Test]
-    public async Task Review_summaries_read_as_the_Bun_version_writes_them()
+    public async Task Review_summaries_say_what_applying_does()
     {
         var review = new BuildReview
         {
@@ -389,7 +389,7 @@ public sealed class DaemonTests : IDisposable
             Downloaded = 5L << 20,
         };
         await Assert.That(ReviewSummary.Of(review)).IsEqualTo(
-            "Updates 2 software sources. Updates 1 package, adds 1 and removes 1. It needs about 2.0 GiB more disk space. 5.0 MiB were downloaded to prepare it. Restart afterwards to use the new kernel.");
+            "Updates 2 software sources. Updates 1 package, adds 1, and removes 1. It needs about 2.0 GiB more disk space. 5.0 MiB were downloaded to prepare it. Restart afterwards to use the new kernel.");
         await Assert.That(ReviewSummary.Bytes(1536)).IsEqualTo("1.5 KiB");
         await Assert.That(ReviewSummary.Bytes(-200, signed: true)).IsEqualTo("−200 B");
         await Assert.That(ReviewSummary.TimeLeft(600, 60)).IsEqualTo("About 9 minutes left");

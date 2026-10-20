@@ -15,7 +15,7 @@ export type Action =
   | "review-apply";
 export type Scope = "home" | "system" | "all";
 
-/** A request with the defaults of `request()` in `src/domain.ts`; the Bridge sends every member. */
+/** A request with the default values; the Bridge sends every member. */
 export const request = (overrides: Partial<Request> = {}): Request => ({
   action: "build",
   scope: "all",

@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace NixManager.Operations;
 
-/// <summary>Hardware of the computer Nix Manager runs on that a feature can make use of (<c>Hardware</c> in <c>src/hardware.ts</c>).</summary>
+/// <summary>Hardware of the computer Nix Manager runs on that a feature can make use of.</summary>
 /// <param name="Laptop">Runs on a battery.</param>
 /// <param name="Nvidia">Has an NVIDIA graphics card.</param>
 /// <param name="Bluetooth">Has a Bluetooth adapter.</param>
@@ -11,7 +11,7 @@ namespace NixManager.Operations;
 /// <param name="Fingerprint">Has a fingerprint reader.</param>
 public sealed record HardwareFeatures(bool Laptop, bool Nvidia, bool Bluetooth, bool Printer, bool Fingerprint);
 
-/// <summary>The computer's hardware, power supply and load (<c>src/hardware.ts</c>, <c>notBusy</c> in <c>src/background.ts</c>).</summary>
+/// <summary>The computer's hardware, power supply and load.</summary>
 public static partial class Hardware
 {
     /// <summary>Where the kernel's device tree is read: <c>NIX_MANAGER_SYSFS</c>, which tests point at a copy, or /sys.</summary>
@@ -20,7 +20,7 @@ public static partial class Hardware
     private static readonly Lazy<HardwareFeatures> Detected = new(() => Detect(SysfsRoot));
 
     /// <summary>
-    /// This computer's hardware, read once per process like the Bun dashboard: suggestions for hardware plugged in
+    /// This computer's hardware, read once per process: suggestions for hardware plugged in
     /// later appear after a restart.
     /// </summary>
     public static HardwareFeatures Current => Detected.Value;
@@ -75,7 +75,7 @@ public static partial class Hardware
             || names.Any(name => Read(Path.Combine(supplies, name, "type")) == "Mains" && Read(Path.Combine(supplies, name, "online")) == "1");
     }
 
-    /// <summary>Not busy: the load of the last minute is below half the processors (<c>notBusy</c>).</summary>
+    /// <summary>Not busy: the load of the last minute is below half the processors.</summary>
     public static bool NotBusy()
     {
         var first = Read("/proc/loadavg").Split(' ').FirstOrDefault();

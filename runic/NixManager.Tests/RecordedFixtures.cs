@@ -5,9 +5,8 @@ using NixManager.Configuration;
 namespace NixManager.Tests;
 
 /// <summary>
-/// A checkout with a copy of <c>Fixtures/recorded-state</c>: real operation records, logs and the update report the
-/// Bun version wrote, with the checkout path replaced. <c>record-bun-cli.py</c> prepares the same for the Bun
-/// version's recorded outputs.
+/// A checkout with a copy of <c>Fixtures/recorded-state</c>: real operation records, logs and an update report,
+/// with the checkout path replaced.
 /// </summary>
 internal sealed partial class RecordedFixtures : IDisposable
 {
@@ -66,8 +65,8 @@ internal sealed partial class RecordedFixtures : IDisposable
     private static partial Regex PrivilegedText();
 
     /// <summary>
-    /// Text with the checkout as <c>&lt;flake&gt;</c> and the privileged entry point, which names the Bun or the
-    /// .NET program, as <c>&lt;privileged&gt;</c>.
+    /// Text with the checkout as <c>&lt;flake&gt;</c> and the privileged entry point, which names the recording's or this
+    /// program, as <c>&lt;privileged&gt;</c>.
     /// </summary>
     public string NormalizeText(string text) => PrivilegedText().Replace(text.Replace(Root, "<flake>", StringComparison.Ordinal), "<privileged>");
 

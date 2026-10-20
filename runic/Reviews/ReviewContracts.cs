@@ -6,9 +6,8 @@ using NixManager.Operations;
 
 namespace NixManager.Reviews;
 
-// The stored shapes of reviews (reviews/ID/review.json) and the edits built into them, as src/contracts.ts and
-// src/draft.ts define them. Records written by the Bun version read here and the other way round: camelCase,
-// absent members omitted, unknown members kept.
+// The stored shapes of reviews (reviews/ID/review.json) and the edits built into them. Records written by earlier
+// versions still read here: camelCase, absent members omitted, unknown members kept.
 
 public static class ReviewSources
 {
@@ -44,7 +43,7 @@ public sealed record VersionPair
 /// <summary>One built configuration of a review, compared with the active one (<c>ReviewOutput</c>).</summary>
 public sealed class ReviewOutput
 {
-    // Members in the order compareReview writes them.
+    // Members in the order they are written.
     public required string Path { get; set; }
     public List<PackageChange> Changes { get; set; } = [];
     /// <summary>The active configuration could be compared (false when, for example, none exists).</summary>
@@ -129,7 +128,7 @@ public sealed class BuildReview
     public string Fingerprint { get; set; } = "";
     /// <summary><c>checkout</c>, <c>inputs</c> or <c>generation</c>.</summary>
     public required string Source { get; set; }
-    // The remaining members in the order compareReview writes them; keepForBoot appends afterBoot.
+    // The remaining members in the order they are written; keepForBoot appends afterBoot.
     public int? Generation { get; set; }
     public ReviewUndo? Undo { get; set; }
     public ReviewEdits? Edits { get; set; }

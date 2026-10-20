@@ -72,7 +72,7 @@ public sealed class OperationServiceTests : IDisposable
         await Assert.That(log.Text).Contains("→ Build home configuration\n  nix build --no-link");
         await Assert.That(log.Text).Contains("\nBuild home configuration\ndone\n");
         await Assert.That(output.Zip(output.Skip(1)).All(pair => pair.First.Offset + System.Text.Encoding.UTF8.GetByteCount(pair.First.Text) == pair.Second.Offset)).IsTrue();
-        // The stored record is the one the history reads, in the Bun version's layout.
+        // The stored record is the one the history reads, in the stored layout.
         var stored = JsonNode.Parse(File.ReadAllText(Path.Combine(Config.StateDir, "operations", $"{operation.Id}.json")))!.AsObject();
         await Assert.That(stored["status"]!.GetValue<string>()).IsEqualTo("succeeded");
         await Assert.That(stored["request"]!["dryRun"]!.GetValue<bool>()).IsFalse();

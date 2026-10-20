@@ -97,10 +97,10 @@ buildRunicApplication {
   desktopItems = [ desktop ];
   icons.scalable = ./Frontend/public/nix-manager.svg;
   iconName = "nix-manager";
-  # The completion scripts the command line generates for its own catalog (`--completions SHELL`, the Bun
-  # version's option), in the folders NixOS links from installed packages (share/bash-completion, share/zsh,
-  # share/fish).
-  completions.command = [ "--completions" ];
+  # The completion scripts the command line generates for its own catalog (`nix-manager completion SHELL`, the
+  # builder's default command), in the folders NixOS links from installed packages (share/bash-completion,
+  # share/zsh, share/fish).
+  completions = { };
   doCheck = true;
   # TUnit's tests are a Microsoft.Testing.Platform application, which the builder runs with these options.
   testRunner = "Microsoft.Testing.Platform";

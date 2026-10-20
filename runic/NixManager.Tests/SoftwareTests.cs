@@ -9,8 +9,8 @@ using NixManager.Software;
 namespace NixManager.Tests;
 
 /// <summary>
-/// The software functions that need neither nix nor the edit engine, compared with the Bun version's results in
-/// <c>Fixtures/recorded-software-functions.json</c> (<c>record-bun-software.ts</c>) and the recorded searches.
+/// The software functions that need neither nix nor the edit engine, compared with the recorded results in
+/// <c>Fixtures/recorded-software-functions.json</c> and the recorded searches.
 /// </summary>
 public sealed class SoftwareTests
 {
@@ -91,26 +91,27 @@ public sealed class SoftwareTests
         }
     }
 
-    [Test]
-    public async Task Options_before_software_move_behind_it_as_the_Bun_version()
+    /// <summary>The options and arguments a command line binds, in a form that ignores their order.</summary>
+    private static string? Parsed(string[] args)
     {
-        foreach (var example in Functions["software"]!.AsArray())
-        {
-            var args = Strings(example!["args"]);
-            var expected = example["result"] is JsonArray result ? string.Join(" ", Strings(result)) : null;
-            var actual = SoftwareCli.Arguments(args) is { } moved ? string.Join(" ", moved) : null;
-            await Assert.That(actual).IsEqualTo(expected).Because(string.Join(" ", args));
-        }
+        var outcome = Runic.CommandLine.PortableCommandSyntaxAdapter.Instance.Parse(NixManagerCli.Catalog(), args, new Runic.CommandLine.ParseSettings());
+        if (outcome.Invocation is not { } invocation) return null;
+        static IEnumerable<string> Bound(IEnumerable<Runic.CommandLine.CommandValueBinding> bindings) =>
+            bindings.Select(binding => $"{binding.Id}={string.Join(",", binding.Values)}").Order(StringComparer.Ordinal);
+        return $"{invocation.Path} | {string.Join(" ", Bound(invocation.Options))} | {string.Join(" ", Bound(invocation.Arguments))}";
     }
 
     [Test]
-    public async Task Options_move_before_the_positional_arguments()
+    [Arguments(new[] { "--flake", "/x", "--host", "h", "software", "add", "fzf", "--system" }, new[] { "software", "add", "--flake", "/x", "--host", "h", "fzf", "--system" })]
+    [Arguments(new[] { "--plain", "software", "pending", "--diff" }, new[] { "software", "pending", "--diff", "--plain" })]
+    [Arguments(new[] { "software", "apply", "--dry-run", "--boot" }, new[] { "software", "apply", "--boot", "--dry-run" })]
+    [Arguments(new[] { "software", "add", "fzf", "--system", "--file", "a.nix", "git" }, new[] { "software", "add", "--system", "--file", "a.nix", "--", "fzf", "git" })]
+    [Arguments(new[] { "software", "search", "--limit", "3", "git" }, new[] { "software", "search", "git", "--limit", "3" })]
+    public async Task Shared_options_may_precede_the_software_command_and_options_may_follow_its_arguments(string[] args, string[] same)
     {
-        await Assert.That(string.Join(" ", SoftwareCli.Normalize(["software", "add", "fzf", "--system", "--file", "a.nix", "git"])))
-            .IsEqualTo("software add --system --file a.nix -- fzf git");
-        await Assert.That(string.Join(" ", SoftwareCli.Normalize(["software", "drop", "-1", "--", "--json"])))
-            .IsEqualTo("software drop -- -1 --json");
-        await Assert.That(string.Join(" ", SoftwareCli.Normalize(["software", "pending"]))).IsEqualTo("software pending");
+        var parsed = Parsed(args);
+        await Assert.That(parsed).IsNotNull();
+        await Assert.That(parsed).IsEqualTo(Parsed(same));
     }
 
     [Test]
@@ -126,7 +127,7 @@ public sealed class SoftwareTests
 
     /// <summary>The recorded <c>software search</c> cases, run against the search directly.</summary>
     [Test]
-    public async Task Catalog_search_ranks_as_the_Bun_version()
+    public async Task Catalog_search_ranks_as_recorded()
     {
         var web = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         var cases = JsonNode.Parse(File.ReadAllText(Path.Combine(RecordedFixtures.Directory, "cli-cases-software.json")))!.AsArray();
@@ -148,13 +149,14 @@ public sealed class SoftwareTests
                     case "--limit": limit = int.Parse(args[++i], System.Globalization.CultureInfo.InvariantCulture); break;
                     case "--free": free = true; break;
                     case "--working": working = true; break;
-                    case "--json" or "--": break;
+                    case "--output": i++; break;
+                    case "--": break;
                     default: query.Add(args[i]); break;
                 }
             var results = Catalog.Search(entries, string.Join(' ', query), Math.Max(1, Math.Min(limit, 200)), new CatalogFilter(free, working));
             var stdout = recorded[test["name"]!.GetValue<string>()]!["stdout"]!.GetValue<string>();
-            var expected = stdout.TrimStart().StartsWith('[')
-                ? JsonNode.Parse(stdout)!.AsArray().Select(entry => entry!["a"]!.GetValue<string>()).ToList()
+            var expected = stdout.TrimStart().StartsWith('{')
+                ? JsonNode.Parse(stdout)!["payload"]!["packages"]!.AsArray().Select(entry => entry!["a"]!.GetValue<string>()).ToList()
                 : stdout.Split('\n').Where(line => line.Length > 0 && !line.StartsWith(' ') && !line.StartsWith("No packages", StringComparison.Ordinal))
                     .Select(line => line.Split(' ')[0]).ToList();
             await Assert.That(string.Join(",", results.Select(entry => entry.A))).IsEqualTo(string.Join(",", expected)).Because(string.Join(" ", args));

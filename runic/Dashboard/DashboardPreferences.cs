@@ -5,7 +5,7 @@ using NixManager.Operations;
 
 namespace NixManager.Dashboard;
 
-/// <summary>The dashboard's preferences as stored, with the defaults of <c>src/preferences.ts</c> filled in.</summary>
+/// <summary>The dashboard's preferences as stored, with the defaults filled in.</summary>
 /// <param name="Theme"><c>system</c>, <c>light</c> or <c>dark</c>.</param>
 /// <param name="Language"><c>system</c>, <c>en</c> or <c>de</c>.</param>
 /// <param name="Detail"><c>simple</c> or <c>detailed</c>; the first choice when none is stored.</param>
@@ -18,8 +18,8 @@ public sealed record DashboardPreferenceValues(string Theme, string Language, st
     bool History, bool Backup, bool AppDetails);
 
 /// <summary>
-/// The dashboard's preferences in <c>preferences.json</c> (<c>src/preferences.ts</c>), shared with the Bun version,
-/// the backend's first choice (<see cref="Preferences"/>) and the background tasks, which read
+/// The dashboard's preferences in <c>preferences.json</c>, the backend's first choice (<see cref="Preferences"/>),
+/// shared with the background tasks, which read
 /// <c>prepareUpdates</c>, <c>cleanUp</c>, <c>history</c> and <c>backup</c> from the same file. Members this
 /// dashboard does not know are kept.
 /// </summary>

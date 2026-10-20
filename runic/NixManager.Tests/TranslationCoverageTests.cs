@@ -28,7 +28,7 @@ public sealed partial class TranslationCoverageTests
 
     /// <summary>
     /// Errors that stay English, each with why: they answer requests the page never makes, or they carry a message from
-    /// the system, which is English anyway, as in the Bun version.
+    /// the system, which is English anyway.
     /// </summary>
     private static readonly Dictionary<string, string> English = new()
     {

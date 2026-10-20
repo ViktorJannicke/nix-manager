@@ -251,22 +251,22 @@ public sealed class EditEngineTests
         await Fails(() => ModuleOptions.SetOption("{ lib, ... }: { options.my.flag = lib.mkEnableOption \"x\"; }", "a.b", true), "not a module");
     }
 
-    private static readonly Change Add = Change.AddPackage("home", "a.nix", "pkgs.btop");
-    private static Change Set(JsonNode? value, string file = "a.nix") => Change.SetOption("home", file, "programs.fzf.enable", value);
-    private static readonly Change Create = Change.CreateModule("home", "m/fzf.nix", "m/default.nix");
+    private static readonly Change Add = new AddPackage("home", "a.nix", "pkgs.btop");
+    private static Change Set(JsonNode? value, string file = "a.nix") => new SetOption("home", file, "programs.fzf.enable", value);
+    private static readonly Change Create = new CreateModule("home", "m/fzf.nix", "m/default.nix");
 
-    private static string Text(IEnumerable<Change> changes) => string.Join("\n", changes);
+    private static string Text(IEnumerable<Change> changes) => JsJson.Stringify(Change.ToJson(changes));
 
     [Test]
     public async Task Edits_replace_cancel_and_deduplicate_pending_edits()
     {
         await Assert.That(Text(ChangeRules.Merge([Add], [Add]))).IsEqualTo(Text([Add]));
-        await Assert.That(ChangeRules.Merge([Add], [Change.RemovePackage("home", "a.nix", "pkgs.btop")])).IsEmpty();
+        await Assert.That(ChangeRules.Merge([Add], [new RemovePackage("home", "a.nix", "pkgs.btop")])).IsEmpty();
         await Assert.That(Text(ChangeRules.Merge([Set(true)], [Set(false)]))).IsEqualTo(Text([Set(false)]));
         await Assert.That(ChangeRules.Merge([Set(true)], [Set(false)], _ => true)).IsEmpty();
         await Assert.That(Text(ChangeRules.Merge([Create], [Create, Set(true, Create.File)]))).IsEqualTo(Text([Create, Set(true, Create.File)]));
         await Assert.That(ChangeRules.ChangesScope([Add])).IsEqualTo("home");
-        await Assert.That(ChangeRules.ChangesScope([Add, Change.AddPackage("system", "a.nix", "pkgs.btop")])).IsEqualTo("all");
+        await Assert.That(ChangeRules.ChangesScope([Add, new AddPackage("system", "a.nix", "pkgs.btop")])).IsEqualTo("all");
     }
 
     [Test]
@@ -326,14 +326,14 @@ public sealed class EditEngineTests
     [Test]
     public async Task Only_installing_and_removing_your_own_apps_is_applied_in_one_step()
     {
-        var remove = Change.RemovePackage("home", "a.nix", "pkgs.btop");
-        var unfree = Change.SetOption("home", "a.nix", "nixpkgs.config.allowUnfree", true);
-        var module = Change.CreateModule("home", "b.nix", "a.nix");
+        var remove = new RemovePackage("home", "a.nix", "pkgs.btop");
+        var unfree = new SetOption("home", "a.nix", "nixpkgs.config.allowUnfree", true);
+        var module = new CreateModule("home", "b.nix", "a.nix");
         await Assert.That(ChangeRules.OneStepProblem([unfree, module, Add, remove])).IsNull();
         await Assert.That(ChangeRules.OneStepProblem([])).IsNotNull();
-        await Assert.That(ChangeRules.OneStepProblem([Change.AddPackage("system", "a.nix", "pkgs.btop")])).Contains("computer itself");
-        await Assert.That(ChangeRules.OneStepProblem([Add, Change.SetOption("home", "a.nix", "nixpkgs.config.allowUnfree", false)])).Contains("settings");
-        await Assert.That(ChangeRules.OneStepProblem([Change.SetOption("home", "a.nix", "services.syncthing.enable", true)])).Contains("settings");
+        await Assert.That(ChangeRules.OneStepProblem([new AddPackage("system", "a.nix", "pkgs.btop")])).Contains("computer itself");
+        await Assert.That(ChangeRules.OneStepProblem([Add, new SetOption("home", "a.nix", "nixpkgs.config.allowUnfree", false)])).Contains("settings");
+        await Assert.That(ChangeRules.OneStepProblem([new SetOption("home", "a.nix", "services.syncthing.enable", true)])).Contains("settings");
 
         BuildReview Review() => new()
         {
@@ -358,11 +358,11 @@ public sealed class EditEngineTests
     {
         await Assert.That(ChangeRules.Describe(Add)).IsEqualTo(new ChangeText("Install btop", "a.nix"));
         await Assert.That(ChangeRules.Describe(Set(true)).Title).IsEqualTo("programs.fzf.enable on");
-        await Assert.That(ChangeRules.Describe(Change.SetOption("home", "a.nix", "x.y", JsonNode.Parse("[1,\"a\",null,[2,3]]"), "Shell")).Title)
+        await Assert.That(ChangeRules.Describe(new SetOption("home", "a.nix", "x.y", JsonNode.Parse("[1,\"a\",null,[2,3]]"), "Shell")).Title)
             .IsEqualTo("Shell: x.y 1, a, , 2,3");
-        await Assert.That(ChangeRules.Describe(Change.SetOption("home", "a.nix", "x.y", new JsonArray())).Title).IsEqualTo("x.y empty");
-        await Assert.That(ChangeRules.Describe(Change.SetOption("home", "a.nix", "x.y", null, "")).Title).IsEqualTo("x.y not set");
-        await Assert.That(ChangeRules.Describe(Change.UnsetOption("home", "a.nix", "x.y")).Title).IsEqualTo("Reset x.y to its default");
+        await Assert.That(ChangeRules.Describe(new SetOption("home", "a.nix", "x.y", new JsonArray())).Title).IsEqualTo("x.y empty");
+        await Assert.That(ChangeRules.Describe(new SetOption("home", "a.nix", "x.y", null, "")).Title).IsEqualTo("x.y not set");
+        await Assert.That(ChangeRules.Describe(new UnsetOption("home", "a.nix", "x.y")).Title).IsEqualTo("Reset x.y to its default");
         await Assert.That(ChangeRules.Describe(Create)).IsEqualTo(new ChangeText("Create fzf.nix", "m/fzf.nix, imported from m/default.nix"));
         await Assert.That(ChangeRules.ShowValue(JsonNode.Parse("""{"a":1}"""))).IsEqualTo("{\"a\":1}");
         await Assert.That(ChangeRules.OptionTopic("programs.fzf.enable")).IsEqualTo("fzf");
@@ -387,7 +387,7 @@ public sealed class EditEngineTests
         public void Dispose() => Directory.Delete(Flake, true);
     }
 
-    private static readonly Change Btop = Change.AddPackage("home", "modules/apps.nix", "pkgs.btop");
+    private static readonly Change Btop = new AddPackage("home", "modules/apps.nix", "pkgs.btop");
 
     [Test]
     public async Task Line_diffs_group_changes_into_hunks_with_context()
@@ -407,9 +407,9 @@ public sealed class EditEngineTests
         var (files, problems) = Drafts.Render(checkout.Flake,
         [
             Btop,
-            Change.AddPackage("home", "modules/apps.nix", "pkgs.git"),
-            Change.SetOption("home", "modules/apps.nix", "programs.bat.enable", true),
-            Change.AddPackage("home", "../outside.nix", "pkgs.btop"),
+            new AddPackage("home", "modules/apps.nix", "pkgs.git"),
+            new SetOption("home", "modules/apps.nix", "programs.bat.enable", true),
+            new AddPackage("home", "../outside.nix", "pkgs.btop"),
         ]);
         await Assert.That(files[0].After).IsEqualTo("{ pkgs, ... }: {\n  home.packages = with pkgs; [\n    git\n    btop\n  ];\n  programs.bat.enable = true;\n}\n");
         await Assert.That(problems.Select(problem => problem.Index)).IsEquivalentTo(new[] { 1, 3 });
@@ -423,14 +423,14 @@ public sealed class EditEngineTests
         using var checkout = new Checkout();
         await Assert.That(Drafts.ImportPath("modules/default.nix", "modules/programs/fzf.nix")).IsEqualTo("./programs/fzf.nix");
         await Assert.That(Drafts.ImportPath("modules/home/default.nix", "modules/fzf.nix")).IsEqualTo("../fzf.nix");
-        var create = Change.CreateModule("home", "modules/programs/fzf.nix", "modules/apps.nix");
+        var create = new CreateModule("home", "modules/programs/fzf.nix", "modules/apps.nix");
         var (files, problems) = Drafts.Render(checkout.Flake,
         [
             create,
-            Change.SetOption("home", create.File, "programs.fzf.enable", true),
-            Change.AddPackage("home", create.File, "pkgs.fd"),
+            new SetOption("home", create.File, "programs.fzf.enable", true),
+            new AddPackage("home", create.File, "pkgs.fd"),
             create,
-            Change.CreateModule("home", "modules/apps.nix", "modules/apps.nix"),
+            new CreateModule("home", "modules/apps.nix", "modules/apps.nix"),
         ]);
         await Assert.That(problems.Select(problem => $"{problem.Index} {problem.Message}"))
             .IsEquivalentTo(new[] { "3 modules/programs/fzf.nix already exists.", "4 modules/apps.nix already exists." });
@@ -456,7 +456,7 @@ public sealed class EditEngineTests
             await Fails(() => Drafts.SourcePath(checkout.Flake, "link.nix"), "link.nix is outside the flake.");
             // A missing file is fine: it is checked when read.
             await Assert.That(Drafts.SourcePath(checkout.Flake, "new.nix")).IsEqualTo($"{checkout.Flake}/new.nix");
-            var (_, problems) = Drafts.Render(checkout.Flake, [Change.AddPackage("home", "new.nix", "pkgs.x")]);
+            var (_, problems) = Drafts.Render(checkout.Flake, [new AddPackage("home", "new.nix", "pkgs.x")]);
             await Assert.That(problems[0].Message).IsEqualTo("new.nix does not exist.");
         }
         finally
@@ -476,12 +476,14 @@ public sealed class EditEngineTests
         await Assert.That(File.ReadAllText(path)).IsEqualTo(JsJson.Indented(new JsonObject
         {
             ["flake"] = config.Flake,
-            ["changes"] = new JsonArray(Btop.ToJson(), Set(true).ToJson()),
+            ["changes"] = JsonNode.Parse("""
+                [{"kind":"add-package","scope":"home","file":"modules/apps.nix","attr":"pkgs.btop"},
+                 {"kind":"set-option","scope":"home","file":"a.nix","option":"programs.fzf.enable","value":true}]
+                """),
         }) + "\n");
         await Assert.That(File.GetUnixFileMode(path)).IsEqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite);
         await Assert.That(File.GetUnixFileMode(config.StateDir)).IsEqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        // Read back in the schema's member order.
-        await Assert.That(Text(Drafts.Read(config))).IsEqualTo(Text([Change.Decode(Btop.ToJson()), Change.Decode(Set(true).ToJson())]));
+        await Assert.That(Drafts.Read(config).SequenceEqual([Btop, Set(true)])).IsTrue();
         await Assert.That(Drafts.Read(config with { Flake = "/elsewhere" })).IsEmpty();
         File.WriteAllText(path, """{"flake":"x","changes":[{"kind":"nope"}]}""".Replace("\"x\"", JsJson.Quote(config.Flake)));
         await Assert.That(Drafts.Read(config)).IsEmpty();
@@ -490,6 +492,50 @@ public sealed class EditEngineTests
         Drafts.Write(config, []);
         await Assert.That(Drafts.Read(config)).IsEmpty();
         await Assert.That(Directory.GetFiles(config.StateDir).Select(Path.GetFileName)).IsEquivalentTo(new[] { "draft.json" });
+    }
+
+    [Test]
+    public async Task A_draft_written_before_edits_were_typed_still_reads()
+    {
+        using var checkout = new Checkout();
+        var config = checkout.Config;
+        // Members in any order, the kind last, unknown members, and option values of every shape.
+        Directory.CreateDirectory(config.StateDir);
+        File.WriteAllText(Path.Combine(config.StateDir, "draft.json"), $$"""
+            {
+              "flake": {{JsJson.Quote(config.Flake)}},
+              "changes": [
+                { "kind": "add-package", "attr": "pkgs.btop", "scope": "home", "file": "modules/apps.nix" },
+                { "file": "a.nix", "value": { "b": [1.50, null], "a": "x" }, "option": "o.p", "scope": "system", "kind": "set-option", "label": "L", "extra": 1 },
+                { "kind": "set-option", "scope": "home", "file": "a.nix", "option": "o.q", "value": null },
+                { "kind": "unset-option", "scope": "home", "file": "a.nix", "option": "o.r" },
+                { "kind": "create-module", "scope": "home", "file": "m/new.nix", "importer": "m/default.nix", "label": "New" },
+                { "kind": "remove-package", "scope": "home", "file": "a.nix", "attr": "pkgs.git" }
+              ]
+            }
+            """);
+
+        await Assert.That(Drafts.Read(config).SequenceEqual([
+            Btop,
+            new SetOption("system", "a.nix", "o.p", JsonNode.Parse("""{ "a": "x", "b": [1.5, null] }"""), "L"),
+            new SetOption("home", "a.nix", "o.q", null),
+            new UnsetOption("home", "a.nix", "o.r"),
+            new CreateModule("home", "m/new.nix", "m/default.nix", "New"),
+            new RemovePackage("home", "a.nix", "pkgs.git"),
+        ])).IsTrue();
+    }
+
+    [Test]
+    public async Task Edits_are_equal_by_their_members_and_option_values_by_their_JSON()
+    {
+        await Assert.That(Set(JsonNode.Parse("""{ "a": [1, true] }"""))).IsEqualTo(Set(JsonNode.Parse("""{"a":[1,true]}""")));
+        await Assert.That(Set(JsonNode.Parse("""{ "a": [1, true] }""")).GetHashCode()).IsEqualTo(Set(JsonNode.Parse("""{"a":[1,true]}""")).GetHashCode());
+        await Assert.That(Set(true)).IsNotEqualTo(Set(false));
+        await Assert.That(Set(null)).IsNotEqualTo(Set(JsonValue.Create("")));
+        await Assert.That<Change>(new AddPackage("home", "a.nix", "pkgs.x")).IsNotEqualTo(new RemovePackage("home", "a.nix", "pkgs.x"));
+        await Assert.That(new AddPackage("home", "a.nix", "pkgs.x", "L")).IsNotEqualTo(new AddPackage("home", "a.nix", "pkgs.x"));
+        // A review's edits leave the draft by value, each once.
+        await Assert.That(SourceEdits.Remaining([Add, Set(true), Add, Create], [Set(JsonValue.Create(true)), Add])).IsEquivalentTo([Add, Create]);
     }
 
     [Test]

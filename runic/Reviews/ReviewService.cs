@@ -5,8 +5,8 @@ namespace NixManager.Reviews;
 
 /// <summary>
 /// The prepared reviews and the change history of one checkout, for the dashboard and the daemon (the
-/// <c>reviews</c> of the dashboard state, <c>/api/review-remove</c> and <c>/api/history</c> in
-/// <c>src/server.ts</c>). Preparing, applying, undoing and holding run through <see cref="IOperationService"/>.
+/// <c>reviews</c> of the dashboard state and the history it shows). Preparing, applying, undoing and holding run
+/// through <see cref="IOperationService"/>.
 /// </summary>
 public interface IReviewService
 {

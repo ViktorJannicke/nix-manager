@@ -9,14 +9,14 @@ namespace NixManager.Execution;
 /// declared Polkit action, and every other step with <paramref name="inner"/>.
 /// </summary>
 /// <remarks>
-/// The plan keeps the Bun version's argument vector, <c>pkexec PROGRAM --privileged COMMAND ARGUMENT...</c>, so a
+/// The plan keeps the argument vector <c>pkexec PROGRAM --privileged COMMAND ARGUMENT...</c>, so a
 /// dry run reads the same. Running it, Runic's provider starts pkexec with the declared program and the verb
 /// <c>--privileged</c>, an argument vector and a minimal environment. A build out-link is resolved to its store
 /// path first, which the helper checks again.
 /// <para>
 /// Cancellation while Polkit asks for authorization stops the request. Once the helper runs as root it cannot be
 /// signalled: cancellation closes its standard input, which the helper ignores, so the step finishes and the
-/// operation stops before the next one, as the Bun version's privileged steps do.
+/// operation stops before the next one.
 /// </para>
 /// </remarks>
 public sealed class PrivilegedCommandRunner(Config config, IDesktopPrivilegedActions actions, PrivilegedActionDeclaration declaration, ICommandRunner inner) : ICommandRunner
@@ -66,7 +66,7 @@ public sealed class PrivilegedCommandRunner(Config config, IDesktopPrivilegedAct
                 if (command.AllowFailure == true) return new CommandResult(completion.ExitCode, stdout.ToString(), stderr.ToString());
                 var tail = Tail();
                 throw new ManagerException($"{command.Label} failed (exit {completion.ExitCode}). {tail}", Explain.Explainer.Explain(stderr.ToString()));
-            // The texts are pkexec's own, which the Bun version's explanations recognise.
+            // The texts are pkexec's own, which the explanations of failures recognise.
             case PlatformResult<PrivilegedActionCompletion>.Failed { Code: PlatformFailureCode.UserDismissed }:
                 throw Failure(command, 126, "Error executing command as another user: Request dismissed");
             case PlatformResult<PrivilegedActionCompletion>.Failed { Code: PlatformFailureCode.PermissionDenied }:

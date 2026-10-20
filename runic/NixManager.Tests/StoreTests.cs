@@ -45,9 +45,8 @@ internal sealed class ManualClock(DateTimeOffset now) : TimeProvider
 }
 
 /// <summary>
-/// The software store's parts beyond the catalog (<c>src/apps.ts</c>, <c>src/hardware.ts</c>, the apps and curated
-/// options of <c>src/store.ts</c>), compared with the Bun version's results in <c>Fixtures/recorded-store.json</c>, which
-/// <c>record-bun-store.ts</c> records, and the Software page's ViewModel over them.
+/// The software store's parts beyond the catalog (the apps, hardware and curated options), compared with the recorded
+/// results in <c>Fixtures/recorded-store.json</c>, and the Software page's ViewModel over them.
 /// </summary>
 public sealed class StoreTests : IDisposable
 {
@@ -66,7 +65,7 @@ public sealed class StoreTests : IDisposable
     private static JsonNode Json<T>(T value) => JsonNode.Parse(ManagerJson.Serialize(value))!;
 
     [Test]
-    public async Task AppStream_parsing_matches_the_Bun_version()
+    public async Task AppStream_parsing_matches_the_recorded_results()
     {
         var parsed = Json(new AppStream("", Apps.ParseAppStream(Sample)))["apps"]!;
         await Assert.That(JsonNode.DeepEquals(parsed, Recorded["parseAppStream"])).IsTrue()
@@ -74,7 +73,7 @@ public sealed class StoreTests : IDisposable
     }
 
     [Test]
-    public async Task Apps_are_matched_to_packages_as_the_Bun_version_matches_them()
+    public async Task Apps_are_matched_to_packages_as_recorded()
     {
         var recorded = Recorded["matchApps"]!;
         var entries = ManagerJson.Deserialize<List<CatalogEntry>>(recorded["entries"]!.ToJsonString())!;
@@ -86,7 +85,7 @@ public sealed class StoreTests : IDisposable
     }
 
     [Test]
-    public async Task App_ids_that_name_files_are_the_Bun_version_s()
+    public async Task App_ids_that_name_files_are_validated_as_recorded()
     {
         foreach (var item in Recorded["validAppId"]!.AsArray())
             await Assert.That(Apps.ValidAppId(item!["id"]!.GetValue<string>())).IsEqualTo(item["result"]!.GetValue<bool>())
@@ -94,7 +93,7 @@ public sealed class StoreTests : IDisposable
     }
 
     [Test]
-    public async Task Hardware_is_detected_as_the_Bun_version_detects_it()
+    public async Task Hardware_is_detected_as_recorded()
     {
         var cases = JsonNode.Parse(File.ReadAllText(Path.Combine(RecordedFixtures.Directory, "hardware-cases.json")))!.AsArray();
         var results = Recorded["detectHardware"]!.AsArray();
@@ -115,7 +114,7 @@ public sealed class StoreTests : IDisposable
     }
 
     [Test]
-    public async Task The_inventory_reads_the_Bun_version_s_curated_options()
+    public async Task The_inventory_reads_the_recorded_curated_options()
     {
         foreach (var scope in new[] { Edits.Targets.Home, Edits.Targets.System })
         {
@@ -153,7 +152,7 @@ public sealed class StoreTests : IDisposable
         await Assert.That(ready.State).IsEqualTo("ready");
         await Assert.That(ready.Error).IsNull();
         await Assert.That(ready.FetchedAt).IsEqualTo("2026-10-15T13:01:00.000Z");
-        // The same file the Bun version writes and reads.
+        // The same file the store writes and reads back.
         var stored = JsonNode.Parse(File.ReadAllText(Path.Combine(Config.StateDir, "apps", "appstream.json")))!;
         await Assert.That(stored["fetchedAt"]!.GetValue<string>()).IsEqualTo("2026-10-15T13:01:00.000Z");
         await Assert.That(JsonNode.DeepEquals(stored["apps"], Recorded["parseAppStream"])).IsTrue();

@@ -22,7 +22,7 @@
     <ProjectReference Include="../NixManager.csproj" AdditionalProperties="RunicApplicationFrontendBuildEnabled=false" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Records and outputs of the Bun version, and the Bun version's own Nix error fixtures. -->
+    <!-- Recorded outputs and fixtures, and the Nix error fixtures under test/fixtures/nix-errors. -->
     <None Include="Fixtures/**/*" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../test/fixtures/nix-errors/*.txt" Link="Fixtures/nix-errors/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <!-- The dashboard's curated features and Computer page settings, which name the options the inventory reads. -->

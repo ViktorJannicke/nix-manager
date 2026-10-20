@@ -14,7 +14,7 @@ public sealed record ReviewBase(string Fingerprint, string Lock);
 
 /// <summary>
 /// The prepared reviews in <c>reviews/ID/</c> of the state directory: their records, their GC roots and the
-/// comparison that writes them (<c>src/reviews.ts</c>). Both versions read and write the same files.
+/// comparison that writes them. Every manager process reads and writes the same files.
 /// </summary>
 public static class ReviewStore
 {
@@ -107,7 +107,7 @@ public static class ReviewStore
         if (Directory.Exists(root) || File.Exists(root)) Directory.Delete(root, recursive: true);
     }
 
-    /// <summary>A review as <c>JSON.stringify</c> writes it, compact or with two-space indentation.</summary>
+    /// <summary>A review as JSON, compact or with two-space indentation.</summary>
     public static string Stringify(BuildReview review, bool indented)
     {
         var node = JsonSerializer.SerializeToNode(review, ManagerJson.Default.BuildReview);
@@ -160,10 +160,10 @@ public static class ReviewStore
 
     /// <summary>
     /// Records what a finished review build would change: package versions, closure sizes, NixOS version and
-    /// kernel transitions, and input changes (<c>compareReview</c>). Writes <c>review.json</c> as
-    /// <c>JSON.stringify(review, null, 2)</c> with a final line feed.
+    /// kernel transitions, and input changes. Writes <c>review.json</c> as indented JSON, with two spaces
+    /// and a final line feed.
     /// </summary>
-    /// <param name="run">Runs quiet commands (Bun's <c>quiet</c> runner).</param>
+    /// <param name="run">Runs quiet commands.</param>
     /// <param name="currentSystem">The link to the running system, <see cref="CurrentSystem"/> outside tests.</param>
     public static async Task<BuildReview> CompareAsync(Config config, Request r, ReviewBase @base, string operationId,
         Func<Command, Task<CommandResult>> run, ReviewEdits? edits = null, ReviewUndo? undo = null, long? downloaded = null,

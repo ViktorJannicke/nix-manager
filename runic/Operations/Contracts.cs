@@ -5,8 +5,8 @@ using NixManager.Domain;
 
 namespace NixManager.Operations;
 
-// The stored and streamed shapes of src/contracts.ts. Records written by the Bun version read here and the other
-// way round: property names are camelCase, optional members are omitted when absent, and members this version
+// The stored and streamed shapes of operations and their events. Records written by earlier versions still read
+// here: property names are camelCase, optional members are omitted when absent, and members this version
 // does not know are kept (JsonExtensionData) so a record keeps them when it is written again.
 
 public static class OperationStatuses
@@ -64,7 +64,7 @@ public sealed class StepOutcome
     [JsonExtensionData] public Dictionary<string, JsonElement>? Unknown { get; set; }
 }
 
-/// <summary>A failure in plain words (<c>Explanation</c> in <c>src/explain.ts</c>).</summary>
+/// <summary>A failure in plain words.</summary>
 public sealed record Explanation
 {
     public required string Title { get; init; }
@@ -160,7 +160,7 @@ public sealed record SavedUpdates(string Flake, UpdateReport Report);
 
 /// <summary>
 /// An ordered event of the operation service: a changed operation, output of its running step, or build
-/// progress. The shape is the Bun version's <c>ManagerEvent</c>, which the dashboard and a forwarded command
+/// progress. The shape is the one the dashboard and a forwarded command
 /// line both consume.
 /// </summary>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]

@@ -15,10 +15,10 @@ namespace NixManager.Setup;
 /// <summary>The setup assistant's Window: its own page, <c>setup.html</c>, beside the dashboard's.</summary>
 public sealed partial class SetupWindow : RunicWindow<SetupViewModel>;
 
-/// <summary>The decisions of <c>nix-manager ui</c> about the setup assistant (<c>setUp</c> and <c>main</c> in <c>src/main.ts</c>).</summary>
+/// <summary>The decisions of <c>nix-manager ui</c> about the setup assistant.</summary>
 public static class SetupLaunch
 {
-    /// <summary>The checkout <c>ui</c> would manage (<c>selectCheckout</c>).</summary>
+    /// <summary>The checkout <c>ui</c> would manage.</summary>
     public static (string Path, bool Chosen) Checkout(string? flake, ICommandRunner? runner = null, ManagerEnvironment? environment = null) =>
         new ConfigLoader(runner ?? new ProcessCommandRunner(), environment).SelectCheckoutAsync(flake).GetAwaiter().GetResult();
 
@@ -42,7 +42,7 @@ public static class SetupLaunch
 }
 
 /// <summary>
-/// Hosts the setup assistant (<see cref="SetupAssistantService"/>, replacing <c>src/setup-server.ts</c>) in its own
+/// Hosts the setup assistant (<see cref="SetupAssistantService"/>) in its own
 /// Window before there is a checkout, then hands over to the dashboard in the same process and on the same Desktop
 /// host. The dashboard's services need a loaded configuration, so they are built only once the assistant created the
 /// checkout; the assistant has a service provider of its own.
@@ -60,7 +60,7 @@ public static class SetupApplication
 
     /// <summary>
     /// <c>nix-manager ui</c> without a checkout: the assistant until it created one, then the dashboard as
-    /// <c>ui</c> opens it, the running instance first. Closing the assistant ends it with 0, as in the Bun version.
+    /// <c>ui</c> opens it, the running instance first. Closing the assistant ends it with 0.
     /// Call it before any <see langword="await"/>, since the Desktop host's event loop may need the main thread.
     /// </summary>
     /// <param name="named">The checkout or host was named, so a running instance is used only for the same configuration.</param>

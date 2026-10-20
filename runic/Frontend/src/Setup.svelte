@@ -1,7 +1,7 @@
 <svelte:options runes={true} />
 
 <!--
-  The setup assistant (ui/pages/Setup.svelte of the Bun version) in its own Window, before there is a checkout:
+  The setup assistant in its own Window, before there is a checkout:
   what is on this computer, the folder to create and each step, or only why Nix Manager could not start. The
   backend's SetupViewModel holds the state; text the backend stores in English goes through `stored`.
 -->

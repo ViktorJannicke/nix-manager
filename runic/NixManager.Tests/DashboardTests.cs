@@ -158,7 +158,7 @@ public sealed class DashboardTests : IAsyncDisposable
     [Test]
     public async Task Someone_who_ran_operations_before_starts_detailed_with_app_details_on()
     {
-        // The fixtures hold the Bun version's records, so the first choice written on opening is the detailed view.
+        // The fixtures hold earlier operation records, so the first choice written on opening is the detailed view.
         var dashboard = _window.Root.Snapshot();
         await Assert.That(dashboard.Read(vm => vm.Detail)).IsEqualTo("detailed");
         await Assert.That(dashboard.Read(vm => vm.History)).IsFalse();
@@ -226,6 +226,35 @@ public sealed class DashboardTests : IAsyncDisposable
     }
 
     [Test]
+    public async Task Pending_edits_cross_the_Bridge_as_a_union_and_are_stored_by_kind()
+    {
+        await WaitForAsync(() => _window.Root.Snapshot().Get(vm => vm.Draft).ValueKind == JsonValueKind.Object);
+        var software = _window.Root.View<SoftwareViewModel>(vm => vm.Software);
+
+        (await software.ExecuteAsync(vm => vm.SetDraftCommand, """
+            [{"$case":"set-option","scope":"system","file":"home.nix","option":"o.p","value":{"a":[1.5,null]},"label":"L"},
+             {"$case":"add-package","scope":"home","file":"home.nix","attr":"pkgs.hello"}]
+            """)).EnsureOk();
+
+        var changes = software.Snapshot().Get(vm => vm.Draft).GetProperty("changes");
+        await Assert.That(changes.GetRawText()).IsEqualTo("""
+            [{"$case":"set-option","scope":"system","file":"home.nix","label":"L","option":"o.p","value":{"a":[1.5,null]}},{"$case":"add-package","scope":"home","file":"home.nix","label":null,"attr":"pkgs.hello"}]
+            """.Trim());
+        var saved = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(_fixtures.StateDir, "draft.json")))!;
+        await Assert.That(saved["changes"]!.ToJsonString()).IsEqualTo("""
+            [{"kind":"set-option","scope":"system","file":"home.nix","option":"o.p","value":{"a":[1.5,null]},"label":"L"},{"kind":"add-package","scope":"home","file":"home.nix","attr":"pkgs.hello"}]
+            """.Trim());
+
+        var invalid = await software.ExecuteAsync(vm => vm.SetDraftCommand, """
+            [{"$case":"add-package","scope":"elsewhere","file":"home.nix","attr":"pkgs.hello","label":null}]
+            """);
+        await Assert.That(invalid.ErrorKind).IsEqualTo("domain-failed");
+        await Assert.That(invalid.Failure!.Value.GetProperty("message").GetString()).IsEqualTo("Invalid edit: unknown scope elsewhere.");
+        var unknown = await software.ExecuteAsync(vm => vm.SetDraftCommand, """[{"$case":"rename-package","scope":"home","file":"home.nix"}]""");
+        await Assert.That(unknown.Ok).IsFalse();
+    }
+
+    [Test]
     public async Task An_operation_that_ends_observes_the_computer_again()
     {
         await WaitForAsync(() => _observations > 0 && _window.Root.View<SystemViewModel>(vm => vm.System).Snapshot().Get(vm => vm.System).ValueKind == JsonValueKind.Object);
@@ -290,18 +319,17 @@ public sealed class DashboardTests : IAsyncDisposable
         await Assert.That(DashboardPreferences.ResolveLocale(language, name => name == "LANG" ? lang : null)).IsEqualTo(locale);
 
     /// <summary>Runs the command line as <c>Main</c> does, with the dashboard and the daemon recorded instead of started.</summary>
-    private static (int ExitCode, object? Started, string Stderr) Launch(params string[] args)
+    private static (int ExitCode, object? Started, string Stderr, string Stdout) Launch(params string[] args)
     {
         object? started = null;
         var console = new Runic.CommandLine.Testing.TestCommandConsole { IsOutputRedirected = true, IsErrorRedirected = true };
         var session = new Cli.CliSession
         {
-            Output = new Cli.CliOutput(),
             Dashboard = invocation => { started = invocation; return 7; },
             Daemon = invocation => { started = invocation; return 8; },
         };
         var code = Cli.NixManagerCli.Run(args, session, console, handleSignals: false);
-        return (code, started, console.StandardError);
+        return (code, started, console.StandardError, console.StandardOutput);
     }
 
     [Test]
@@ -312,7 +340,7 @@ public sealed class DashboardTests : IAsyncDisposable
     public async Task A_dashboard_invocation_starts_the_Window_once_the_command_line_returned(string[] args, string? flake, string? host,
         bool noOpen, bool browser)
     {
-        var (code, started, _) = Launch(args);
+        var (code, started, _, _) = Launch(args);
         await Assert.That(code).IsEqualTo(7);
         await Assert.That(started).IsEqualTo(new DashboardCommand.Invocation(flake, host, noOpen, browser));
     }
@@ -320,28 +348,36 @@ public sealed class DashboardTests : IAsyncDisposable
     [Test]
     public async Task A_tray_invocation_starts_the_daemon_once_the_command_line_returned()
     {
-        var (code, started, _) = Launch("tray", "--interval", "30", "--flake", "/x");
+        var (code, started, _, _) = Launch("tray", "--interval", "30", "--flake", "/x");
         await Assert.That(code).IsEqualTo(8);
         await Assert.That(started).IsEqualTo(new Daemon.DaemonCommand.Invocation("/x", null, 30));
     }
 
     [Test]
-    [Arguments(new[] { "ui", "--json" }, "Error: The dashboard takes only --flake, --host, --no-open and --browser.")]
-    [Arguments(new[] { "ui", "--interval", "30" }, "Error: The dashboard takes only --flake, --host, --no-open and --browser.")]
-    [Arguments(new[] { "tray", "--browser" }, "Error: The tray takes only --flake, --host and --interval.")]
-    [Arguments(new[] { "ui", "home" }, "Error: Action modifiers require a build, activation, maintenance, or package action.")]
+    [Arguments(new[] { "ui", "--interval", "30" }, "The dashboard takes only --flake, --host, --no-open and --browser.")]
+    [Arguments(new[] { "tray", "--browser" }, "The tray takes only --flake, --host and --interval.")]
+    [Arguments(new[] { "ui", "home" }, "Action modifiers require a build, activation, maintenance, or package action.")]
     public async Task Other_options_with_ui_or_tray_start_nothing(string[] args, string error)
     {
-        var (code, started, stderr) = Launch(args);
-        await Assert.That(code).IsEqualTo(1);
+        var (code, started, stderr, stdout) = Launch(args);
+        await Assert.That(code).IsEqualTo(2);
         await Assert.That(started).IsNull();
-        await Assert.That(stderr).StartsWith(error);
+        await Assert.That(stdout).IsEqualTo(error + "\n");
+        await Assert.That(stderr).IsEqualTo("NM0002: The command line is not valid.\n");
+    }
+
+    [Test]
+    public async Task The_dashboard_has_no_JSON_output()
+    {
+        var (code, started, _, _) = Launch("ui", "--output", "json");
+        await Assert.That(code).IsEqualTo(2);
+        await Assert.That(started).IsNull();
     }
 
     [Test]
     public async Task Help_for_ui_starts_nothing()
     {
-        var (code, started, _) = Launch("ui", "--help");
+        var (code, started, _, _) = Launch("ui", "--help");
         await Assert.That(code).IsEqualTo(0);
         await Assert.That(started).IsNull();
     }

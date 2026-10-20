@@ -17,7 +17,7 @@ public sealed record ProgressOutput(BuildProgress Progress) : OutputEvent;
 
 public sealed record CommandResult(int Code, string Stdout, string Stderr);
 
-/// <summary>Runs one step's process (<c>Runner</c> in <c>src/process.ts</c>).</summary>
+/// <summary>Runs one step's process.</summary>
 public interface ICommandRunner
 {
     /// <summary>
@@ -31,12 +31,12 @@ public interface ICommandRunner
 /// <summary>
 /// Runs steps with Runic Command Line's process runner: an argument vector without a shell, closed standard
 /// input, a new session (no controlling terminal), and on cancellation SIGTERM to the process group, a grace
-/// period, then SIGKILL, as the Bun version does. Output is streamed line by line with backpressure; Nix's
+/// period, then SIGKILL. Output is streamed line by line with backpressure; Nix's
 /// structured log becomes readable lines and throttled progress snapshots.
 /// </summary>
 public sealed class ProcessCommandRunner(IProcessRunner? runner = null, TimeProvider? clock = null) : ICommandRunner
 {
-    /// <summary>The tail of each stream a result keeps, as the Bun version does.</summary>
+    /// <summary>The tail of each stream a result keeps.</summary>
     public const int CaptureLimit = 8 * 1024 * 1024;
     private static readonly TimeSpan ProgressInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan GracePeriod = TimeSpan.FromSeconds(3);

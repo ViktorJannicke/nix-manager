@@ -141,7 +141,7 @@ public static class DashboardCommand
     /// <remarks>
     /// Without any checkout it starts with the setup assistant, which hands over to the dashboard once it created one;
     /// a dashboard started from the menu (standard output is not a terminal) whose configuration does not load shows
-    /// why in the assistant's Window (<c>setUp</c> and <c>main</c> in <c>src/main.ts</c>, <see cref="SetupLaunch"/>).
+    /// why in the assistant's Window (<see cref="SetupLaunch"/>).
     /// </remarks>
     public static int Run(Invocation invocation)
     {
@@ -149,7 +149,7 @@ public static class DashboardCommand
         if (invocation.Served)
         {
             // The setup assistant, and the dashboard after it, are served the same way; with --browser, the first page
-            // opens in the default browser, as the Bun version's did, and the assistant's page moves on by itself.
+            // opens in the default browser, and the assistant's page moves on by itself.
             Environment.SetEnvironmentVariable("RUNIC_APPLICATION_SERVE_ONLY", "1");
             Action<IRunicWindow>? browse = invocation.Browser ? DashboardBrowser.Open : null;
             if (SetupLaunch.NeedsSetup(invocation.Flake)) return SetupApplication.Run(invocation, named: false, browse);
@@ -204,13 +204,13 @@ public static class DashboardCommand
 }
 
 /// <summary>
-/// <c>ui --browser</c>: opens a served page in the desktop's default browser with <c>xdg-open</c>, as the Bun version
-/// did. The page is served until its last tab has been closed (<see cref="WatchAsync"/>), or until Ctrl+C, SIGTERM or a
+/// <c>ui --browser</c>: opens a served page in the desktop's default browser with <c>xdg-open</c>. The page is served
+/// until its last tab has been closed (<see cref="WatchAsync"/>), or until Ctrl+C, SIGTERM or a
 /// stop line on standard input, as with <c>--no-open</c>.
 /// </summary>
 public static class DashboardBrowser
 {
-    /// <summary>How often <see cref="WatchAsync"/> looks at the tabs and the running operation, as the Bun version did.</summary>
+    /// <summary>How often <see cref="WatchAsync"/> looks at the tabs and the running operation.</summary>
     public static readonly TimeSpan Interval = TimeSpan.FromMilliseconds(250);
 
     public static void Open(IRunicWindow window)
@@ -263,8 +263,8 @@ public static class DashboardBrowser
 }
 
 /// <summary>
-/// When a page served for a browser has ended, as the Bun version's <c>ui</c> decided it (<c>main</c> in
-/// <c>src/main.ts</c>): no tab is connected and the last one went away at least <see cref="ReconnectGrace"/> ago, which a
+/// When a page served for a browser has ended: no tab is connected and the last one went away at least
+/// <see cref="ReconnectGrace"/> ago, which a
 /// reload reconnects within, or no tab connected within <see cref="FirstConnection"/>; and nothing runs, so a running
 /// operation finishes first. The surface counts the connected tabs (<see cref="DesktopSurface.ConnectionCount"/>);
 /// this class only remembers when one last went away. Thread-safe: the surface reports connections from its own threads.

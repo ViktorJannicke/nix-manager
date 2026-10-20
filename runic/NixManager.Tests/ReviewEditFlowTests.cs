@@ -66,7 +66,7 @@ public sealed class ReviewEditFlowTests : IDisposable
 
     private Config Config => TestConfig.Create(_flake);
     private string AppsNow => File.ReadAllText(Path.Combine(_flake, "modules/apps.nix"));
-    private static Change Btop => Change.AddPackage(Targets.Home, "modules/apps.nix", "pkgs.btop");
+    private static Change Btop => new AddPackage(Targets.Home, "modules/apps.nix", "pkgs.btop");
 
     private static JsonObject Package(string name) => new() { ["out"] = $"/nix/store/{name}", ["name"] = name, ["version"] = "1", ["description"] = null };
 
@@ -230,7 +230,7 @@ public sealed class ReviewEditFlowTests : IDisposable
         ]);
         await Assert.That(AppsNow).IsEqualTo(before);
         // The change can be tried again: its pending edit and review are kept.
-        await Assert.That(Drafts.Read(Config).Select(c => c.Attr)).IsEquivalentTo(["pkgs.btop"]);
+        await Assert.That(Drafts.Read(Config).OfType<PackageEdit>().Select(c => c.Attr)).IsEquivalentTo(["pkgs.btop"]);
         await Assert.That(ReviewStore.List(Config).Select(r => r.Id)).IsEquivalentTo(["abababab"]);
     }
 
@@ -239,7 +239,7 @@ public sealed class ReviewEditFlowTests : IDisposable
     {
         EditEngine.Require();
         await using var service = Service();
-        Drafts.Write(Config, [Btop, Change.SetOption(Targets.Home, "modules/apps.nix", "programs.git.enable", JsonValue.Create(true))]);
+        Drafts.Write(Config, [Btop, new SetOption(Targets.Home, "modules/apps.nix", "programs.git.enable", JsonValue.Create(true))]);
 
         var built = await service.Start(Build(then: "apply")).Completion;
 
@@ -294,8 +294,8 @@ public sealed class ReviewEditFlowTests : IDisposable
             }),
             packages: _ => []);
         Drafts.Write(Config, [
-            Change.AddPackage(Targets.Home, "modules/apps.nix", "pkgs.steam"),
-            Change.SetOption(Targets.Home, "modules/apps.nix", "nixpkgs.config.allowUnfree", JsonValue.Create(true)),
+            new AddPackage(Targets.Home, "modules/apps.nix", "pkgs.steam"),
+            new SetOption(Targets.Home, "modules/apps.nix", "nixpkgs.config.allowUnfree", JsonValue.Create(true)),
         ]);
 
         var failed = await service.Start(Build("ffffffff")).Completion;
@@ -357,9 +357,9 @@ public sealed class ReviewEditFlowTests : IDisposable
         var r = Build("abababab");
         Task<CommandResult> Run(Command command) => Task.FromResult(new CommandResult(0, "", ""));
         await Assert.That(() => SourceEdits.StageSourcesAsync(config, r, [], Run)).Throws<ManagerException>().WithMessage("There are no pending edits.");
-        await Assert.That(() => SourceEdits.StageSourcesAsync(config, r, [Change.AddPackage(Targets.Home, "modules/apps.nix", "lib.x")], Run))
+        await Assert.That(() => SourceEdits.StageSourcesAsync(config, r, [new AddPackage(Targets.Home, "modules/apps.nix", "lib.x")], Run))
             .Throws<ManagerException>().WithMessage("lib.x is not a package from pkgs.");
-        await Assert.That(() => SourceEdits.StageSourcesAsync(config, r, [Change.AddPackage(Targets.Home, "modules/apps.nix", "pkgs.git")], Run))
+        await Assert.That(() => SourceEdits.StageSourcesAsync(config, r, [new AddPackage(Targets.Home, "modules/apps.nix", "pkgs.git")], Run))
             .Throws<ManagerException>().WithMessageContaining("pkgs.git: ");
     }
 }

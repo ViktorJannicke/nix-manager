@@ -3,8 +3,8 @@ using NixManager.Domain;
 namespace NixManager.Execution;
 
 /// <summary>
-/// File system failures as the Bun version reports them: <c>attempt(label, f)</c> in <c>src/process.ts</c> writes
-/// <c>`${label}: ${error}`</c>, and Node's errors read <c>Error: ENOENT: no such file or directory, open 'PATH'</c>.
+/// File system failures as they are reported: <c>`${label}: ${error}`</c>, with the error text in the form Node
+/// uses, such as <c>Error: ENOENT: no such file or directory, open 'PATH'</c>.
 /// </summary>
 public static class NodeErrors
 {

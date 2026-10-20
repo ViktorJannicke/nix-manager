@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <!-- The command and the Polkit helper keep the Bun version's name. -->
+    <!-- The command and the Polkit helper are named nix-manager. -->
     <AssemblyName>nix-manager</AssemblyName>
     <RootNamespace>NixManager</RootNamespace>
     <!-- The dashboard Window (Dashboard/) and its frontend in Frontend/, opened by `nix-manager ui`. -->
@@ -27,7 +27,7 @@
     <IlcTreatWarningsAsErrors>true</IlcTreatWarningsAsErrors>
     <!-- The test project has its own sources and build output. -->
     <DefaultItemExcludes>$(DefaultItemExcludes);NixManager.Tests/**</DefaultItemExcludes>
-    <!-- The policy keeps the Bun version's file name and action ID (nixos-module.nix). -->
+    <!-- The Polkit policy's action ID is org.nixos.nix-manager. -->
     <RunicPolkitPolicyName>org.nixos.nix-manager</RunicPolkitPolicyName>
   </PropertyGroup>
   <ItemGroup>
@@ -51,9 +51,9 @@
     <InternalsVisibleTo Include="NixManager.Tests" />
   </ItemGroup>
   <ItemGroup>
-    <!-- One action, as in the Bun version's policy: one authorization is kept (auth_admin_keep) across the
+    <!-- One action: one authorization is kept (auth_admin_keep) across the
          privileged steps of an operation, such as activation followed by garbage collection. The verb is the
-         Bun version's entry point, and each of its commands is checked by position here; the helper checks
+         helper's entry point, and each of its commands is checked by position here; the helper checks
          meaning (PrivilegedHelper). The Nix builder sets RunicApplicationInstallPrefix to $out, whose
          bin/nix-manager is the wrapper pkexec runs; other builds install under /usr, the SDK's default. -->
     <RunicPrivilegedAction Include="org.nixos.nix-manager"

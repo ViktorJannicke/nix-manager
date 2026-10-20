@@ -11,7 +11,7 @@ public enum CliMode
     History,
 }
 
-/// <summary>A resolved command line (<c>Cli</c> in <c>src/cli.ts</c>).</summary>
+/// <summary>A resolved command line.</summary>
 public sealed record CliInvocation
 {
     public required Request Request { get; init; }
@@ -30,17 +30,20 @@ public sealed record CliInvocation
 public sealed record CliOptions(
     string? Flake, string? Host, bool DryRun, bool Force, bool Json, bool Plain, bool Verbose, bool Browser, bool NoOpen, int Interval);
 
-/// <summary>The Bun version's command-line grammar: scope, modifier and action words in any order.</summary>
+/// <summary>The root command's grammar: scope, modifier and action words in any order.</summary>
 public static class CliArguments
 {
-    /// <summary>The accepted words, in the Bun version's order (<c>tokenValues</c>).</summary>
+    /// <summary>The accepted words: scopes, modifiers, actions and modes.</summary>
     public static readonly string[] Tokens =
     [
         "home", "system", "all", "update", "cleanup", "gc", "build", "switch", "boot", "rollback", "check",
         "t3code-update", "opencode-update", "pince-update", "ui", "tray", "status", "history",
     ];
 
-    /// <summary>Resolves the words and options with the Bun version's rules and messages (<c>resolve</c>).</summary>
+    /// <summary>
+    /// Resolves the words and options into one request or mode. A combination that does not make one request
+    /// throws a <see cref="ManagerException"/>, a usage error.
+    /// </summary>
     public static CliInvocation Resolve(IReadOnlyList<string> tokens, CliOptions options, IReadOnlyList<string> extra)
     {
         static void Fail(string message) => throw new ManagerException(message);

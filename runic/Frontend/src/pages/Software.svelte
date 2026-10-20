@@ -157,10 +157,10 @@
 
   function removeInstalled(item: InstalledPackage) {
     if (!item.attr) return;
-    void software.stage([{ kind: "remove-package", scope, file: item.file, attr: item.attr }]);
+    void software.stage([{ $case: "remove-package", scope, file: item.file, attr: item.attr, label: null }]);
   }
   const pendingRemoval = (item: InstalledPackage) =>
-    software.changes.some((change) => change.kind === "remove-package" && change.attr === item.attr && change.file === item.file);
+    software.changes.some((change) => change.$case === "remove-package" && change.attr === item.attr && change.file === item.file);
 </script>
 
 <svelte:window onkeydown={shortcut} />
@@ -179,7 +179,7 @@
       <p class="line-clamp-2 text-muted-foreground">{result.app?.summary ?? result.d ?? m.package_no_description()}</p>
     </div>
     <span class="shrink-0 pt-0.5 text-xs font-medium">
-      {#if pending}<span class="text-prepared-foreground">{pending.kind === "add-package" ? m.software_will_be_installed() : m.software_will_be_removed()}</span>
+      {#if pending}<span class="text-prepared-foreground">{pending.$case === "add-package" ? m.software_will_be_installed() : m.software_will_be_removed()}</span>
       {:else if owned}<span class="text-primary">{m.onestep_installed()}</span>
       {:else if result.b}<span class="text-warning">{m.software_broken()}</span>
       {:else if !result.f}<span class="text-muted-foreground">{m.software_not_free()}</span>{/if}

@@ -15,7 +15,7 @@ const units: [Intl.RelativeTimeFormatUnit, number][] = [
  * "3 hours ago", "yesterday", "just now". `now` is the page's clock, which ticks once a second for re-rendering; a
  * browser slows that timer down in a hidden or throttled Window, so a record that arrives meanwhile is measured
  * against the real time rather than shown as being in the future. A time that is later than the real one, such as
- * from another computer's clock, is still shown as such, as the Bun version does.
+ * from another computer's clock, is still shown as such.
  */
 export function relative(value: string | null | undefined, now = Date.now()) {
   if (!value) return m.format_never();
@@ -140,7 +140,7 @@ const names = (items: readonly string[]) => {
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 const MiB = 1024 * 1024;
 
-/** What applying a review does, in a few plain sentences (`reviewSummary` in `src/summary.ts`). */
+/** What applying a review does, in a few plain sentences. */
 export function reviewSummary(review: BuildReview) {
   const outputs = [review.home, review.system].filter((output) => output !== null);
   const parts: string[] = [];

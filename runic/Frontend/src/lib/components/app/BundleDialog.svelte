@@ -4,7 +4,7 @@
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
   import { software } from "$lib/software.svelte";
-  import { list, m, stored } from "$lib/i18n";
+  import { m, stored } from "$lib/i18n";
   import { experiences } from "$lib/curated";
   import type { AppEntry } from "../../../generated/types.js";
   import type { Bundle } from "$lib/bundles";
@@ -133,12 +133,12 @@
         {/if}
         {#if unfree.length}
           <p class="text-xs text-muted-foreground">
-            {m.bundle_is_not_free_software_allowing_non({ count: unfree.length, names: list(unfree) })}
+            {m.bundle_is_not_free_software_allowing_non({ count: unfree.length, names: unfree })}
           </p>
         {/if}
         {#if plan.skipped.length}
           <p class="rounded-lg bg-warning/10 px-3 py-2 text-xs">
-            {m.bundle_needs_a_file_chosen_by_hand({ count: plan.skipped.length, names: list(plan.skipped) })}
+            {m.bundle_needs_a_file_chosen_by_hand({ count: plan.skipped.length, names: plan.skipped })}
           </p>
         {/if}
       {/if}

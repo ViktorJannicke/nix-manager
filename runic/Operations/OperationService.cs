@@ -11,7 +11,7 @@ using NixManager.Updates;
 namespace NixManager.Operations;
 
 /// <summary>
-/// Runs one operation at a time and publishes its progress (<c>Manager</c> in <c>src/manager.ts</c>).
+/// Runs one operation at a time and publishes its progress.
 /// </summary>
 /// <remarks>
 /// The service is the one place operations run, whoever asked for them: the command line in its own process
@@ -407,7 +407,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
         /// <summary>Set when an activation succeeds, so the change can be undone.</summary>
         private (UndoGenerations Generations, List<UndoFile> Files, Dictionary<string, string> Contents)? _undoable;
 
-        /// <summary>Bun's <c>quiet</c> runner: a command without a step of its own, output and log.</summary>
+        /// <summary>Runs a command quietly: without a step of its own, output and log.</summary>
         private Task<CommandResult> Quiet(Command command) => service.Runner.RunAsync(command with { Quiet = true }, _ => { }, token);
 
         public async Task<Operation> ExecuteAsync(IDisposable release, CancellationTokenSource cancellation)
@@ -569,7 +569,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
             if (Actions.IsPackage(r.Action))
             {
                 var outcome = StartStep($"Update the {PackageName(r.Action)} package pin");
-                // Each command is a step of its own in the log, as the Bun version's runLayer runs them.
+                // Each command is a step of its own in the log.
                 await service.Packages.UpdateAsync(service.Config, r, RunStepAsync, Log, token).ConfigureAwait(false);
                 FinishStep(outcome, StepStatuses.Succeeded);
                 return;

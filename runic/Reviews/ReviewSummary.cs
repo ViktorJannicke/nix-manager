@@ -6,7 +6,7 @@ using NixManager.Operations;
 namespace NixManager.Reviews;
 
 /// <summary>
-/// Review summaries, sizes and time estimates (<c>src/summary.ts</c>). The tray's notifications use them in the
+/// Review summaries, sizes and time estimates. The tray's notifications use them in the
 /// dashboard's language (<see cref="TrayText"/>); the dashboard's frontend keeps its own copy.
 /// </summary>
 public static class ReviewSummary
@@ -27,14 +27,6 @@ public static class ReviewSummary
         var digits = size >= 100 || index == 0 ? 0 : 1;
         return $"{sign}{size.ToString(digits == 0 ? "F0" : "F1", numbers ?? CultureInfo.InvariantCulture)} {scale[index]}";
     }
-
-    /// <summary>A conjunction as <c>Intl.ListFormat("en-GB")</c> writes it: "a, b and c".</summary>
-    public static string List(IReadOnlyList<string> items) => items.Count switch
-    {
-        0 => "",
-        1 => items[0],
-        _ => $"{string.Join(", ", items.Take(items.Count - 1))} and {items[^1]}",
-    };
 
     private static string Plural(long count, string one, string many) =>
         (count == 1 ? one : many).Replace("{count}", count.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);

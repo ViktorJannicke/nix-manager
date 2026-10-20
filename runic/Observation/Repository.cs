@@ -1,75 +1,77 @@
-using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using Runic.CommandLine.Processes;
 
 namespace NixManager.Observation;
 
-/// <summary>The checkout's Git state and file hashes (<c>git</c>, <c>hashText</c>, <c>readLock</c>, <c>repositoryState</c> in <c>src/observe.ts</c>).</summary>
+/// <summary>The checkout's Git state and file hashes.</summary>
 public static partial class Repository
 {
-    /// <summary>SHA-256 of text as UTF-8, in lowercase hex (<c>hashText</c>).</summary>
+    /// <summary>SHA-256 of text as UTF-8, in lowercase hex.</summary>
     public static string HashText(string text) => HashBytes(Encoding.UTF8.GetBytes(text));
 
     public static string HashBytes(ReadOnlySpan<byte> bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
 
-    /// <summary>The checkout's flake.lock, or empty text without one (<c>readLock</c>).</summary>
+    /// <summary>The checkout's flake.lock, or empty text without one.</summary>
     public static string ReadLock(string flake)
     {
         try { return File.ReadAllText(Path.Combine(flake, "flake.lock")); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return ""; }
     }
 
+    private static readonly IProcessRunner Processes = new ProcessRunner(new LocalExecutablePolicy());
+
+    private static ProcessRequest Git(string flake, IEnumerable<string> args, int outputLimit) =>
+        new("git", ["-C", flake, .. args], options: new ProcessExecutionOptions(standardOutputLimitBytes: outputLimit, standardErrorLimitBytes: 0)
+        {
+            StandardInput = ProcessStandardInput.Closed,
+        });
+
     /// <summary>
     /// Runs <c>git -C FLAKE ARGS</c> with standard input closed and standard error discarded; its output, or
-    /// null when it failed (<c>git</c>).
+    /// null when it failed or wrote more than a capture holds.
     /// </summary>
     public static async Task<string?> GitAsync(string flake, IEnumerable<string> args, CancellationToken cancellationToken = default)
     {
-        var start = new ProcessStartInfo("git")
+        var result = await Processes.RunAsync(Git(flake, args, ProcessExecutionOptions.MaximumOutputLimitBytes), cancellationToken)
+            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return result is { State: ProcessState.Exited, ExitCode: 0, StandardOutput.IsTruncated: false } ? result.StandardOutput.Text : null;
+    }
+
+    /// <summary>
+    /// The SHA-256 of what <c>git -C FLAKE ARGS</c> writes, read as it streams so output of any size is hashed
+    /// whole; null when it failed.
+    /// </summary>
+    private static async Task<string?> GitHashAsync(string flake, IEnumerable<string> args, CancellationToken cancellationToken)
+    {
+        using var hash = new Hasher();
+        var result = await Processes.RunAsync(Git(flake, args, 0), hash, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return result is { State: ProcessState.Exited, ExitCode: 0 } ? hash.Finish() : null;
+    }
+
+    private sealed class Hasher : IProcessOutputHandler, IDisposable
+    {
+        private readonly IncrementalHash _hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+
+        public ValueTask OnChunkAsync(ProcessOutputChunk chunk, CancellationToken cancellationToken)
         {
-            RedirectStandardInput = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            StandardOutputEncoding = Encoding.UTF8,
-        };
-        start.ArgumentList.Add("-C");
-        start.ArgumentList.Add(flake);
-        foreach (var arg in args) start.ArgumentList.Add(arg);
-        Process process;
-        try
-        {
-            process = Process.Start(start) ?? throw new InvalidOperationException();
+            if (chunk.Channel == ProcessOutputChannel.StandardOutput) _hash.AppendData(chunk.Bytes.Span);
+            return ValueTask.CompletedTask;
         }
-        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)
-        {
-            return null;
-        }
-        using (process)
-        {
-            process.StandardInput.Close();
-            var output = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var errors = process.StandardError.BaseStream.CopyToAsync(Stream.Null, cancellationToken);
-            try
-            {
-                var text = await output.ConfigureAwait(false);
-                await errors.ConfigureAwait(false);
-                await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-                return process.ExitCode == 0 ? text : null;
-            }
-            catch (OperationCanceledException)
-            {
-                try { process.Kill(entireProcessTree: true); }
-                catch (InvalidOperationException) { }
-                throw;
-            }
-        }
+
+        public ValueTask OnLineAsync(ProcessOutputLine line, CancellationToken cancellationToken) => ValueTask.CompletedTask;
+
+        public string Finish() => Convert.ToHexStringLower(_hash.GetHashAndReset());
+
+        public void Dispose() => _hash.Dispose();
     }
 
     public static Task<string?> GitAsync(string flake, params string[] args) => GitAsync(flake, (IEnumerable<string>)args);
 
-    /// <summary>The checkout's Git state and a fingerprint of its content (<c>repositoryState</c>).</summary>
+    /// <summary>The checkout's Git state and a fingerprint of its content.</summary>
     public static async Task<RepositoryState> StateAsync(string flake, CancellationToken cancellationToken = default)
     {
         var status = GitAsync(flake, ["status", "--porcelain=v1", "--untracked-files=normal"], cancellationToken);
@@ -77,7 +79,7 @@ public static partial class Repository
         var head = GitAsync(flake, ["log", "-1", "--format=%H%x00%s%x00%cI"], cancellationToken);
         var lockDiff = GitAsync(flake, ["status", "--porcelain=v1", "--", "flake.lock"], cancellationToken);
         // Status alone misses further edits to an already modified file.
-        var diff = GitAsync(flake, ["diff", "HEAD", "--binary"], cancellationToken);
+        var diff = GitHashAsync(flake, ["diff", "HEAD", "--binary"], cancellationToken);
         var upstream = GitAsync(flake, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], cancellationToken);
         await Task.WhenAll(status, branch, head, lockDiff, diff, upstream).ConfigureAwait(false);
         var lockText = ReadLock(flake);

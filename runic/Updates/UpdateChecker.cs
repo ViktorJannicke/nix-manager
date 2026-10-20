@@ -8,7 +8,7 @@ using NixManager.Operations;
 
 namespace NixManager.Updates;
 
-/// <summary>Checks for updates without changing the checkout (<c>checkUpdates</c> in <c>src/updates.ts</c>).</summary>
+/// <summary>Checks for updates without changing the checkout.</summary>
 public interface IUpdateChecker
 {
     /// <param name="run">Runs a command as a step of the operation, with its output in the operation's log.</param>
@@ -44,7 +44,7 @@ public sealed class HttpNetwork(HttpClient? client = null) : INetwork
 
     public async Task<string> TextAsync(string url, CancellationToken cancellationToken)
     {
-        // Three attempts with exponential backoff, as the Bun version's Schedule.exponential("500 millis").
+        // Three attempts with exponential backoff from 500 milliseconds.
         for (var attempt = 0; ; attempt++)
         {
             try
@@ -82,7 +82,7 @@ public sealed class HttpNetwork(HttpClient? client = null) : INetwork
 
 public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock = null) : IUpdateChecker
 {
-    /// <summary>The package pins of <c>packages</c> in <c>src/updates.ts</c>, checked in this order.</summary>
+    /// <summary>The package pins of <c>PackageUpdater.Packages</c>, checked in this order.</summary>
     public static readonly IReadOnlyList<(string Name, string Owner, string Repo)> Packages =
         PackageUpdater.Packages.Select(pair => (pair.Key, pair.Value.Owner, pair.Value.Repo)).ToList();
 

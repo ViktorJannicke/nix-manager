@@ -6,11 +6,11 @@ using NixManager.Nix;
 
 namespace NixManager.Updates;
 
-/// <summary>A package's <c>pkgs/NAME/source.json</c>: the pinned release and the channel it follows (<c>Pin</c> in <c>src/updates.ts</c>).</summary>
+/// <summary>A package's <c>pkgs/NAME/source.json</c>: the pinned release and the channel it follows.</summary>
 /// <param name="Channel">Null, <c>stable</c> or <c>nightly</c>; nightly follows the newest nightly or stable release.</param>
 public sealed record PackagePin(string Version, string? Channel, string? NixpkgsRev);
 
-/// <summary>Reads pins with the Bun version's validation and its messages (<c>parsePin</c>).</summary>
+/// <summary>Reads and validates pins.</summary>
 public static partial class PackagePins
 {
     [GeneratedRegex(@"^(\d+)\.(\d+)\.(\d+)$")]
@@ -28,8 +28,8 @@ public static partial class PackagePins
 
     /// <summary>
     /// The pin in <paramref name="text"/>, or a <see cref="ManagerException"/> whose message is Effect Schema's
-    /// error tree for <c>Schema.parseJson(Pin)</c>, as the Bun version reports it. JSON syntax errors name the
-    /// .NET parser's reason where Bun names JavaScriptCore's.
+    /// error tree for <c>Schema.parseJson(Pin)</c>. JSON syntax errors name the
+    /// .NET parser's reason.
     /// </summary>
     public static PackagePin Parse(string text)
     {

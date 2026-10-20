@@ -7,7 +7,7 @@ using NixManager.Nix;
 
 namespace NixManager.Setup;
 
-/// <summary>What the setup assistant found on this computer (<c>SetupInfo</c> in <c>src/setup.ts</c>).</summary>
+/// <summary>What the setup assistant found on this computer.</summary>
 public sealed record SetupInfo
 {
     public required string User { get; init; }
@@ -59,7 +59,7 @@ public static class SetupSteps
 }
 
 /// <summary>
-/// The setup assistant (<c>src/setup.ts</c>): turns a classic /etc/nixos configuration into a flake checkout the user
+/// The setup assistant: turns a classic /etc/nixos configuration into a flake checkout the user
 /// owns, with a standalone Home Manager configuration.
 /// </summary>
 public static partial class SetupAssistant
@@ -311,8 +311,8 @@ public static partial class SetupAssistant
         """;
 
     /// <summary>
-    /// Why a folder cannot hold the new checkout, if it cannot (<c>targetProblem</c>). An existing file counts as a
-    /// folder that is not empty, where the Bun version fails reading it.
+    /// Why a folder cannot hold the new checkout, if it cannot. An existing file counts as a
+    /// folder that is not empty.
     /// </summary>
     public static string? TargetProblem(string target, string home)
     {

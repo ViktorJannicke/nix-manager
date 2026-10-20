@@ -7,14 +7,14 @@ using NixManager.Nix;
 
 namespace NixManager.Updates;
 
-/// <summary>Where a pinned package's releases and nixpkgs recipes come from (an entry of <c>packages</c> in <c>src/updates.ts</c>).</summary>
+/// <summary>Where a pinned package's releases and nixpkgs recipes come from (an entry of <c>Packages</c>).</summary>
 /// <param name="Prefix">The <c>pkgs/by-name</c> shard in nixpkgs.</param>
 /// <param name="Recipes">The nixpkgs recipe files the candidate inherits, compared against nixos-unstable.</param>
 /// <param name="BlockedVersions">Releases with a known upstream regression, never pinned.</param>
 public sealed record PackageSource(string Owner, string Repo, string Prefix, IReadOnlyList<string> Recipes, IReadOnlyList<string> BlockedVersions);
 
 /// <summary>
-/// Updates a package's pin in the checkout (<c>updatePackage</c> in <c>src/updates.ts</c>): the newest release on the
+/// Updates a package's pin in the checkout: the newest release on the
 /// pin's channel, the inherited nixpkgs recipes compared with nixos-unstable, the source hash fetched, the
 /// dependency hashes discovered with a fake hash, a build of the candidate, and then an atomic replacement of the
 /// pin, refused when the pin changed meanwhile.
@@ -153,7 +153,7 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
 
     /// <summary>
     /// Updates the pin of <c>r.action</c>'s package. Commands go through <paramref name="run"/>, which runs each as a
-    /// step of the operation; <paramref name="log"/> receives the decisions (<c>updatePackage</c>).
+    /// step of the operation; <paramref name="log"/> receives the decisions.
     /// </summary>
     public async Task UpdateAsync(Config config, Request r, Func<Command, Task<CommandResult>> run, Action<string> log, CancellationToken cancellationToken)
     {

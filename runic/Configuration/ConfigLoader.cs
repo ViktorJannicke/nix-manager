@@ -22,7 +22,7 @@ public sealed record ManagerEnvironment(Func<string, string?> Variable, string H
 }
 
 /// <summary>
-/// Selects the checkout and reads the host registry (<c>src/config.ts</c>): an explicit registry, the
+/// Selects the checkout and reads the host registry: an explicit registry, the
 /// checkout's <c>data/hosts.nix</c>, or the host read from the flake's own configurations.
 /// </summary>
 public sealed partial class ConfigLoader(ICommandRunner runner, ManagerEnvironment? environment = null)

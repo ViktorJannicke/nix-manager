@@ -18,7 +18,7 @@ public sealed class ExecutionTests
     [Test]
     public async Task Structured_Nix_logs_become_readable_lines_and_aggregated_progress()
     {
-        // The Bun version's test (test/nix.test.ts), event for event.
+        // Each structured Nix log event is parsed in turn, and the progress after each one is checked.
         var progress = new NixProgress();
         await Assert.That(progress.Snapshot().Evaluating).IsTrue();
         await Assert.That(progress.Line("plain output")).IsEqualTo("plain output");
@@ -59,7 +59,7 @@ public sealed class ExecutionTests
             e => { lock (events) events.Add((clock.Elapsed, e)); }, CancellationToken.None);
 
         await Assert.That(result.Code).IsEqualTo(0);
-        // The result keeps standard output as written, as the Bun version's capture does.
+        // The result keeps standard output exactly as written, including a final line without a newline.
         await Assert.That(result.Stdout).IsEqualTo("first\nlast without newline");
         await Assert.That(result.Stderr).IsEqualTo("to stderr\n");
         var text = events.Select(e => e.Event).OfType<TextOutput>().ToList();

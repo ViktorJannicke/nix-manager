@@ -10,7 +10,7 @@ public sealed record SetupStepState(string Id, string Label, string Status);
 /// <summary>Why the dashboard could not start; nothing else is offered then.</summary>
 public sealed record SetupProblem(string Message, string Flake);
 
-/// <summary>The setup assistant's state as the interface shows it (<c>SetupState</c> in <c>src/setup-server.ts</c>).</summary>
+/// <summary>The setup assistant's state as the interface shows it.</summary>
 public sealed record SetupState
 {
     public SetupInfo? Info { get; init; }
@@ -25,7 +25,7 @@ public sealed record SetupState
 }
 
 /// <summary>
-/// The setup assistant's state machine (<c>startSetupServer</c> in <c>src/setup-server.ts</c>, without HTTP): it reads
+/// The setup assistant's state machine, without HTTP: it reads
 /// the computer, refreshes on request, and creates the checkout once, reporting each step. The dashboard (W300-030)
 /// shows it before there is a checkout to manage, or shows only <see cref="SetupState.Problem"/>.
 /// </summary>

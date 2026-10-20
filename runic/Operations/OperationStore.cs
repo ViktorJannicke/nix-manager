@@ -8,13 +8,13 @@ using NixManager.Domain;
 namespace NixManager.Operations;
 
 /// <summary>
-/// The operation records in the state directory, in the Bun version's layout: <c>operations/ID.json</c> with
-/// <c>.log</c> and <c>.undo</c> beside it, <c>updates.json</c> and the shared <c>operation.lock</c>. Both
-/// versions read and write the same files and take the same lock.
+/// The operation records in the state directory: <c>operations/ID.json</c> with
+/// <c>.log</c> and <c>.undo</c> beside it, <c>updates.json</c> and the shared <c>operation.lock</c>. Every manager
+/// process reads and writes the same files and takes the same lock.
 /// </summary>
 public sealed partial class OperationStore(Config config)
 {
-    /// <summary>Stored logs stop growing here; the Bun version uses the same limit.</summary>
+    /// <summary>Stored logs stop growing here.</summary>
     public const long LogLimit = 16 * 1024 * 1024;
     /// <summary>How much of a log a reader gets by default.</summary>
     public const int LogTail = 256 * 1024;
@@ -139,7 +139,7 @@ public sealed partial class OperationStore(Config config)
         return copy;
     }
 
-    /// <summary>The end of an operation's log, from a whole line on (<c>log</c> in <c>src/manager.ts</c>).</summary>
+    /// <summary>The end of an operation's log, from a whole line on.</summary>
     public LogResult Log(string id, int limit = LogTail)
     {
         var path = PathOf(id, "log");
@@ -182,7 +182,7 @@ public sealed partial class OperationStore(Config config)
     }
 
     /// <summary>
-    /// Takes the operation lock that every manager process shares, the Bun version included: an exclusive
+    /// Takes the operation lock that every manager process shares: an exclusive
     /// <c>flock</c> on <c>operation.lock</c>, which the system releases when the process ends.
     /// </summary>
     public IDisposable AcquireLock()
@@ -209,7 +209,7 @@ public sealed partial class OperationStore(Config config)
         return stream;
     }
 
-    /// <summary>Why an operation cannot start while another runs, in any manager process (the Bun lock's message).</summary>
+    /// <summary>Why an operation cannot start while another runs, in any manager process.</summary>
     internal static ManagerException Busy() => new("Another nix-manager operation is running. Wait for it to finish.");
 }
 

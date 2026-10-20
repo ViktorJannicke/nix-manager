@@ -6,7 +6,7 @@ using Runic.Platform;
 
 namespace NixManager.Daemon;
 
-/// <summary>The menu commands of the status icon, as <c>src/tray.ts</c> lists them.</summary>
+/// <summary>The menu commands of the status icon.</summary>
 public static class TrayCommands
 {
     public const string Open = "open", Check = "check", Prepare = "prepare", Quit = "quit";
@@ -24,8 +24,8 @@ public static class NotificationActions
 public sealed record TrayNotice(DesktopNotification Notification, BuildReview? Review = null);
 
 /// <summary>
-/// What the status icon and the notifications say (<c>refresh</c> and <c>notify</c> in <c>src/tray.ts</c>), in the
-/// language of <see cref="TrayText"/>, English unless the daemon passes the dashboard's.
+/// What the status icon and the notifications say, in the language of <see cref="TrayText"/>, English unless the
+/// daemon passes the dashboard's.
 /// </summary>
 public static class TrayPresentation
 {
