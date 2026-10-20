@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace NixManager.Domain;
 
-/// <summary>One step of a plan: a process to start, or an internal step (<c>Command</c> in <c>src/domain.ts</c>).</summary>
+/// <summary>One step of a plan: a process to start, or an internal step.</summary>
 public sealed record Command
 {
     public required string Label { get; init; }
@@ -27,7 +27,7 @@ public static class InternalSteps
         WriteSources = "write-sources", RestoreSources = "restore-sources";
 }
 
-/// <summary>Builds the steps of an operation (<c>plan</c> in <c>src/domain.ts</c>).</summary>
+/// <summary>Builds the steps of an operation.</summary>
 public static partial class Planner
 {
     private static readonly string[] NixFlags = ["--log-format", "internal-json", "--print-out-paths"];

@@ -1,5 +1,5 @@
 // Starting points: curated features and apps that are staged together, so a new computer is set up for one kind
-// of use with a single pending edit (src/bundles.ts). Titles and summaries are English; `stored` translates them.
+// of use with a single pending edit. Titles and summaries are English; `stored` translates them.
 
 export interface Bundle {
   id: string;

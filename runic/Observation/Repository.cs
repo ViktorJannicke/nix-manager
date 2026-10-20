@@ -5,15 +5,15 @@ using Runic.CommandLine.Processes;
 
 namespace NixManager.Observation;
 
-/// <summary>The checkout's Git state and file hashes (<c>git</c>, <c>hashText</c>, <c>readLock</c>, <c>repositoryState</c> in <c>src/observe.ts</c>).</summary>
+/// <summary>The checkout's Git state and file hashes.</summary>
 public static partial class Repository
 {
-    /// <summary>SHA-256 of text as UTF-8, in lowercase hex (<c>hashText</c>).</summary>
+    /// <summary>SHA-256 of text as UTF-8, in lowercase hex.</summary>
     public static string HashText(string text) => HashBytes(Encoding.UTF8.GetBytes(text));
 
     public static string HashBytes(ReadOnlySpan<byte> bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
 
-    /// <summary>The checkout's flake.lock, or empty text without one (<c>readLock</c>).</summary>
+    /// <summary>The checkout's flake.lock, or empty text without one.</summary>
     public static string ReadLock(string flake)
     {
         try { return File.ReadAllText(Path.Combine(flake, "flake.lock")); }
@@ -71,7 +71,7 @@ public static partial class Repository
 
     public static Task<string?> GitAsync(string flake, params string[] args) => GitAsync(flake, (IEnumerable<string>)args);
 
-    /// <summary>The checkout's Git state and a fingerprint of its content (<c>repositoryState</c>).</summary>
+    /// <summary>The checkout's Git state and a fingerprint of its content.</summary>
     public static async Task<RepositoryState> StateAsync(string flake, CancellationToken cancellationToken = default)
     {
         var status = GitAsync(flake, ["status", "--porcelain=v1", "--untracked-files=normal"], cancellationToken);

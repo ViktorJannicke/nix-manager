@@ -9,8 +9,8 @@ using NixManager.Software;
 namespace NixManager.Tests;
 
 /// <summary>
-/// The software functions that need neither nix nor the edit engine, compared with the Bun version's results in
-/// <c>Fixtures/recorded-software-functions.json</c> (<c>record-bun-software.ts</c>) and the recorded searches.
+/// The software functions that need neither nix nor the edit engine, compared with the recorded results in
+/// <c>Fixtures/recorded-software-functions.json</c> and the recorded searches.
 /// </summary>
 public sealed class SoftwareTests
 {

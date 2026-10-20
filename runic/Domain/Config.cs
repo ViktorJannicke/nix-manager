@@ -10,7 +10,7 @@ public sealed record Host
     public required string HomeConfiguration { get; init; }
 }
 
-/// <summary>The checkout, host and paths an operation runs with (<c>Config</c> in <c>src/domain.ts</c>).</summary>
+/// <summary>The checkout, host and paths an operation runs with.</summary>
 public sealed record Config
 {
     public required string Flake { get; init; }
@@ -21,7 +21,7 @@ public sealed record Config
     public required bool HomeProfileExists { get; init; }
     /// <summary>
     /// The privileged entry point as an argument vector prefix, <c>pkexec PROGRAM --privileged</c>. Plans show it
-    /// as the Bun version did; execution runs it through Polkit (<see cref="Execution.PrivilegedCommandRunner"/>).
+    /// verbatim; execution runs it through Polkit (<see cref="Execution.PrivilegedCommandRunner"/>).
     /// </summary>
     public required IReadOnlyList<string> Privileged { get; init; }
 

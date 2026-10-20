@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace NixManager.Edits;
 
-// The draft's shapes (src/draft.ts): pending edits rendered into the files they change.
+// The draft's shapes: pending edits rendered into the files they change.
 
 /// <summary>One line of a diff: <c>" "</c> kept, <c>"+"</c> added, <c>"-"</c> removed.</summary>
 public sealed record DiffLine(string Kind, string Text);

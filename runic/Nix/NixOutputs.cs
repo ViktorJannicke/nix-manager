@@ -6,7 +6,7 @@ using NixManager.Reviews;
 
 namespace NixManager.Nix;
 
-/// <summary>Readers for Nix's own outputs (<c>parseClosureDiff</c>, <c>lockChanges</c>, <c>kernelVersion</c> in <c>src/nix.ts</c>).</summary>
+/// <summary>Readers for Nix's own outputs.</summary>
 public static partial class NixOutputs
 {
     private static readonly Dictionary<string, double> Units = new()

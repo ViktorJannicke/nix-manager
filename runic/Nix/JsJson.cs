@@ -6,8 +6,8 @@ using System.Text.Json.Nodes;
 namespace NixManager.Nix;
 
 /// <summary>
-/// JSON exactly as JavaScript's <c>JSON.stringify</c> writes it, for the values the Bun version hashes or compares
-/// as text: draft hashes (<c>changeHash</c>), lock nodes and change lists. Members keep their order, strings escape
+/// JSON exactly as JavaScript's <c>JSON.stringify</c> writes it, for the values that are hashed or compared
+/// as text: draft hashes, lock nodes and change lists. Members keep their order, strings escape
 /// only what JSON requires, and numbers are written as JavaScript prints them.
 /// </summary>
 public static class JsJson

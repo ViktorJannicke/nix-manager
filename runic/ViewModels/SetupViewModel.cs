@@ -7,7 +7,7 @@ using Runic.Navigation;
 namespace NixManager.ViewModels;
 
 /// <summary>
-/// The setup assistant's Window (<see cref="Setup.SetupWindow"/>, the setup page of <c>src/setup-server.ts</c>) before
+/// The setup assistant's Window (<see cref="Setup.SetupWindow"/>) before
 /// there is a checkout: what was found on this computer, the folder to create, each step's status, and why setup
 /// cannot continue or the dashboard could not start.
 /// </summary>

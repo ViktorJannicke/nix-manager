@@ -32,7 +32,7 @@ public sealed partial class ReviewsViewModel : ObservableObject, IDisposable
         Reviews = reviews.Reviews();
     }
 
-    /// <summary>The prepared reviews, newest first; reviews the Bun version prepared included.</summary>
+    /// <summary>The prepared reviews, newest first; reviews prepared by earlier versions included.</summary>
     [ObservableProperty]
     public partial IReadOnlyList<BuildReview> Reviews { get; private set; }
 

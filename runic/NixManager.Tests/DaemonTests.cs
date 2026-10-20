@@ -311,7 +311,7 @@ public sealed class DaemonTests : IDisposable
         await Task.Delay(300);
         await Assert.That(_notifications.Shown.Reader.TryRead(out _)).IsFalse();
 
-        // The icon shows the menu of the Bun tray, with commands that start work disabled while one runs.
+        // The icon shows the tray menu, with commands that start work disabled while one runs.
         var menu = _icon.Shown[^1].Menu.OfType<DesktopMenuCommand>().Select(item => item.Label).ToList();
         await Assert.That(menu).IsEquivalentTo(["Open Nix Manager", "Check for updates", "Prepare all updates for review…", "Quit Nix Manager"],
             TUnit.Assertions.Enums.CollectionOrdering.Matching);
@@ -359,7 +359,7 @@ public sealed class DaemonTests : IDisposable
     }
 
     [Test]
-    public async Task Notices_follow_the_Bun_tray()
+    public async Task Notices_follow_the_tray()
     {
         Operation Ended(string action, string status, string? error = null, bool dryRun = false) => new()
         {

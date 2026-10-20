@@ -43,7 +43,7 @@
     const client = systemView?.client;
     const request = { key, scope: cleanupScope, retention };
     if (!client || !app.system || !removed || measured?.key === key) return;
-    // Waits for the choice to settle, as the Bun version did.
+    // Waits for the choice to settle.
     const timer = setTimeout(() => {
       asked = request;
       void (async () => {

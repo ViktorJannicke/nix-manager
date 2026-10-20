@@ -4,8 +4,8 @@ using NixManager.Operations;
 namespace NixManager.Explain;
 
 /// <summary>
-/// Common Nix failures in words someone who does not know Nix can act on (<c>src/explain.ts</c>). The text is
-/// English, as the Bun version stores it, and translated where it is shown.
+/// Common Nix failures in words someone who does not know Nix can act on. The text is
+/// English, as it is stored, and translated where it is shown.
 /// </summary>
 public static partial class Explainer
 {

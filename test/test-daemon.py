@@ -543,7 +543,7 @@ class DaemonTests(unittest.TestCase):
 
 
 class SetupTests(unittest.TestCase):
-    """`ui` before there is a checkout, and with one that does not load (setUp and main in src/main.ts)."""
+    """`ui` before there is a checkout, and with one that does not load."""
 
     def setUp(self):
         self.sandbox = Sandbox()

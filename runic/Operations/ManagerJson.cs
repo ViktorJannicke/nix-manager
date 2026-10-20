@@ -7,8 +7,8 @@ using NixManager.Domain;
 namespace NixManager.Operations;
 
 /// <summary>
-/// JSON as the Bun version writes it with <c>JSON.stringify(value, null, 2)</c>: camelCase, absent members
-/// omitted, two-space indentation, and no escaping of text that JSON does not require.
+/// The JSON of the state directory's files: camelCase, absent members omitted, two-space indentation, and no
+/// escaping of text that JSON does not require.
 /// </summary>
 public static class ManagerJson
 {

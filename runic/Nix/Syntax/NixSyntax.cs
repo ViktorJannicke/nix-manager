@@ -6,8 +6,7 @@ namespace NixManager.Nix.Syntax;
 
 /// <summary>
 /// One node of a parsed Nix file: the tree-sitter Nix grammar's concrete syntax tree, copied out of the native
-/// tree so it outlives it. Indices count UTF-16 code units, as JavaScript's and .NET's strings do, so they match
-/// the Bun version's (web-tree-sitter parses JavaScript strings as UTF-16 too).
+/// tree so it outlives it. Indices count UTF-16 code units, as JavaScript's and .NET's strings do.
 /// </summary>
 public sealed class SyntaxNode
 {
@@ -75,9 +74,9 @@ public sealed class SyntaxNode
 public sealed record SyntaxTree(string Source, SyntaxNode Root);
 
 /// <summary>
-/// The tree-sitter Nix grammar (<c>src/syntax.ts</c>). Its concrete syntax tree keeps every byte, so edits replace
-/// exact source ranges and leave comments and formatting untouched. The Bun version loads the grammar built as
-/// WebAssembly; the port loads the same grammar built as a native library, with the tree-sitter runtime:
+/// The tree-sitter Nix grammar. Its concrete syntax tree keeps every byte, so edits replace
+/// exact source ranges and leave comments and formatting untouched. The grammar is loaded as a native library,
+/// with the tree-sitter runtime:
 /// <c>NIX_MANAGER_NIX_PARSER</c> names the grammar (<c>tree-sitter-nix/parser</c>) and
 /// <c>NIX_MANAGER_TREE_SITTER</c> the runtime (<c>libtree-sitter.so</c>), which is otherwise found by name.
 /// </summary>

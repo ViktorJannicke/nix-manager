@@ -1,7 +1,6 @@
-// Curated experiences: friendly bundles of NixOS and Home Manager options, from the Bun version's src/curated.ts,
-// which this file replaces once the Bun version is removed. The backend reads the same options for the inventory
-// (Software/CuratedOptions.cs, with StoreTests comparing them against a recording of src/); keep the option names
-// of both identical. Titles, summaries, labels and help are English; `stored` translates them (translations/stored).
+// Curated experiences: friendly bundles of NixOS and Home Manager options. The backend reads the same options for the
+// inventory (Software/CuratedOptions.cs); keep the option names identical in both. Titles, summaries, labels and help
+// are English; `stored` translates them (translations/stored).
 //
 // Every option path below is validated against the evaluated option tree at
 // runtime. An experience whose options are missing from the user's

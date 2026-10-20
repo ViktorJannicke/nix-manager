@@ -1,10 +1,10 @@
 namespace NixManager.Nix;
 
 /// <summary>
-/// JavaScript's text semantics where the Bun version's results depend on them: the characters its regular
+/// JavaScript's text semantics that some results depend on: the characters its regular
 /// expressions call white space (<c>\s</c>) and "any character" (<c>.</c>), and <c>String.prototype.localeCompare</c>.
 /// .NET's own <c>\s</c> differs (it has U+0085 and lacks U+FEFF), its <c>.</c> matches <c>\r</c>, and its <c>$</c>
-/// matches before a final newline, so the ported patterns use these classes and <c>\z</c>.
+/// matches before a final newline, so patterns that need JavaScript's behaviour use these classes and <c>\z</c>.
 /// </summary>
 public static class JsText
 {
@@ -17,7 +17,7 @@ public static class JsText
     /// <summary>JavaScript's <c>.</c> without the <c>s</c> flag: anything but a line terminator.</summary>
     public const string Dot = @"[^\n\r  ]";
 
-    // The CLDR root collation order of printable ASCII (ICU's, which Bun's localeCompare uses): white space,
+    // The CLDR root collation order of printable ASCII (ICU's, which JavaScript's localeCompare uses): white space,
     // punctuation, symbols, currency, digits, then letters with lower case before upper case at the third level.
     private const string Order = "\t\n\v\f\r _-,;:!?.'\"()[]{}@*/\\&#%`^+<=>|~$0123456789abcdefghijklmnopqrstuvwxyz";
 
@@ -39,7 +39,7 @@ public static class JsText
     }
 
     /// <summary>
-    /// <c>a.localeCompare(b)</c> as Bun computes it for the default locale: exact for ASCII text such as file
+    /// <c>a.localeCompare(b)</c> as JavaScript computes it for the default locale: exact for ASCII text such as file
     /// paths, and for Latin letters with diacritics; other characters sort after ASCII by code unit (ICU orders
     /// them by the full collation table).
     /// </summary>

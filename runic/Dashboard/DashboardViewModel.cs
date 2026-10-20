@@ -27,7 +27,7 @@ public sealed record DashboardHost(string Name, string System, string NixosConfi
 /// <param name="Hosts">Every host of the checkout, by name.</param>
 public sealed record DashboardConfiguration(string Flake, string HostKey, string HomeProfile, IReadOnlyList<DashboardHost> Hosts);
 
-/// <summary>A change to the dashboard's preferences (<c>Preferences</c> in <c>src/preferences.ts</c>); null leaves a preference as it is.</summary>
+/// <summary>A change to the dashboard's preferences; null leaves a preference as it is.</summary>
 /// <param name="Theme"><c>system</c>, <c>light</c> or <c>dark</c>.</param>
 /// <param name="Language"><c>system</c>, <c>en</c> or <c>de</c>.</param>
 /// <param name="Detail"><c>simple</c> or <c>detailed</c>.</param>
@@ -55,10 +55,10 @@ public sealed record PlanPreview(Request Request, Plan? Plan, string? Error);
 /// </summary>
 /// <remarks>
 /// A view of the process's services, like <see cref="OperationsViewModel"/>: closing the Window leaves a running
-/// operation running (D025.1). The state directory is watched, so an operation that the command line or the Bun
-/// version runs, a new update report, reviews, pending edits and preferences changed elsewhere appear without a
-/// refresh. The computer is observed again when the Window opens, after each operation and every 30 seconds while
-/// it is open, as the Bun dashboard does, to notice edits to the checkout and changes made outside Nix Manager.
+/// operation running (D025.1). The state directory is watched, so an operation that the command line runs, a new update
+/// report, reviews, pending edits and preferences changed elsewhere appear without a refresh. The computer is observed
+/// again when the Window opens, after each operation and every 30 seconds while it is open, to notice edits to the
+/// checkout and changes made outside Nix Manager.
 /// </remarks>
 public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 {
@@ -126,7 +126,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         Operations.PropertyChanged += OnOperationsChanged;
         System.PropertyChanged += OnSystemChanged;
         _software.Changed += OnSoftwareChanged;
-        // A fresh observation unless another Window or the daemon made one in the last seconds (src/server.ts).
+        // A fresh observation unless another Window or the daemon made one in the last seconds.
         var observed = System.System is { } state && Timestamps.Parse(state.ObservedAt) is { } at ? at : (DateTimeOffset?)null;
         var now = (clock ?? TimeProvider.System).GetUtcNow();
         if (observed is null || now - observed > TimeSpan.FromSeconds(5)) _context.TryPost(RefreshSystem);
@@ -201,7 +201,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial PlanPreview? Preview { get; private set; }
 
-    /// <summary>Saves preferences for this and later launches; the Bun version and the background tasks read the same file.</summary>
+    /// <summary>Saves preferences for this and later launches; the background tasks read the same file.</summary>
     [RelayCommand]
     private void SavePreferences(PreferenceChange change)
     {

@@ -14,7 +14,7 @@ public sealed record PackageItem(string? Attr, IReadOnlyList<string>? Path, stri
 /// <param name="Conditional">The list only applies under a condition such as <c>lib.optionals</c>.</param>
 public sealed record PackageList(string Binding, string? Scope, bool Conditional, int Start, int End, IReadOnlyList<PackageItem> Items);
 
-/// <summary>Package lists of Nix files and their edits (<c>src/packages.ts</c>).</summary>
+/// <summary>Package lists of Nix files and their edits.</summary>
 public static partial class PackageLists
 {
     /// <summary>Bindings whose value is a list of packages, matched by their full attrpath (<c>packageBindings</c>).</summary>

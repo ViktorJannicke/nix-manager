@@ -5,8 +5,8 @@ using Runic.Desktop;
 namespace NixManager.Dashboard;
 
 /// <summary>
-/// App icons for the dashboard's page at <c>app-icon/&lt;id&gt;</c> beside its own files (<c>/api/app-icon/&lt;id&gt;</c>
-/// in the Bun version): Flathub's icon of an app in the catalog, from the icon cache or downloaded into it. The
+/// App icons for the dashboard's page at <c>app-icon/&lt;id&gt;</c> beside its own files: Flathub's icon of an app in
+/// the catalog, from the icon cache or downloaded into it. The
 /// Desktop host asks for what the page's build has no file for (<see cref="Runic.Application.Views.Desktop.RunicDesktopHost.Resources"/>),
 /// in a native window and in a browser alike.
 /// </summary>

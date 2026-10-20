@@ -18,7 +18,7 @@ public sealed record HistoryEntry
     public bool Applied { get; init; }
 }
 
-/// <summary>The configuration's Git history of applied changes (<c>src/history.ts</c>).</summary>
+/// <summary>The configuration's Git history of applied changes.</summary>
 public static partial class ChangeHistory
 {
     /// <summary>Marks the commits Nix Manager makes, so the history can tell them apart.</summary>

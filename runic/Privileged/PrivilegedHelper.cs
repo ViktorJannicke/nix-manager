@@ -7,8 +7,8 @@ using Runic.Platform.Linux.Polkit;
 namespace NixManager.Privileged;
 
 /// <summary>
-/// The program pkexec runs as root: <c>nix-manager --privileged COMMAND ARGUMENT...</c>, with the commands of the
-/// Bun version's <c>privileged</c> in <c>src/main.ts</c> and the same checks.
+/// The program pkexec runs as root: <c>nix-manager --privileged COMMAND ARGUMENT...</c>, with the commands and
+/// checks listed below.
 /// </summary>
 /// <remarks>
 /// <list type="bullet">
@@ -21,7 +21,7 @@ namespace NixManager.Privileged;
 /// The declaration (<c>NixManager.csproj</c>) admits only these commands, each with its arguments by position;
 /// <see cref="PolkitHelper.Match"/> checks them and resets the process state pkexec inherited, and this class checks
 /// their meaning: the resolved store path, an existing generation and the retention range. Standard input is not watched: a running step finishes when the application cancels or
-/// exits, as with the Bun version.
+/// exits.
 /// </remarks>
 public static partial class PrivilegedHelper
 {

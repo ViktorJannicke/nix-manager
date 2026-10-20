@@ -23,7 +23,7 @@ public sealed record OptionDoc
     [JsonPropertyName("decl")] public IReadOnlyList<string> Decl { get; init; } = [];
 }
 
-/// <summary>Documented options of a configuration (<c>optionDocs</c> in <c>src/software.ts</c>).</summary>
+/// <summary>Documented options of a configuration.</summary>
 public static class OptionDocs
 {
     public const string Expression = """
@@ -41,7 +41,7 @@ public static class OptionDocs
         }) visible
         """;
 
-    /// <summary>Documented options of a configuration, as <c>optionAttrSetToDocList</c> describes them (<c>optionDocs</c>).</summary>
+    /// <summary>Documented options of a configuration, as <c>optionAttrSetToDocList</c> describes them.</summary>
     public static async Task<List<OptionDoc>> ReadAsync(Config config, string host, string scope, Func<Command, Task<CommandResult>> run)
     {
         var result = await run(new Command

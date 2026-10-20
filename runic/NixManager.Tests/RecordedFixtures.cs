@@ -66,8 +66,8 @@ internal sealed partial class RecordedFixtures : IDisposable
     private static partial Regex PrivilegedText();
 
     /// <summary>
-    /// Text with the checkout as <c>&lt;flake&gt;</c> and the privileged entry point, which names the Bun or the
-    /// .NET program, as <c>&lt;privileged&gt;</c>.
+    /// Text with the checkout as <c>&lt;flake&gt;</c> and the privileged entry point, which names the recording's or this
+    /// program, as <c>&lt;privileged&gt;</c>.
     /// </summary>
     public string NormalizeText(string text) => PrivilegedText().Replace(text.Replace(Root, "<flake>", StringComparison.Ordinal), "<privileged>");
 

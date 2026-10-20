@@ -158,7 +158,7 @@ public sealed class DashboardTests : IAsyncDisposable
     [Test]
     public async Task Someone_who_ran_operations_before_starts_detailed_with_app_details_on()
     {
-        // The fixtures hold the Bun version's records, so the first choice written on opening is the detailed view.
+        // The fixtures hold earlier operation records, so the first choice written on opening is the detailed view.
         var dashboard = _window.Root.Snapshot();
         await Assert.That(dashboard.Read(vm => vm.Detail)).IsEqualTo("detailed");
         await Assert.That(dashboard.Read(vm => vm.History)).IsFalse();

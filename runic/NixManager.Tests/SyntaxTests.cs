@@ -5,7 +5,7 @@ using NixManager.Nix.Syntax;
 
 namespace NixManager.Tests;
 
-/// <summary>The native tree-sitter Nix grammar, as <c>src/syntax.ts</c> reads it with web-tree-sitter.</summary>
+/// <summary>The native tree-sitter Nix grammar.</summary>
 public sealed class SyntaxTests
 {
     [Test]

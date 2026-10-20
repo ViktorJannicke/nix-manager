@@ -11,7 +11,7 @@ public sealed class ManagerException(string message, Explanation? explanation = 
     public Explanation? Explanation { get; } = explanation;
 }
 
-/// <summary>The actions of <c>src/domain.ts</c>, spelled as they are stored.</summary>
+/// <summary>The actions, spelled as they are stored.</summary>
 public static class Actions
 {
     public const string Build = "build";
@@ -29,7 +29,7 @@ public static class Actions
     public static readonly IReadOnlyList<string> All =
         [Build, Switch, Boot, Rollback, Gc, T3codeUpdate, OpencodeUpdate, PinceUpdate, Check, ReviewBuild, ReviewApply];
 
-    /// <summary>English labels, as stored and shown by the Bun version (<c>actionLabels</c>).</summary>
+    /// <summary>English labels, as they are stored and shown.</summary>
     public static readonly IReadOnlyDictionary<string, string> Labels = new Dictionary<string, string>
     {
         [Build] = "Build configuration",
@@ -60,7 +60,7 @@ public static class Scopes
 
 /// <summary>
 /// One requested operation, stored with every operation record. The property names and the optional members
-/// match <c>Request</c> in <c>src/domain.ts</c>, so records of either version read in the other.
+/// are kept as stored, so records written by earlier versions still read.
 /// </summary>
 public sealed record Request
 {
@@ -91,7 +91,7 @@ public sealed record Request
     [JsonExtensionData]
     public Dictionary<string, System.Text.Json.JsonElement>? Unknown { get; set; }
 
-    /// <summary>A request with the Bun version's defaults (<c>request()</c> in <c>src/domain.ts</c>).</summary>
+    /// <summary>A request with the default values.</summary>
     public static Request Create() => new() { Retention = 3 };
 
     [JsonIgnore] public bool IncludesHome => Scope != Scopes.System;
@@ -108,7 +108,7 @@ public static partial class RequestValidation
 
     public static bool ValidId(string? id) => id is not null && IdPattern().IsMatch(id);
 
-    /// <summary>The checks of <c>validate</c> in <c>src/domain.ts</c>, with the same messages.</summary>
+    /// <summary>Checks a request, failing with a message when it is invalid.</summary>
     public static void Validate(Request r)
     {
         static void Fail(string message) => throw new ManagerException(message);

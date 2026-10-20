@@ -9,9 +9,8 @@ using NixManager.Updates;
 namespace NixManager.Tests;
 
 /// <summary>
-/// Review records shared with the Bun version: the real ones in <c>Fixtures/recorded-state/reviews</c>, those
-/// <c>Fixtures/record-bun-reviews.ts</c> recorded with the Bun functions (<c>Fixtures/recorded-reviews</c>), and records
-/// written here, which the Bun version reads.
+/// Review records in the stored format: the real ones in <c>Fixtures/recorded-state/reviews</c>, the recorded corpus
+/// in <c>Fixtures/recorded-reviews</c>, and records written here, which must read back the same way.
 /// </summary>
 public sealed class ReviewCompatibilityTests : IDisposable
 {
@@ -24,7 +23,7 @@ public sealed class ReviewCompatibilityTests : IDisposable
     private static string RepositoryRoot([CallerFilePath] string source = "") => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source)!, "..", ".."));
 
     [Test]
-    public async Task Real_reviews_of_the_Bun_version_load_newest_first_and_write_back_identically()
+    public async Task Real_reviews_load_newest_first_and_write_back_identically()
     {
         var config = TestConfig.Create(_fixtures.Root) with { StateDir = _fixtures.StateDir };
         var reviews = ReviewStore.List(config);
@@ -49,7 +48,7 @@ public sealed class ReviewCompatibilityTests : IDisposable
     [Arguments("undo")]
     [Arguments("generation")]
     [Arguments("inputs")]
-    public async Task Reviews_the_Bun_version_writes_load_and_write_back_identically(string name)
+    public async Task Recorded_reviews_load_and_write_back_identically(string name)
     {
         var text = File.ReadAllText(Recorded(name));
         var review = ManagerJson.Deserialize<BuildReview>(text)!;
@@ -109,7 +108,7 @@ public sealed class ReviewCompatibilityTests : IDisposable
     }
 
     [Test]
-    public async Task An_undo_review_is_prepared_from_a_change_the_Bun_version_applied()
+    public async Task An_undo_review_is_prepared_from_a_recorded_applied_change()
     {
         var config = TestConfig.Create(_fixtures.Root) with { StateDir = _fixtures.StateDir };
         var applied = Path.Combine(RecordedFixtures.Directory, "recorded-reviews", "applied");
@@ -123,7 +122,7 @@ public sealed class ReviewCompatibilityTests : IDisposable
 
         await Assert.That(plan.Steps.Select(s => s.Label)).IsEquivalentTo(["Retain home generation 5", "Compare with the active configuration"]);
         await Assert.That(plan.Notes[0]).IsEqualTo("Applying the undo also restores the configuration files the change wrote.");
-        // The Bun version's real .undo contents read too; that change was applied on the host desktop.
+        // The real .undo contents read too; that change was applied on the host desktop.
         var host = config.Hosts["test"];
         await using var desktop = new OperationService(config with { Hosts = new Dictionary<string, Host> { ["test"] = host, ["desktop"] = host with { NixosHostName = "desktop" } } },
             new FakeRunner(), new FakeUpdates(new UpdateReport { CheckedAt = "" }));

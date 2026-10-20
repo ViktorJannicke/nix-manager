@@ -3,7 +3,7 @@ using NixManager.Execution;
 
 namespace NixManager.Observation;
 
-/// <summary>What a cleanup would free (<c>CleanupEstimate</c> in <c>src/space.ts</c>).</summary>
+/// <summary>What a cleanup would free.</summary>
 public sealed record CleanupEstimate
 {
     /// <summary>Restore points the cleanup removes.</summary>
@@ -12,12 +12,12 @@ public sealed record CleanupEstimate
     public long Bytes { get; init; }
 }
 
-/// <summary>Estimates a cleanup without removing anything (<c>src/space.ts</c>, <c>removedGenerations</c> in <c>src/summary.ts</c>).</summary>
+/// <summary>Estimates a cleanup without removing anything.</summary>
 public static class CleanupEstimator
 {
     /// <summary>
     /// The generations <c>nix-env --delete-generations +N</c> removes: all but the newest <paramref name="retention"/>
-    /// and the active one (<c>removedGenerations</c>).
+    /// and the active one.
     /// </summary>
     public static IReadOnlyList<Generation> RemovedGenerations(IReadOnlyList<Generation> generations, int retention)
     {

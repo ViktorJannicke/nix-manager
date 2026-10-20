@@ -1,6 +1,5 @@
-// Settings of the computer itself, shown on the Computer page as forms (src/computer.ts, which this replaces once
-// the Bun version is removed; Software/CuratedOptions.cs reads the same options). Labels, help, reasons and
-// problems are English; `stored` translates them.
+// Settings of the computer itself, shown on the Computer page as forms (Software/CuratedOptions.cs reads the same
+// options). Labels, help, reasons and problems are English; `stored` translates them.
 //
 // Like the curated experiences, every option is checked against the evaluated
 // option tree: a setting the configuration does not have is hidden. All of them

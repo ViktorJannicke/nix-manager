@@ -6,7 +6,7 @@ using NixManager.Operations;
 namespace NixManager.Reviews;
 
 /// <summary>
-/// Review summaries, sizes and time estimates (<c>src/summary.ts</c>). The tray's notifications use them in the
+/// Review summaries, sizes and time estimates. The tray's notifications use them in the
 /// dashboard's language (<see cref="TrayText"/>); the dashboard's frontend keeps its own copy.
 /// </summary>
 public static class ReviewSummary

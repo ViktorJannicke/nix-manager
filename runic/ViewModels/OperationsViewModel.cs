@@ -51,7 +51,7 @@ public sealed partial class OperationsViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial Operation? Active { get; private set; }
 
-    /// <summary>The latest operations of this checkout, newest first; records of the Bun version included.</summary>
+    /// <summary>The latest operations of this checkout, newest first; records of earlier versions included.</summary>
     [ObservableProperty]
     public partial IReadOnlyList<Operation> Operations { get; private set; }
 

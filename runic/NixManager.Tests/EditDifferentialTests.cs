@@ -9,8 +9,8 @@ using NixManager.Software;
 namespace NixManager.Tests;
 
 /// <summary>
-/// Replays the corpus <c>Fixtures/record-bun-edits.ts</c> recorded with the Bun version's edit engine
-/// (<c>Fixtures/recorded-edits.json</c>) and requires the same results and error messages, as JSON text.
+/// Replays the recorded edit corpus (<c>Fixtures/recorded-edits.json</c>) and requires the same results and error
+/// messages, as JSON text.
 /// </summary>
 public sealed class EditDifferentialTests
 {
@@ -186,13 +186,13 @@ public sealed class EditDifferentialTests
                 actual = $"error: {error.Message}";
             }
             if (actual != expected)
-                differences.Add($"{op} {Text(item["file"]) ?? JsJson.Stringify(args)}\n  Bun: {expected}\n  C#:  {actual}");
+                differences.Add($"{op} {Text(item["file"]) ?? JsJson.Stringify(args)}\n  Recorded: {expected}\n  C#:  {actual}");
         }
         return differences;
     }
 
     [Test]
-    public async Task The_edit_engine_matches_the_Bun_version_on_the_recorded_corpus()
+    public async Task The_edit_engine_matches_the_recorded_corpus()
     {
         var differences = Differences(Path.Combine(RecordedFixtures.Directory, "recorded-edits.json"));
         if (differences.Count > 0) Assert.Fail($"{differences.Count} differences:\n{string.Join("\n", differences.Take(20))}");

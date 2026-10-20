@@ -16,7 +16,7 @@ namespace NixManager.Edits;
 /// <param name="Importable">An import can be added (<c>addImport</c>).</param>
 public sealed record ModuleShape(bool Editable, IReadOnlyList<string> Names, IReadOnlyList<string> Settings, IReadOnlyList<string> Imports, bool Importable);
 
-/// <summary>Option settings of module files and their edits (<c>src/options.ts</c>).</summary>
+/// <summary>Option settings of module files and their edits.</summary>
 public static partial class ModuleOptions
 {
     private static string Escape(string text) =>

@@ -8,9 +8,7 @@ using Runic.Navigation;
 namespace NixManager.Tests;
 
 /// <summary>
-/// Generations and the observed system with fake profile folders (the <c>src/observe.ts</c> parts of
-/// <c>test/core.test.ts</c>), the observation cache, and the cleanup estimate (<c>test/background.test.ts</c>,
-/// <c>removedGenerations</c> of <c>test/summary.test.ts</c>).
+/// Generations and the observed system with fake profile folders, the observation cache, and the cleanup estimate.
 /// </summary>
 public sealed class ObservationTests : IDisposable
 {
@@ -101,7 +99,7 @@ public sealed class ObservationTests : IDisposable
             await Assert.That(state.Disk!.Path).IsEqualTo(_root);
             await Assert.That(state.Disk.Total).IsGreaterThan(0);
             await Assert.That(state.Repository.LockHash).IsEqualTo(Repository.HashText(""));
-            // Serialized as the Bun version writes it: home generations without the system's members.
+            // Serialized in the stored format: home generations without the system's members.
             var json = ManagerJson.Serialize(state);
             await Assert.That(json).Contains("\"rebootRequired\": true");
 

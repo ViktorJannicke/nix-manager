@@ -10,7 +10,7 @@ using NixManager.Updates;
 
 namespace NixManager.Software;
 
-/// <summary>A catalog entry with what Flathub says about it, when it is an app (<c>AppEntry</c> in <c>src/apps.ts</c>).</summary>
+/// <summary>A catalog entry with what Flathub says about it, when it is an app.</summary>
 public sealed record AppEntry : CatalogEntry
 {
     public AppEntry() { }
@@ -37,7 +37,7 @@ public sealed record AppsStatus
 }
 
 /// <summary>
-/// Apps in the package catalog (<c>src/apps.ts</c>). nixpkgs knows which packages exist but not which of them are
+/// Apps in the package catalog. nixpkgs knows which packages exist but not which of them are
 /// apps people open from a menu, what they are called there or what they look like. Flathub's public AppStream
 /// catalogue does; its entries are matched to nixpkgs packages by homepage and name. Packages still come from the
 /// locked nixpkgs: Flathub only names, sorts and pictures them.

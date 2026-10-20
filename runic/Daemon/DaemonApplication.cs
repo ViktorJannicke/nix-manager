@@ -37,7 +37,7 @@ public static class DaemonApplication
             .AddNixManagerDashboard()
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
         // On Linux the icon is a StatusNotifierItem and notifications go through the desktop portal, without GTK. The
-        // dashboard alone (DaemonMode.Ui) shows no icon, as the Bun version's did not.
+        // dashboard alone (DaemonMode.Ui) shows no icon.
         var icon = settings.Mode == DaemonMode.Tray
             ? PlatformServices.CreateStatusIcon()
             : DesktopStatusIcons.Unavailable(PlatformUnavailableReason.ProviderNotConfigured);

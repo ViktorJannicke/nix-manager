@@ -3,21 +3,20 @@ using NixManager.Edits;
 namespace NixManager.Software;
 
 /// <summary>A curated experience's options: those that turn it on and those its settings screen shows.</summary>
-/// <param name="Id">The experience, as <c>experiences</c> in <c>src/curated.ts</c> names it.</param>
+/// <param name="Id">The experience's name.</param>
 /// <param name="Scope"><c>home</c> or <c>system</c>.</param>
 /// <param name="Enable">The options set when it is turned on (the keys of <c>enable</c>).</param>
 /// <param name="Settings">The options of its settings screen.</param>
 public sealed record CuratedExperienceOptions(string Id, string Scope, IReadOnlyList<string> Enable, IReadOnlyList<string> Settings);
 
 /// <summary>
-/// Options of the curated experiences and the Computer page, so the inventory reports their state
-/// (<c>curatedOptions</c> in <c>src/store.ts</c>). Only the option names: the experiences' texts, values and
-/// packages are the dashboard's data. <c>record-bun-store.ts</c> records the Bun version's lists, which StoreTests
-/// compares with these.
+/// Options of the curated experiences and the Computer page, so the inventory reports their state. Only the
+/// option names: the experiences' texts, values and packages are the dashboard's data. StoreTests compares the
+/// names with the lists in <c>Fixtures/recorded-store.json</c>.
 /// </summary>
 public static class CuratedOptions
 {
-    /// <summary>Each experience in the order of <c>experiences</c>.</summary>
+    /// <summary>Each experience in the order of <c>Experiences</c>.</summary>
     public static readonly IReadOnlyList<CuratedExperienceOptions> Experiences =
     [
         new("non-free", Targets.System, ["nixpkgs.config.allowUnfree"], []),
@@ -73,7 +72,7 @@ public static class CuratedOptions
         new("mangohud", Targets.Home, ["programs.mangohud.enable"], ["programs.mangohud.enableSessionWide"]),
     ];
 
-    /// <summary>Options the Computer page reads, besides the users (<c>computerOptions</c> in <c>src/computer.ts</c>).</summary>
+    /// <summary>Options the Computer page reads, besides the users.</summary>
     public static readonly IReadOnlyList<string> Computer =
     [
         "networking.hostName",
@@ -100,7 +99,7 @@ public static class CuratedOptions
         "users.mutableUsers",
     ];
 
-    /// <summary>The options the inventory of <paramref name="scope"/> reads, in the Bun version's order and with its repeats.</summary>
+    /// <summary>The options the inventory of <paramref name="scope"/> reads, in a fixed order, with repeats.</summary>
     public static IReadOnlyList<string> For(string scope) =>
     [
         .. Experiences.Where(experience => experience.Scope == scope).SelectMany(experience => experience.Enable.Concat(experience.Settings)),

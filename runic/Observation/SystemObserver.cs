@@ -14,7 +14,7 @@ public sealed record ObservationPaths(string CurrentSystem, string BootedSystem,
     public static ObservationPaths Default { get; } = new("/run/current-system", "/run/booted-system", Paths.SystemProfile, "/nix/store");
 }
 
-/// <summary>Generations and the observed state of the computer (<c>generations</c>, <c>observeSystem</c> in <c>src/observe.ts</c>).</summary>
+/// <summary>Generations and the observed state of the computer.</summary>
 public static class SystemObserver
 {
     private static string? Resolved(string path) => Native.RealPath(path);
@@ -41,7 +41,7 @@ public static class SystemObserver
     /// <summary>
     /// The generations of <paramref name="profile"/>, newest first: each <c>PROFILE-N-link</c> beside it, with the link's
     /// modification time as its creation. System generations also say whether they were booted and which NixOS
-    /// version and kernel they have (<c>generations</c>).
+    /// version and kernel they have.
     /// </summary>
     public static IReadOnlyList<Generation> Generations(string profile, string? current, string? booted = null, bool system = false)
     {
@@ -82,7 +82,7 @@ public static class SystemObserver
 
     /// <summary>
     /// The checkout's Git state, the generations of both profiles, the current and booted outputs, whether a restart
-    /// is needed, and the free space of the store (<c>observeSystem</c>).
+    /// is needed, and the free space of the store.
     /// </summary>
     public static async Task<SystemState> ObserveAsync(Config config, ObservationPaths? paths = null, TimeProvider? clock = null,
         CancellationToken cancellationToken = default)
@@ -132,7 +132,7 @@ public static class SystemObserver
 }
 
 /// <summary>
-/// Caches the last observation (<c>Observer</c> in <c>src/observe.ts</c>). Concurrent refreshes share one pass so
+/// Caches the last observation. Concurrent refreshes share one pass so
 /// clients and operation events never queue redundant Git or file system scans; a refresh asked for during a pass
 /// runs the pass once more, and listeners hear of each finished refresh.
 /// </summary>
