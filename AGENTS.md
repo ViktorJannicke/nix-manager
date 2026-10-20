@@ -2,18 +2,18 @@
 
 Read `flake.nix` and `README.md` before choosing build commands. Use the locked
 development environment with `nix develop`; do not install a second toolchain.
-Keep dependency versions and both JavaScript lock files in sync. This extraction
-preserves the existing Effect 3 dependency set.
 
-Run `nix flake check` before publishing. Package checks include type checking,
-Bun tests, native WebUI and D-Bus tests, and packaged CLI regression tests.
+The application lives in `runic/`: C# (`NixManager.csproj`, tests in
+`NixManager.Tests`) on the Runic SDK, with the dashboard's Svelte frontend in
+`runic/Frontend` (Bun, `bun.lock`). Keep the Runic package versions on one SDK
+release, and keep `.config/dotnet-tools.json`, the NuGet lock files
+(`packages*.lock.json`) and the frontend hashes in `runic/package.nix` in sync
+with them.
 
-# Learning more about Effect
+Use the Runic packages as their documentation describes rather than working
+around them. When an SDK package cannot do something nix-manager needs, report
+it upstream (Runic-Artifex) instead of adding a local replacement.
 
-This repository uses the Effect Typescript library.
-
-Before writing any Effect code, first read `node_modules/effect/AGENTS.md`
-**completely**, and follow the links in the file when required.
-
-If you need to learn more about particular Effect APIs and concepts that the
-guide doesn't cover, search through the source code in `node_modules/effect/src`.
+Run `nix flake check` before publishing. It builds the package with its unit
+tests, and runs the command line and daemon regression suites in `test/`, the
+NixOS module checks and the Nix formatting check.

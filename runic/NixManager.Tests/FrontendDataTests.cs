@@ -11,7 +11,7 @@ namespace NixManager.Tests;
 /// </summary>
 public sealed partial class FrontendDataTests
 {
-    private static string Read(string name) => File.ReadAllText(Path.Combine(BunFixtures.Directory, "frontend", name));
+    private static string Read(string name) => File.ReadAllText(Path.Combine(RecordedFixtures.Directory, "frontend", name));
 
     [Test]
     public async Task Every_curated_feature_has_the_options_the_inventory_reads()

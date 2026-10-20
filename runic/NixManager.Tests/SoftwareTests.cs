@@ -10,11 +10,11 @@ namespace NixManager.Tests;
 
 /// <summary>
 /// The software functions that need neither nix nor the edit engine, compared with the Bun version's results in
-/// <c>Fixtures/bun-software-functions.json</c> (<c>record-bun-software.ts</c>) and the recorded searches.
+/// <c>Fixtures/recorded-software-functions.json</c> (<c>record-bun-software.ts</c>) and the recorded searches.
 /// </summary>
 public sealed class SoftwareTests
 {
-    private static readonly JsonNode Functions = JsonNode.Parse(File.ReadAllText(Path.Combine(BunFixtures.Directory, "bun-software-functions.json")))!;
+    private static readonly JsonNode Functions = JsonNode.Parse(File.ReadAllText(Path.Combine(RecordedFixtures.Directory, "recorded-software-functions.json")))!;
 
     private static List<string> Strings(JsonNode? node) => node!.AsArray().Select(item => item!.GetValue<string>()).ToList();
 
@@ -129,8 +129,8 @@ public sealed class SoftwareTests
     public async Task Catalog_search_ranks_as_the_Bun_version()
     {
         var web = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-        var cases = JsonNode.Parse(File.ReadAllText(Path.Combine(BunFixtures.Directory, "cli-cases-software.json")))!.AsArray();
-        var recorded = JsonNode.Parse(File.ReadAllText(Path.Combine(BunFixtures.Directory, "bun-cli-software.json")))!.AsArray()
+        var cases = JsonNode.Parse(File.ReadAllText(Path.Combine(RecordedFixtures.Directory, "cli-cases-software.json")))!.AsArray();
+        var recorded = JsonNode.Parse(File.ReadAllText(Path.Combine(RecordedFixtures.Directory, "recorded-cli-software.json")))!.AsArray()
             .ToDictionary(item => item!["name"]!.GetValue<string>());
         var checkedCases = 0;
         foreach (var test in cases)

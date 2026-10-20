@@ -1,9 +1,8 @@
-# The Runic port: the backend and command line (W300-029), the dashboard Window on Runic Desktop (W300-030) and
-# the daemon with its status icon (W300-031), built in the Nix sandbox with the Runic SDK's buildRunicApplication
-# from the committed NuGet and Bun lock files, and tested there. The package is complete for the NixOS module
-# (W300-032): the program, its Polkit policy, a desktop entry with its icon, and shell completions. The program
-# is published with NativeAOT: the tray shows its icon and the command line answers without starting a runtime or
-# compiling (runic/COMPARISON.md).
+# Nix Manager: the backend and command line, the dashboard Window on Runic Desktop and the daemon with its status
+# icon, built in the Nix sandbox with the Runic SDK's buildRunicApplication from the committed NuGet and Bun lock
+# files, and tested there. The package is complete for the NixOS module: the program, its Polkit policy, a
+# desktop entry with its icon, and shell completions. The program is published with NativeAOT: the tray shows its
+# icon and the command line answers without starting a runtime or compiling.
 {
   lib,
   fetchzip,
@@ -18,7 +17,7 @@
   tree-sitter,
 }:
 let
-  # The Bun version's entry, which launches the same commands. StartupNotify lets the desktop pass an activation
+  # StartupNotify lets the desktop pass an activation
   # token (XDG_ACTIVATION_TOKEN), which `nix-manager ui` forwards to the running daemon, so the Window it raises
   # gets focus.
   desktop = makeDesktopItem {
@@ -39,7 +38,7 @@ let
       exec = "nix-manager tray";
     };
   };
-  # The Nix grammar the Bun version uses, built as a native library, and the tree-sitter runtime (NixSyntax).
+  # tree-sitter's Nix grammar, built as a native library, and the tree-sitter runtime (NixSyntax).
   parserEnvironment = {
     NIX_MANAGER_NIX_PARSER = "${tree-sitter.builtGrammars.tree-sitter-nix}/parser";
     NIX_MANAGER_TREE_SITTER = "${tree-sitter}/lib/libtree-sitter.so";
@@ -55,7 +54,7 @@ let
   };
 in
 buildRunicApplication {
-  pname = "nix-manager-runic";
+  pname = "nix-manager";
   version = "1.0.0";
   src = lib.fileset.toSource {
     root = ../.;
@@ -65,11 +64,11 @@ buildRunicApplication {
           ./package.nix
           # Local tools are for development; the build runs translationsTool.
           (lib.fileset.maybeMissing ./.config)
-          # Documentation, such as COMPARISON.md.
+          # Documentation.
           (lib.fileset.fileFilter (file: file.hasExt "md") ./.)
         ]
       ))
-      # The Bun version's Nix error fixtures, which the explanation tests read.
+      # Nix error output, which the explanation tests read.
       ../test/fixtures/nix-errors
     ];
   };
@@ -94,7 +93,7 @@ buildRunicApplication {
     packageManager = "bun";
     # The hash of the frontend's node_modules for each system; update both with Frontend/bun.lock (the build fails
     # when they are out of date). Bun installs only the system's optional packages, so they differ; `nix build
-    # .#runic.frontendNodeModules.fetchedFor.aarch64-linux` computes the aarch64-linux one on any system.
+    # .#default.frontendNodeModules.fetchedFor.aarch64-linux` computes the aarch64-linux one on any system.
     hash = {
       x86_64-linux = "sha256-lmXlaTaJYgGjKJexg34GZvCfljFTyc8nBrgc2hOQgb4=";
       aarch64-linux = "sha256-QTEYl9rq0R5RGb/UFWGzNKznwd2I+gQzjV2ivpb9ypY=";
@@ -140,7 +139,7 @@ buildRunicApplication {
       coreutils
       # Package updates show the recipe they change with diff -u (PackageUpdater).
       diffutils
-      # `ui --browser` opens the served dashboard with xdg-open, as the Bun version does.
+      # `ui --browser` opens the served dashboard with xdg-open.
       xdg-utils
       nix
       homeManager
@@ -148,7 +147,7 @@ buildRunicApplication {
     ])
   ];
   meta = {
-    description = "Nix Manager's backend, command line, dashboard and tray on Runic";
+    description = "Manage NixOS and Home Manager configurations: command line, dashboard and tray";
     mainProgram = "nix-manager";
     platforms = [
       "x86_64-linux"

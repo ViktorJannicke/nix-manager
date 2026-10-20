@@ -1,20 +1,19 @@
 # The lab machine: GNOME on Wayland with alice logged in, Orca ready, Nix
 # Manager installed and an /etc/nixos configuration to start from. Orca's
 # speech is written to /run/lab/spoken.txt instead of the sound card, so tests
-# can read exactly what a screen-reader user hears. With runic = true, the
-# module installs the Runic port instead of the Bun version.
+# can read exactly what a screen-reader user hears. With seeded = true, alice
+# also has a checkout and a registered host (seededCheckout).
 {
   self,
   userAccount,
-  runic ? false,
+  seeded ? true,
 }:
 let
   seededCheckout =
     { pkgs, ... }:
     {
-      # The port has no setup assistant yet (W300-032 adds it), so alice starts
-      # with a checkout in the default place, ~/my-flakes, and a registered host:
-      # the dashboard opens on it instead of on setup. Its configurations do not
+      # alice starts with a checkout in the default place, ~/my-flakes, and a
+      # registered host: the dashboard opens on it instead of on setup. Its configurations do not
       # evaluate offline; the tests look at the page, not at the results.
       programs.nix-manager.hosts.machine = {
         system = pkgs.stdenv.hostPlatform.system;
@@ -52,7 +51,7 @@ in
     userAccount
     self.nixosModules.default
   ]
-  ++ (if runic then [ seededCheckout ] else [ ]);
+  ++ (if seeded then [ seededCheckout ] else [ ]);
 
   virtualisation = {
     memorySize = 4096;
@@ -145,7 +144,6 @@ in
   };
 
   programs.nix-manager.enable = true;
-  programs.nix-manager.runic.enable = runic;
   environment.systemPackages = [
     # The VM has no GPU Chromium accepts; render in software as nixpkgs'
     # Chromium test does, and expose web content to AT-SPI from the start.

@@ -46,13 +46,13 @@ internal sealed class ManualClock(DateTimeOffset now) : TimeProvider
 
 /// <summary>
 /// The software store's parts beyond the catalog (<c>src/apps.ts</c>, <c>src/hardware.ts</c>, the apps and curated
-/// options of <c>src/store.ts</c>), compared with the Bun version's results in <c>Fixtures/bun-store.json</c>, which
+/// options of <c>src/store.ts</c>), compared with the Bun version's results in <c>Fixtures/recorded-store.json</c>, which
 /// <c>record-bun-store.ts</c> records, and the Software page's ViewModel over them.
 /// </summary>
 public sealed class StoreTests : IDisposable
 {
-    private static readonly JsonNode Recorded = JsonNode.Parse(File.ReadAllText(Path.Combine(BunFixtures.Directory, "bun-store.json")))!;
-    private static string Sample => File.ReadAllText(Path.Combine(BunFixtures.Directory, "appstream-sample.xml"));
+    private static readonly JsonNode Recorded = JsonNode.Parse(File.ReadAllText(Path.Combine(RecordedFixtures.Directory, "recorded-store.json")))!;
+    private static string Sample => File.ReadAllText(Path.Combine(RecordedFixtures.Directory, "appstream-sample.xml"));
     private const string Hash = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
 
     private readonly string _root = Directory.CreateTempSubdirectory("nix-manager-apps-").FullName;
@@ -96,7 +96,7 @@ public sealed class StoreTests : IDisposable
     [Test]
     public async Task Hardware_is_detected_as_the_Bun_version_detects_it()
     {
-        var cases = JsonNode.Parse(File.ReadAllText(Path.Combine(BunFixtures.Directory, "hardware-cases.json")))!.AsArray();
+        var cases = JsonNode.Parse(File.ReadAllText(Path.Combine(RecordedFixtures.Directory, "hardware-cases.json")))!.AsArray();
         var results = Recorded["detectHardware"]!.AsArray();
         for (var i = 0; i < cases.Count; i++)
         {
