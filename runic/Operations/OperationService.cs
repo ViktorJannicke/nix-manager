@@ -173,6 +173,8 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
             changes.Add(inputs.Names.Count > 0
                 ? DisplayText.Of("stored_update", ("names", string.Join(", ", inputs.Names)))
                 : DisplayText.Of("stored_update_all_inputs"));
+        foreach (var pin in review.Inputs?.Pins ?? [])
+            changes.Add(DisplayText.Of("stored_revalidate_the_pin", ("name", pin.Name), ("revision", PinRevalidation.Short(pin.NixpkgsRev))));
         if (review.Undo is { } undo) changes.Add(DisplayText.Of("stored_undo", ("changes", JoinChanges(undo.Point.Changes))));
         if (review.Source == ReviewSources.Generation && review.Generation is { } generation && review.Undo is null)
             changes.Add(DisplayText.Of(review.Scope == Scopes.Home ? "stored_go_back_to_restore_point_of_your" : "stored_go_back_to_restore_point_of_the",
@@ -276,7 +278,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
             _store.EnsureDirectory();
             if (request.Action == Actions.ReviewBuild)
                 OperationStore.CreatePrivateDirectory(Paths.ReviewRoot(config, request.ReviewId!));
-            if (request.Action is Actions.Switch or Actions.Boot)
+            if (UsesBuildRoot(request))
             {
                 var root = Paths.BuildRoot(config);
                 if (System.IO.Directory.Exists(root)) System.IO.Directory.Delete(root, recursive: true);
@@ -301,6 +303,12 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
             return new OperationRun(operation.Clone(), _current.Completion);
         }
     }
+
+    /// <summary>
+    /// Switching or booting keeps its out-links in the build root, and an input update its proposed lock and the
+    /// copy its pins are revalidated in; the root is removed when the operation ends.
+    /// </summary>
+    private static bool UsesBuildRoot(Request r) => r.Action is Actions.Switch or Actions.Boot || (r.Update && r.Action == Actions.Build);
 
     private void Changed(Operation operation) => Publish(new OperationChanged(operation.Clone()));
 
@@ -399,7 +407,10 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
         });
 
         /// <summary>Runs a command as a step of this operation: its label, its command line in the log, its output.</summary>
-        private async Task<CommandResult> RunStepAsync(Command command)
+        private Task<CommandResult> RunStepAsync(Command command) => RunStepAsync(command, null);
+
+        /// <param name="mismatches">Collects the output that reports fixed-output hash mismatches.</param>
+        private async Task<CommandResult> RunStepAsync(Command command, StringBuilder? mismatches)
         {
             var outcome = StartStep(command.Label);
             Log($"{command.Label.English}\n  {Planner.Format(command)}");
@@ -408,7 +419,12 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
             CommandResult result;
             try
             {
-                result = await service.Runner.RunAsync(command, Output, token).ConfigureAwait(false);
+                result = await service.Runner.RunAsync(command, mismatches is null ? Output : output =>
+                {
+                    Output(output);
+                    if (output is TextOutput { Stream: "stderr" } text && text.Text.Contains("hash mismatch in fixed-output derivation", StringComparison.Ordinal))
+                        mismatches.Append(text.Text);
+                }, token).ConfigureAwait(false);
             }
             finally
             {
@@ -494,7 +510,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                 try
                 {
                     await CleanUpReviewAsync(r).ConfigureAwait(false);
-                    if (r.Action is Actions.Switch or Actions.Boot)
+                    if (UsesBuildRoot(r))
                     {
                         var root = Paths.BuildRoot(service.Config);
                         if (System.IO.Directory.Exists(root)) System.IO.Directory.Delete(root, recursive: true);
@@ -616,6 +632,13 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
 
             if (r.Action == Actions.ReviewBuild && !r.DryRun)
                 reviewBase = new ReviewBase((await Repository.StateAsync(config.Flake, token).ConfigureAwait(false)).Fingerprint, Repository.ReadLock(config.Flake));
+            // An input update resolves its lock into the review, or beside the checkout, with a copy of the flake for
+            // revalidating pins; the pins it revalidated are written with that lock.
+            var updateRoot = r.Action == Actions.ReviewBuild ? Paths.ReviewRoot(config, r.ReviewId ?? "<new>") : Paths.BuildRoot(config);
+            var baseLock = reviewBase?.Lock ?? (r.Update && !r.DryRun ? Repository.ReadLock(config.Flake) : "");
+            List<ReviewPin> pins = [];
+            // The flake the remaining builds evaluate once revalidated pins are staged in a copy of an unedited checkout.
+            string? pinnedFlake = null;
 
             async Task StepsAsync()
             {
@@ -639,7 +662,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                                 lock (service._gate) downloaded = operation.Steps?.Sum(s => s.Progress?.Bytes.Done ?? 0) ?? 0;
                                 var result = await ReviewStore.CompareAsync(config, r, reviewBase!, operation.Id, Quiet, edits,
                                     undo is null ? null : new ReviewUndo { OperationId = undo.Operation.Id, AppliedAt = undo.Operation.FinishedAt ?? undo.Operation.StartedAt, Point = undo.Point },
-                                    downloaded, service._clock).ConfigureAwait(false);
+                                    downloaded, service._clock, pins: pins).ConfigureAwait(false);
                                 var packages = (result.Home?.Changes.Count ?? 0) + (result.System?.Changes.Count ?? 0);
                                 Log($"{packages} package {(packages == 1 ? "change is" : "changes are")} ready for review.");
                                 break;
@@ -674,17 +697,51 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                                 Record(before);
                                 break;
                             }
+                            case InternalSteps.RevalidatePins:
+                                pins = await PinRevalidation.RevalidateAsync(config, r, $"{updateRoot}/source", staged is not null, baseLock, $"{updateRoot}/flake.lock",
+                                    RunStepAsync, Quiet, Log).ConfigureAwait(false);
+                                // An unedited review builds the checkout; with new pins it builds the copy holding them.
+                                if (pins.Count > 0 && r.Action == Actions.ReviewBuild && staged is null) pinnedFlake = $"path:{updateRoot}/source";
+                                break;
+                            case InternalSteps.WriteUpdate:
+                                ReviewStore.WriteLock(config, $"{updateRoot}/flake.lock", pins, Repository.HashText(baseLock));
+                                foreach (var pin in pins) Log($"Wrote {pin.Path}");
+                                break;
                             default:
                             {
-                                var before = SourceEdits.ReadSources(config, ["flake.lock"]);
-                                ReviewStore.WriteReviewedLock(config, review!);
+                                var before = SourceEdits.ReadSources(config, ["flake.lock", .. review!.Inputs?.Pins?.Select(pin => pin.Path) ?? []]);
+                                ReviewStore.WriteReviewedLock(config, review);
                                 Record(before);
                                 break;
                             }
                         }
                         FinishStep(outcome, StepStatuses.Succeeded);
                     }
+                    else if (step.Progress == true && step.Argv is [_, "build", ..]) await BuildAsync(pinnedFlake is null ? step : Planner.OnFlake(step, config.Flake, pinnedFlake))
+                        .ConfigureAwait(false);
                     else await RunStepAsync(step).ConfigureAwait(false);
+                }
+            }
+
+            // A build that fails on the hash of a pinned package's dependency names the pin and both nixpkgs revisions.
+            async Task BuildAsync(Command build)
+            {
+                var mismatches = new StringBuilder();
+                try
+                {
+                    await RunStepAsync(build, mismatches).ConfigureAwait(false);
+                }
+                catch (ManagerException error) when (mismatches.Length > 0)
+                {
+                    var flake = build.Argv.FirstOrDefault(argument => argument.Contains('#', StringComparison.Ordinal))?.Split('#')[0];
+                    if (flake is null) throw;
+                    flake = flake.StartsWith("path:", StringComparison.Ordinal) ? flake["path:".Length..] : flake;
+                    var reference = build.Argv.ToList().IndexOf("--reference-lock-file");
+                    var lockFile = reference >= 0 && reference + 1 < build.Argv.Count ? build.Argv[reference + 1] : Path.Combine(flake, "flake.lock");
+                    var lockText = File.Exists(lockFile) ? File.ReadAllText(lockFile) : "";
+                    if (PinRevalidation.ExplainMismatch(mismatches.ToString(), flake, lockText) is not { } explanation) throw;
+                    Log($"{explanation.Title.English} {explanation.Body.English}");
+                    throw new ManagerException(error.Text, explanation);
                 }
             }
 

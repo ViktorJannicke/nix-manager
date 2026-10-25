@@ -24,7 +24,7 @@ public sealed record Plan(IReadOnlyList<Command> Steps, IReadOnlyList<DisplayTex
 public static class InternalSteps
 {
     public const string Compare = "compare", WriteLock = "write-lock", StageSources = "stage-sources", VerifyEdits = "verify-edits",
-        WriteSources = "write-sources", RestoreSources = "restore-sources";
+        WriteSources = "write-sources", RestoreSources = "restore-sources", RevalidatePins = "revalidate-pins", WriteUpdate = "write-update";
 }
 
 /// <summary>Builds the steps of an operation.</summary>
@@ -124,6 +124,12 @@ public static partial class Planner
                             : DisplayText.Of("stored_resolve_all_flake_inputs"),
                         ["nix", "flake", "update", .. inputs, "--flake", config.Flake, "--output-lock-file", lockFile, "--log-format", "internal-json"],
                         progress: true);
+                // Pins inherit nixpkgs' recipes; an update of the root nixpkgs input can invalidate their hashes.
+                if (lockFile is not null && (r.Update || inputs.Contains("nixpkgs")))
+                {
+                    Add(DisplayText.Of("stored_check_package_pins_against_the_new_nixpkgs"), [], @internal: InternalSteps.RevalidatePins);
+                    notes.Add(DisplayText.Of("stored_pins_are_revalidated_against_the_new_nixpkgs"));
+                }
                 string[] lockFlags = lockFile is not null ? ["--reference-lock-file", lockFile, "--no-write-lock-file"] : ["--no-write-lock-file"];
                 if (home) Build(DisplayText.Of("stored_build_home_configuration"), homeAttr, $"{root}/home", lockFlags);
                 if (system) Build(DisplayText.Of("stored_build_system_configuration"), systemAttr, $"{root}/system", lockFlags);
@@ -143,7 +149,9 @@ public static partial class Planner
             if (review.Edits is { } edits)
                 Add(edits.Files.Count == 1 ? DisplayText.Of("stored_write", ("file", edits.Files[0].Path)) : DisplayText.Of("stored_write_edited_files", ("count", edits.Files.Count)), [],
                     @internal: InternalSteps.WriteSources);
-            if (review.Inputs is not null) Add(DisplayText.Of("stored_write_the_reviewed_flake_lock"), [], @internal: InternalSteps.WriteLock);
+            if (review.Inputs is not null)
+                Add(DisplayText.Of(review.Inputs.Pins is { Count: > 0 } ? "stored_write_the_reviewed_flake_lock_and_package_pins" : "stored_write_the_reviewed_flake_lock"), [],
+                    @internal: InternalSteps.WriteLock);
             if (review.Undo?.Point.Files is { Count: > 0 } files)
                 Add(files.Count == 1 ? DisplayText.Of("stored_restore", ("file", files[0].Path)) : DisplayText.Of("stored_restore_files", ("count", files.Count)), [], @internal: InternalSteps.RestoreSources);
             if (home && review.Home is not null && mode == "switch") ActivateHome(review.Home.Path);
@@ -158,7 +166,15 @@ public static partial class Planner
             return new Plan(steps, notes);
         }
         if (r.Update)
-            Add(DisplayText.Of("stored_update_flake_inputs"), ["nix", "flake", "update", "--flake", config.Flake]);
+        {
+            // The new lock is resolved beside the checkout and written, with the pins revalidated against it, before the builds.
+            Add(DisplayText.Of("stored_resolve_all_flake_inputs"),
+                ["nix", "flake", "update", "--flake", config.Flake, "--output-lock-file", $"{Paths.BuildRoot(config)}/flake.lock", "--log-format", "internal-json"],
+                progress: true);
+            Add(DisplayText.Of("stored_check_package_pins_against_the_new_nixpkgs"), [], @internal: InternalSteps.RevalidatePins);
+            Add(DisplayText.Of("stored_update_flake_inputs"), [], @internal: InternalSteps.WriteUpdate);
+            notes.Add(DisplayText.Of("stored_pins_are_revalidated_against_the_new_nixpkgs"));
+        }
         if (r.Action == Actions.Check)
             notes.Add(DisplayText.Of("stored_resolve_inputs_in_a_temporary_copy_and"));
         else if (Actions.IsPackage(r.Action))
@@ -224,6 +240,13 @@ public static partial class Planner
         }
         return steps;
     }
+
+    /// <summary>
+    /// A planned build of <paramref name="flake"/>'s outputs that builds them from <paramref name="other"/> instead,
+    /// such as a copy holding pins revalidated while the operation ran.
+    /// </summary>
+    public static Command OnFlake(Command build, string flake, string other) =>
+        build with { Argv = build.Argv.Select(argument => argument.StartsWith($"{flake}#", StringComparison.Ordinal) ? $"{other}{argument[flake.Length..]}" : argument).ToList() };
 
     private static string Parent(string path) => Regex.Replace(path, "/[^/]+$", "");
 

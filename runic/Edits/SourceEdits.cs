@@ -374,9 +374,9 @@ public static partial class SourceEdits
                 .ConfigureAwait(false);
     }
 
-    /// <summary>A module file of the checkout, or its flake.lock (<c>checkoutPath</c>).</summary>
+    /// <summary>A module file of the checkout, its flake.lock or a package pin written with it (<c>checkoutPath</c>).</summary>
     public static string CheckoutPath(Config config, string path) =>
-        path == "flake.lock" ? Path.Combine(config.Flake, path) : Drafts.SourcePath(config.Flake, path);
+        path == "flake.lock" || Updates.PinRevalidation.IsPinPath(path) ? Path.Combine(config.Flake, path) : Drafts.SourcePath(config.Flake, path);
 
     /// <summary>Checkout files as they are now, keyed by flake-relative path; absent files are null (<c>readSources</c>).</summary>
     public static Dictionary<string, string?> ReadSources(Config config, IEnumerable<string> paths)

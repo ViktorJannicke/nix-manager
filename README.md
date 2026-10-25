@@ -250,8 +250,9 @@ list are one click away. Detailed shows every prepare, review and apply step.
 A state directory with earlier operations starts detailed. Preferences are kept in
 `preferences.json` in the state directory, where the tray's background tasks read
 them too. Flake input updates and package-pin updates are distinct: refreshing the
-lock does not refresh the three local package pins. After updating a pin, prepare
-a home build to apply it.
+lock does not move the three local package pins to newer releases. After updating a
+pin, prepare a home build to apply it. An input update does keep the pins valid,
+see "Input updates revalidate inherited-recipe pins" below.
 
 The detected host is used by default. Settings can override it to build another
 configuration from the same checkout on this machine; the dashboard then shows a
@@ -510,6 +511,31 @@ or for its resolved form (same name, other hash) when inputs are content-address
 Pins are replaced by a same-filesystem rename; an intervening manual pin edit
 causes the update to fail instead of overwriting it. `--dry-run` package updates
 may fetch metadata and recipe text, but do not fetch archives, build or save pins.
+
+Input updates revalidate inherited-recipe pins. The T3 Code and OpenCode pins
+inherit their nixpkgs recipe, so their dependency hashes (`nodeHash`, `pnpmHash`,
+`cargoHash`) hold only for the nixpkgs recorded as the pin's `nixpkgsRev`. When an
+update moves the flake's own nixpkgs input (all inputs, or `nixpkgs` selected),
+the step "Check package pins against the new nixpkgs" runs after the new lock is
+resolved and before anything is built. It reads the root nixpkgs revision through
+the lock's `root` node and its `follows` paths (the node named `nixpkgs` may belong
+to another input). A pin validated against another revision whose version is
+still newer than the new nixpkgs' own is revalidated with the package updater
+against a copy of the checkout with the proposed lock: same release and source,
+dependency hashes rediscovered, the full candidate (OpenCode desktop, the wrapped
+T3 Code) built, and the new revision recorded. A pin whose version nixpkgs has
+caught up with is superseded and left alone. A reviewed update builds from that
+copy and stores the revalidated pins in the review; applying it writes them
+together with the reviewed `flake.lock`, refusing if either changed since.
+`update switch` and `update build` resolve the lock beside the checkout and write
+it with the revalidated pins before building. When a pin cannot be revalidated,
+the update fails, naming the package, both nixpkgs revisions and a link to the
+recipe's upstream changes, and neither the pin nor `flake.lock` changes. If a
+build still fails with a fixed-output hash mismatch on a pinned dependency (such
+as `opencode-node_modules-2.1.2.drv`), its explanation names the revision the pin
+was validated against and the one the build used, and how to revalidate. Copying
+the reported hash into the pin is never the fix: only a successful candidate build
+may change a pin's hashes.
 
 ## Development and checks
 

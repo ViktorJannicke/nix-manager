@@ -100,7 +100,25 @@ public sealed class ReviewInputs
     public List<LockChange> Changes { get; set; } = [];
     /// <summary>Hash of the checkout's flake.lock the proposal was resolved from.</summary>
     public required string BaseLockHash { get; set; }
+    /// <summary>Package pins revalidated against the proposal's nixpkgs, written together with it.</summary>
+    public List<ReviewPin>? Pins { get; set; }
     [JsonExtensionData] public Dictionary<string, JsonElement>? Unknown { get; set; }
+}
+
+/// <summary>
+/// A package pin (<c>pkgs/NAME/source.json</c>) revalidated against a proposed lock's nixpkgs: its new text, written
+/// with that lock unless the checkout's pin changed since.
+/// </summary>
+public sealed record ReviewPin
+{
+    public required string Name { get; init; }
+    /// <summary>The pin's path in the flake.</summary>
+    public required string Path { get; init; }
+    /// <summary>Hash of the checkout's pin it replaces.</summary>
+    public required string BaseHash { get; init; }
+    /// <summary>The nixpkgs commit the pin was revalidated against.</summary>
+    public required string NixpkgsRev { get; init; }
+    public required string Text { get; init; }
 }
 
 /// <summary>For an undo: the applied change it reverses, from that change's operation.</summary>

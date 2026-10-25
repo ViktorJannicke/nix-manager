@@ -85,7 +85,11 @@ public static class ReviewStore
         kept.Undo = null;
         kept.Scope = Scopes.Home;
         kept.Fingerprint = (await Repository.StateAsync(config.Flake, cancellationToken).ConfigureAwait(false)).Fingerprint;
-        if (kept.Inputs is { } inputs) inputs.BaseLockHash = Repository.HashText(Repository.ReadLock(config.Flake));
+        if (kept.Inputs is { } inputs)
+        {
+            inputs.BaseLockHash = Repository.HashText(Repository.ReadLock(config.Flake));
+            inputs.Pins = null;
+        }
         kept.AfterBoot = new AfterBoot { System = review.System!.Path };
         AtomicWrite(ReviewFile(config, review.Id), Stringify(kept, indented: false));
     }
@@ -167,7 +171,7 @@ public static class ReviewStore
     /// <param name="currentSystem">The link to the running system, <see cref="CurrentSystem"/> outside tests.</param>
     public static async Task<BuildReview> CompareAsync(Config config, Request r, ReviewBase @base, string operationId,
         Func<Command, Task<CommandResult>> run, ReviewEdits? edits = null, ReviewUndo? undo = null, long? downloaded = null,
-        TimeProvider? clock = null, string currentSystem = CurrentSystem)
+        TimeProvider? clock = null, string currentSystem = CurrentSystem, IReadOnlyList<ReviewPin>? pins = null)
     {
         var id = r.ReviewId!;
         var root = Paths.ReviewRoot(config, id);
@@ -247,7 +251,11 @@ public static class ReviewStore
             Undo = undo,
             Edits = edits,
             Inputs = proposal is { Length: > 0 }
-                ? new ReviewInputs { Names = [.. r.Inputs ?? []], Changes = NixOutputs.LockChanges(@base.Lock, proposal), BaseLockHash = Repository.HashText(@base.Lock) }
+                ? new ReviewInputs
+                {
+                    Names = [.. r.Inputs ?? []], Changes = NixOutputs.LockChanges(@base.Lock, proposal), BaseLockHash = Repository.HashText(@base.Lock),
+                    Pins = pins is { Count: > 0 } ? [.. pins] : null,
+                }
                 : null,
             Home = home,
             System = system,
@@ -265,16 +273,41 @@ public static class ReviewStore
         return review;
     }
 
-    /// <summary>Copies the reviewed lock into the checkout unless flake.lock changed since (<c>writeReviewedLock</c>).</summary>
+    /// <summary>
+    /// Copies the reviewed lock, and the pins revalidated against it, into the checkout unless flake.lock or a pin
+    /// changed since (<c>writeReviewedLock</c>).
+    /// </summary>
     public static void WriteReviewedLock(Config config, BuildReview review)
     {
         if (review.Inputs is null) return;
+        WriteLock(config, Path.Combine(Paths.ReviewRoot(config, review.Id), "flake.lock"), review.Inputs.Pins ?? [], review.Inputs.BaseLockHash);
+    }
+
+    /// <summary>
+    /// Writes the lock <paramref name="proposed"/> and the <paramref name="pins"/> revalidated against it into the
+    /// checkout. Every file is checked first: when flake.lock no longer has <paramref name="baseLockHash"/> or a pin
+    /// changed since it was revalidated, nothing is written.
+    /// </summary>
+    /// <param name="baseLockHash">The checkout lock's hash the proposal was resolved from.</param>
+    public static void WriteLock(Config config, string proposed, IReadOnlyList<ReviewPin> pins, string baseLockHash)
+    {
         try
         {
             var target = Path.Combine(config.Flake, "flake.lock");
-            if (Repository.HashText(Repository.ReadLock(config.Flake)) != review.Inputs.BaseLockHash)
+            if (Repository.HashText(Repository.ReadLock(config.Flake)) != baseLockHash)
                 throw new ManagerException(DisplayText.Of("stored_flake_lock_changed_after_review"));
-            var proposal = File.ReadAllBytes(Path.Combine(Paths.ReviewRoot(config, review.Id), "flake.lock"));
+            foreach (var pin in pins)
+            {
+                var path = Path.Combine(config.Flake, pin.Path);
+                if (!Updates.PinRevalidation.IsPinPath(pin.Path) || !File.Exists(path) || Repository.HashText(File.ReadAllText(path)) != pin.BaseHash)
+                    throw new ManagerException(DisplayText.Of("stored_changed_after_its_pin_was_revalidated", ("path", pin.Path)));
+            }
+            var proposal = File.ReadAllBytes(proposed);
+            foreach (var pin in pins)
+            {
+                var path = Path.Combine(config.Flake, pin.Path);
+                AtomicWrite(path, pin.Text, ModeOf(path));
+            }
             AtomicWrite(target, proposal, ModeOf(target));
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)

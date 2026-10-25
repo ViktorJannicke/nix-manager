@@ -37,6 +37,8 @@ compare_with_the_active_configuration = Compare with the active configuration
 write = Write {$file}
 write_edited_files = Write {$count} edited files
 write_the_reviewed_flake_lock = Write the reviewed flake.lock
+write_the_reviewed_flake_lock_and_package_pins = Write the reviewed flake.lock and package pins
+check_package_pins_against_the_new_nixpkgs = Check package pins against the new nixpkgs
 restore = Restore {$file}
 restore_files = Restore {$count} files
 update_flake_inputs = Update flake inputs
@@ -49,6 +51,7 @@ no_home_manager_profile_at_generation_deletion = No Home Manager profile at {$pa
 garbage_collection_deletes_unreferenced_store_paths_and = Garbage collection deletes unreferenced store paths and older generations; these cannot be rolled back afterward.
 applying_the_undo_also_restores_the_configuration = Applying the undo also restores the configuration files the change wrote.
 inputs_are_resolved_into_a_separate_lock = Inputs are resolved into a separate lock file. The checkout's flake.lock changes only when you apply this review.
+pins_are_revalidated_against_the_new_nixpkgs = Package pins validated against another nixpkgs are rebuilt against the new one and written together with flake.lock; if one cannot be revalidated, neither changes.
 edits_are_built_from_a_copy_of = Edits are built from a copy of the checkout. Your files change only when you apply this review.
 nothing_is_activated_the_build_is_kept = Nothing is activated. The build is kept until you apply or discard it.
 home_activates_before_system_if_system_activation = Home activates before system. If system activation fails, home remains active.
@@ -191,6 +194,8 @@ it_changes_settings_which_can_restart_programs = It changes settings, which can 
 it_is_not_a_change_of_your = It is not a change of your apps.
 update = Update {$names}
 update_all_inputs = Update all inputs
+@param $revision - A nixpkgs commit, shortened
+revalidate_the_pin = Revalidate the {$name} pin against nixpkgs {$revision}
 undo = Undo: {$changes}
 go_back_to_restore_point_of_your = Go back to restore point {$generation} of your user
 go_back_to_restore_point_of_the = Go back to restore point {$generation} of the system
@@ -694,6 +699,19 @@ upstream_recipe_layout_changed = Upstream recipe layout changed; inspect it befo
 fetch_release = Fetch release
 convert_source_hash = Convert source hash
 build_before_saving_pin = Build {$name} {$version} before saving pin
+inspect_in_the_new_nixpkgs = Inspect {$name} in the new nixpkgs
+@param $from - The nixpkgs commit the pin was validated against, shortened
+@param $to - The nixpkgs commit of the update, shortened
+@param $reason - Why the candidate failed
+@param $url - A comparison of the two nixpkgs commits on GitHub
+@param $recipes - The recipe files the pin inherits, separated by commas
+pin_revalidation_failed = Could not revalidate the {$name} {$version} pin against nixpkgs {$to} (it was validated against {$from}), so neither the pin nor flake.lock changes. {$reason} The recipe changes are in {$url} ({$recipes}).
+@param $validated - The nixpkgs commit the pin was validated against, shortened
+@param $used - The nixpkgs commit the build used, shortened
+the_pin_was_validated_against_another_nixpkgs = The {$name} pin was validated against nixpkgs {$validated}, this build used {$used}
+revalidate_the_pin_against_this_nixpkgs = The pinned {$name} inherits its recipe from nixpkgs, so its dependency hashes hold only for the nixpkgs it was validated against. Updating all inputs (nix-manager update switch, or preparing all updates) revalidates the pin against the new nixpkgs; when flake.lock has this nixpkgs already, nix-manager {$name}-update recomputes the hashes. Do not copy the reported hash into the pin: it would claim a validation that never ran.
+@param $path - A pin, such as pkgs/opencode/source.json
+changed_after_its_pin_was_revalidated = {$path} changed after it was revalidated, so nothing was written. Prepare the update again.
 upstream_revision_not_valid_json = The upstream revision is not valid JSON: {$reason}
 upstream_revision_invalid = The upstream revision is not a valid nixpkgs revision.
 check_flakes = Check flakes
