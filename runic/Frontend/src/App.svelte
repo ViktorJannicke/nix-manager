@@ -16,6 +16,7 @@
   import SnowflakeIcon from "@lucide/svelte/icons/snowflake";
   import LoaderIcon from "@lucide/svelte/icons/loader-circle";
   import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
+  import RefreshIcon from "@lucide/svelte/icons/refresh-cw";
   import { connectDashboard } from "./generated/dashboard.js";
   import { Button } from "$lib/components/ui/button";
   import { app, type Page } from "$lib/app.svelte";
@@ -66,6 +67,16 @@
   });
 
   $effect(() => app.settle(app.history));
+
+  // After "Restart now", the restarted tray's Window opens on the page the previous one showed.
+  let reopened = false;
+  $effect(() => {
+    const page = dashboard.state?.reopenPage;
+    if (page && !reopened) {
+      reopened = true;
+      untrack(() => app.reopen(page));
+    }
+  });
 
   // The configuration's history is read again whenever its last commit changes, not with every observation.
   const revision = $derived(app.system ? (app.system.repository.revision ?? "") : undefined);
@@ -149,6 +160,18 @@
   </nav>
 
   <div class="flex min-w-0 flex-1 flex-col">
+    {#if app.dashboard?.updated}
+      <div class="flex items-center gap-4 border-b bg-card px-6 py-2">
+        <RefreshIcon class="size-4 shrink-0 text-primary" />
+        <span class="font-semibold">{m.restart_updated()}</span>
+        <span class="min-w-0 flex-1 text-muted-foreground">
+          {app.dashboard.restartAvailable ? m.restart_ready() : m.restart_after_operation()}
+        </span>
+        {#if app.dashboard.restartAvailable}
+          <Button variant="outline" size="sm" onclick={() => app.restart()}>{m.restart_now()}</Button>
+        {/if}
+      </div>
+    {/if}
     {#if running && app.page !== "overview" && app.page !== "activity"}
       <div class="flex items-center gap-4 border-b bg-card px-6 py-2">
         <span class="font-semibold">{actionLabel(running.request.action)}</span>

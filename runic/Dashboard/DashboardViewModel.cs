@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using NixManager.Daemon;
 using NixManager.Domain;
 using NixManager.Edits;
 using NixManager.Operations;
@@ -58,7 +59,7 @@ public sealed record PlanPreview(Request Request, Plan? Plan, DisplayText? Error
 /// operation running (D025.1). The state directory is watched, so an operation that the command line runs, a new update
 /// report, reviews, pending edits and preferences changed elsewhere appear without a refresh. The computer is observed
 /// again when the Window opens, after each operation and every 30 seconds while it is open, to notice edits to the
-/// checkout and changes made outside Nix Manager.
+/// checkout and changes made outside Nix Manager; whether a newer tray is installed is read again with it.
 /// </remarks>
 public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 {
@@ -75,12 +76,14 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     private readonly RunicWatchTarget _draft;
     private readonly RunicWatchTarget _reviews;
     private readonly ITimer _ticker;
+    private readonly TrayRestart? _restart;
     private bool _running;
     private string? _draftFingerprint;
 
     public DashboardViewModel(OperationsViewModel operations, ReviewsViewModel reviews, SystemViewModel system,
         SoftwareViewModel software, IOperationService service, ISoftwareService softwareService, IRunicModelContext context,
-        TimeProvider? clock = null, RunicPathWatcherOptions? watching = null, DesktopWindowPlatformServices? platform = null)
+        TimeProvider? clock = null, RunicPathWatcherOptions? watching = null, DesktopWindowPlatformServices? platform = null,
+        TrayRestart? restart = null)
     {
         Operations = operations;
         Reviews = reviews;
@@ -91,6 +94,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         _context = context;
         _platform = platform;
         _watching = watching;
+        _restart = restart;
         var config = service.Config;
         Configuration = new DashboardConfiguration(config.Flake, config.HostKey, config.HomeProfile,
             [.. config.Hosts.OrderBy(host => host.Key, StringComparer.Ordinal)
@@ -123,6 +127,8 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         Detail = "simple";
         ReadPreferences();
         _running = Running();
+        ReopenPage = restart?.TakePage();
+        ReadUpdated();
         Operations.PropertyChanged += OnOperationsChanged;
         System.PropertyChanged += OnSystemChanged;
         _software.Changed += OnSoftwareChanged;
@@ -131,7 +137,11 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         var now = (clock ?? TimeProvider.System).GetUtcNow();
         if (observed is null || now - observed > TimeSpan.FromSeconds(5)) _context.TryPost(RefreshSystem);
         ReadDraft(force: false);
-        _ticker = (clock ?? TimeProvider.System).CreateTimer(_ => _context.TryPost(RefreshSystem), null, ObservationInterval, ObservationInterval);
+        _ticker = (clock ?? TimeProvider.System).CreateTimer(_ => _context.TryPost(() =>
+        {
+            RefreshSystem();
+            ReadUpdated();
+        }), null, ObservationInterval, ObservationInterval);
     }
 
     /// <summary>The running operation, its log and the history.</summary>
@@ -197,6 +207,21 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial RenderedDraft? Draft { get; private set; }
 
+    /// <summary>
+    /// A newer Nix Manager is installed than the tray runs, such as after a system switch; false outside the NixOS
+    /// module's tray service.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool Updated { get; private set; }
+
+    /// <summary><see cref="RestartCommand"/> can run: <see cref="Updated"/>, and no operation runs.</summary>
+    [ObservableProperty]
+    public partial bool RestartAvailable { get; private set; }
+
+    /// <summary>The page this Window opens on after <see cref="RestartCommand"/> restarted the tray; null otherwise.</summary>
+    [ObservableProperty]
+    public partial string? ReopenPage { get; private set; }
+
     /// <summary>The last dry run, with the request it answers.</summary>
     [ObservableProperty]
     public partial PlanPreview? Preview { get; private set; }
@@ -222,6 +247,17 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         if (_platform is null || announcement.Message.Trim() is not { Length: > 0 } message) return;
         // Unavailable in a browser or once the Window closed; the page's live region speaks there.
         await _platform.AnnounceAsync(message.Length > 500 ? message[..500] : message, DesktopAnnouncementPriority.Polite).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Restarts the tray into the newer Nix Manager (<see cref="Updated"/>); its dashboard opens on <paramref name="page"/>.
+    /// The daemon refuses while an operation runs or a command line follows one.
+    /// </summary>
+    [RelayCommand]
+    private void Restart(string page)
+    {
+        ReadUpdated();
+        if (_restart is not null && RestartAvailable) _restart.Request(page);
     }
 
     /// <summary>Plans <paramref name="request"/> without running it, for a confirmation to show.</summary>
@@ -291,6 +327,12 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         }
     }
 
+    private void ReadUpdated()
+    {
+        Updated = _restart?.Outdated == true;
+        RestartAvailable = Updated && !_running;
+    }
+
     private bool Running() => Operations.Active is not null || Operations.Operations.Any(operation => operation.Status == OperationStatuses.Running);
 
     private void OnOperationsChanged(object? sender, PropertyChangedEventArgs e)
@@ -298,12 +340,16 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         if (e.PropertyName is not (nameof(OperationsViewModel.Operations) or nameof(OperationsViewModel.Active))) return;
         // Generations, the checkout and reviews change when an operation ends, here or in another process.
         var running = Running();
-        if (_running && !running)
+        var ended = _running && !running;
+        if (ended)
         {
             RefreshSystem();
             Execute(Reviews.RefreshCommand);
         }
         _running = running;
+        // An operation such as a system switch installs a newer tray; restarting waits for its end.
+        if (ended) ReadUpdated();
+        else RestartAvailable = Updated && !running;
     }
 
     private void OnSystemChanged(object? sender, PropertyChangedEventArgs e)

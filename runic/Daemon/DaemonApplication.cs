@@ -34,6 +34,8 @@ public static class DaemonApplication
     {
         var provider = new ServiceCollection()
             .AddNixManagerBackend(config)
+            // The dashboard offers to restart a tray whose service is outdated.
+            .AddSingleton(provider => new TrayRestart(config, settings.Outdated, provider.GetRequiredService<TimeProvider>()))
             .AddNixManagerDashboard()
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
         // On Linux the icon is a StatusNotifierItem and notifications go through the desktop portal, without GTK. The
@@ -45,7 +47,8 @@ public static class DaemonApplication
         try
         {
             var core = new DaemonCore(provider.GetRequiredService<IOperationService>(), provider.GetRequiredService<BackgroundTasks>(),
-                provider.GetRequiredService<Observer>(), icon, notifications, settings, provider.GetRequiredService<TimeProvider>());
+                provider.GetRequiredService<Observer>(), icon, notifications, settings, provider.GetRequiredService<TimeProvider>(),
+                restart: provider.GetRequiredService<TrayRestart>());
             // Right after claiming: launches wait for the first handler, and the core queues them until its loop runs.
             if (instance is not null) instance.Launched += (_, launch) => core.OnLaunch(launch);
             if (settings.Mode == DaemonMode.Tray) Console.WriteLine("Nix Manager is running in the tray.");
