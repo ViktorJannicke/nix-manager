@@ -15,7 +15,12 @@ namespace NixManager.Updates;
 /// The npm package whose <c>latest</c> dist-tag names the stable release, for projects that tag releases without
 /// publishing them on GitHub. The source still comes from the matching <c>vX.Y.Z</c> tag.
 /// </param>
-public sealed record PackageSource(string Owner, string Repo, string Prefix, IReadOnlyList<string> Recipes, IReadOnlyList<string> BlockedVersions, string? Npm = null);
+/// <param name="FixedOutputs">
+/// The names of the fixed-output derivations whose hashes the pin holds, with <c>{version}</c> for the pinned version,
+/// by which a hash mismatch in a configuration build is traced to the pin.
+/// </param>
+public sealed record PackageSource(string Owner, string Repo, string Prefix, IReadOnlyList<string> Recipes, IReadOnlyList<string> BlockedVersions, string? Npm = null,
+    IReadOnlyList<string>? FixedOutputs = null);
 
 /// <summary>
 /// Updates a package's pin in the checkout: the newest release on the
@@ -29,9 +34,10 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
     /// <summary>The packages with an updater, in the order the update check lists them (<c>packages</c>).</summary>
     public static readonly IReadOnlyDictionary<string, PackageSource> Packages = new Dictionary<string, PackageSource>
     {
-        ["t3code"] = new("pingdotgg", "t3code", "t3", ["package.nix", "unwrapped.nix", "resource-monitor.nix"], []),
+        ["t3code"] = new("pingdotgg", "t3code", "t3", ["package.nix", "unwrapped.nix", "resource-monitor.nix"], [],
+            FixedOutputs: ["t3code-unwrapped-pnpm-deps.drv", "t3code-resource-monitor-{version}-vendor-staging.drv", "t3code-resource-monitor-{version}-vendor.drv"]),
         // OpenCode 2.x is tagged and published to npm only; GitHub's latest release stays on 1.x.
-        ["opencode"] = new("anomalyco", "opencode", "op", ["package.nix"], [], Npm: "@opencode/cli"),
+        ["opencode"] = new("anomalyco", "opencode", "op", ["package.nix"], [], Npm: "@opencode/cli", FixedOutputs: ["opencode-node_modules-{version}.drv"]),
         ["pince"] = new("korcankaraokcu", "PINCE", "", [], []),
     };
 
@@ -74,10 +80,10 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
         """;
 
     [GeneratedRegex(@"\x1b\[[0-9;]*m")]
-    private static partial Regex Color();
+    internal static partial Regex Color();
 
     [GeneratedRegex(@"hash mismatch in fixed-output derivation '([^']+)'")]
-    private static partial Regex Mismatch();
+    internal static partial Regex Mismatch();
 
     [GeneratedRegex(@"^\s*got:\s*(sha256-[A-Za-z0-9+/]{43}=)\s*$")]
     private static partial Regex Got();
@@ -110,7 +116,7 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
     }
 
     /// <summary>The name of a store path without its hash, such as <c>t3code-unwrapped-pnpm-deps.drv</c>.</summary>
-    private static string DerivationName(string path)
+    public static string DerivationName(string path)
     {
         var file = Path.GetFileName(path);
         var separator = file.IndexOf('-', StringComparison.Ordinal);
@@ -188,14 +194,7 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
         var work = FileErrors.Attempt(DisplayText.Of("stored_create_temporary_workspace"), () => Directory.CreateTempSubdirectory("nix-manager-").FullName);
         try
         {
-            var env = new Dictionary<string, string>
-            {
-                ["NIX_MANAGER_SYSTEM"] = HostResolution.Resolve(config.Hosts, r.Host is { Length: > 0 } ? r.Host : config.HostKey).Value.System,
-                ["NIX_MANAGER_PACKAGE_NAME"] = name,
-                ["NIX_MANAGER_HOME_FLAKE"] = $"path:{config.Flake}",
-                ["NIX_MANAGER_RECIPE"] = Path.Combine(config.Flake, "pkgs", name, "package.nix"),
-                ["NIX_MANAGER_PACKAGE_PIN"] = Path.Combine(work, "pin.json"),
-            };
+            var env = CandidateEnvironment(config.Flake, name, HostSystem(config, r), work);
             async Task<string> Evaluate(string expr) => (await run(new Command
             {
                 Label = DisplayText.Of("stored_inspect_locked_nixpkgs"),
@@ -281,33 +280,87 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
                 }
                 else candidate["nodeHash"] = FakeHash;
             }
-            var pinPath = env["NIX_MANAGER_PACKAGE_PIN"];
-            SaveJson(pinPath, candidate);
-            var expr = name == "pince" ? PinceExpression : CandidateExpression;
-            if (name == "t3code")
-            {
-                candidate["pnpmHash"] = await DiscoverHashAsync(DisplayText.Of("stored_hash_t3_code_pnpm_dependencies"), $"({expr}).unwrapped.pnpmDeps", env, run).ConfigureAwait(false);
-                SaveJson(pinPath, candidate);
-                candidate["cargoHash"] = await DiscoverHashAsync(DisplayText.Of("stored_hash_t3_code_cargo_dependencies"), $"({expr}).resourceMonitor.cargoDeps.vendorStaging", env, run)
-                    .ConfigureAwait(false);
-            }
-            else if (name == "opencode")
-                candidate["nodeHash"] = await DiscoverHashAsync(DisplayText.Of("stored_hash_opencode_node_modules"), $"({expr}).node_modules", env, run).ConfigureAwait(false);
-            SaveJson(pinPath, candidate);
-            await run(new Command
-            {
-                Label = DisplayText.Of("stored_build_before_saving_pin", ("name", name), ("version", version)),
-                Argv = ["nix", "build", "--no-link", "--impure", "--print-build-logs", "--expr", expr],
-                Env = env,
-            }).ConfigureAwait(false);
+            await ValidateAsync(name, candidate, env, run).ConfigureAwait(false);
             AtomicPin(pinFile, before, candidate);
             log($"Updated {pinFile}. Apply with nix-manager home switch.");
         }
         finally
         {
-            try { Directory.Delete(work, recursive: true); }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+            RemoveWorkspace(work);
         }
+    }
+
+    /// <summary>
+    /// Revalidates the pin <paramref name="pinText"/> of <paramref name="name"/> against the nixpkgs that
+    /// <paramref name="flake"/> locks, such as a copy of the checkout with a proposed flake.lock: the same release and
+    /// source, the dependency hashes discovered again under that nixpkgs' recipe, the full candidate built, and
+    /// <paramref name="revision"/> recorded as the pin's nixpkgs. No release is looked up and no source prefetched; the
+    /// checkout's pin is not written, the caller stages the returned one.
+    /// </summary>
+    /// <param name="system">The system the candidate is built for, such as <c>x86_64-linux</c>.</param>
+    public static async Task<JsonObject> RevalidateAsync(string flake, string name, string pinText, string system, string revision, Func<Command, Task<CommandResult>> run)
+    {
+        PackagePins.Parse(pinText, name);
+        var candidate = JsonNode.Parse(pinText)!.AsObject();
+        candidate["nixpkgsRev"] = revision;
+        foreach (var field in name == "t3code" ? new[] { "pnpmHash", "cargoHash" } : ["nodeHash"]) candidate[field] = FakeHash;
+        var work = FileErrors.Attempt(DisplayText.Of("stored_create_temporary_workspace"), () => Directory.CreateTempSubdirectory("nix-manager-").FullName);
+        try
+        {
+            await ValidateAsync(name, candidate, CandidateEnvironment(flake, name, system, work), run).ConfigureAwait(false);
+            return candidate;
+        }
+        finally
+        {
+            RemoveWorkspace(work);
+        }
+    }
+
+    /// <summary>The system of the request's host, which candidates are built for.</summary>
+    public static string HostSystem(Config config, Request r) =>
+        HostResolution.Resolve(config.Hosts, r.Host is { Length: > 0 } ? r.Host : config.HostKey).Value.System;
+
+    /// <summary>What the candidate expressions read: the flake they evaluate, its recipe and the pin under test in <paramref name="work"/>.</summary>
+    private static Dictionary<string, string> CandidateEnvironment(string flake, string name, string system, string work) => new()
+    {
+        ["NIX_MANAGER_SYSTEM"] = system,
+        ["NIX_MANAGER_PACKAGE_NAME"] = name,
+        ["NIX_MANAGER_HOME_FLAKE"] = $"path:{flake}",
+        ["NIX_MANAGER_RECIPE"] = Path.Combine(flake, "pkgs", name, "package.nix"),
+        ["NIX_MANAGER_PACKAGE_PIN"] = Path.Combine(work, "pin.json"),
+    };
+
+    /// <summary>
+    /// Replaces the fake dependency hashes of <paramref name="candidate"/> with the ones Nix reports, then builds the
+    /// whole candidate; a pin is only saved after this succeeds.
+    /// </summary>
+    private static async Task ValidateAsync(string name, JsonObject candidate, IReadOnlyDictionary<string, string> env, Func<Command, Task<CommandResult>> run)
+    {
+        var pinPath = env["NIX_MANAGER_PACKAGE_PIN"];
+        SaveJson(pinPath, candidate);
+        var expr = name == "pince" ? PinceExpression : CandidateExpression;
+        if (name == "t3code")
+        {
+            candidate["pnpmHash"] = await DiscoverHashAsync(DisplayText.Of("stored_hash_t3_code_pnpm_dependencies"), $"({expr}).unwrapped.pnpmDeps", env, run).ConfigureAwait(false);
+            SaveJson(pinPath, candidate);
+            candidate["cargoHash"] = await DiscoverHashAsync(DisplayText.Of("stored_hash_t3_code_cargo_dependencies"), $"({expr}).resourceMonitor.cargoDeps.vendorStaging", env, run)
+                .ConfigureAwait(false);
+        }
+        else if (name == "opencode")
+            candidate["nodeHash"] = await DiscoverHashAsync(DisplayText.Of("stored_hash_opencode_node_modules"), $"({expr}).node_modules", env, run).ConfigureAwait(false);
+        SaveJson(pinPath, candidate);
+        await run(new Command
+        {
+            Label = DisplayText.Of("stored_build_before_saving_pin", ("name", name), ("version", candidate["version"]!.GetValue<string>())),
+            Argv = ["nix", "build", "--no-link", "--impure", "--print-build-logs", "--expr", expr],
+            Env = env,
+        }).ConfigureAwait(false);
+    }
+
+    private static void RemoveWorkspace(string work)
+    {
+        try { Directory.Delete(work, recursive: true); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
     /// <summary>The commit of nixos-unstable from GitHub's answer.</summary>
