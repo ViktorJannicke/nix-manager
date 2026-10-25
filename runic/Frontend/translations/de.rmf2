@@ -414,7 +414,7 @@ changes {
   apply_on_boot = Beim nächsten Start anwenden
   apply_on_boot_title = Beim nächsten Start anwenden?
   boot_default = Macht das geprüfte System zum Standard-Starteintrag. Das laufende System bleibt bis zum Neustart unverändert.
-  checkout_changed = Ihre Konfiguration hat sich geändert, seit dies vorbereitet wurde. Beim Anwenden wird genau das verwendet, was hier gebaut wurde; bereiten Sie erneut vor, um neuere Änderungen einzubeziehen.
+  checkout_outdated = Ihre Konfiguration hat sich geändert, seit dies vorbereitet wurde, daher kann es nicht mehr angewendet werden. Bereiten Sie erneut vor; dies wird automatisch verworfen.
   compared_to_now = {$size} im Vergleich zu jetzt
   could_not_discard = Die Änderungen konnten nicht verworfen werden
   could_not_hold = Es konnte nicht angehalten werden

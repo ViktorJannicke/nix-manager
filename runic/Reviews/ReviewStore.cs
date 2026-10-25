@@ -10,7 +10,12 @@ using NixManager.Operations;
 namespace NixManager.Reviews;
 
 /// <summary>Snapshot of the checkout taken before a review build evaluates it (<c>ReviewBase</c>).</summary>
-public sealed record ReviewBase(string Fingerprint, string Lock);
+/// <param name="Revision">The commit the checkout was at, if any.</param>
+public sealed record ReviewBase(string Fingerprint, string Lock, string? Revision = null);
+
+/// <summary>A review that can no longer be applied as it was prepared, and why.</summary>
+/// <param name="SupersededBy">The newer review of the same kind that replaces it, when that is the reason.</param>
+public sealed record ObsoleteReview(BuildReview Review, DisplayText Reason, string? SupersededBy = null);
 
 /// <summary>
 /// The prepared reviews in <c>reviews/ID/</c> of the state directory: their records, their GC roots and the
@@ -84,7 +89,9 @@ public static class ReviewStore
         kept.Edits = null;
         kept.Undo = null;
         kept.Scope = Scopes.Home;
-        kept.Fingerprint = (await Repository.StateAsync(config.Flake, cancellationToken).ConfigureAwait(false)).Fingerprint;
+        var checkout = await Repository.StateAsync(config.Flake, cancellationToken).ConfigureAwait(false);
+        kept.Fingerprint = checkout.Fingerprint;
+        kept.Revision = checkout.Revision;
         if (kept.Inputs is { } inputs)
         {
             inputs.BaseLockHash = Repository.HashText(Repository.ReadLock(config.Flake));
@@ -109,6 +116,75 @@ public static class ReviewStore
         var root = Paths.ReviewRoot(config, id);
         // GC roots are links: they are removed, never followed.
         if (Directory.Exists(root) || File.Exists(root)) Directory.Delete(root, recursive: true);
+    }
+
+    /// <summary>
+    /// Whether the checkout changed since a review was built from it: its fingerprint, or its commit when the review
+    /// recorded one. A review of a retained generation (going back, or undoing) was not built from the checkout.
+    /// </summary>
+    public static bool CheckoutChanged(BuildReview review, RepositoryState checkout) =>
+        review.Source != ReviewSources.Generation
+        && (review.Fingerprint != checkout.Fingerprint || review.Revision is { } revision && revision != checkout.Revision);
+
+    /// <summary>Whether flake.lock changed since an input update was resolved from it.</summary>
+    public static bool LockChanged(BuildReview review, RepositoryState checkout) =>
+        review.Inputs is { } inputs && inputs.BaseLockHash != checkout.LockHash;
+
+    /// <summary>Refuses to apply a review whose builds no longer match the checkout, as they would undo newer changes.</summary>
+    /// <exception cref="ManagerException">flake.lock or the checkout changed since the review was prepared.</exception>
+    public static void EnsureCurrent(BuildReview review, RepositoryState checkout)
+    {
+        if (LockChanged(review, checkout)) throw new ManagerException(DisplayText.Of("stored_flake_lock_changed_after_review"));
+        if (CheckoutChanged(review, checkout)) throw new ManagerException(DisplayText.Of("stored_checkout_changed_after_review"));
+    }
+
+    private static bool Activates(string action) => action is Actions.Switch or Actions.Boot or Actions.Rollback or Actions.ReviewApply;
+
+    /// <summary>
+    /// The reviews that can no longer be applied as they were prepared, and why:
+    /// <list type="bullet">
+    /// <item>built from the checkout, and flake.lock or the checkout changed since, so applying is refused;</item>
+    /// <item>going back to a generation or undoing a change, and another change was applied since, so it would go back
+    /// further than it shows;</item>
+    /// <item>replaced by a newer review of the same kind (checkout, input update, generation or undo), host and scope
+    /// that is not obsolete itself.</item>
+    /// </list>
+    /// A review a running operation uses is kept. So is a review kept for the next boot, unless a newer one of the
+    /// same host waits instead: only the system applied last starts by default.
+    /// </summary>
+    /// <param name="history">The operations, as <see cref="OperationStore.History"/> lists them.</param>
+    public static IReadOnlyList<ObsoleteReview> Obsolete(IReadOnlyList<BuildReview> reviews, RepositoryState checkout, IReadOnlyList<Operation> history)
+    {
+        var running = history.Where(op => op.Status == OperationStatuses.Running).Select(op => op.Request.ReviewId).OfType<string>().ToHashSet();
+        var lastApplied = history.Where(op => op.Status == OperationStatuses.Succeeded && !op.Request.DryRun && Activates(op.Request.Action))
+            .Select(op => op.FinishedAt ?? op.StartedAt).Max(StringComparer.Ordinal);
+        DisplayText? Stale(BuildReview review) =>
+            review.AfterBoot is not null ? null
+            : LockChanged(review, checkout) ? DisplayText.Of("stored_obsolete_review_lock_changed")
+            : CheckoutChanged(review, checkout) ? DisplayText.Of("stored_obsolete_review_checkout_changed")
+            : review.Source == ReviewSources.Generation && string.CompareOrdinal(lastApplied, review.CreatedAt) > 0
+                ? DisplayText.Of("stored_obsolete_review_applied_since")
+                : null;
+        static string Kind(BuildReview review) => review.AfterBoot is not null
+            ? $"after-boot\0{review.Host}"
+            : $"{(review.Undo is not null ? "undo" : review.Source)}\0{review.Host}\0{review.Scope}";
+        var reasons = reviews.Select(Stale).ToList();
+        var obsolete = new List<ObsoleteReview>();
+        for (var index = 0; index < reviews.Count; index++)
+        {
+            var review = reviews[index];
+            if (running.Contains(review.Id)) continue;
+            if (reasons[index] is { } reason)
+            {
+                obsolete.Add(new ObsoleteReview(review, reason));
+                continue;
+            }
+            var newer = reviews.Where((other, at) => reasons[at] is null && other.Id != review.Id && Kind(other) == Kind(review)
+                    && string.CompareOrdinal(other.CreatedAt, review.CreatedAt) > 0)
+                .MaxBy(other => other.CreatedAt, StringComparer.Ordinal);
+            if (newer is not null) obsolete.Add(new ObsoleteReview(review, DisplayText.Of("stored_obsolete_review_superseded"), newer.Id));
+        }
+        return obsolete;
     }
 
     /// <summary>A review as JSON, compact or with two-space indentation.</summary>
@@ -245,6 +321,7 @@ public static class ReviewStore
             Scope = r.Scope,
             CreatedAt = Timestamps.Now(clock),
             Fingerprint = @base.Fingerprint,
+            Revision = @base.Revision,
             // An empty proposal counts as none, as it does in JavaScript.
             Source = r.Generation is not null || undo is not null ? ReviewSources.Generation : proposal is { Length: > 0 } ? ReviewSources.Inputs : ReviewSources.Checkout,
             Generation = r.Generation,

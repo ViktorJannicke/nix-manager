@@ -436,7 +436,7 @@ changes {
   apply_on_boot = Apply on next boot
   apply_on_boot_title = Apply on next boot?
   boot_default = Makes the reviewed system the default boot entry. The running system is unchanged until you restart.
-  checkout_changed = Your configuration changed since this was prepared. Applying uses exactly what was built here; prepare again to include newer edits.
+  checkout_outdated = Your configuration changed since this was prepared, so it can no longer be applied. Prepare again; this one is discarded automatically.
   @param $size - A signed size, such as +1.2 MiB
   compared_to_now = {$size} compared to now
   could_not_discard = Could not discard the changes

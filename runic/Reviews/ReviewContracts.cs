@@ -144,6 +144,11 @@ public sealed class BuildReview
     public required string CreatedAt { get; set; }
     /// <summary>Checkout state the outputs were evaluated from.</summary>
     public string Fingerprint { get; set; } = "";
+    /// <summary>
+    /// The commit the checkout was at: the fingerprint does not see a commit of a clean checkout, such as the one a
+    /// change applied with the history on makes. Absent in reviews written by earlier versions.
+    /// </summary>
+    public string? Revision { get; set; }
     /// <summary><c>checkout</c>, <c>inputs</c> or <c>generation</c>.</summary>
     public required string Source { get; set; }
     // The remaining members in the order they are written; keepForBoot appends afterBoot.

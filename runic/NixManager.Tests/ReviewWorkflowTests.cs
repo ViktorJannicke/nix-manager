@@ -433,7 +433,8 @@ public sealed class ReviewWorkflowTests : IDisposable
         var reviews = new ReviewService(service);
         await service.Start(Review("a2a2a2a2", Scopes.Home)).Completion;
         await Task.Delay(5);
-        await service.Start(Review("b2b2b2b2", Scopes.Home)).Completion;
+        // Of another scope, so it does not replace the first.
+        await service.Start(Review("b2b2b2b2", Scopes.All)).Completion;
         await Assert.That(reviews.Reviews().Select(r => r.Id)).IsEquivalentTo(["b2b2b2b2", "a2a2a2a2"]);
 
         var apply = service.Start(Apply("a2a2a2a2"));

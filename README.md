@@ -154,9 +154,10 @@ The dashboard is organised around one flow: prepare, review, apply. Preparing
 builds the selected Home Manager and NixOS configurations without privileges and
 keeps the exact outputs. The Changes page shows the package differences from
 `nix store diff-closures`, changed lock nodes (including transitive inputs), the
-closure size, and warnings when the checkout or lock changed since the build, the
-build targets another host, or the kernel changes. Applying activates exactly those
-outputs, now or on next boot; the checkout is not evaluated again. Nothing is
+closure size, and warnings when the build targets another host or the kernel
+changes. Applying activates exactly those outputs, now or on next boot; the
+checkout is not evaluated again, so a review whose checkout changed since cannot be
+applied (see the lifecycle of prepared changes below). Nothing is
 switched without a review, except installs in one step (below).
 
 The Software page installs packages and turns on features by editing the
@@ -266,12 +267,33 @@ Retention can be set from 1–100 generations and is validated again by the
 privileged system-cleanup entry point.
 
 Preparing creates GC roots under the manager state directory and records the exact
-Home Manager activation package and NixOS toplevel. Repository fingerprints cover
-the lock file and working-tree state, so changed checkouts make old reviews visibly
-stale. Selected input updates are resolved into a separate proposed lock file;
-applying copies that exact reviewed lock atomically and refuses if the checkout
-changed in the meantime. Discarding a review removes its manager-owned GC roots,
-allowing a later garbage collection to reclaim the outputs.
+Home Manager activation package and NixOS toplevel, with the checkout they were
+built from: a fingerprint of the lock file and working-tree state, and the commit.
+Selected input updates are resolved into a separate proposed lock file; applying
+copies that exact reviewed lock atomically. Discarding a review removes its
+manager-owned GC roots, allowing a later garbage collection to reclaim the outputs.
+
+A prepared change stays until it is applied, discarded, or can no longer be
+applied as prepared, in which case it is discarded automatically:
+
+- A build of the checkout, or of an input update, is obsolete once the checkout
+  changed: an edit, a commit (such as the one an applied change makes with the
+  history on), or a changed `flake.lock`. Its outputs would undo the newer changes,
+  so applying it is refused too.
+- Going back to a restore point, or undoing a change, is obsolete once another
+  change was applied after it was prepared. These are not built from the checkout,
+  so editing it leaves them alone.
+- A newer prepared change of the same kind (checkout, input update, restore point
+  or undo), host and scope replaces an older one, such as the update prepared in
+  the background after the next check.
+- A change applied on next boot keeps its home part until the computer runs that
+  system, unless a later one is applied on next boot instead. A change that a
+  running operation builds or applies is never discarded.
+
+This runs when an operation ends (except previews), in its log, and when the tray
+or dashboard starts, so changes left from before are discarded too. In between,
+the Changes page marks a change whose checkout changed and does not offer to apply
+it.
 
 `tray` shows a status icon (a StatusNotifierItem) with a menu, supported by
 Plasma and other compatible Linux desktops; notifications go through the desktop

@@ -45,7 +45,8 @@ public interface IOperationService
     bool Hold(string id);
     /// <summary>
     /// Applies the home part of a review whose system part was applied on next boot, once the computer has started
-    /// into that system (<c>resumeAfterBoot</c>); null when there is none, or an operation runs.
+    /// into that system (<c>resumeAfterBoot</c>); null when there is none, or an operation runs. The daemon runs it
+    /// when it starts, so it first discards the reviews that became obsolete while it was not running.
     /// </summary>
     Task<OperationRun?> ResumeAfterBootAsync(string booted = "/run/booted-system");
     /// <summary>
@@ -151,17 +152,66 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
         }
     }
 
-    public Task<OperationRun?> ResumeAfterBootAsync(string booted = "/run/booted-system")
+    public async Task<OperationRun?> ResumeAfterBootAsync(string booted = "/run/booted-system")
     {
+        try
+        {
+            await DiscardObsoleteReviewsAsync().ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ManagerException)
+        {
+            Console.Error.WriteLine($"Discarding obsolete reviews failed: {e.Message}");
+        }
         var system = Native.RealPath(booted);
         var review = ReviewStore.List(config).FirstOrDefault(item =>
             item.AfterBoot is { } afterBoot && afterBoot.System == system && item.Host == config.HostKey);
-        if (review is null || Busy) return Task.FromResult<OperationRun?>(null);
+        if (review is null || Busy) return null;
         ReviewStore.ForgetBoot(config, review);
-        return Task.FromResult<OperationRun?>(Start(Request.Create() with
+        return Start(Request.Create() with
         {
             Action = Actions.ReviewApply, Scope = Scopes.Home, Host = review.Host, ReviewId = review.Id, Activation = "switch",
-        }));
+        });
+    }
+
+    /// <summary>
+    /// Discards the reviews that can no longer be applied (<see cref="ReviewStore.Obsolete"/>) with their GC roots, unless
+    /// an operation runs in any manager process; operations do the same when they end. Says on standard error which and why.
+    /// </summary>
+    public async Task<IReadOnlyList<ObsoleteReview>> DiscardObsoleteReviewsAsync()
+    {
+        if (History().Any(op => op.Status == OperationStatuses.Running)) return [];
+        var obsolete = await ObsoleteReviewsAsync().ConfigureAwait(false);
+        if (obsolete.Count == 0) return obsolete;
+        IDisposable release;
+        try
+        {
+            // Held only while removing, so an operation started meanwhile is refused for a moment at most.
+            release = _store.AcquireLock();
+        }
+        catch (ManagerException)
+        {
+            // An operation started meanwhile; it discards them when it ends.
+            return [];
+        }
+        using (release) Discard(obsolete, text => Console.Error.WriteLine(text));
+        return obsolete;
+    }
+
+    private async Task<IReadOnlyList<ObsoleteReview>> ObsoleteReviewsAsync() =>
+        ReviewStore.Obsolete(ReviewStore.List(config), await Repository.StateAsync(config.Flake).ConfigureAwait(false), History());
+
+    /// <summary>
+    /// Removes obsolete reviews, keeping background.json pointed at a review that exists, and logs each with its reason.
+    /// The caller holds the operation lock.
+    /// </summary>
+    private void Discard(IReadOnlyList<ObsoleteReview> obsolete, Action<string> log)
+    {
+        foreach (var item in obsolete)
+        {
+            ReviewStore.Remove(config, item.Review.Id);
+            BackgroundTasks.Discarded(config, item.Review.Id, item.SupersededBy);
+            log($"Discarded the review prepared at {item.Review.CreatedAt} ({item.Review.Id}): {item.Reason.English}");
+        }
     }
 
     /// <summary>What applying a review changes, in words (<c>describeReview</c>).</summary>
@@ -520,6 +570,18 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                 {
                     Console.Error.WriteLine(e.Message);
                 }
+                // What this operation changed can leave other reviews behind; a preview changed nothing.
+                if (!r.DryRun)
+                {
+                    try
+                    {
+                        service.Discard(await service.ObsoleteReviewsAsync().ConfigureAwait(false), text => Log(text));
+                    }
+                    catch (Exception e)
+                    {
+                        Console.Error.WriteLine(e.Message);
+                    }
+                }
                 try
                 {
                     lock (service._gate) Persist();
@@ -631,7 +693,13 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
             UndoGenerations Generations() => new() { Home = homeGeneration, System = systemGeneration };
 
             if (r.Action == Actions.ReviewBuild && !r.DryRun)
-                reviewBase = new ReviewBase((await Repository.StateAsync(config.Flake, token).ConfigureAwait(false)).Fingerprint, Repository.ReadLock(config.Flake));
+            {
+                var checkout = await Repository.StateAsync(config.Flake, token).ConfigureAwait(false);
+                reviewBase = new ReviewBase(checkout.Fingerprint, Repository.ReadLock(config.Flake), checkout.Revision);
+            }
+            // Outputs built from an earlier checkout would undo what changed in it since.
+            if (applying && review is not null)
+                ReviewStore.EnsureCurrent(review, await Repository.StateAsync(config.Flake, token).ConfigureAwait(false));
             // An input update resolves its lock into the review, or beside the checkout, with a copy of the flake for
             // revalidating pins; the pins it revalidated are written with that lock.
             var updateRoot = r.Action == Actions.ReviewBuild ? Paths.ReviewRoot(config, r.ReviewId ?? "<new>") : Paths.BuildRoot(config);
