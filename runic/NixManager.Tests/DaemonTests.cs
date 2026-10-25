@@ -152,9 +152,10 @@ public sealed class DaemonTests : IDisposable
         Directory.Delete(_flake, recursive: true);
     }
 
-    private DaemonCore Core(DaemonMode mode = DaemonMode.Tray, Func<bool>? outdated = null) =>
+    private DaemonCore Core(DaemonMode mode = DaemonMode.Tray, Func<bool>? outdated = null, TrayRestart? restart = null) =>
         new(_service, new BackgroundTasks(_service), new Observer(Config, _ => Task.FromResult<SystemState>(null!)), _icon, _notifications,
-            new DaemonSettings { Mode = mode, FirstCheck = TimeSpan.FromHours(1), Outdated = outdated }, log: _log, freeSpace: () => null);
+            new DaemonSettings { Mode = mode, FirstCheck = TimeSpan.FromHours(1), Outdated = outdated }, log: _log, freeSpace: () => null,
+            restart: restart);
 
     private static ApplicationLaunch Launch(DaemonRequest request, IApplicationLaunchReply? reply) =>
         DaemonProtocol.Launch(request) with { Reply = reply };
@@ -307,6 +308,78 @@ public sealed class DaemonTests : IDisposable
         await Assert.That(running.IsCompleted).IsFalse();
         await shutdown.CancelAsync();
         await Assert.That(await running.WaitAsync(TimeSpan.FromSeconds(30))).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Restart_now_ends_the_tray_with_the_page_recorded_and_the_next_tray_reopens_it_once()
+    {
+        var restart = new TrayRestart(Config, () => true);
+        using var shutdown = new CancellationTokenSource();
+        var running = Core(outdated: () => true, restart: restart).RunAsync(_windows, shutdown.Token);
+        _icon.Activate(new DesktopStatusIconActivation(DesktopStatusIconActivationKind.MenuItem, TrayCommands.Open));
+        while (_windows.Opened == 0) await Task.Delay(10);
+
+        restart.Request("software");
+        await Assert.That(await running.WaitAsync(TimeSpan.FromSeconds(30))).IsEqualTo(DaemonCore.Replaced);
+        await Assert.That(_windows.IsOpen).IsFalse();
+        await Assert.That(File.GetUnixFileMode(restart.Record)).IsEqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite);
+
+        // The tray systemd starts next opens the dashboard by itself, and only its first Window gets the page.
+        var next = new TrayRestart(Config, () => false);
+        var windows = new FakeWindows();
+        using var stop = new CancellationTokenSource();
+        var after = Core(outdated: () => false, restart: next).RunAsync(windows, stop.Token);
+        while (windows.Opened == 0) await Task.Delay(10);
+        await Assert.That(File.Exists(next.Record)).IsFalse();
+        await Assert.That(next.TakePage()).IsEqualTo("software");
+        await Assert.That(next.TakePage()).IsNull();
+        await stop.CancelAsync();
+        await Assert.That(await after.WaitAsync(TimeSpan.FromSeconds(30))).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Restart_now_waits_for_the_running_operation()
+    {
+        var restart = new TrayRestart(Config, () => true);
+        using var shutdown = new CancellationTokenSource();
+        var running = Core(outdated: () => true, restart: restart).RunAsync(_windows, shutdown.Token);
+        _icon.Activate(new DesktopStatusIconActivation(DesktopStatusIconActivationKind.MenuItem, TrayCommands.Open));
+        while (_windows.Opened == 0) await Task.Delay(10);
+        var operation = _service.Start(Build);
+
+        // Refused, and its record removed; the operation's end leaves the open dashboard running.
+        restart.Request("activity");
+        while (File.Exists(restart.Record)) await Task.Delay(10);
+        await Assert.That(running.IsCompleted).IsFalse();
+        _gate.SetResult();
+        await operation.Completion;
+        await Task.Delay(200);
+        await Assert.That(running.IsCompleted).IsFalse();
+
+        restart.Request("activity");
+        await Assert.That(await running.WaitAsync(TimeSpan.FromSeconds(30))).IsEqualTo(DaemonCore.Replaced);
+        await Assert.That(_service.History()[0].Status).IsEqualTo(OperationStatuses.Succeeded);
+    }
+
+    [Test]
+    public async Task A_stale_or_unreadable_page_record_is_discarded_without_opening_the_dashboard()
+    {
+        var restart = new TrayRestart(Config, () => false);
+        Directory.CreateDirectory(Config.StateDir);
+        var old = Timestamps.Format(DateTimeOffset.UtcNow - TimeSpan.FromMinutes(10));
+        await File.WriteAllTextAsync(restart.Record, $$"""{"page":"software","at":"{{old}}"}""");
+        using var shutdown = new CancellationTokenSource();
+        var running = Core(outdated: () => false, restart: restart).RunAsync(_windows, shutdown.Token);
+        while (File.Exists(restart.Record)) await Task.Delay(10);
+        await Task.Delay(100);
+        await Assert.That(_windows.Opened).IsEqualTo(0);
+        await Assert.That(restart.TakePage()).IsNull();
+        await shutdown.CancelAsync();
+        await Assert.That(await running.WaitAsync(TimeSpan.FromSeconds(30))).IsEqualTo(0);
+
+        await File.WriteAllTextAsync(restart.Record, "not json");
+        await Assert.That(restart.Resume()).IsNull();
+        await Assert.That(File.Exists(restart.Record)).IsFalse();
     }
 
     [Test]

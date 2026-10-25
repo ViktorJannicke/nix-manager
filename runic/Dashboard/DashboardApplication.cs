@@ -24,6 +24,8 @@ public static class DashboardApplication
     public static IServiceCollection AddNixManagerDashboard(this IServiceCollection services)
     {
         services.TryAddScoped<DashboardViewModel>();
+        // Without the tray service (Daemon.DaemonApplication registers its own), the dashboard offers no restart.
+        services.TryAddSingleton(provider => new Daemon.TrayRestart(provider.GetRequiredService<Config>()));
         // The Window's native services; the dashboard announces statuses through them (DashboardViewModel.AnnounceCommand).
         services.AddRunicPlatformServices();
         services.TryAddSingleton(provider => new AppIconResources(provider.GetRequiredService<Software.ISoftwareService>()));

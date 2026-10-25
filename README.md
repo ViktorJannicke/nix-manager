@@ -345,6 +345,14 @@ until the switch ends. The module writes the service's revision to
 follows one and the dashboard is closed, a tray whose revision differs exits
 with status 75, and systemd starts the new one.
 
+While the dashboard stays open, it says that Nix Manager was updated and offers
+"Restart now" once no operation runs and no command line follows one. The tray
+then records the page the dashboard shows in `reopen.json` in the state
+directory and exits with status 75; the tray started next opens the dashboard on
+that page and removes the record. A record older than three minutes is ignored.
+The new Window may open without focus, because no launch's activation token
+comes with it.
+
 ### One process per user
 
 Nix Manager runs as one per-user process. With `tray.enable`, the

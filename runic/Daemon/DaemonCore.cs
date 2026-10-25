@@ -86,6 +86,7 @@ public sealed class DaemonCore
     private readonly TimeProvider _clock;
     private readonly TextWriter _log;
     private readonly Func<long?> _freeSpace;
+    private readonly TrayRestart? _restart;
     private readonly Channel<object> _inbox = Channel.CreateUnbounded<object>(new UnboundedChannelOptions { SingleReader = true });
     private readonly ConcurrentDictionary<Task, byte> _serving = new();
     // Operations a command line asked for: its terminal shows how they ended.
@@ -110,10 +111,11 @@ public sealed class DaemonCore
     private sealed record Ended(Operation Operation);
     private sealed record ServeEnded;
     private sealed record CheckDue;
+    private sealed record RestartRequested;
 
     public DaemonCore(IOperationService service, BackgroundTasks background, Observer observer, IDesktopStatusIcon icon,
         IDesktopNotifications notifications, DaemonSettings settings, TimeProvider? clock = null, TextWriter? log = null,
-        Func<long?>? freeSpace = null)
+        Func<long?>? freeSpace = null, TrayRestart? restart = null)
     {
         _service = service;
         _background = background;
@@ -124,6 +126,8 @@ public sealed class DaemonCore
         _clock = clock ?? TimeProvider.System;
         _log = log ?? Console.Error;
         _freeSpace = freeSpace ?? (() => BackgroundTasks.FreeSpace());
+        _restart = restart;
+        if (restart is not null) restart.Requested += () => _inbox.Writer.TryWrite(new RestartRequested());
         _icon.Activated += (_, activation) => _inbox.Writer.TryWrite(activation);
         _notifications.Activated += (_, activation) => _inbox.Writer.TryWrite(activation);
     }
@@ -315,6 +319,12 @@ public sealed class DaemonCore
             try { await _service.ResumeAfterBootAsync(); }
             catch (Exception error) when (error is ManagerException or IOException) { _log.WriteLine($"Resuming after boot failed: {error.Message}"); }
             Refresh();
+            // The tray before this one restarted from the dashboard's "Restart now"; its page opens again.
+            if (tray && _restart?.Resume() is { } page)
+            {
+                _log.WriteLine($"Reopening the dashboard on {page} after the restart.");
+                await ShowAsync(new Show(null));
+            }
             if (!tray)
             {
                 await ShowAsync(new Show(null));
@@ -326,12 +336,19 @@ public sealed class DaemonCore
                 await HandleAsync(item);
                 if (!tray && !windows.IsOpen && !_service.Busy && _serving.IsEmpty) break;
                 // A system switch leaves this service running (the switch may be its own operation); once nothing
-                // runs, no command line follows and no Window is open, the tray makes way for the installed one.
-                if (tray && item is (Ended or WindowClosed or ServeEnded) && !windows.IsOpen && !_service.Busy && _serving.IsEmpty
+                // runs, no command line follows and no Window is open, the tray makes way for the installed one. The
+                // dashboard's "Restart now" does so with its Window open, which the next tray opens again.
+                var restart = item is RestartRequested;
+                if (tray && (restart || (item is (Ended or WindowClosed or ServeEnded) && !windows.IsOpen)) && !_service.Busy && _serving.IsEmpty
                     && _settings.Outdated?.Invoke() == true)
                 {
                     _log.WriteLine("A newer Nix Manager is installed; restarting the tray.");
                     return Replaced;
+                }
+                if (restart)
+                {
+                    _log.WriteLine("Not restarting the tray now.");
+                    _restart?.Discard();
                 }
             }
             return 0;

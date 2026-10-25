@@ -166,6 +166,20 @@ class AppState {
     document.getElementById("main")?.scrollTo({ top: 0 });
   }
 
+  /** Shows `page`, as the dashboard did before "Restart now" restarted the tray. */
+  reopen(page: string) {
+    if (pages.includes(page as Page)) this.navigate(page as Page);
+  }
+
+  /** Restarts the tray into the newer Nix Manager; the Window closes, and the next one opens on this page. */
+  async restart() {
+    try {
+      await this.dashboardView?.client?.restart(this.page);
+    } catch (error) {
+      this.fail(error, m.restart_failed());
+    }
+  }
+
   // --- Preferences ---------------------------------------------------------
 
   setTheme(theme: Theme) {

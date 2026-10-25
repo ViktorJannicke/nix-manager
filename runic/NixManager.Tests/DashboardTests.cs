@@ -1,7 +1,9 @@
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
+using NixManager.Daemon;
 using NixManager.Dashboard;
 using NixManager.Domain;
+using NixManager.Execution;
 using NixManager.Observation;
 using NixManager.Operations;
 using NixManager.ViewModels;
@@ -23,12 +25,22 @@ public sealed class DashboardTests : IAsyncDisposable
     private readonly AsyncServiceScope _scope;
     private readonly RunicWindowTestHost<DashboardViewModel> _window;
     private int _observations;
+    // A newer tray service is installed; its steps wait for the gate while held.
+    private volatile bool _outdated;
+    private volatile bool _held;
+    private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public DashboardTests()
     {
         var config = TestConfig.Create(_fixtures.Root) with { StateDir = _fixtures.StateDir };
+        var runner = new FakeRunner(async (_, _, token) =>
+        {
+            if (_held) await _gate.Task.WaitAsync(token);
+            return new CommandResult(0, "", "");
+        });
         _services = new ServiceCollection()
-            .AddSingleton<IOperationService>(new OperationService(config, new FakeRunner(), new FakeUpdates(new UpdateReport { CheckedAt = "" })))
+            .AddSingleton<IOperationService>(new OperationService(config, runner, new FakeUpdates(new UpdateReport { CheckedAt = "" })))
+            .AddSingleton(new TrayRestart(config, () => _outdated))
             .AddSingleton(new Observer(config, _ =>
             {
                 Interlocked.Increment(ref _observations);
@@ -407,6 +419,58 @@ public sealed class DashboardTests : IAsyncDisposable
         await Assert.That(new DashboardCommand.Invocation(null, null, NoOpen: false).Served).IsFalse();
     }
 
+    [Test]
+    public async Task A_current_tray_or_none_offers_no_restart()
+    {
+        var dashboard = _window.Root.Snapshot();
+        await Assert.That(dashboard.Read(vm => vm.Updated)).IsFalse();
+        await Assert.That(dashboard.Read(vm => vm.RestartAvailable)).IsFalse();
+        (await _window.Root.ExecuteAsync(vm => vm.RestartCommand, Wire("software"))).EnsureOk();
+        await Assert.That(File.Exists(Restart.Record)).IsFalse();
+        // Without the tray service, nothing says whether it is outdated.
+        await Assert.That(new TrayRestart(TestConfig.Create(_fixtures.Root)).Outdated).IsFalse();
+    }
+
+    [Test]
+    public async Task An_outdated_tray_offers_a_restart_once_the_running_operation_ends()
+    {
+        var requested = 0;
+        Restart.Requested += () => requested++;
+        _outdated = true;
+        _held = true;
+        var operation = _services.GetRequiredService<IOperationService>().Start(Request.Create() with { Action = Actions.Check, Host = "test" });
+        // Read when the dashboard opens.
+        await using var scope = _services.CreateAsyncScope();
+        using var window = RunicWindowTestHost.Create<DashboardViewModel>(scope.ServiceProvider);
+        await WaitForAsync(() => window.Root.View<OperationsViewModel>(vm => vm.Operations).Snapshot().Read(vm => vm.Busy));
+        await Assert.That(window.Root.Snapshot().Read(vm => vm.Updated)).IsTrue();
+        await Assert.That(window.Root.Snapshot().Read(vm => vm.RestartAvailable)).IsFalse();
+        (await window.Root.ExecuteAsync(vm => vm.RestartCommand, Wire("software"))).EnsureOk();
+        await Assert.That(requested).IsEqualTo(0);
+
+        _gate.SetResult();
+        await operation.Completion;
+        await WaitForAsync(() => window.Root.Snapshot().Read(vm => vm.RestartAvailable));
+        (await window.Root.ExecuteAsync(vm => vm.RestartCommand, Wire("software"))).EnsureOk();
+        await Assert.That(requested).IsEqualTo(1);
+        await Assert.That(new TrayRestart(TestConfig.Create(_fixtures.Root) with { StateDir = _fixtures.StateDir }).Resume()).IsEqualTo("software");
+    }
+
+    [Test]
+    public async Task The_first_dashboard_after_a_restart_reopens_its_page()
+    {
+        Restart.Request("generations");
+        await Assert.That(Restart.Resume()).IsEqualTo("generations");
+        await using var first = _services.CreateAsyncScope();
+        using (var window = RunicWindowTestHost.Create<DashboardViewModel>(first.ServiceProvider))
+            await Assert.That(window.Root.Snapshot().Read(vm => vm.ReopenPage)).IsEqualTo("generations");
+        await using var second = _services.CreateAsyncScope();
+        using (var window = RunicWindowTestHost.Create<DashboardViewModel>(second.ServiceProvider))
+            await Assert.That(window.Root.Snapshot().Read(vm => vm.ReopenPage)).IsNull();
+    }
+
+    private TrayRestart Restart => _services.GetRequiredService<TrayRestart>();
+
     private string PreferencesPath => DashboardPreferences.PathOf(TestConfig.Create(_fixtures.Root) with { StateDir = _fixtures.StateDir });
 
     private static readonly SystemState Observed = new()
@@ -437,6 +501,7 @@ public sealed class DashboardTests : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        _gate.TrySetResult();
         _window.Dispose();
         await _scope.DisposeAsync();
         await _services.DisposeAsync();

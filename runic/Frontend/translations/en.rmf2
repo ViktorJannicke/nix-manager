@@ -34,6 +34,14 @@ nav {
   software = Software
 }
 
+restart {
+  after_operation = Restarting is offered once the running operation ends.
+  failed = Nix Manager could not restart
+  ready = Restart Nix Manager to use the new version. The dashboard opens again on this page.
+  now = Restart now
+  updated = Nix Manager was updated
+}
+
 scope {
   all = Your user and system
   all_text = your user and system

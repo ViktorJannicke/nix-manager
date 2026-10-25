@@ -31,6 +31,14 @@ nav {
   software = Software
 }
 
+restart {
+  after_operation = Der Neustart wird angeboten, sobald der laufende Vorgang endet.
+  failed = Nix Manager konnte nicht neu starten
+  ready = Starten Sie Nix Manager neu, um die neue Version zu verwenden. Das Dashboard öffnet sich danach wieder auf dieser Seite.
+  now = Jetzt neu starten
+  updated = Nix Manager wurde aktualisiert
+}
+
 scope {
   all = Ihr Benutzer und das System
   all_text = Ihr Benutzer und das System
