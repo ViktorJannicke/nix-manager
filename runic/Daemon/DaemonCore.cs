@@ -30,6 +30,12 @@ public sealed record DaemonSettings
     public TimeSpan CheckInterval { get; init; } = TimeSpan.FromMinutes(360);
     /// <summary>Before the first update check after start.</summary>
     public TimeSpan FirstCheck { get; init; } = TimeSpan.FromSeconds(10);
+    /// <summary>
+    /// True once the computer has a newer tray service than this process runs, such as after a system switch; the tray
+    /// then ends with <see cref="DaemonCore.Replaced"/> when it is idle, so systemd starts the new one. Null outside the
+    /// NixOS module's service.
+    /// </summary>
+    public Func<bool>? Outdated { get; init; }
 }
 
 /// <summary>The dashboard Window as the running instance opens it.</summary>
@@ -65,6 +71,12 @@ public interface IDashboardWindows
 /// </remarks>
 public sealed class DaemonCore
 {
+    /// <summary>
+    /// The tray's exit status when a newer tray service is installed (EX_TEMPFAIL); the NixOS module's service restarts
+    /// on it.
+    /// </summary>
+    public const int Replaced = 75;
+
     private readonly IOperationService _service;
     private readonly BackgroundTasks _background;
     private readonly Observer _observer;
@@ -313,6 +325,14 @@ public sealed class DaemonCore
                 if (item is DesktopStatusIconActivation { MenuItemId: TrayCommands.Quit }) break;
                 await HandleAsync(item);
                 if (!tray && !windows.IsOpen && !_service.Busy && _serving.IsEmpty) break;
+                // A system switch leaves this service running (the switch may be its own operation); once nothing
+                // runs, no command line follows and no Window is open, the tray makes way for the installed one.
+                if (tray && item is (Ended or WindowClosed or ServeEnded) && !windows.IsOpen && !_service.Busy && _serving.IsEmpty
+                    && _settings.Outdated?.Invoke() == true)
+                {
+                    _log.WriteLine("A newer Nix Manager is installed; restarting the tray.");
+                    return Replaced;
+                }
             }
             return 0;
         }

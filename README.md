@@ -316,6 +316,13 @@ selects another one. Tray autostart defaults to disabled. After a system switch 
 user service starts with the next graphical session, or with
 `systemctl --user start nix-manager-tray`.
 
+A system switch does not restart the tray (`restartIfChanged = false`). The tray
+may be running that switch itself, and stopping it would close the dashboard
+until the switch ends. The module writes the service's revision to
+`/etc/nix-manager/tray-revision`. Once no operation runs, no command line
+follows one and the dashboard is closed, a tray whose revision differs exits
+with status 75, and systemd starts the new one.
+
 ### One process per user
 
 Nix Manager runs as one per-user process. With `tray.enable`, the

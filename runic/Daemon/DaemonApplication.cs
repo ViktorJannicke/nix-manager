@@ -181,6 +181,23 @@ public static class DaemonCommand
     /// <param name="Interval">Minutes between update checks, from <c>--interval</c> (5–10080).</param>
     public sealed record Invocation(string? Flake, string? Host, int Interval);
 
+    /// <summary>The revision of the tray service this process was started as, set by the NixOS module.</summary>
+    public const string RevisionVariable = "NIX_MANAGER_TRAY_REVISION";
+
+    /// <summary>The installed tray service's revision, which the NixOS module writes with each system.</summary>
+    public const string RevisionFile = "/etc/nix-manager/tray-revision";
+
+    /// <summary>
+    /// Whether the installed tray service differs from <paramref name="revision"/>, the one this process was started as;
+    /// null without a revision. A missing revision file means no tray service is installed: systemd stops this one.
+    /// </summary>
+    internal static Func<bool>? Outdated(string? revision, string file = RevisionFile) =>
+        string.IsNullOrWhiteSpace(revision) ? null : () =>
+        {
+            try { return File.ReadAllText(file).Trim() != revision.Trim(); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return false; }
+        };
+
     /// <summary>
     /// Becomes the running instance and runs the daemon until it is stopped. While a dashboard started without the
     /// daemon is the running instance, it waits for that to close; while another daemon runs, it fails.
@@ -189,7 +206,10 @@ public static class DaemonCommand
     {
         Setup.SetupAssistant.AllowFlakes(ManagerEnvironment.Current);
         if (DaemonApplication.Load(invocation.Flake, invocation.Host) is not { } config) return 1;
-        var settings = new DaemonSettings { Mode = DaemonMode.Tray, CheckInterval = TimeSpan.FromMinutes(invocation.Interval) };
+        var settings = new DaemonSettings
+        {
+            Mode = DaemonMode.Tray, CheckInterval = TimeSpan.FromMinutes(invocation.Interval), Outdated = Outdated(Environment.GetEnvironmentVariable(RevisionVariable)),
+        };
         var waiting = false;
         while (true)
         {
