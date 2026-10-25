@@ -493,7 +493,10 @@ operation and every 30 seconds while it is open.
 
 Update checks write a proposed flake lock to a temporary directory using Nix's
 `--output-lock-file`, then compare input revisions. Stable GitHub releases are
-compared against the local package pins. A pin with `"channel": "nightly"`
+compared against the local package pins. OpenCode tags 2.x without GitHub
+releases, so its stable release is the `latest` dist-tag of npm's
+`@opencode/cli`, built from the matching `vX.Y.Z` tag. Upstream `-preview.` tags
+are never pinned. A pin with `"channel": "nightly"`
 follows the newest `vX.Y.Z-nightly.YYYYMMDD.N` or stable release instead; a
 nightly sorts before the stable release with the same `X.Y.Z`. A package may already be newer in locked
 nixpkgs; its updater detects that and skips an unnecessary pin update. Partial
@@ -502,7 +505,8 @@ their check time and can become stale until the next check.
 
 Package updaters retain the locked nixpkgs recipe, compare it with an upstream
 recipe from one resolved commit, and only save a pin after the candidate builds.
-Hash discovery accepts a mismatch for the exact expected dependency derivation.
+Hash discovery accepts a mismatch for the exact expected dependency derivation,
+or for its resolved form (same name, other hash) when inputs are content-addressed.
 Pins are replaced by a same-filesystem rename; an intervening manual pin edit
 causes the update to fail instead of overwriting it. `--dry-run` package updates
 may fetch metadata and recipe text, but do not fetch archives, build or save pins.

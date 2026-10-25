@@ -11,7 +11,11 @@ namespace NixManager.Updates;
 /// <param name="Prefix">The <c>pkgs/by-name</c> shard in nixpkgs.</param>
 /// <param name="Recipes">The nixpkgs recipe files the candidate inherits, compared against nixos-unstable.</param>
 /// <param name="BlockedVersions">Releases with a known upstream regression, never pinned.</param>
-public sealed record PackageSource(string Owner, string Repo, string Prefix, IReadOnlyList<string> Recipes, IReadOnlyList<string> BlockedVersions);
+/// <param name="Npm">
+/// The npm package whose <c>latest</c> dist-tag names the stable release, for projects that tag releases without
+/// publishing them on GitHub. The source still comes from the matching <c>vX.Y.Z</c> tag.
+/// </param>
+public sealed record PackageSource(string Owner, string Repo, string Prefix, IReadOnlyList<string> Recipes, IReadOnlyList<string> BlockedVersions, string? Npm = null);
 
 /// <summary>
 /// Updates a package's pin in the checkout: the newest release on the
@@ -26,7 +30,8 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
     public static readonly IReadOnlyDictionary<string, PackageSource> Packages = new Dictionary<string, PackageSource>
     {
         ["t3code"] = new("pingdotgg", "t3code", "t3", ["package.nix", "unwrapped.nix", "resource-monitor.nix"], []),
-        ["opencode"] = new("anomalyco", "opencode", "op", ["package.nix"], []),
+        // OpenCode 2.x is tagged and published to npm only; GitHub's latest release stays on 1.x.
+        ["opencode"] = new("anomalyco", "opencode", "op", ["package.nix"], [], Npm: "@opencode/cli"),
         ["pince"] = new("korcankaraokcu", "PINCE", "", [], []),
     };
 
@@ -85,7 +90,8 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
 
     /// <summary>
     /// The hash Nix printed for <paramref name="expected"/> in a failed fake-hash build; other derivations'
-    /// mismatches are ignored (<c>extractHash</c>).
+    /// mismatches are ignored (<c>extractHash</c>). With content-addressed inputs Nix builds and reports the resolved
+    /// derivation, whose store path differs from the evaluated one but keeps its name.
     /// </summary>
     public static string ExtractHash(string log, string expected, int code)
     {
@@ -94,12 +100,21 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
             foreach (var line in Color().Replace(log, "").Split('\n'))
             {
                 var mismatch = Mismatch().Match(line);
-                if (mismatch.Success) matching = mismatch.Groups[1].Value == expected;
+                if (mismatch.Success)
+                    matching = mismatch.Groups[1].Value == expected || DerivationName(mismatch.Groups[1].Value) == DerivationName(expected);
                 else if (matching && Got().Match(line) is { Success: true } got) return got.Groups[1].Value;
             }
         throw new ManagerException(code == 0
             ? DisplayText.Of("stored_fake_hash_build_succeeded")
             : DisplayText.Of("stored_could_not_extract_the_hash", ("derivation", expected)));
+    }
+
+    /// <summary>The name of a store path without its hash, such as <c>t3code-unwrapped-pnpm-deps.drv</c>.</summary>
+    private static string DerivationName(string path)
+    {
+        var file = Path.GetFileName(path);
+        var separator = file.IndexOf('-', StringComparison.Ordinal);
+        return separator == 32 ? file[(separator + 1)..] : file;
     }
 
     /// <summary>Evaluates the fixed-output derivation, builds it with the fake hash and reads the real hash (<c>discoverHash</c>).</summary>
@@ -163,7 +178,7 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
         var before = FileErrors.Attempt(DisplayText.Of("stored_read_current_pin"), () => File.ReadAllText(pinFile), pinFile);
         var pin = PackagePins.Parse(before, name);
         var channel = pin.Channel ?? "stable";
-        var version = await UpdateChecker.LatestAsync(network, name, p.Owner, p.Repo, channel, cancellationToken).ConfigureAwait(false);
+        var version = await UpdateChecker.LatestAsync(network, name, p.Owner, p.Repo, channel, cancellationToken, p.Npm).ConfigureAwait(false);
         if (p.BlockedVersions.Contains(version))
             throw new ManagerException(DisplayText.Of("stored_version_blocked_by_upstream_regression", ("name", name), ("version", version)));
         var order = UpdateChecker.CompareVersions(pin.Version, version);

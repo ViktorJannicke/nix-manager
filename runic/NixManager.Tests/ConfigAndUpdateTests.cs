@@ -94,6 +94,21 @@ internal sealed class FakeNetwork(Dictionary<string, string> answers) : INetwork
 public sealed class UpdateCheckerTests
 {
     [Test]
+    public async Task OpenCode_follows_its_npm_release_instead_of_the_latest_GitHub_release()
+    {
+        var network = new FakeNetwork(new()
+        {
+            ["https://api.github.com/repos/anomalyco/opencode/releases/latest"] = """{"tag_name":"v1.19.3"}""",
+            ["https://registry.npmjs.org/-/package/@opencode/cli/dist-tags"] = """{"latest":"2.1.2","dev":"0.0.0-dev-21430"}""",
+        });
+        var npm = PackageUpdater.Packages["opencode"].Npm;
+        await Assert.That(await UpdateChecker.LatestAsync(network, "opencode", "anomalyco", "opencode", null, CancellationToken.None, npm)).IsEqualTo("2.1.2");
+        var unstable = new FakeNetwork(new() { ["https://registry.npmjs.org/-/package/@opencode/cli/dist-tags"] = """{"latest":"0.0.0-dev-21430"}""" });
+        await Assert.That(() => UpdateChecker.LatestAsync(unstable, "opencode", "anomalyco", "opencode", null, CancellationToken.None, npm)).Throws<ManagerException>()
+            .WithMessage("The latest release of opencode does not have a stable vX.Y.Z tag.");
+    }
+
+    [Test]
     public async Task Versions_order_nightlies_by_date_and_run_before_their_stable_release()
     {
         await Assert.That(UpdateChecker.CompareVersions("1.10.0", "1.9.99")).IsEqualTo(1);

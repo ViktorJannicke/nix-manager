@@ -50,6 +50,7 @@ public sealed class PackageUpdaterTests : IDisposable
 
     private static string Release(string url) =>
         url.Contains("releases/latest", StringComparison.Ordinal) ? """{"tag_name":"v0.0.38"}"""
+        : url.Contains("registry.npmjs.org", StringComparison.Ordinal) ? """{"latest":"0.0.38","dev":"0.0.0-dev-21430"}"""
         : url.Contains("releases?per_page", StringComparison.Ordinal)
             ? JsonSerializer.Serialize(new object[]
             {
@@ -143,6 +144,12 @@ public sealed class PackageUpdaterTests : IDisposable
         var log = $"hash mismatch in fixed-output derivation '/nix/store/other.drv':\n got: sha256-{new string('A', 43)}=\nhash mismatch in fixed-output derivation '/nix/store/expected.drv':\n got: {Hash}";
         await Assert.That(PackageUpdater.ExtractHash(log, "/nix/store/expected.drv", 1)).IsEqualTo(Hash);
         await Assert.That(PackageUpdater.ExtractHash("\u001b[31m" + log + "\u001b[0m", "/nix/store/expected.drv", 1)).IsEqualTo(Hash);
+        // Content-addressed inputs make Nix report the resolved derivation, with another hash but the same name.
+        const string evaluated = "/nix/store/xabj5w6pklyh9w32mn8b83aick4ljq6k-t3code-unwrapped-pnpm-deps.drv";
+        var resolved = $"hash mismatch in fixed-output derivation '/nix/store/izdl1p5v4pdwjyn1mys7fjdjizb1hskr-t3code-unwrapped-pnpm-deps.drv':\n  specified: sha256-{new string('A', 43)}=\n     got:    {Hash}\nerror: build of resolved derivation '/nix/store/izdl1p5v4pdwjyn1mys7fjdjizb1hskr-t3code-unwrapped-pnpm-deps.drv' failed";
+        await Assert.That(PackageUpdater.ExtractHash(resolved, evaluated, 1)).IsEqualTo(Hash);
+        await Assert.That(() => PackageUpdater.ExtractHash(resolved.Replace("t3code-unwrapped-pnpm-deps", "other-deps", StringComparison.Ordinal), evaluated, 1))
+            .Throws<ManagerException>();
         foreach (var output in new[]
                  {
                      "network failed",

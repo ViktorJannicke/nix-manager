@@ -118,7 +118,8 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
                 try
                 {
                     var pin = ReadPin(Path.Combine(config.Flake, "pkgs", name, "source.json"), name);
-                    var version = await LatestAsync(network, name, owner, repo, pin.Channel, cancellationToken).ConfigureAwait(false);
+                    var npm = PackageUpdater.Packages[name].Npm;
+                    var version = await LatestAsync(network, name, owner, repo, pin.Channel, cancellationToken, npm).ConfigureAwait(false);
                     if (CompareVersions(version, pin.Version) > 0 && !PackageUpdater.Packages[name].BlockedVersions.Contains(version))
                         report.Items.Add(new UpdateItem
                         {
@@ -127,7 +128,7 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
                             Latest = version,
                             Kind = "package",
                             Source = $"{owner}/{repo}",
-                            Url = $"https://github.com/{owner}/{repo}/releases/tag/v{version}",
+                            Url = npm is null ? $"https://github.com/{owner}/{repo}/releases/tag/v{version}" : $"https://github.com/{owner}/{repo}/tree/v{version}",
                         });
                 }
                 catch (ManagerException e)
@@ -229,10 +230,14 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
         return PackagePins.Parse(text, name);
     }
 
-    /// <summary>The newest release on a pin's channel (<c>latest</c>).</summary>
-    internal static async Task<string> LatestAsync(INetwork network, string name, string owner, string repo, string? channel, CancellationToken cancellationToken)
+    /// <summary>
+    /// The newest release on a pin's channel (<c>latest</c>); with <paramref name="npm"/>, the stable release is that
+    /// package's <c>latest</c> dist-tag.
+    /// </summary>
+    internal static async Task<string> LatestAsync(INetwork network, string name, string owner, string repo, string? channel, CancellationToken cancellationToken, string? npm = null)
     {
         var nightly = channel == "nightly";
+        if (!nightly && npm is not null) return await NpmLatestAsync(network, name, npm, cancellationToken).ConfigureAwait(false);
         var raw = await network.TextAsync(nightly
             ? $"https://api.github.com/repos/{owner}/{repo}/releases?per_page=100"
             : $"https://api.github.com/repos/{owner}/{repo}/releases/latest", cancellationToken).ConfigureAwait(false);
@@ -262,6 +267,26 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
         {
             // The answer is JSON of another shape, such as an object where the list of releases belongs.
             throw new ManagerException(DisplayText.Of(nightly ? "stored_release_list_not_a_list" : "stored_latest_release_not_an_object", ("name", name)));
+        }
+    }
+
+    /// <summary>The <c>latest</c> dist-tag of the npm package <paramref name="npm"/>, which must be X.Y.Z.</summary>
+    private static async Task<string> NpmLatestAsync(INetwork network, string name, string npm, CancellationToken cancellationToken)
+    {
+        var raw = await network.TextAsync($"https://registry.npmjs.org/-/package/{npm}/dist-tags", cancellationToken).ConfigureAwait(false);
+        try
+        {
+            using var document = JsonDocument.Parse(raw);
+            var latest = document.RootElement.TryGetProperty("latest", out var tag) && tag.ValueKind == JsonValueKind.String ? tag.GetString()! : "";
+            return StableVersion().IsMatch(latest) ? latest : throw new ManagerException(DisplayText.Of("stored_latest_release_has_no_stable_tag", ("name", name)));
+        }
+        catch (JsonException e)
+        {
+            throw new ManagerException(DisplayText.Of("stored_latest_release_not_valid_json", ("name", name), ("reason", e.Message)));
+        }
+        catch (InvalidOperationException)
+        {
+            throw new ManagerException(DisplayText.Of("stored_latest_release_not_an_object", ("name", name)));
         }
     }
 
