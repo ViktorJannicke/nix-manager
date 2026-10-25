@@ -24,7 +24,12 @@
   });
   const output = $derived(review?.[tab] ?? undefined);
   const repository = $derived(app.system?.repository);
-  const checkoutChanged = $derived(Boolean(review && repository && review.source !== "generation" && review.fingerprint !== repository.fingerprint));
+  // Such a review is refused when applied, and discarded once an operation ends.
+  const checkoutChanged = $derived(
+    Boolean(
+      review && repository && review.source !== "generation" && (review.fingerprint !== repository.fingerprint || (review.revision && review.revision !== repository.revision)),
+    ),
+  );
   const lockChanged = $derived(Boolean(review?.inputs && repository && review.inputs.baseLockHash !== repository.lockHash));
   const otherHost = $derived(Boolean(review && review.host !== app.config?.hostKey));
   const kernelChange = $derived(Boolean(review?.system?.kernel && review.system.kernel.before !== review.system.kernel.after));
@@ -113,9 +118,9 @@
         <div class="flex flex-wrap gap-2">
           <Button variant="ghost" disabled={app.busy} aria-describedby="review-title" onclick={() => app.discard(review)}><TrashIcon /> {m.changes_discard()}</Button>
           {#if review.system}
-            <Button variant="outline" disabled={app.busy || !app.connected || lockChanged} aria-describedby="review-title" onclick={() => apply(review, "boot")}>{m.changes_apply_on_boot()}</Button>
+            <Button variant="outline" disabled={app.busy || !app.connected || lockChanged || checkoutChanged} aria-describedby="review-title" onclick={() => apply(review, "boot")}>{m.changes_apply_on_boot()}</Button>
           {/if}
-          <Button disabled={app.busy || !app.connected || lockChanged} aria-describedby="review-title" onclick={() => apply(review, "switch")}>{m.changes_apply_now()}</Button>
+          <Button disabled={app.busy || !app.connected || lockChanged || checkoutChanged} aria-describedby="review-title" onclick={() => apply(review, "switch")}>{m.changes_apply_now()}</Button>
         </div>
       </div>
 
@@ -127,9 +132,9 @@
               {m.changes_lock_changed()}
             </p>
           {:else if checkoutChanged}
-            <p class="flex gap-2 rounded-lg bg-warning/10 px-3 py-2">
-              <TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-warning" />
-              {m.changes_checkout_changed()}
+            <p class="flex gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-destructive">
+              <TriangleAlertIcon class="mt-0.5 size-4 shrink-0" />
+              {m.changes_checkout_outdated()}
             </p>
           {/if}
           {#if draftMoved}

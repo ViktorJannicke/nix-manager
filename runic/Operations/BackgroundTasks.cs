@@ -49,6 +49,18 @@ public sealed class BackgroundTasks(IOperationService manager, BackgroundConditi
     public static PreparedUpdates? LastPrepared(Config config) =>
         ReadObject(PreparedPath(config)) is { } value ? new PreparedUpdates(Text(value, "signature") ?? "", Text(value, "reviewId") ?? "") : null;
 
+    /// <summary>
+    /// Keeps the record of the last prepared updates pointed at a review that exists once <paramref name="reviewId"/>
+    /// was discarded as obsolete: at the newer review that <paramref name="replacement"/> names, or at none, so the
+    /// updates are prepared again for the checkout as it is now.
+    /// </summary>
+    public static void Discarded(Config config, string reviewId, string? replacement)
+    {
+        if (LastPrepared(config) is not { } prepared || prepared.ReviewId != reviewId) return;
+        if (replacement is null) File.Delete(PreparedPath(config));
+        else OperationStore.AtomicJson(PreparedPath(config), JsJson.Indented(new JsonObject { ["signature"] = prepared.Signature, ["reviewId"] = replacement }));
+    }
+
     /// <summary>The last automatic cleanup (<c>lastCleanup</c>).</summary>
     public static AutomaticCleanup? LastCleanup(Config config) =>
         ReadObject(CleanedPath(config)) is { } value
