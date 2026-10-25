@@ -86,6 +86,16 @@ in
     assert first.security.wrappers.pkexec.enable;
     assert !(lib.hasInfix "--flake" (trayStart first));
     assert lib.hasPrefix "${lib.getExe manager} tray --interval 360" (trayStart first);
+    # A switch leaves the tray running; it compares its revision with the installed one and restarts with 75.
+    assert lib.hasInfix "X-RestartIfChanged=false"
+      first.systemd.user.units."nix-manager-tray.service".text;
+    assert
+      first.systemd.user.services.nix-manager-tray.environment.NIX_MANAGER_TRAY_REVISION
+      == first.environment.etc."nix-manager/tray-revision".text;
+    assert
+      first.environment.etc."nix-manager/tray-revision".text
+      == second.environment.etc."nix-manager/tray-revision".text;
+    assert first.systemd.user.services.nix-manager-tray.serviceConfig.RestartForceExitStatus == 75;
     assert builtins.elem manager first.environment.systemPackages;
     # What the configuration links into /run/current-system/sw: one command, one policy whose program is that
     # command, the desktop entry and icon, and the completions of every shell.

@@ -152,9 +152,9 @@ public sealed class DaemonTests : IDisposable
         Directory.Delete(_flake, recursive: true);
     }
 
-    private DaemonCore Core(DaemonMode mode = DaemonMode.Tray) =>
+    private DaemonCore Core(DaemonMode mode = DaemonMode.Tray, Func<bool>? outdated = null) =>
         new(_service, new BackgroundTasks(_service), new Observer(Config, _ => Task.FromResult<SystemState>(null!)), _icon, _notifications,
-            new DaemonSettings { Mode = mode, FirstCheck = TimeSpan.FromHours(1) }, log: _log, freeSpace: () => null);
+            new DaemonSettings { Mode = mode, FirstCheck = TimeSpan.FromHours(1), Outdated = outdated }, log: _log, freeSpace: () => null);
 
     private static ApplicationLaunch Launch(DaemonRequest request, IApplicationLaunchReply? reply) =>
         DaemonProtocol.Launch(request) with { Reply = reply };
@@ -269,6 +269,58 @@ public sealed class DaemonTests : IDisposable
         _gate.SetResult();
         await Assert.That(await running.WaitAsync(TimeSpan.FromSeconds(30))).IsEqualTo(0);
         await Assert.That(_service.History()[0].Status).IsEqualTo(OperationStatuses.Succeeded);
+    }
+
+    [Test]
+    public async Task An_outdated_tray_keeps_running_the_operation_and_the_dashboard_then_ends_for_the_new_one()
+    {
+        var outdated = false;
+        var core = Core(outdated: () => outdated);
+        using var shutdown = new CancellationTokenSource();
+        var running = core.RunAsync(_windows, shutdown.Token);
+        _icon.Activate(new DesktopStatusIconActivation(DesktopStatusIconActivationKind.MenuItem, TrayCommands.Open));
+        while (_windows.Opened == 0) await Task.Delay(10);
+
+        // The operation installs a newer tray service, as a system switch does; its end leaves the dashboard open.
+        var operation = _service.Start(Build);
+        outdated = true;
+        _gate.SetResult();
+        await operation.Completion;
+        await Task.Delay(200);
+        await Assert.That(running.IsCompleted).IsFalse();
+        await Assert.That(_windows.IsOpen).IsTrue();
+
+        _windows.Close();
+        await Assert.That(await running.WaitAsync(TimeSpan.FromSeconds(30))).IsEqualTo(DaemonCore.Replaced);
+        await Assert.That(_service.History()[0].Status).IsEqualTo(OperationStatuses.Succeeded);
+    }
+
+    [Test]
+    public async Task A_current_tray_keeps_running_after_an_operation()
+    {
+        var core = Core(outdated: () => false);
+        using var shutdown = new CancellationTokenSource();
+        var running = core.RunAsync(_windows, shutdown.Token);
+        _gate.SetResult();
+        await _service.Start(Build).Completion;
+        await Task.Delay(200);
+        await Assert.That(running.IsCompleted).IsFalse();
+        await shutdown.CancelAsync();
+        await Assert.That(await running.WaitAsync(TimeSpan.FromSeconds(30))).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task The_tray_is_outdated_once_the_installed_revision_differs_from_its_own()
+    {
+        var file = Path.Combine(_flake, "tray-revision");
+        await Assert.That(DaemonCommand.Outdated(null, file) is null).IsTrue();
+        var outdated = DaemonCommand.Outdated("abc", file)!;
+        // Without the file the service is no longer installed; systemd stops it.
+        await Assert.That(outdated()).IsFalse();
+        await File.WriteAllTextAsync(file, "abc");
+        await Assert.That(outdated()).IsFalse();
+        await File.WriteAllTextAsync(file, "def");
+        await Assert.That(outdated()).IsTrue();
     }
 
     [Test]

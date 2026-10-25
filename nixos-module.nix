@@ -9,6 +9,26 @@ let
   cfg = config.programs.nix-manager;
   hasHosts = cfg.hosts != { };
   registryPath = "/etc/nix-manager/hosts.json";
+  trayEnvironment = lib.optionalAttrs hasHosts { NIX_MANAGER_HOSTS = registryPath; };
+  trayStart = lib.concatStringsSep " " (
+    [ (lib.getExe cfg.package) ]
+    ++ lib.optionals (cfg.tray.flakePath != null) [
+      "--flake"
+      (lib.escapeShellArg cfg.tray.flakePath)
+    ]
+    ++ [
+      "tray"
+      "--interval"
+      (toString cfg.tray.intervalMinutes)
+    ]
+  );
+  # Changes with anything the service runs; the tray compares it with the installed one.
+  trayRevision = builtins.hashString "sha256" (
+    builtins.toJSON {
+      start = trayStart;
+      environment = trayEnvironment;
+    }
+  );
 in
 {
   imports = [
@@ -71,27 +91,28 @@ in
       text = builtins.toJSON cfg.hosts;
     };
     environment.variables.NIX_MANAGER_HOSTS = lib.mkIf hasHosts registryPath;
+    environment.etc."nix-manager/tray-revision" = lib.mkIf cfg.tray.enable { text = trayRevision; };
     systemd.user.services.nix-manager-tray = lib.mkIf cfg.tray.enable {
       description = "Nix Manager: operations, tray and update notifications";
       wantedBy = [ "graphical-session.target" ];
       partOf = [ "graphical-session.target" ];
       after = [ "graphical-session.target" ];
-      environment = lib.optionalAttrs hasHosts { NIX_MANAGER_HOSTS = registryPath; };
+      # The daemon may be running the switch itself: stopping it there would close the dashboard and wait for
+      # the switch until systemd kills it. It restarts into the new revision once it is idle instead.
+      restartIfChanged = false;
+      environment = trayEnvironment // {
+        NIX_MANAGER_TRAY_REVISION = trayRevision;
+      };
       serviceConfig = {
-        ExecStart = lib.concatStringsSep " " (
-          [ (lib.getExe cfg.package) ]
-          ++ lib.optionals (cfg.tray.flakePath != null) [
-            "--flake"
-            (lib.escapeShellArg cfg.tray.flakePath)
-          ]
-          ++ [
-            "tray"
-            "--interval"
-            (toString cfg.tray.intervalMinutes)
-          ]
-        );
+        ExecStart = trayStart;
         Restart = "on-failure";
-        RestartSec = 30;
+        # Restarts start almost at once and slow down to 30 seconds when they repeat.
+        RestartSec = 1;
+        RestartSteps = 5;
+        RestartMaxDelaySec = 30;
+        # Exit status 75 (EX_TEMPFAIL): a newer revision is installed, so the tray ended for it to start.
+        SuccessExitStatus = 75;
+        RestartForceExitStatus = 75;
       };
     };
   };
