@@ -704,7 +704,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                                 if (pins.Count > 0 && r.Action == Actions.ReviewBuild && staged is null) pinnedFlake = $"path:{updateRoot}/source";
                                 break;
                             case InternalSteps.WriteUpdate:
-                                ReviewStore.WriteLock(config, $"{updateRoot}/flake.lock", pins, baseLockHash: null);
+                                ReviewStore.WriteLock(config, $"{updateRoot}/flake.lock", pins, Repository.HashText(baseLock));
                                 foreach (var pin in pins) Log($"Wrote {pin.Path}");
                                 break;
                             default:

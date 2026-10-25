@@ -288,13 +288,13 @@ public static class ReviewStore
     /// checkout. Every file is checked first: when flake.lock no longer has <paramref name="baseLockHash"/> or a pin
     /// changed since it was revalidated, nothing is written.
     /// </summary>
-    /// <param name="baseLockHash">The checkout lock's hash the proposal was resolved from; null to replace any lock.</param>
-    public static void WriteLock(Config config, string proposed, IReadOnlyList<ReviewPin> pins, string? baseLockHash)
+    /// <param name="baseLockHash">The checkout lock's hash the proposal was resolved from.</param>
+    public static void WriteLock(Config config, string proposed, IReadOnlyList<ReviewPin> pins, string baseLockHash)
     {
         try
         {
             var target = Path.Combine(config.Flake, "flake.lock");
-            if (baseLockHash is not null && Repository.HashText(Repository.ReadLock(config.Flake)) != baseLockHash)
+            if (Repository.HashText(Repository.ReadLock(config.Flake)) != baseLockHash)
                 throw new ManagerException(DisplayText.Of("stored_flake_lock_changed_after_review"));
             foreach (var pin in pins)
             {
