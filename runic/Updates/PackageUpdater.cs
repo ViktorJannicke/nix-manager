@@ -46,7 +46,11 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
     /// <summary>The hash a candidate starts with, so the build fails and names the real one (<c>fakeHash</c>).</summary>
     public const string FakeHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
-    /// <summary>The candidate T3 Code, OpenCode desktop, or the recipe itself, built from the pin under test (<c>candidateExpression</c>).</summary>
+    /// <summary>
+    /// The candidate T3 Code, OpenCode desktop, or the recipe itself, built from the pin under test
+    /// (<c>candidateExpression</c>). T3 Code and OpenCode desktop are the configuration's own packages with the
+    /// candidate in place of the pinned package, so the check builds what the configuration installs.
+    /// </summary>
     public const string CandidateExpression = """
         let
           flake = builtins.getFlake (builtins.getEnv "NIX_MANAGER_HOME_FLAKE");
@@ -57,9 +61,9 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
             pin = builtins.fromJSON (builtins.readFile (builtins.getEnv "NIX_MANAGER_PACKAGE_PIN"));
             forceOverride = true;
           };
-          opencodeDesktop = pkgs.opencode-desktop.overrideAttrs (_: {
-            inherit (candidate) version src node_modules patches;
-          });
+          opencodeDesktop = flake.packages.${system}.opencode-desktop.override {
+            opencode = candidate;
+          };
           t3code = flake.packages.${system}.t3code.override {
             t3code-unwrapped = candidate.unwrapped;
             t3code-resource-monitor = candidate.resourceMonitor;
