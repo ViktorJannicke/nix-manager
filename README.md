@@ -559,8 +559,9 @@ the lock's `root` node and its `follows` paths (the node named `nixpkgs` may bel
 to another input). A pin validated against another revision whose version is
 still newer than the new nixpkgs' own is revalidated with the package updater
 against a copy of the checkout with the proposed lock: same release and source,
-dependency hashes rediscovered, the full candidate (OpenCode desktop, the wrapped
-T3 Code) built, and the new revision recorded. A pin whose version nixpkgs has
+dependency hashes rediscovered, the full candidate (the configuration's OpenCode
+desktop and wrapped T3 Code, with the candidate in place of the pin) built, and the
+new revision recorded. A pin whose version nixpkgs has
 caught up with is superseded and left alone. A reviewed update builds from that
 copy and stores the revalidated pins in the review; applying it writes them
 together with the reviewed `flake.lock`, refusing if either changed since.
