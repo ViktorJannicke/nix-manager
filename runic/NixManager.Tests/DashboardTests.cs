@@ -80,7 +80,7 @@ public sealed class DashboardTests : IAsyncDisposable
         var operations = _window.Root.View<OperationsViewModel>(vm => vm.Operations);
         const string id = "1790107522576-f1f493f8-ff91-4054-bbfb-c506dc96ec61";
 
-        operations.Set(vm => vm.SelectedOperationId, id).EnsureOk();
+        operations.Set(vm => vm.SelectedOperationId, id).ThrowIfFailed();
 
         var log = operations.Snapshot().Read(vm => vm.Log);
         await Assert.That(log.Length).IsGreaterThan(0);
@@ -93,7 +93,7 @@ public sealed class DashboardTests : IAsyncDisposable
         var request = Request.Create() with { Action = Actions.Gc, Scope = Scopes.Home, Retention = 4 };
         var before = Directory.GetFiles(_fixtures.Operations, "*.json").Length;
 
-        (await _window.Root.ExecuteAsync(vm => vm.PreviewPlanCommand, Wire(request))).EnsureOk();
+        (await _window.Root.ExecuteAsync(vm => vm.PreviewPlanCommand, Wire(request))).ThrowIfFailed();
 
         var preview = _window.Root.Snapshot().Get(vm => vm.Preview);
         await Assert.That(preview.GetProperty("request").GetProperty("retention").GetInt32()).IsEqualTo(4);
@@ -106,7 +106,7 @@ public sealed class DashboardTests : IAsyncDisposable
     [Test]
     public async Task A_dry_run_reports_why_a_request_cannot_run()
     {
-        (await _window.Root.ExecuteAsync(vm => vm.PreviewPlanCommand, Wire(Request.Create() with { Action = Actions.Boot, Scope = Scopes.Home }))).EnsureOk();
+        (await _window.Root.ExecuteAsync(vm => vm.PreviewPlanCommand, Wire(Request.Create() with { Action = Actions.Boot, Scope = Scopes.Home }))).ThrowIfFailed();
 
         var preview = _window.Root.Snapshot().Get(vm => vm.Preview);
         await Assert.That(preview.GetProperty("plan").ValueKind).IsEqualTo(JsonValueKind.Null);
@@ -116,7 +116,7 @@ public sealed class DashboardTests : IAsyncDisposable
     [Test]
     public async Task A_dry_run_previews_a_review_build()
     {
-        (await _window.Root.ExecuteAsync(vm => vm.PreviewPlanCommand, Wire(Request.Create() with { Action = Actions.ReviewBuild }))).EnsureOk();
+        (await _window.Root.ExecuteAsync(vm => vm.PreviewPlanCommand, Wire(Request.Create() with { Action = Actions.ReviewBuild }))).ThrowIfFailed();
 
         var preview = _window.Root.Snapshot().Get(vm => vm.Preview);
         await Assert.That(preview.GetProperty("plan").ValueKind).IsEqualTo(JsonValueKind.Object);
@@ -127,7 +127,7 @@ public sealed class DashboardTests : IAsyncDisposable
     {
         File.WriteAllText(PreferencesPath, """{"detail":"simple","cleanUp":true,"later":1}""");
 
-        (await _window.Root.ExecuteAsync(vm => vm.SavePreferencesCommand, Wire(new PreferenceChange("dark", "de")))).EnsureOk();
+        (await _window.Root.ExecuteAsync(vm => vm.SavePreferencesCommand, Wire(new PreferenceChange("dark", "de")))).ThrowIfFailed();
 
         var dashboard = _window.Root.Snapshot();
         await Assert.That(dashboard.Read(vm => vm.Theme)).IsEqualTo("dark");
@@ -142,7 +142,7 @@ public sealed class DashboardTests : IAsyncDisposable
     public async Task Every_preference_of_the_Bun_version_is_saved_and_read_back()
     {
         (await _window.Root.ExecuteAsync(vm => vm.SavePreferencesCommand, Wire(new PreferenceChange(Detail: "simple", PrepareUpdates: true,
-            CleanUp: true, History: true, Backup: true, AppDetails: false)))).EnsureOk();
+            CleanUp: true, History: true, Backup: true, AppDetails: false)))).ThrowIfFailed();
 
         var dashboard = _window.Root.Snapshot();
         await Assert.That(dashboard.Read(vm => vm.Detail)).IsEqualTo("simple");
@@ -159,7 +159,7 @@ public sealed class DashboardTests : IAsyncDisposable
         await Assert.That(stored.GetProperty("detail").GetString()).IsEqualTo("simple");
 
         // The page sends only the preference it changes; the others stay as they are.
-        (await _window.Root.ExecuteAsync(vm => vm.SavePreferencesCommand, """{"prepareUpdates":false}""")).EnsureOk();
+        (await _window.Root.ExecuteAsync(vm => vm.SavePreferencesCommand, """{"prepareUpdates":false}""")).ThrowIfFailed();
         await Assert.That(_window.Root.Snapshot().Read(vm => vm.PrepareUpdates)).IsFalse();
         await Assert.That(_window.Root.Snapshot().Read(vm => vm.History)).IsTrue();
     }
@@ -169,7 +169,7 @@ public sealed class DashboardTests : IAsyncDisposable
     {
         var result = await _window.Root.ExecuteAsync(vm => vm.SavePreferencesCommand, Wire(new PreferenceChange(Detail: "everything")));
 
-        await Assert.That(result.Ok).IsFalse();
+        await Assert.That(result.Succeeded).IsFalse();
         await Assert.That(File.ReadAllText(PreferencesPath)).DoesNotContain("everything");
     }
 
@@ -252,7 +252,7 @@ public sealed class DashboardTests : IAsyncDisposable
         (await software.ExecuteAsync(vm => vm.SetDraftCommand, """
             [{"$case":"set-option","scope":"system","file":"home.nix","option":"o.p","value":{"a":[1.5,null]},"label":{"english":"L","reference":null}},
              {"$case":"add-package","scope":"home","file":"home.nix","attr":"pkgs.hello"}]
-            """)).EnsureOk();
+            """)).ThrowIfFailed();
 
         var changes = software.Snapshot().Get(vm => vm.Draft).GetProperty("changes");
         await Assert.That(changes.GetRawText()).IsEqualTo("""
@@ -268,7 +268,7 @@ public sealed class DashboardTests : IAsyncDisposable
         var label = DisplayText.Of("stored_steam");
         (await software.ExecuteAsync(vm => vm.SetDraftCommand, $$"""
             [{"$case":"set-option","scope":"system","file":"home.nix","option":"programs.steam.enable","value":true,"label":{{JsonSerializer.Serialize(new { english = label.English, reference = label.Reference })}}}]
-            """)).EnsureOk();
+            """)).ThrowIfFailed();
         saved = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(_fixtures.StateDir, "draft.json")))!;
         await Assert.That(saved["changes"]![0]!["label"]!.ToJsonString()).IsEqualTo(label.Reference);
         await Assert.That(software.Snapshot().Get(vm => vm.Draft).GetProperty("changes")[0].GetProperty("label").GetProperty("reference").GetString())
@@ -280,7 +280,7 @@ public sealed class DashboardTests : IAsyncDisposable
         await Assert.That(invalid.ErrorKind).IsEqualTo("domain-failed");
         await Assert.That(invalid.Failure!.Value.GetProperty("message").GetProperty("english").GetString()).IsEqualTo("Invalid edit: unknown scope elsewhere.");
         var unknown = await software.ExecuteAsync(vm => vm.SetDraftCommand, """[{"$case":"rename-package","scope":"home","file":"home.nix"}]""");
-        await Assert.That(unknown.Ok).IsFalse();
+        await Assert.That(unknown.Succeeded).IsFalse();
     }
 
     [Test]
@@ -290,7 +290,7 @@ public sealed class DashboardTests : IAsyncDisposable
         var before = _observations;
         var operations = _window.Root.View<OperationsViewModel>(vm => vm.Operations);
 
-        (await operations.ExecuteAsync(vm => vm.StartCommand, Wire(Request.Create() with { Action = Actions.Gc, Scope = Scopes.Home, Host = "test" }))).EnsureOk();
+        (await operations.ExecuteAsync(vm => vm.StartCommand, Wire(Request.Create() with { Action = Actions.Gc, Scope = Scopes.Home, Host = "test" }))).ThrowIfFailed();
 
         await WaitForAsync(() => _observations > before);
     }
@@ -299,8 +299,8 @@ public sealed class DashboardTests : IAsyncDisposable
     public async Task An_announcement_without_an_embedded_window_is_left_to_the_pages_live_region()
     {
         // The tester's Window has no native window to announce through, as in a browser; the command still succeeds.
-        (await _window.Root.ExecuteAsync(vm => vm.AnnounceCommand, """{"message":"Check for updates failed"}""")).EnsureOk();
-        (await _window.Root.ExecuteAsync(vm => vm.AnnounceCommand, Wire(new Announcement("Saved")))).EnsureOk();
+        (await _window.Root.ExecuteAsync(vm => vm.AnnounceCommand, """{"message":"Check for updates failed"}""")).ThrowIfFailed();
+        (await _window.Root.ExecuteAsync(vm => vm.AnnounceCommand, Wire(new Announcement("Saved")))).ThrowIfFailed();
     }
 
     [Test]
@@ -392,13 +392,13 @@ public sealed class DashboardTests : IAsyncDisposable
         await Assert.That(code).IsEqualTo(2);
         await Assert.That(started).IsNull();
         await Assert.That(stdout).IsEqualTo(error + "\n");
-        await Assert.That(stderr).IsEqualTo("NM0002: The command line is not valid.\n");
+        await Assert.That(stderr).IsEqualTo("The command line is not valid.\n");
     }
 
     [Test]
     public async Task The_dashboard_has_no_JSON_output()
     {
-        var (code, started, _, _) = Launch("ui", "--output", "json");
+        var (code, started, _, _) = Launch("ui", "--format", "json");
         await Assert.That(code).IsEqualTo(2);
         await Assert.That(started).IsNull();
     }
@@ -425,7 +425,7 @@ public sealed class DashboardTests : IAsyncDisposable
         var dashboard = _window.Root.Snapshot();
         await Assert.That(dashboard.Read(vm => vm.Updated)).IsFalse();
         await Assert.That(dashboard.Read(vm => vm.RestartAvailable)).IsFalse();
-        (await _window.Root.ExecuteAsync(vm => vm.RestartCommand, Wire("software"))).EnsureOk();
+        (await _window.Root.ExecuteAsync(vm => vm.RestartCommand, Wire("software"))).ThrowIfFailed();
         await Assert.That(File.Exists(Restart.Record)).IsFalse();
         // Without the tray service, nothing says whether it is outdated.
         await Assert.That(new TrayRestart(TestConfig.Create(_fixtures.Root)).Outdated).IsFalse();
@@ -445,13 +445,13 @@ public sealed class DashboardTests : IAsyncDisposable
         await WaitForAsync(() => window.Root.View<OperationsViewModel>(vm => vm.Operations).Snapshot().Read(vm => vm.Busy));
         await Assert.That(window.Root.Snapshot().Read(vm => vm.Updated)).IsTrue();
         await Assert.That(window.Root.Snapshot().Read(vm => vm.RestartAvailable)).IsFalse();
-        (await window.Root.ExecuteAsync(vm => vm.RestartCommand, Wire("software"))).EnsureOk();
+        (await window.Root.ExecuteAsync(vm => vm.RestartCommand, Wire("software"))).ThrowIfFailed();
         await Assert.That(requested).IsEqualTo(0);
 
         _gate.SetResult();
         await operation.Completion;
         await WaitForAsync(() => window.Root.Snapshot().Read(vm => vm.RestartAvailable));
-        (await window.Root.ExecuteAsync(vm => vm.RestartCommand, Wire("software"))).EnsureOk();
+        (await window.Root.ExecuteAsync(vm => vm.RestartCommand, Wire("software"))).ThrowIfFailed();
         await Assert.That(requested).IsEqualTo(1);
         await Assert.That(new TrayRestart(TestConfig.Create(_fixtures.Root) with { StateDir = _fixtures.StateDir }).Resume()).IsEqualTo("software");
     }

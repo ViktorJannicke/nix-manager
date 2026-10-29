@@ -16,11 +16,11 @@
       "software",
       "search",
       "git",
-      "--output",
+      "--format",
       "json"
     ],
     "exitCode": 0,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"397d33d5cc77471fa4cb1e3a01a286ed\",\"command\":\"software search\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-search/1\",\"payload\":{\"query\":\"git\",\"packages\":[{\"a\":\"git\",\"n\":\"git\",\"v\":\"2.51.0\",\"d\":\"Distributed version control system\",\"h\":null,\"p\":\"git\",\"l\":[\"GPL-2.0-only\"],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"gitFull\",\"n\":\"git\",\"v\":\"2.51.0\",\"d\":\"Distributed version control system (full)\",\"h\":null,\"p\":\"git\",\"l\":[],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"gitui\",\"n\":\"gitui\",\"v\":\"0.27.0\",\"d\":\"Blazing fast terminal-ui for git written in Rust\",\"h\":null,\"p\":\"gitui\",\"l\":[],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"python313Packages.gitpython\",\"n\":\"gitpython\",\"v\":\"3.1.45\",\"d\":\"Python Git Library\",\"h\":null,\"p\":null,\"l\":[],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"lazygit\",\"n\":\"lazygit\",\"v\":\"0.55.1\",\"d\":\"Simple terminal UI for git commands\",\"h\":null,\"p\":\"lazygit\",\"l\":[],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"brokenthing\",\"n\":\"brokenthing\",\"v\":\"1.0\",\"d\":\"A git helper that does not build\",\"h\":null,\"p\":null,\"l\":[],\"f\":true,\"b\":true,\"g\":false}]},\"fault\":null,\"diagnostics\":[]}\n",
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"c3b915a1dc284bc59b46a87e1a3d34ec\",\"command\":\"software search\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-search/1\",\"payload\":{\"query\":\"git\",\"packages\":[{\"a\":\"git\",\"n\":\"git\",\"v\":\"2.51.0\",\"d\":\"Distributed version control system\",\"h\":null,\"p\":\"git\",\"l\":[\"GPL-2.0-only\"],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"gitFull\",\"n\":\"git\",\"v\":\"2.51.0\",\"d\":\"Distributed version control system (full)\",\"h\":null,\"p\":\"git\",\"l\":[],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"gitui\",\"n\":\"gitui\",\"v\":\"0.27.0\",\"d\":\"Blazing fast terminal-ui for git written in Rust\",\"h\":null,\"p\":\"gitui\",\"l\":[],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"python313Packages.gitpython\",\"n\":\"gitpython\",\"v\":\"3.1.45\",\"d\":\"Python Git Library\",\"h\":null,\"p\":null,\"l\":[],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"lazygit\",\"n\":\"lazygit\",\"v\":\"0.55.1\",\"d\":\"Simple terminal UI for git commands\",\"h\":null,\"p\":\"lazygit\",\"l\":[],\"f\":true,\"b\":false,\"g\":false},{\"a\":\"brokenthing\",\"n\":\"brokenthing\",\"v\":\"1.0\",\"d\":\"A git helper that does not build\",\"h\":null,\"p\":null,\"l\":[],\"f\":true,\"b\":true,\"g\":false}]},\"fault\":null,\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -116,9 +116,9 @@
       "fzf",
       "pkgs.doesnotexist"
     ],
-    "exitCode": 10,
+    "exitCode": 1,
     "stdout": "pkgs.doesnotexist is not in the locked nixpkgs. Find packages with nix-manager software search.\n",
-    "stderr": "NM0010: The pending edits were not changed.\n"
+    "stderr": "The pending edits were not changed.\n"
   },
   {
     "name": "software-add-quoted-not-in-catalog",
@@ -127,9 +127,9 @@
       "add",
       "pkgs.\"my-pkg\".x"
     ],
-    "exitCode": 10,
+    "exitCode": 1,
     "stdout": "pkgs.\"my-pkg\".x is not in the locked nixpkgs. Find packages with nix-manager software search.\n",
-    "stderr": "NM0010: The pending edits were not changed.\n"
+    "stderr": "The pending edits were not changed.\n"
   },
   {
     "name": "software-pending-empty",
@@ -146,11 +146,11 @@
     "args": [
       "software",
       "pending",
-      "--output",
+      "--format",
       "json"
     ],
     "exitCode": 0,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"ed42e43016c6477088a1acaf8d088d05\",\"command\":\"software pending\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[],\"files\":[],\"problems\":[],\"hash\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\"},\"added\":[],\"dropped\":[]},\"fault\":null,\"diagnostics\":[]}\n",
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"1d79dc51024741158364e11bb7f3a6c8\",\"command\":\"software pending\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[],\"files\":[],\"problems\":[],\"hash\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\"},\"added\":[],\"dropped\":[]},\"fault\":null,\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -179,11 +179,11 @@
     "args": [
       "software",
       "pending",
-      "--output",
+      "--format",
       "json"
     ],
     "exitCode": 0,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"1a785d97f4714f1895a3dea4b812ed9a\",\"command\":\"software pending\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"},{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true}],\"files\":[{\"path\":\"home.nix\",\"baseHash\":\"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\"hunks\":[{\"line\":4,\"lines\":[{\"kind\":\" \",\"text\":\"    git\"},{\"kind\":\" \",\"text\":\"    ripgrep\"},{\"kind\":\"\\u002B\",\"text\":\"    fzf\"},{\"kind\":\" \",\"text\":\"  ];\"},{\"kind\":\"\\u002B\",\"text\":\"  programs.git.enable = true;\"},{\"kind\":\" \",\"text\":\"}\"},{\"kind\":\" \",\"text\":\"\"}]}]}],\"problems\":[],\"hash\":\"a36b7b2fda68e863f275f5694466cb077f0ccc0f6bd7679237b932adc0016d9d\"},\"added\":[],\"dropped\":[]},\"fault\":null,\"diagnostics\":[]}\n",
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"65a010069a9841ce975fb51b06f63996\",\"command\":\"software pending\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"},{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true}],\"files\":[{\"path\":\"home.nix\",\"baseHash\":\"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\"hunks\":[{\"line\":4,\"lines\":[{\"kind\":\" \",\"text\":\"    git\"},{\"kind\":\" \",\"text\":\"    ripgrep\"},{\"kind\":\"\\u002B\",\"text\":\"    fzf\"},{\"kind\":\" \",\"text\":\"  ];\"},{\"kind\":\"\\u002B\",\"text\":\"  programs.git.enable = true;\"},{\"kind\":\" \",\"text\":\"}\"},{\"kind\":\" \",\"text\":\"\"}]}]}],\"problems\":[],\"hash\":\"a36b7b2fda68e863f275f5694466cb077f0ccc0f6bd7679237b932adc0016d9d\"},\"added\":[],\"dropped\":[]},\"fault\":null,\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -202,11 +202,11 @@
     "args": [
       "software",
       "pending",
-      "--output",
+      "--format",
       "json"
     ],
     "exitCode": 0,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"4860da2479b34504922c5cbee6bc6838\",\"command\":\"software pending\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"},{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true},{\"kind\":\"remove-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.htop\"}],\"files\":[{\"path\":\"home.nix\",\"baseHash\":\"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\"hunks\":[{\"line\":4,\"lines\":[{\"kind\":\" \",\"text\":\"    git\"},{\"kind\":\" \",\"text\":\"    ripgrep\"},{\"kind\":\"\\u002B\",\"text\":\"    fzf\"},{\"kind\":\" \",\"text\":\"  ];\"},{\"kind\":\"\\u002B\",\"text\":\"  programs.git.enable = true;\"},{\"kind\":\" \",\"text\":\"}\"},{\"kind\":\" \",\"text\":\"\"}]}]}],\"problems\":[{\"index\":2,\"message\":{\"version\":2,\"catalog\":\"dashboard\",\"contractFingerprint\":\"sha256:5291da39f541b1ecd530c88124fb1ee83364e4132861e5a488b6f02ac2c1f135\",\"key\":\"stored_is_not_listed_in_this_file\",\"arguments\":{\"attr\":{\"type\":\"string\",\"value\":\"pkgs.htop\"}},\"fallbackText\":\"pkgs.htop is not listed in this file.\"}}],\"hash\":\"91c6743d3de4527696e13591435d4bee71b358eab27fd0d02eb9828562709daa\"},\"added\":[],\"dropped\":[]},\"fault\":null,\"diagnostics\":[]}\n",
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"7701d8513a5e43babe218723841aa4e1\",\"command\":\"software pending\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"},{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true},{\"kind\":\"remove-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.htop\"}],\"files\":[{\"path\":\"home.nix\",\"baseHash\":\"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\"hunks\":[{\"line\":4,\"lines\":[{\"kind\":\" \",\"text\":\"    git\"},{\"kind\":\" \",\"text\":\"    ripgrep\"},{\"kind\":\"\\u002B\",\"text\":\"    fzf\"},{\"kind\":\" \",\"text\":\"  ];\"},{\"kind\":\"\\u002B\",\"text\":\"  programs.git.enable = true;\"},{\"kind\":\" \",\"text\":\"}\"},{\"kind\":\" \",\"text\":\"\"}]}]}],\"problems\":[{\"index\":2,\"message\":{\"version\":2,\"catalog\":\"dashboard\",\"contractFingerprint\":\"sha256:62388984102a70452c0f9bf7a76539da3dd21a96a431c7d5cd0d1bdc3b13b9ef\",\"key\":\"stored_is_not_listed_in_this_file\",\"arguments\":{\"attr\":{\"type\":\"string\",\"value\":\"pkgs.htop\"}},\"fallbackText\":\"pkgs.htop is not listed in this file.\"}}],\"hash\":\"91c6743d3de4527696e13591435d4bee71b358eab27fd0d02eb9828562709daa\"},\"added\":[],\"dropped\":[]},\"fault\":null,\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -228,7 +228,7 @@
       "pending"
     ],
     "exitCode": 0,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"95b8de8a45bb427da9c7e355a9d9bf30\",\"command\":\"software pending\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"},{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true}],\"files\":[{\"path\":\"home.nix\",\"baseHash\":\"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\"hunks\":[{\"line\":4,\"lines\":[{\"kind\":\" \",\"text\":\"    git\"},{\"kind\":\" \",\"text\":\"    ripgrep\"},{\"kind\":\"\\u002B\",\"text\":\"    fzf\"},{\"kind\":\" \",\"text\":\"  ];\"},{\"kind\":\"\\u002B\",\"text\":\"  programs.git.enable = true;\"},{\"kind\":\" \",\"text\":\"}\"},{\"kind\":\" \",\"text\":\"\"}]}]}],\"problems\":[],\"hash\":\"a36b7b2fda68e863f275f5694466cb077f0ccc0f6bd7679237b932adc0016d9d\"},\"added\":[],\"dropped\":[]},\"fault\":null,\"diagnostics\":[]}\n",
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"f13943a1b23a4d038721f8fa45ee6358\",\"command\":\"software pending\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"},{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true}],\"files\":[{\"path\":\"home.nix\",\"baseHash\":\"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\"hunks\":[{\"line\":4,\"lines\":[{\"kind\":\" \",\"text\":\"    git\"},{\"kind\":\" \",\"text\":\"    ripgrep\"},{\"kind\":\"\\u002B\",\"text\":\"    fzf\"},{\"kind\":\" \",\"text\":\"  ];\"},{\"kind\":\"\\u002B\",\"text\":\"  programs.git.enable = true;\"},{\"kind\":\" \",\"text\":\"}\"},{\"kind\":\" \",\"text\":\"\"}]}]}],\"problems\":[],\"hash\":\"a36b7b2fda68e863f275f5694466cb077f0ccc0f6bd7679237b932adc0016d9d\"},\"added\":[],\"dropped\":[]},\"fault\":null,\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -273,11 +273,11 @@
       "software",
       "drop",
       "2",
-      "--output",
+      "--format",
       "json"
     ],
     "exitCode": 0,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"84ca45dfe10644b8a919f81cac61b4c0\",\"command\":\"software drop\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"}],\"files\":[{\"path\":\"home.nix\",\"baseHash\":\"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\"hunks\":[{\"line\":4,\"lines\":[{\"kind\":\" \",\"text\":\"    git\"},{\"kind\":\" \",\"text\":\"    ripgrep\"},{\"kind\":\"\\u002B\",\"text\":\"    fzf\"},{\"kind\":\" \",\"text\":\"  ];\"},{\"kind\":\" \",\"text\":\"}\"}]}]}],\"problems\":[],\"hash\":\"6e461506bea69338cd06fd4e543c375add614241a9717c7b7d5d8eef7be35f25\"},\"added\":[],\"dropped\":[{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true}]},\"fault\":null,\"diagnostics\":[]}\n",
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"a85a7b21fb2c4e27bfdd04d07e173d10\",\"command\":\"software drop\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"}],\"files\":[{\"path\":\"home.nix\",\"baseHash\":\"5ce2b737055b20318a3ef66efcb9f21630940554d01f61399376a6fb3adee08e\",\"hunks\":[{\"line\":4,\"lines\":[{\"kind\":\" \",\"text\":\"    git\"},{\"kind\":\" \",\"text\":\"    ripgrep\"},{\"kind\":\"\\u002B\",\"text\":\"    fzf\"},{\"kind\":\" \",\"text\":\"  ];\"},{\"kind\":\" \",\"text\":\"}\"}]}]}],\"problems\":[],\"hash\":\"6e461506bea69338cd06fd4e543c375add614241a9717c7b7d5d8eef7be35f25\"},\"added\":[],\"dropped\":[{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true}]},\"fault\":null,\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -287,9 +287,9 @@
       "drop",
       "3"
     ],
-    "exitCode": 10,
+    "exitCode": 1,
     "stdout": "Choose an edit from 1 to 2.\n",
-    "stderr": "NM0010: The pending edits were not changed.\n"
+    "stderr": "The pending edits were not changed.\n"
   },
   {
     "name": "software-drop-zero",
@@ -298,9 +298,9 @@
       "drop",
       "0"
     ],
-    "exitCode": 10,
+    "exitCode": 1,
     "stdout": "Choose an edit from 1 to 2.\n",
-    "stderr": "NM0010: The pending edits were not changed.\n"
+    "stderr": "The pending edits were not changed.\n"
   },
   {
     "name": "software-drop-none",
@@ -309,9 +309,9 @@
       "drop",
       "1"
     ],
-    "exitCode": 10,
+    "exitCode": 1,
     "stdout": "There are no pending edits.\n",
-    "stderr": "NM0010: The pending edits were not changed.\n"
+    "stderr": "The pending edits were not changed.\n"
   },
   {
     "name": "software-drop-not-a-number",
@@ -322,7 +322,7 @@
     ],
     "exitCode": 2,
     "stdout": "",
-    "stderr": "RCLI2005: <number> requires a whole number.\n"
+    "stderr": "<number> requires a whole number.\nUsage: nix-manager software drop <number> [options]\nRun \"nix-manager software drop --help\" for more information.\n"
   },
   {
     "name": "software-drop-missing",
@@ -332,7 +332,7 @@
     ],
     "exitCode": 2,
     "stdout": "",
-    "stderr": "RCLI1005: A required command argument is missing. (number)\n"
+    "stderr": "The number argument is missing.\nUsage: nix-manager software drop <number> [options]\nRun \"nix-manager software drop --help\" for more information.\n"
   },
   {
     "name": "software-clear",
@@ -369,11 +369,11 @@
     "args": [
       "software",
       "clear",
-      "--output",
+      "--format",
       "json"
     ],
     "exitCode": 0,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"8363e4c749bf4bfd8244c20025002f81\",\"command\":\"software clear\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[],\"files\":[],\"problems\":[],\"hash\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\"},\"added\":[],\"dropped\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"},{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true}]},\"fault\":null,\"diagnostics\":[]}\n",
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"dd61c4822c004bf4a011352e6b9846af\",\"command\":\"software clear\",\"success\":true,\"exitCode\":0,\"payloadType\":\"nix-manager.software-draft/1\",\"payload\":{\"draft\":{\"changes\":[],\"files\":[],\"problems\":[],\"hash\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\"},\"added\":[],\"dropped\":[{\"kind\":\"add-package\",\"scope\":\"home\",\"file\":\"home.nix\",\"attr\":\"pkgs.fzf\"},{\"kind\":\"set-option\",\"scope\":\"home\",\"file\":\"home.nix\",\"option\":\"programs.git.enable\",\"value\":true}]},\"fault\":null,\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -382,20 +382,20 @@
       "software",
       "prepare"
     ],
-    "exitCode": 10,
+    "exitCode": 1,
     "stdout": "There are no pending edits.\n",
-    "stderr": "NM0010: The operation could not run.\n"
+    "stderr": "The operation could not run.\n"
   },
   {
     "name": "software-prepare-none-json",
     "args": [
       "software",
       "prepare",
-      "--output",
+      "--format",
       "json"
     ],
-    "exitCode": 10,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"8399b6102cdb4c45bfe916c725997323\",\"command\":\"software prepare\",\"success\":false,\"exitCode\":10,\"payloadType\":null,\"payload\":null,\"fault\":{\"code\":\"NM0010\",\"message\":\"The operation could not run.\",\"details\":{},\"retryable\":false,\"data\":{\"type\":\"nix-manager.error/1\",\"payload\":{\"message\":\"There are no pending edits.\"}}},\"diagnostics\":[]}\n",
+    "exitCode": 1,
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"a37933b6c09d4571905ceca80d36fd5f\",\"command\":\"software prepare\",\"success\":false,\"exitCode\":1,\"payloadType\":null,\"payload\":null,\"fault\":{\"code\":\"NM0010\",\"message\":\"The operation could not run.\",\"details\":{},\"retryable\":false,\"data\":{\"type\":\"nix-manager.error/1\",\"payload\":{\"message\":\"There are no pending edits.\"}}},\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -404,9 +404,9 @@
       "software",
       "apply"
     ],
-    "exitCode": 10,
+    "exitCode": 1,
     "stdout": "No prepared review matches the pending edits. Run nix-manager software prepare first.\n",
-    "stderr": "NM0010: The operation could not run.\n"
+    "stderr": "The operation could not run.\n"
   },
   {
     "name": "software-apply-no-edits",
@@ -415,9 +415,9 @@
       "apply",
       "--dry-run"
     ],
-    "exitCode": 10,
+    "exitCode": 1,
     "stdout": "No prepared review matches the pending edits. Run nix-manager software prepare first.\n",
-    "stderr": "NM0010: The operation could not run.\n"
+    "stderr": "The operation could not run.\n"
   },
   {
     "name": "software-apply-dry-run",
@@ -426,9 +426,9 @@
       "apply",
       "--dry-run"
     ],
-    "exitCode": 10,
+    "exitCode": 1,
     "stdout": "No prepared review matches the pending edits. Run nix-manager software prepare first.\n",
-    "stderr": "NM0010: The operation could not run.\n"
+    "stderr": "The operation could not run.\n"
   },
   {
     "name": "software-apply-dry-run-json",
@@ -436,11 +436,11 @@
       "software",
       "apply",
       "--dry-run",
-      "--output",
+      "--format",
       "json"
     ],
-    "exitCode": 10,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"07d2423983d542e6ab284da3fc26029b\",\"command\":\"software apply\",\"success\":false,\"exitCode\":10,\"payloadType\":null,\"payload\":null,\"fault\":{\"code\":\"NM0010\",\"message\":\"The operation could not run.\",\"details\":{},\"retryable\":false,\"data\":{\"type\":\"nix-manager.error/1\",\"payload\":{\"message\":\"No prepared review matches the pending edits. Run nix-manager software prepare first.\"}}},\"diagnostics\":[]}\n",
+    "exitCode": 1,
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"41a4016c95a3486f9400ca51e0afb4bb\",\"command\":\"software apply\",\"success\":false,\"exitCode\":1,\"payloadType\":null,\"payload\":null,\"fault\":{\"code\":\"NM0010\",\"message\":\"The operation could not run.\",\"details\":{},\"retryable\":false,\"data\":{\"type\":\"nix-manager.error/1\",\"payload\":{\"message\":\"No prepared review matches the pending edits. Run nix-manager software prepare first.\"}}},\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -450,11 +450,11 @@
       "apply",
       "--boot",
       "--dry-run",
-      "--output",
+      "--format",
       "json"
     ],
-    "exitCode": 10,
-    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"2c94aa700d7c4e6cb037c6082937df84\",\"command\":\"software apply\",\"success\":false,\"exitCode\":10,\"payloadType\":null,\"payload\":null,\"fault\":{\"code\":\"NM0010\",\"message\":\"The operation could not run.\",\"details\":{},\"retryable\":false,\"data\":{\"type\":\"nix-manager.error/1\",\"payload\":{\"message\":\"No prepared review matches the pending edits. Run nix-manager software prepare first.\"}}},\"diagnostics\":[]}\n",
+    "exitCode": 1,
+    "stdout": "{\"protocol\":\"runic.commandline/1\",\"requestId\":\"38e09006c66a4dd7a7e0beee03914660\",\"command\":\"software apply\",\"success\":false,\"exitCode\":1,\"payloadType\":null,\"payload\":null,\"fault\":{\"code\":\"NM0010\",\"message\":\"The operation could not run.\",\"details\":{},\"retryable\":false,\"data\":{\"type\":\"nix-manager.error/1\",\"payload\":{\"message\":\"No prepared review matches the pending edits. Run nix-manager software prepare first.\"}}},\"diagnostics\":[]}\n",
     "stderr": ""
   },
   {
@@ -465,9 +465,9 @@
       "--boot",
       "--dry-run"
     ],
-    "exitCode": 10,
+    "exitCode": 1,
     "stdout": "No prepared review matches the pending edits. Run nix-manager software prepare first.\n",
-    "stderr": "NM0010: The operation could not run.\n"
+    "stderr": "The operation could not run.\n"
   },
   {
     "name": "software-unknown-subcommand",
@@ -478,7 +478,7 @@
     ],
     "exitCode": 2,
     "stdout": "",
-    "stderr": "RCLI1002: An unrecognized command was supplied.\n"
+    "stderr": "The command 'install' is not recognized.\nUsage: nix-manager software [options]\nRun \"nix-manager software --help\" for more information.\n"
   },
   {
     "name": "software-add-missing-package",
@@ -488,7 +488,7 @@
     ],
     "exitCode": 2,
     "stdout": "",
-    "stderr": "RCLI1005: A required command argument is missing. (packages)\n"
+    "stderr": "The packages argument is missing.\nUsage: nix-manager software add <package...> [options]\nRun \"nix-manager software add --help\" for more information.\n"
   },
   {
     "name": "software-set-missing-value",
@@ -499,7 +499,7 @@
     ],
     "exitCode": 2,
     "stdout": "",
-    "stderr": "RCLI1005: A required command argument is missing. (option)\n"
+    "stderr": "The value argument is missing.\nUsage: nix-manager software set <option> <value> [options]\nRun \"nix-manager software set --help\" for more information.\n"
   },
   {
     "name": "software-remove-new-file",
@@ -512,7 +512,7 @@
     ],
     "exitCode": 2,
     "stdout": "",
-    "stderr": "RCLI1001: An unrecognized option was supplied. (--new-file)\n"
+    "stderr": "The option '--new-file' is not recognized.\nUsage: nix-manager software remove <package...> [options]\nRun \"nix-manager software remove --help\" for more information.\n"
   },
   {
     "name": "software-pending-unknown-option",
@@ -523,7 +523,7 @@
     ],
     "exitCode": 2,
     "stdout": "",
-    "stderr": "RCLI1001: An unrecognized option was supplied. (--bogus)\n"
+    "stderr": "The option '--bogus' is not recognized.\nUsage: nix-manager software pending [options]\nRun \"nix-manager software pending --help\" for more information.\n"
   },
   {
     "name": "software-add-not-attribute",
@@ -532,9 +532,9 @@
       "add",
       "pkgs."
     ],
-    "exitCode": 10,
+    "exitCode": 1,
     "stdout": "pkgs. is not a package attribute.\n",
-    "stderr": "NM0010: The pending edits were not changed.\n"
+    "stderr": "The pending edits were not changed.\n"
   },
   {
     "name": "software-search-limit-not-number",
@@ -547,6 +547,6 @@
     ],
     "exitCode": 2,
     "stdout": "",
-    "stderr": "RCLI2005: --limit requires a whole number.\n"
+    "stderr": "--limit requires a whole number.\nUsage: nix-manager software search <query...> [options]\nRun \"nix-manager software search --help\" for more information.\n"
   }
 ]

@@ -49,7 +49,9 @@ public sealed class ExecutionTests
         await Assert.That(progress.Line("@nix {not json")).IsEqualTo("@nix {not json");
     }
 
-    [Test]
+    // It measures when lines arrive, so it runs alone: the window tests' synchronous driver calls block thread-pool
+    // threads (Runic.Application.Testing 0.13), which can delay the runner's output past the margin.
+    [Test, NotInParallel]
     public async Task Output_arrives_line_by_line_while_the_process_runs()
     {
         var events = new List<(TimeSpan At, OutputEvent Event)>();

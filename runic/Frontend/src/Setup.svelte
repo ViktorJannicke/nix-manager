@@ -6,9 +6,9 @@
   backend's SetupViewModel holds the state; its text for people is shown with `text`.
 -->
 <script lang="ts">
-  import { useView } from "@runic-artifex/svelte/views";
+  import { useView } from "@runic-artifex/svelte";
   import { LocalizedInline } from "@runic-artifex/translations-svelte/inline";
-  import { useMessageLocale } from "@runic-artifex/translations-svelte/translations";
+  import { useMessageLocale } from "@runic-artifex/translations-svelte";
   import { configureLocaleResolver, getLocale } from "virtual:runic-translations/dashboard/runtime";
   import SnowflakeIcon from "@lucide/svelte/icons/snowflake";
   import LoaderIcon from "@lucide/svelte/icons/loader-circle";

@@ -34,7 +34,7 @@ public static partial class Repository
     /// </summary>
     public static async Task<string?> GitAsync(string flake, IEnumerable<string> args, CancellationToken cancellationToken = default)
     {
-        var result = await Processes.RunAsync(Git(flake, args, ProcessExecutionOptions.MaximumOutputLimitBytes), cancellationToken)
+        var result = await Processes.RunAsync(Git(flake, args, ProcessExecutionOptions.MaximumOutputLimitBytes), cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         return result is { State: ProcessState.Exited, ExitCode: 0, StandardOutput.IsTruncated: false } ? result.StandardOutput.Text : null;

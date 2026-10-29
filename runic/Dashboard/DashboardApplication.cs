@@ -7,11 +7,12 @@ using NixManager.Setup;
 using Runic.Application.Views;
 using Runic.Application.Views.Desktop;
 using Runic.Desktop;
+using Runic.Platform;
 
 namespace NixManager.Dashboard;
 
 /// <summary>
-/// Opens the dashboard Window. <see cref="OpenAsync"/> works from any process that hosts the backend: the per-user
+/// Opens the dashboard Window. <see cref="OpenAsync(IRunicWindowHost, CancellationToken)"/> works from any process that hosts the backend: the per-user
 /// daemon of D025.2, which opens and raises the Window in its own process (<see cref="Daemon.DaemonApplication"/>), and
 /// <c>nix-manager ui</c> on its own (<see cref="Run"/>) when no running instance can be used.
 /// </summary>
@@ -46,13 +47,24 @@ public static class DashboardApplication
         await host.OpenWindowAsync<DashboardWindow>(WindowOptions, cancellationToken);
 
     /// <summary>
+    /// Opens the dashboard for a launch or a click and presents it with that launch's activation token or startup ID,
+    /// without which Wayland compositors such as KWin do not give the new Window focus.
+    /// </summary>
+    public static async Task<IRunicWindow> OpenAsync(RunicDesktopHost host, DesktopActivationContext? activation,
+        CancellationToken cancellationToken = default) =>
+        await host.OpenWindowAsync<DashboardWindow>(WindowOptions, activation, cancellationToken);
+
+    /// <summary>
     /// The Window host of a process that registered the dashboard (<see cref="AddNixManagerDashboard"/>): a dashboard
     /// Window also serves the app icons beside its page (<see cref="AppIconResources"/>).
     /// </summary>
     public static RunicDesktopHost CreateHost(IServiceProvider provider, DesktopHost desktop)
     {
         var icons = provider.GetRequiredService<AppIconResources>();
-        return new RunicDesktopHost(provider, desktop) { Resources = window => window is DashboardWindow ? icons.ServeAsync : null };
+        return new RunicDesktopHost(provider, desktop, new RunicDesktopHostOptions
+        {
+            Resources = window => window is DashboardWindow ? icons.ServeAsync : null,
+        });
     }
 
     /// <summary>The Desktop host as the dashboard and the daemon start it.</summary>
@@ -243,10 +255,11 @@ public static class DashboardBrowser
     {
         if (Surface(window) is not { } surface) return;
         var lifetime = new BrowserLifetime(time.GetUtcNow());
-        using var connections = surface.SubscribeConnectionEvents(invocation =>
+        using var connections = surface.SubscribeConnectionEvents(connection =>
         {
-            if (invocation.Kind == PresentationEventKind.Connected) lifetime.Connected();
-            else if (invocation.Kind == PresentationEventKind.Disconnected) lifetime.Disconnected(time.GetUtcNow());
+            // The kinds are open: others are ignored.
+            if (connection.Kind == DesktopConnectionEventKind.Connected) lifetime.Connected();
+            else if (connection.Kind == DesktopConnectionEventKind.Disconnected) lifetime.Disconnected(time.GetUtcNow());
         });
         try
         {

@@ -2,8 +2,8 @@
 
 <script lang="ts">
   import { onMount, untrack } from "svelte";
-  import { useView } from "@runic-artifex/svelte/views";
-  import { useMessageLocale } from "@runic-artifex/translations-svelte/translations";
+  import { useView } from "@runic-artifex/svelte";
+  import { useMessageLocale } from "@runic-artifex/translations-svelte";
   import { configureLocaleResolver, getLocale } from "virtual:runic-translations/dashboard/runtime";
   import LayoutIcon from "@lucide/svelte/icons/layout-dashboard";
   import CloudDownloadIcon from "@lucide/svelte/icons/cloud-download";

@@ -83,15 +83,15 @@ buildRunicApplication {
     # when they are out of date). Bun installs only the system's optional packages, so they differ; `nix build
     # .#default.frontendNodeModules.fetchedFor.aarch64-linux` computes the aarch64-linux one on any system.
     hash = {
-      x86_64-linux = "sha256-smwZISnxamSweAn85Za03Fjjz2piC0T9audGYliBRVg=";
-      aarch64-linux = "sha256-mam1UfyugHOf3bK7T0Mh5z6YaF6odg7IrR9CN6omY50=";
+      x86_64-linux = "sha256-rOMt1nJourAtS+2P0D+OWVjpgiuRrN+dRGRem85YmsQ=";
+      aarch64-linux = "sha256-qab2mPnz9L+4BfJMwu0HvBCTC9culrZ37qb+V1dTZF4=";
     };
   };
   host = "desktop";
   # The tools of .config/dotnet-tools.json: the frontend's Vite build runs the Translations compiler.
   dotnetTools.hashes = {
-    dotnet-runic = "sha256-2MFrWdg/Etlq7J8ifQtofRuFYLEgKVu3A7FNZ1XipVU=";
-    dotnet-runic-translations = "sha256-yFoN/Af2l6WMlpl7Ia9Sx24BmQsxoy/1Q3o+EswR7hk=";
+    dotnet-runic = "sha256-SRL48V4APy3qpzjP44yqJgjunh6A7w9+Y4qK6JiHHNc=";
+    dotnet-runic-translations = "sha256-rqTx4tM5QGkbR7psgzoU0agznrFVc0fe+IM5R1gmge0=";
   };
   executables = [ "nix-manager" ];
   desktopItems = [ desktop ];

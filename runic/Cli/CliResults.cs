@@ -112,7 +112,7 @@ internal static class CliFaults
     /// output carry the error's message and explanation.
     /// </summary>
     public static CommandOutcome<T> Failure<T>(CommandExitCategory category, string summary, ManagerException error) =>
-        CommandOutcome.FailureWithData<T>(category, new CommandFault(Code(category), summary),
+        CommandOutcome.Failure<T>(category, new CommandFault(Code(category), summary), failureData:
             CommandFailureData.Create(CliError.DataType, new CliError(error.Message, error.Explanation), ManagerJsonContext.Default.CliError),
             humanOutput: HumanText(error.Message, error.Explanation));
 
@@ -141,7 +141,7 @@ internal static class CliFaults
             // Failure data is bounded (64 KiB); an operation too large for it is still in the history.
             return CommandOutcome.Failure<RunResult>(category, fault, null, human);
         }
-        return CommandOutcome.FailureWithData<RunResult>(category, fault, data, humanOutput: human);
+        return CommandOutcome.Failure<RunResult>(category, fault, humanOutput: human, failureData: data);
     }
 }
 

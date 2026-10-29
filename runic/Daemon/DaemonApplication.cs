@@ -41,9 +41,9 @@ public static class DaemonApplication
         // On Linux the icon is a StatusNotifierItem and notifications go through the desktop portal, without GTK. The
         // dashboard alone (DaemonMode.Ui) shows no icon.
         var icon = settings.Mode == DaemonMode.Tray
-            ? PlatformServices.CreateStatusIcon()
-            : DesktopStatusIcons.Unavailable(PlatformUnavailableReason.ProviderNotConfigured);
-        var notifications = PlatformServices.CreateNotifications();
+            ? DesktopPlatformServices.CreateStatusIcon()
+            : DesktopStatusIcon.Unavailable(PlatformUnavailableReason.ProviderNotConfigured);
+        var notifications = DesktopPlatformServices.CreateNotifications();
         try
         {
             var core = new DaemonCore(provider.GetRequiredService<IOperationService>(), provider.GetRequiredService<BackgroundTasks>(),
@@ -121,7 +121,7 @@ public static class DaemonApplication
 
 /// <summary>The dashboard Window on the Desktop host, opened once and brought forward after that.</summary>
 /// <param name="opened">Called with each Window it opens, such as to close the setup assistant's.</param>
-internal sealed class DesktopDashboardWindows(IRunicWindowHost host, Action<IRunicWindow>? opened = null) : IDashboardWindows
+internal sealed class DesktopDashboardWindows(RunicDesktopHost host, Action<IRunicWindow>? opened = null) : IDashboardWindows
 {
     private IRunicWindow? _window;
     private Task? _closed;
@@ -132,9 +132,9 @@ internal sealed class DesktopDashboardWindows(IRunicWindowHost host, Action<IRun
     {
         if (IsOpen)
         {
-            // In serve-only mode there is no presentation to bring forward; the served page stays as it is.
-            if (_window!.Host is DesktopBridgeWindow<DashboardViewModel> open && Owner(open) is { } owner)
-                await PlatformServices.PresentAsync(owner, context);
+            // In serve-only mode there is no presentation to bring forward: PresentAsync reports OwnerUnavailable and the
+            // served page stays as it is.
+            await DesktopPlatformServices.PresentAsync(_window!, context);
             return false;
         }
         if (_window is { } previous)
@@ -142,21 +142,13 @@ internal sealed class DesktopDashboardWindows(IRunicWindowHost host, Action<IRun
             _window = null;
             await previous.DisposeAsync();
         }
-        var window = await DashboardApplication.OpenAsync(host);
+        // A Window the daemon opens for a launch or a click gets focus only with that launch's activation token (KWin,
+        // and Wayland compositors generally), which the host presents it with.
+        var window = await DashboardApplication.OpenAsync(host, context);
         _window = window;
         _closed = WatchAsync(window, closed);
-        // A Window the daemon opens for a launch or a click gets focus only with that launch's activation token (KWin,
-        // and Wayland compositors generally). OpenWindowAsync takes none, so the new Window is presented with it.
-        if (context is not null && window.Host is DesktopBridgeWindow<DashboardViewModel> shown && Owner(shown) is { } created)
-            await PlatformServices.PresentAsync(created, context);
         opened?.Invoke(window);
         return true;
-    }
-
-    private static DesktopNativeOwner? Owner(DesktopBridgeWindow<DashboardViewModel> window)
-    {
-        try { return window.NativeOwner; }
-        catch (InvalidOperationException) { return null; }
     }
 
     private static async Task WatchAsync(IRunicWindow window, Action closed)

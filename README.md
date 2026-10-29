@@ -11,7 +11,7 @@ the same command catalogue, so they stay in sync with the accepted options. Run
 ```sh
 nix run github:ViktorJannicke/nix-manager -- --flake /path/to/configuration ui
 nix run . -- --flake /path/to/configuration --dry-run update cleanup switch
-nix run . -- --flake /path/to/configuration check --output json
+nix run . -- --flake /path/to/configuration check --format json
 nix run . -- --flake /path/to/configuration tray
 ```
 
@@ -368,7 +368,7 @@ status icon, and that process owns every operation.
   other than the running instance's run the dashboard on its own.
 - Operation commands hand their request to the daemon when it runs for the same
   checkout, host and state directory. The daemon streams the operation back, so
-  the terminal shows the same output, `--output json` included, and the command exits
+  the terminal shows the same output, `--format json` included, and the command exits
   with the same status. Ctrl+C cancels the operation in the daemon; a command
   line that goes away, such as with a dropped SSH session, leaves it running
   to its end. A second operation is refused with the operation lock's message.
@@ -467,7 +467,7 @@ a new session without a controlling terminal. Their output is streamed to the
 CLI and saved for the dashboard; Nix's structured log becomes readable lines and
 progress. Interactive terminals show a compact task log of the last lines;
 `--plain` disables dynamic presentation and `--verbose` retains successful task
-output. `--output json` writes one `runic.commandline/1` response to stdout and
+output. `--format json` writes one `runic.commandline/1` response to stdout and
 sends command output to stderr. Its payload is typed: `nix-manager.run/1` for
 the root command (`kind` is `plan`, `operation`, `history` or `status`, with the
 member of that name; `check` adds `updates`), `nix-manager.software-search/1` for
@@ -481,13 +481,18 @@ English as `fallbackText` (transport version 2). Text that is not a message,
 such as Nix's output, and records written before text references, are JSON
 strings. The error's `message` is English.
 
-Exit codes are Runic Command Line's: 0 on success, 2 for invalid arguments or
-combinations, 4 after cancellation, 5 when the configuration or host cannot be
-loaded, 10 when the command or its operation fails, and 70 for an unexpected
-failure. A fault's code (`NM0002`, `NM0004`, `NM0005`, `NM0010`) carries the
-same number, and its message is a fixed summary such as "The configuration
-could not be loaded."; the exact error, which may name paths, is written before
-it in human output and kept in the fault's data.
+`--output json`, the spelling before Runic Command Line 0.8, is still accepted
+as a hidden alias.
+
+Exit codes are those of every Runic tool: 0 on success, 1 when the command or
+its operation fails or the configuration or host cannot be loaded, 2 for invalid
+arguments or combinations, 3 for an unexpected failure, and 130 after
+cancellation. The fault's code tells the failures that share an exit code apart:
+`NM0002` invalid arguments, `NM0004` cancelled, `NM0005` the configuration or
+host could not be loaded, and `NM0010` the command or its operation failed. Its
+message is a fixed summary such as "The configuration could not be loaded.";
+the exact error, which may name paths, is written before it in human output and
+kept in the fault's data.
 Cancelling a build terminates its process group. During a privileged step,
 cancellation waits for that step to finish, then stops further
 steps. Completed activation, lock changes or pin updates are not undone by

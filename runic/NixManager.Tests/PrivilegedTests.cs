@@ -25,10 +25,7 @@ internal sealed class RecordingTools : IProcessRunner
 {
     public List<string[]> Calls { get; } = [];
 
-    public ValueTask<ProcessResult> RunAsync(ProcessRequest request, CancellationToken cancellationToken = default) =>
-        RunAsync(request, null, cancellationToken);
-
-    public ValueTask<ProcessResult> RunAsync(ProcessRequest request, IProcessOutputHandler? outputHandler, CancellationToken cancellationToken = default)
+    public ValueTask<ProcessResult> RunAsync(ProcessRequest request, IProcessOutputHandler? outputHandler = null, CancellationToken cancellationToken = default)
     {
         Calls.Add([request.FileName, .. request.Arguments]);
         return ValueTask.FromResult(ProcessResult.Exited(0, null, null, DateTimeOffset.UnixEpoch, TimeSpan.Zero));

@@ -13,9 +13,9 @@
     "typecheck": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
   },
   "dependencies": {
-    "@runic-artifex/svelte": "0.8.0-preview.6",
-    "@runic-artifex/translations-svelte": "0.7.0-preview.4",
-    "@runic-artifex/views": "0.8.0-preview.6",
+    "@runic-artifex/svelte": "0.13.0",
+    "@runic-artifex/translations-svelte": "0.8.0",
+    "@runic-artifex/views": "0.13.0",
     "bits-ui": "2.19.2",
     "clsx": "2.1.1",
     "svelte": "5.57.1",
@@ -26,14 +26,14 @@
     "@fontsource-variable/atkinson-hyperlegible-mono": "5.3.0",
     "@fontsource-variable/atkinson-hyperlegible-next": "5.3.0",
     "@lucide/svelte": "1.47.0",
-    "@runic-artifex/vite-plugin-runic": "0.8.0-preview.6",
-    "@runic-artifex/vite-plugin-runic-translations": "0.7.0-preview.4",
+    "@runic-artifex/vite-plugin-runic": "0.13.0",
+    "@runic-artifex/vite-plugin-runic-translations": "0.8.0",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@tailwindcss/vite": "4.3.3",
     "svelte-check": "4.7.6",
     "tailwindcss": "4.3.3",
     "tw-animate-css": "1.4.0",
     "typescript": "6.0.3",
-    "vite": "8.3.2"
+    "vite": "8.3.3"
   }
 }

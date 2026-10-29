@@ -1,9 +1,8 @@
 using NixManager.ViewModels;
 using Runic.Application.Views;
 
-// The Bridge treats a DTO member marked [JsonIgnore], such as Request.IncludesHome, as .NET-only, as System.Text.Json
-// does for the stored records.
-[assembly: RunicBridgeJsonIgnore]
+// The Bridge leaves out a DTO member marked [JsonIgnore], such as Request.IncludesHome, as System.Text.Json does for
+// the stored records.
 
 namespace NixManager.Dashboard;
 

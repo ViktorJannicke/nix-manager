@@ -65,7 +65,7 @@ class ManagerTests(unittest.TestCase):
     def test_prebuild_failure_prevents_activation_and_cleanup(self):
         for fail in ("nix build home", "nix build system"):
             result, calls, *_ = self.invoke(["cleanup", "switch"], fail=fail)
-            self.assertEqual(result.returncode, 10, result.stderr)
+            self.assertEqual(result.returncode, 1, result.stderr)
             self.assertTrue(calls)
             self.assertTrue(all(call.startswith("nix build ") for call in calls), calls)
 
@@ -83,7 +83,7 @@ class ManagerTests(unittest.TestCase):
 
     def test_activation_failure_prevents_cleanup(self):
         result, calls, *_ = self.invoke(["home", "cleanup", "switch"], fail="activate --driver-version")
-        self.assertEqual(result.returncode, 10, result.stderr)
+        self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(len(calls), 3)
 
     def test_dry_run_order_and_one_lock_update(self):
@@ -105,7 +105,7 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(self.invoke(["home", "boot"])[0].returncode, 2)
 
     def test_json_output_is_a_response_with_the_plan(self):
-        result, calls, *_ = self.invoke(["--dry-run", "home", "switch", "--output", "json"])
+        result, calls, *_ = self.invoke(["--dry-run", "home", "switch", "--format", "json"])
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(calls, [])
         response = json.loads(result.stdout)
@@ -114,17 +114,17 @@ class ManagerTests(unittest.TestCase):
         self.assertTrue(response["payload"]["plan"]["steps"])
 
     def test_invalid_combinations_fail_without_side_effects(self):
-        # Invalid combinations are usage errors (2); an unknown host makes the configuration unavailable (5).
+        # Invalid combinations are usage errors (2); an unknown host makes the configuration unavailable (1).
         for args, code in ((["switch", "boot"], 2), (["home", "all", "switch"], 2), (["cleanup", "build"], 2),
                            (["update", "rollback"], 2), (["cleanup", "rollback"], 2), (["--force", "switch"], 2),
-                           (["system", "t3code-update"], 2), (["--host", "missing", "switch"], 5)):
+                           (["system", "t3code-update"], 2), (["--host", "missing", "switch"], 1)):
             with self.subTest(args=args):
                 result, calls, *_ = self.invoke(args)
                 self.assertEqual(result.returncode, code, result.stderr)
                 self.assertEqual(calls, [])
 
     def test_failures_report_in_json(self):
-        result, calls, *_ = self.invoke(["switch", "boot", "--output", "json"])
+        result, calls, *_ = self.invoke(["switch", "boot", "--format", "json"])
         self.assertEqual(result.returncode, 2)
         response = json.loads(result.stdout)
         self.assertEqual((response["success"], response["exitCode"]), (False, 2))

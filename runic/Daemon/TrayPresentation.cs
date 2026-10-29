@@ -48,26 +48,26 @@ public static class TrayPresentation
             : report?.Errors.Count > 0 ? m.tray_checks_failed
             : count > 0 ? m.tray_updates_available(count)
             : m.tray_no_updates;
-        return new DesktopStatusIconState(new DesktopIcon { ThemeName = IconName }, Title)
+        return new DesktopStatusIconState(new DesktopIcon { IconName = IconName }, Title)
         {
             Status = count > 0 ? DesktopStatusIconStatus.NeedsAttention : DesktopStatusIconStatus.Active,
-            AttentionIcon = new DesktopIcon { ThemeName = AttentionIconName },
+            AttentionIcon = new DesktopIcon { IconName = AttentionIconName },
             Tooltip = tooltip,
             Menu =
             [
-                new DesktopMenuCommand(TrayCommands.Open, m.tray_open),
+                new DesktopMenuItem(m.tray_open, TrayCommands.Open),
                 // Nothing is activated from the tray: preparing builds a review that the dashboard shows for confirmation.
-                new DesktopMenuCommand(TrayCommands.Check, m.tray_check) { Enabled = !busy },
-                new DesktopMenuCommand(TrayCommands.Prepare, m.tray_prepare) { Enabled = !busy },
+                new DesktopMenuItem(m.tray_check, TrayCommands.Check) { IsEnabled = !busy },
+                new DesktopMenuItem(m.tray_prepare, TrayCommands.Prepare) { IsEnabled = !busy },
                 new DesktopMenuSeparator(),
-                new DesktopMenuCommand(TrayCommands.Quit, m.tray_quit),
+                new DesktopMenuItem(m.tray_quit, TrayCommands.Quit),
             ],
         };
     }
 
     /// <summary>A key that changes whenever <see cref="Icon"/> would show something else, also in another language.</summary>
     public static string Key(DesktopStatusIconState state) =>
-        $"{state.Status}|{state.Tooltip}|{string.Join(",", state.Menu.OfType<DesktopMenuCommand>().Select(item => $"{item.Id}:{item.Enabled}:{item.Label}"))}";
+        $"{state.Status}|{state.Tooltip}|{string.Join(",", state.Menu.OfType<DesktopMenuItem>().Select(item => $"{item.CommandId}:{item.IsEnabled}:{item.Title}"))}";
 
     /// <summary>The update report's notification, when it lists updates not announced before (<paramref name="announced"/>).</summary>
     public static DesktopNotification? Updates(UpdateReport? report, ref string announced, TrayText? text = null)

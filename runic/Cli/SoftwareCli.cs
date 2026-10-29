@@ -251,7 +251,7 @@ public static partial class SoftwareCli
             var cli = new CliInvocation { Request = next, Json = json, Plain = command.Plain };
             var outcome = await CliHandler.RunAsync(cli, config, session.CreateClient(config, session.Runner), session, context, cancellationToken)
                 .ConfigureAwait(false);
-            if (next.Action == Actions.ReviewBuild && !next.DryRun && !json && outcome.IsSuccess)
+            if (next.Action == Actions.ReviewBuild && !next.DryRun && !json && outcome.Succeeded)
                 await context.Console.WriteErrorAsync(
                     "Review the changes with nix-manager ui, or write and activate them with nix-manager software apply (--boot for the next boot).\n".AsMemory(),
                     cancellationToken).ConfigureAwait(false);

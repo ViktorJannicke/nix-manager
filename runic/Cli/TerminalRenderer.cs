@@ -8,8 +8,8 @@ namespace NixManager.Cli;
 
 /// <summary>
 /// Presents an operation's events on the terminal while it runs. On an interactive terminal a Runic task log keeps
-/// the last lines under the action's title; with <c>--plain</c>, without a terminal or with <c>--output json</c>
-/// every line is written as it arrives, and with <c>--output json</c> the handler console sends it to standard
+/// the last lines under the action's title; with <c>--plain</c>, without a terminal or with <c>--format json</c>
+/// every line is written as it arrives, and with <c>--format json</c> the handler console sends it to standard
 /// error so standard output holds only the response.
 /// </summary>
 public sealed class TerminalRenderer(CommandExecutionContext context, CliInvocation cli, Func<string, string?> environment)

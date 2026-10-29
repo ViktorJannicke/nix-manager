@@ -437,7 +437,7 @@ public sealed class DaemonTests : IDisposable
         await Assert.That(_notifications.Shown.Reader.TryRead(out _)).IsFalse();
 
         // The icon shows the tray menu, with commands that start work disabled while one runs.
-        var menu = _icon.Shown[^1].Menu.OfType<DesktopMenuCommand>().Select(item => item.Label).ToList();
+        var menu = _icon.Shown[^1].Menu.OfType<DesktopMenuItem>().Select(item => item.Title).ToList();
         await Assert.That(menu).IsEquivalentTo(["Open Nix Manager", "Check for updates", "Prepare all updates for review…", "Quit Nix Manager"],
             TUnit.Assertions.Enums.CollectionOrdering.Matching);
         await shutdown.CancelAsync();
@@ -469,11 +469,11 @@ public sealed class DaemonTests : IDisposable
         var idle = TrayPresentation.Icon(null, report);
         await Assert.That(idle.Tooltip).IsEqualTo("2 updates available");
         await Assert.That(idle.Status).IsEqualTo(DesktopStatusIconStatus.NeedsAttention);
-        await Assert.That(idle.Menu.OfType<DesktopMenuCommand>().All(item => item.Enabled)).IsTrue();
+        await Assert.That(idle.Menu.OfType<DesktopMenuItem>().All(item => item.IsEnabled)).IsTrue();
 
         var busy = TrayPresentation.Icon(new Operation { Id = "1", Flake = "", Request = Build, Status = "running", StartedAt = "", Step = DisplayText.Of("stored_build_home_configuration") }, null);
         await Assert.That(busy.Tooltip).IsEqualTo("Build home configuration");
-        await Assert.That(busy.Menu.OfType<DesktopMenuCommand>().Where(item => !item.Enabled).Select(item => item.Id)).IsEquivalentTo([TrayCommands.Check, TrayCommands.Prepare]);
+        await Assert.That(busy.Menu.OfType<DesktopMenuItem>().Where(item => !item.IsEnabled).Select(item => item.CommandId)).IsEquivalentTo([TrayCommands.Check, TrayCommands.Prepare]);
         await Assert.That(TrayPresentation.Icon(null, new UpdateReport { CheckedAt = "", Errors = [DisplayText.Plain("x")] }).Tooltip).IsEqualTo("Some update checks failed");
 
         var announced = "";
@@ -532,7 +532,7 @@ public sealed class DaemonTests : IDisposable
         };
         var idle = TrayPresentation.Icon(null, report, german);
         await Assert.That(idle.Tooltip).IsEqualTo("2 Aktualisierungen verfügbar");
-        await Assert.That(idle.Menu.OfType<DesktopMenuCommand>().Select(item => item.Label))
+        await Assert.That(idle.Menu.OfType<DesktopMenuItem>().Select(item => item.Title))
             .IsEquivalentTo(["Nix Manager öffnen", "Nach Aktualisierungen suchen", "Alle Aktualisierungen zur Prüfung vorbereiten…", "Nix Manager beenden"]);
         await Assert.That(TrayPresentation.Key(idle)).IsNotEqualTo(TrayPresentation.Key(TrayPresentation.Icon(null, report)));
         // Step labels and errors are text references, shown in the dashboard's language with their values; a message

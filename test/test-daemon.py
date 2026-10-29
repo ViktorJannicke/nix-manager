@@ -127,7 +127,7 @@ class Sandbox:
         return {"NIX_MANAGER_FLAKE": "", "NIX_MANAGER_HOST": "", "HOME": str(home)}
 
     def history(self):
-        result = self.run(["history", "--output", "json"])
+        result = self.run(["history", "--format", "json"])
         assert result.returncode == 0, result.stderr
         return payload(result.stdout)["history"]
 
@@ -349,7 +349,7 @@ def normal(text):
 
 
 def payload(stdout):
-    """The result in a runic.commandline/1 response (--output json)."""
+    """The result in a runic.commandline/1 response (--format json)."""
     response = json.loads(stdout)
     assert response["protocol"] == "runic.commandline/1", response
     return response["payload"]
@@ -392,7 +392,7 @@ class DaemonTests(unittest.TestCase):
         groups = {
             "": [["home", "switch"], ["home", "switch", "--output", "json"], ["--plain", "home", "cleanup", "switch"],
                  ["home", "build", "--", "--show-trace"]],
-            "nix build home": [["home", "switch", "--output", "json"], ["home", "switch"]],
+            "nix build home": [["home", "switch", "--format", "json"], ["home", "switch"]],
             "activate --driver-version": [["home", "cleanup", "switch"]],
         }
         for fail, commands in groups.items():
@@ -401,15 +401,15 @@ class DaemonTests(unittest.TestCase):
             daemon = self.tray(env)
             for args, alone in zip(commands, standalone):
                 with self.subTest(args=args, fail=fail):
-                    self.assertEqual(alone.returncode, 10 if fail else 0, alone.stderr)
+                    self.assertEqual(alone.returncode, 1 if fail else 0, alone.stderr)
                     forwarded = self.sandbox.run(args, env)
                     self.assertSameRun(alone, forwarded)
                     self.assertEqual(self.sandbox.history()[0]["pid"], daemon.pid, "the daemon ran it")
             self.assertEqual(daemon.stop(), 0)
 
     def test_read_only_commands_and_previews_run_here_with_the_same_output(self):
-        commands = [["status", "--output", "json"], ["history"], ["--dry-run", "update", "cleanup", "switch"],
-                    ["--dry-run", "home", "switch", "--output", "json"], ["completion", "bash"], ["--help"], ["switch", "boot"]]
+        commands = [["status", "--format", "json"], ["history"], ["--dry-run", "update", "cleanup", "switch"],
+                    ["--dry-run", "home", "switch", "--format", "json"], ["completion", "bash"], ["--help"], ["switch", "boot"]]
         standalone = [self.sandbox.run(args) for args in commands]
         self.tray()
         for args, alone in zip(commands, standalone):
@@ -427,7 +427,7 @@ class DaemonTests(unittest.TestCase):
         alone = interrupted()
         daemon = self.tray(self.sandbox.with_gate())
         forwarded = interrupted()
-        self.assertEqual(forwarded[0], 4, forwarded)
+        self.assertEqual(forwarded[0], 130, forwarded)
         self.assertEqual((forwarded[0], normal(forwarded[1]), normal(forwarded[2])), (alone[0], normal(alone[1]), normal(alone[2])))
         latest = self.sandbox.history()[0]
         self.assertEqual((latest["pid"], latest["status"]), (daemon.pid, "cancelled"))
@@ -449,9 +449,9 @@ class DaemonTests(unittest.TestCase):
         alone = second()
         self.tray(self.sandbox.with_gate())
         forwarded = second()
-        self.assertEqual(forwarded.returncode, 10)
+        self.assertEqual(forwarded.returncode, 1)
         self.assertIn("Another nix-manager operation is running. Wait for it to finish.", forwarded.stdout)
-        self.assertIn("NM0010: The operation failed.", forwarded.stderr)
+        self.assertIn("The operation failed.", forwarded.stderr)
         self.assertSameRun(alone, forwarded)
 
     def test_a_second_ui_launch_brings_the_open_dashboard_forward(self):
@@ -469,7 +469,7 @@ class DaemonTests(unittest.TestCase):
         daemon = self.tray(self.sandbox.with_gate())
         self.assertEqual(self.sandbox.run(["ui"]).returncode, 0)
         daemon.wait_for("stdout", "RUNIC_APPLICATION_URL=")
-        cli = self.sandbox.start(["home", "switch", "--output", "json"])
+        cli = self.sandbox.start(["home", "switch", "--format", "json"])
         self.sandbox.wait_for_gate()
         daemon.close_window()
         daemon.wait_for("stderr", "The dashboard closed; the operation keeps running.")
@@ -486,7 +486,7 @@ class DaemonTests(unittest.TestCase):
         self.sandbox.wait_for_gate()
         self.assertEqual(daemon.stop(signal.SIGTERM), 0)
         stdout, stderr = cli.communicate(timeout=TIMEOUT)
-        self.assertEqual(cli.returncode, 4, (stdout, stderr))
+        self.assertEqual(cli.returncode, 130, (stdout, stderr))
         self.assertEqual(self.sandbox.history()[0]["status"], "cancelled")
 
     def test_a_daemon_that_dies_mid_operation_fails_the_command_line_clearly(self):
@@ -495,15 +495,15 @@ class DaemonTests(unittest.TestCase):
         self.sandbox.wait_for_gate()
         daemon.stop(signal.SIGKILL)
         stdout, stderr = cli.communicate(timeout=TIMEOUT)
-        self.assertEqual(cli.returncode, 10, (stdout, stderr))
+        self.assertEqual(cli.returncode, 1, (stdout, stderr))
         self.assertIn("Nix Manager's daemon ended before the operation finished.", stdout)
-        self.assertIn("NM0010: The operation failed.", stderr)
+        self.assertIn("The operation failed.", stderr)
         # Without the daemon the command line runs operations itself again.
         self.sandbox.open_gate()
         self.assertEqual(self.sandbox.run(["home", "build"]).returncode, 0)
 
     def test_without_a_daemon_the_command_line_runs_the_operation_itself(self):
-        cli = self.sandbox.start(["home", "switch", "--output", "json"])
+        cli = self.sandbox.start(["home", "switch", "--format", "json"])
         stdout, stderr = cli.communicate(timeout=TIMEOUT)
         self.assertEqual(cli.returncode, 0, stderr)
         self.assertEqual(payload(stdout)["operation"]["pid"], cli.pid)
@@ -511,19 +511,19 @@ class DaemonTests(unittest.TestCase):
         daemon = self.tray()
         for env in ({"NIX_MANAGER_DAEMON": "0"}, {"NIX_MANAGER_STATE_DIR": str(self.sandbox.root / "other-state")}):
             with self.subTest(env=env):
-                cli = self.sandbox.start(["home", "build", "--output", "json"], env)
+                cli = self.sandbox.start(["home", "build", "--format", "json"], env)
                 stdout, stderr = cli.communicate(timeout=TIMEOUT)
                 self.assertEqual(cli.returncode, 0, stderr)
                 self.assertEqual(payload(stdout)["operation"]["pid"], cli.pid)
                 self.assertNotEqual(payload(stdout)["operation"]["pid"], daemon.pid)
         # And so does every process without a runtime directory, as in a plain SSH or cron environment.
-        cli = self.sandbox.start(["home", "build", "--output", "json"], {"XDG_RUNTIME_DIR": ""})
+        cli = self.sandbox.start(["home", "build", "--format", "json"], {"XDG_RUNTIME_DIR": ""})
         stdout, stderr = cli.communicate(timeout=TIMEOUT)
         self.assertEqual((cli.returncode, payload(stdout)["operation"]["pid"]), (0, cli.pid), stderr)
 
     def test_a_dashboard_without_a_daemon_serves_command_lines_until_it_closes(self):
         dashboard = self.dashboard(self.sandbox.with_gate())
-        cli = self.sandbox.start(["home", "switch", "--output", "json"])
+        cli = self.sandbox.start(["home", "switch", "--format", "json"])
         self.sandbox.wait_for_gate()
         # A second ui launch reaches the same process.
         self.assertEqual(self.sandbox.run(["ui"]).returncode, 0)

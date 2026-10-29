@@ -33,18 +33,18 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
-    <PackageReference Include="Runic.Application.Views.Desktop" Version="0.8.0-preview.6" />
-    <PackageReference Include="Runic.CommandLine" Version="0.7.0-preview.2" />
-    <PackageReference Include="Runic.CommandLine.Processes" Version="0.7.0-preview.2" />
-    <PackageReference Include="Runic.Platform.Linux.Polkit" Version="0.8.0-preview.6" />
-    <PackageReference Include="Runic.Translations" Version="0.7.0-preview.4" />
-    <PackageReference Include="Runic.Translations.Build" Version="0.7.0-preview.4" PrivateAssets="all" />
+    <PackageReference Include="Runic.Application.Views.Desktop" Version="0.13.0" />
+    <PackageReference Include="Runic.CommandLine" Version="0.10.0" />
+    <PackageReference Include="Runic.CommandLine.Processes" Version="0.10.0" />
+    <PackageReference Include="Runic.Platform.Linux.Polkit" Version="0.13.0" />
+    <PackageReference Include="Runic.Translations" Version="0.8.0" />
+    <PackageReference Include="Runic.Translations.Build" Version="0.8.0" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
     <!-- The dashboard's catalogue, generated as DashboardText for the daemon's own text and the messages of the
          text the backend writes for people (Domain/DisplayText.cs), which the daemon shows in the dashboard's
          language (Daemon/TrayText.cs). -->
-    <TranslationProject Include="Frontend/translations/runic.json" />
+    <RunicTranslationProject Include="Frontend/translations/runic.json" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="NixManager.Tests" />
@@ -61,10 +61,10 @@
                            Verb="--privileged"
                            Description="Rebuild NixOS System"
                            Message="Authentication is required to rebuild the NixOS system configuration."
-                           IconName="system-software-update"
-                           AllowAny="auth_admin"
-                           AllowInactive="auth_admin"
-                           AllowActive="auth_admin_keep" />
+                           PolkitIconName="system-software-update"
+                           PolkitAllowAny="auth_admin"
+                           PolkitAllowInactive="auth_admin"
+                           PolkitAllowActive="auth_admin_keep" />
     <RunicPrivilegedCommand Include="activate-output" Action="org.nixos.nix-manager"
                             Arguments="switch|boot;/nix/store/[a-z0-9]{32}-nixos-system-[A-Za-z0-9._+-]+" />
     <RunicPrivilegedCommand Include="activate-generation" Action="org.nixos.nix-manager" Arguments="[1-9][0-9]{0,9}" />

@@ -332,7 +332,7 @@ public sealed class DaemonCore
             }
             await foreach (var item in _inbox.Reader.ReadAllAsync(CancellationToken.None))
             {
-                if (item is DesktopStatusIconActivation { MenuItemId: TrayCommands.Quit }) break;
+                if (item is DesktopStatusIconActivation { CommandId: TrayCommands.Quit }) break;
                 await HandleAsync(item);
                 if (!tray && !windows.IsOpen && !_service.Busy && _serving.IsEmpty) break;
                 // A system switch leaves this service running (the switch may be its own operation); once nothing
@@ -439,13 +439,13 @@ public sealed class DaemonCore
     {
         switch (activation)
         {
-            case { Kind: DesktopStatusIconActivationKind.Primary } or { MenuItemId: TrayCommands.Open }:
+            case { Kind: DesktopStatusIconActivationKind.Primary } or { CommandId: TrayCommands.Open }:
                 await ShowAsync(new Show(activation.PlatformContext));
                 break;
-            case { Kind: DesktopStatusIconActivationKind.Secondary } or { MenuItemId: TrayCommands.Check }:
+            case { Kind: DesktopStatusIconActivationKind.Secondary } or { CommandId: TrayCommands.Check }:
                 _ = CheckAsync();
                 break;
-            case { MenuItemId: TrayCommands.Prepare }:
+            case { CommandId: TrayCommands.Prepare }:
                 // Nothing is activated from the tray; the dashboard shows the resulting package changes for confirmation.
                 Start(Request.Create() with { Action = Actions.ReviewBuild, Host = Config.HostKey, Update = true });
                 await ShowAsync(new Show(activation.PlatformContext));

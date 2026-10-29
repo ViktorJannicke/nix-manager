@@ -49,7 +49,7 @@ public sealed class CliSession
 /// <summary>
 /// The command line on Runic Command Line. The root command takes scope, modifier and action words in any order,
 /// its options before or after them, and native arguments after <c>--</c>; <c>software</c> edits the Software
-/// page's pending edits. Results are typed (<c>--output json</c> writes them in a <c>runic.commandline/1</c>
+/// page's pending edits. Results are typed (<c>--format json</c> writes them in a <c>runic.commandline/1</c>
 /// envelope), and exit codes are Runic Command Line's defaults.
 /// </summary>
 public static class NixManagerCli
@@ -68,8 +68,13 @@ public static class NixManagerCli
     /// (<c>nix-manager --host laptop software pending</c>). The other options belong to their command and follow its
     /// name: a global <c>--dry-run</c> would be accepted, and ignored, by the software commands that edit the draft.
     /// </summary>
+    /// <remarks>
+    /// Output is selected with <c>--format human|json</c>, as in every Runic tool; <c>--output</c>, its spelling before
+    /// Runic Command Line 0.8, stays accepted as a hidden alias.
+    /// </remarks>
     public static CommandCatalog Catalog() =>
         GeneratedCommandCatalog.Create(builder => CliPresenters.Register(builder
+            .OutputSelector("--format", "--output")
             .GlobalOption("flake", "--flake", CommandArity.ExactlyOne, new CommandHelp(FlakeHelp, "PATH"))
             .GlobalOption("host", "--host", CommandArity.ExactlyOne, new CommandHelp(HostHelp))
             .GlobalOption("plain", "--plain", CommandArity.Zero, new CommandHelp(PlainHelp))));
@@ -95,11 +100,11 @@ public static class NixManagerCli
             Version = "1.0.0",
             Console = console ?? new SystemCommandConsole(),
             ScopeFactory = CommandScopes.FromServices(CommandServices.Empty.With(session ?? new CliSession())),
-            HandleCancelKeyPress = handleSignals,
+            HandleTerminationSignals = handleSignals,
         };
 
     [Command("run", Description = Description,
-        Examples = ["nix-manager home update cleanup switch", "nix-manager --dry-run update cleanup switch", "nix-manager check --output json"])]
+        Examples = ["nix-manager home update cleanup switch", "nix-manager --dry-run update cleanup switch", "nix-manager check --format json"])]
     [RootCommand]
     [CommandResult(RunResult.PayloadType, typeof(ManagerJsonContext))]
     internal static async Task<CommandOutcome<RunResult>> Run(

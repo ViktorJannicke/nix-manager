@@ -14,8 +14,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="TUnit" Version="1.73.19" />
-    <PackageReference Include="Runic.Application.Testing" Version="0.8.0-preview.6" />
-    <PackageReference Include="Runic.CommandLine.Testing" Version="0.7.0-preview.2" />
+    <PackageReference Include="Runic.Application.Testing" Version="0.13.0" />
+    <PackageReference Include="Runic.CommandLine.Testing" Version="0.10.0" />
   </ItemGroup>
   <ItemGroup>
     <!-- The tests need the application's assembly, not its built frontend. -->

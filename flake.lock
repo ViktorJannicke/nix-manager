@@ -50,16 +50,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1792437102,
-        "narHash": "sha256-Ylqyh6UybE0mR22xDcpSQjOCj7yULx7mF5ZmezMJltI=",
-        "ref": "refs/tags/v0.8.0-preview.6",
-        "rev": "9840f55faf97e0258af065eaa75c380802bc69ff",
+        "lastModified": 1793258243,
+        "narHash": "sha256-QNzrkL+5KYaVxCTuKJtRBw/ag3TQVlB/BZI8S6UGALA=",
+        "ref": "refs/tags/v0.13.0",
+        "rev": "3331f81c7a2de34e209b53eb07515323d6d15cf3",
         "shallow": true,
         "type": "git",
         "url": "https://github.com/Runic-Artifex/runic-sdk"
       },
       "original": {
-        "ref": "refs/tags/v0.8.0-preview.6",
+        "ref": "refs/tags/v0.13.0",
         "shallow": true,
         "type": "git",
         "url": "https://github.com/Runic-Artifex/runic-sdk"

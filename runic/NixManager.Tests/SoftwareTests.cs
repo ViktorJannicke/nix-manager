@@ -149,7 +149,7 @@ public sealed class SoftwareTests
                     case "--limit": limit = int.Parse(args[++i], System.Globalization.CultureInfo.InvariantCulture); break;
                     case "--free": free = true; break;
                     case "--working": working = true; break;
-                    case "--output": i++; break;
+                    case "--format" or "--output": i++; break;
                     case "--": break;
                     default: query.Add(args[i]); break;
                 }
