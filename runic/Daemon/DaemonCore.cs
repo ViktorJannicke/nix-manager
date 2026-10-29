@@ -460,7 +460,9 @@ public sealed class DaemonCore
             await ShowAsync(new Show(activation.PlatformContext));
             return;
         }
-        if (activation.ActionId is NotificationActions.ApplyNow or NotificationActions.ApplyOnBoot
+        // Only from a notice this process showed: the notice IDs are fixed, and any process on the session bus can send
+        // an activation that Runic cannot match to one it showed (IsTrusted false).
+        if (activation.ActionId is NotificationActions.ApplyNow or NotificationActions.ApplyOnBoot && activation.IsTrusted
             && _noticeReviews.TryGetValue(activation.NotificationId, out var review))
             // The result is notified like any other operation's.
             Start(Request.Create() with
