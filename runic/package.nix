@@ -122,11 +122,6 @@ buildRunicApplication {
     "--set-default"
     "NIX_MANAGER_TREE_SITTER"
     parserEnvironment.NIX_MANAGER_TREE_SITTER
-    # Runic Desktop's embedded web host would otherwise watch its working directory, usually the home directory,
-    # recursively for configuration changes: one inotify watch per directory (Runic-Artifex/runic-sdk#606).
-    "--set-default"
-    "DOTNET_hostBuilder__reloadConfigOnChange"
-    "false"
     "--prefix"
     "PATH"
     ":"

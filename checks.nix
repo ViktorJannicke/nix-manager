@@ -108,8 +108,6 @@ in
       [[ $(xmllint --xpath '//action[@id="org.nixos.nix-manager"]/annotate[@key="org.freedesktop.policykit.exec.path"]/text()' ''${policies[0]}) == "$command" ]]
       grep -qx 'Exec=nix-manager ui' $path/share/applications/nix-manager.desktop
       grep -qx 'Icon=nix-manager' $path/share/applications/nix-manager.desktop
-      # No recursive inotify watch of the working directory (Runic-Artifex/runic-sdk#606).
-      grep -q 'DOTNET_hostBuilder__reloadConfigOnChange' $command
       grep -qx 'StartupNotify=true' $path/share/applications/nix-manager.desktop
       grep -qx 'Exec=nix-manager tray' $path/share/applications/nix-manager.desktop
       [[ -e $path/share/icons/hicolor/scalable/apps/nix-manager.svg ]]
