@@ -25,6 +25,9 @@
     <!-- A trim or AOT warning fails the NativeAOT publish: such code may behave differently than under the JIT the
          tests run with. -->
     <IlcTreatWarningsAsErrors>true</IlcTreatWarningsAsErrors>
+    <!-- Runic 0.15 asks for Bun 1.4.4, which nixpkgs does not package yet; the locked Bun is 1.4.2. Remove this when
+         the flake's Bun is 1.4.4 or later. -->
+    <NoWarn>$(NoWarn);RUNICBRIDGE033</NoWarn>
     <!-- The test project has its own sources and build output. -->
     <DefaultItemExcludes>$(DefaultItemExcludes);NixManager.Tests/**</DefaultItemExcludes>
     <!-- The Polkit policy's action ID is org.nixos.nix-manager. -->
@@ -32,11 +35,13 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
-    <PackageReference Include="Runic.Application.Views.Desktop" Version="0.13.0" />
-    <PackageReference Include="Runic.CommandLine" Version="0.10.0" />
-    <PackageReference Include="Runic.CommandLine.Processes" Version="0.10.0" />
-    <PackageReference Include="Runic.Platform.Linux.Polkit" Version="0.13.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
+    <PackageReference Include="Runic.Application.Views.Desktop" Version="0.15.0" />
+    <!-- The Desktop server the page is served with; NativeAOT links its library, so no ASP.NET Core is shipped. -->
+    <PackageReference Include="Runic.Desktop.NativeServer" Version="0.15.0" />
+    <PackageReference Include="Runic.CommandLine" Version="0.11.0" />
+    <PackageReference Include="Runic.CommandLine.Processes" Version="0.11.0" />
+    <PackageReference Include="Runic.Platform.Linux.Polkit" Version="0.15.0" />
     <PackageReference Include="Runic.Translations" Version="0.8.0" />
     <PackageReference Include="Runic.Translations.Build" Version="0.8.0" PrivateAssets="all" />
   </ItemGroup>

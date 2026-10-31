@@ -11,7 +11,7 @@
     # tarball: the SDK checks out some files with CRLF line endings (.gitattributes), which Nix versions apply
     # differently to a tarball, so the tarball's hash depends on the Nix version that fetched it.
     runic-sdk = {
-      url = "git+https://github.com/Runic-Artifex/runic-sdk?ref=refs/tags/v0.13.0&shallow=1";
+      url = "git+https://github.com/Runic-Artifex/runic-sdk?ref=refs/tags/v0.15.0&shallow=1";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

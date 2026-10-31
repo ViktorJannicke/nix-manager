@@ -80,8 +80,11 @@
 
   // The configuration's history is read again whenever its last commit changes, not with every observation.
   const revision = $derived(app.system ? (app.system.repository.revision ?? "") : undefined);
+  // Reading `reviews.client` also reads the View's state, which the history read's answer replaces; through $derived
+  // the effect follows only the client, or each answer would read the history again.
+  const reviewsClient = $derived(reviews.client);
   $effect(() => {
-    const client = reviews.client;
+    const client = reviewsClient;
     if (client && revision !== undefined) void client.refreshHistory().catch(() => {});
   });
 

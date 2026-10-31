@@ -607,10 +607,9 @@ build installs them as a fixed-output derivation whose hash differs per system,
 because Bun installs only the system's optional packages; both hashes are in
 `runic/package.nix` (`frontend.hash`), and the build fails when they are out of
 date. After changing the frontend's dependencies, update `bun.lock` with
-`bun install`, then both hashes: `nix build .#default.frontendNodeModules`
-reports the current system's when it is out of date, and
-`nix build .#default.frontendNodeModules.fetchedFor.aarch64-linux` computes the
-aarch64-linux one on any system.
+`bun install`, then both hashes: `nix run .#default.fixedOutputHashes` prints
+every out-of-date fixed-output hash of the package, both systems' frontend
+hashes and the tools' hashes of `runic/.config/dotnet-tools.json` included.
 
 NuGet packages are restored in locked mode. Each runtime needs its own lock
 file because nixpkgs restores with `--runtime` for the system's runtime
