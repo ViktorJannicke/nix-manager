@@ -7,11 +7,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1791306979,
-        "narHash": "sha256-KuLePuhwJM9NLt/gTLHzXaOoSZKGoB3m7NfXjiQ98HY=",
+        "lastModified": 1793193205,
+        "narHash": "sha256-X6xa6sGA7RnJQuZGbFMC+K+KToWAlBDCCjJXfTwEPsw=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "fae6e9e42c3b762ab47635cddcfaf6f52374a61b",
+        "rev": "095fef2f265c3c0da4fe315efba8f8a04495ab34",
         "type": "github"
       },
       "original": {
@@ -22,11 +22,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1791260994,
-        "narHash": "sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY=",
+        "lastModified": 1793341285,
+        "narHash": "sha256-Y1CiZ4SoBUjLQyQM/pY+rS2dXD3CHLPstF0lmOc73D4=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4",
+        "rev": "1c89083e451e891152365b799595cf7790a43325",
         "type": "github"
       },
       "original": {
@@ -50,16 +50,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1793258243,
-        "narHash": "sha256-QNzrkL+5KYaVxCTuKJtRBw/ag3TQVlB/BZI8S6UGALA=",
-        "ref": "refs/tags/v0.13.0",
-        "rev": "3331f81c7a2de34e209b53eb07515323d6d15cf3",
+        "lastModified": 1793431646,
+        "narHash": "sha256-mH7t7x7LFznVLMJrGx67666wxCknYRnrzS4hi1E2Sg4=",
+        "ref": "refs/tags/v0.15.0",
+        "rev": "c94bda07cf363bad056eda86ae77c514b66e61dd",
         "shallow": true,
         "type": "git",
         "url": "https://github.com/Runic-Artifex/runic-sdk"
       },
       "original": {
-        "ref": "refs/tags/v0.13.0",
+        "ref": "refs/tags/v0.15.0",
         "shallow": true,
         "type": "git",
         "url": "https://github.com/Runic-Artifex/runic-sdk"

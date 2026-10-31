@@ -57,11 +57,11 @@ public sealed class DashboardTests : IAsyncDisposable
     [Test]
     public async Task It_shows_the_checkout_and_the_operations_the_Bun_version_recorded()
     {
-        var configuration = _window.Root.Snapshot().Get(vm => vm.Configuration);
+        var configuration = (await _window.Root.SnapshotAsync()).Get(vm => vm.Configuration);
         await Assert.That(configuration.GetProperty("hostKey").GetString()).IsEqualTo("test");
         await Assert.That(configuration.GetProperty("hosts").EnumerateArray().Select(host => host.GetProperty("name").GetString())).IsEquivalentTo(["test"]);
 
-        var operations = _window.Root.View<OperationsViewModel>(vm => vm.Operations).Snapshot();
+        var operations = await (await _window.Root.ViewAsync<OperationsViewModel>(vm => vm.Operations)).SnapshotAsync();
         var history = operations.Get(vm => vm.Operations).EnumerateArray().ToList();
         await Assert.That(history.Count).IsGreaterThan(10);
         await Assert.That(history.All(operation => operation.GetProperty("flake").GetString() == _fixtures.Root)).IsTrue();
@@ -77,12 +77,12 @@ public sealed class DashboardTests : IAsyncDisposable
     [Test]
     public async Task Selecting_an_operation_shows_its_stored_log()
     {
-        var operations = _window.Root.View<OperationsViewModel>(vm => vm.Operations);
+        var operations = await _window.Root.ViewAsync<OperationsViewModel>(vm => vm.Operations);
         const string id = "1790107522576-f1f493f8-ff91-4054-bbfb-c506dc96ec61";
 
-        operations.Set(vm => vm.SelectedOperationId, id).ThrowIfFailed();
+        (await operations.SetAsync(vm => vm.SelectedOperationId, id)).ThrowIfFailed();
 
-        var log = operations.Snapshot().Read(vm => vm.Log);
+        var log = (await operations.SnapshotAsync()).Read(vm => vm.Log);
         await Assert.That(log.Length).IsGreaterThan(0);
         await Assert.That(File.ReadAllText(Path.Combine(_fixtures.Operations, $"{id}.log"))).EndsWith(log);
     }
@@ -95,7 +95,7 @@ public sealed class DashboardTests : IAsyncDisposable
 
         (await _window.Root.ExecuteAsync(vm => vm.PreviewPlanCommand, Wire(request))).ThrowIfFailed();
 
-        var preview = _window.Root.Snapshot().Get(vm => vm.Preview);
+        var preview = (await _window.Root.SnapshotAsync()).Get(vm => vm.Preview);
         await Assert.That(preview.GetProperty("request").GetProperty("retention").GetInt32()).IsEqualTo(4);
         await Assert.That(preview.GetProperty("error").ValueKind).IsEqualTo(JsonValueKind.Null);
         await Assert.That(preview.GetProperty("plan").GetProperty("steps").EnumerateArray().Select(step => step.GetProperty("label").GetProperty("english").GetString()))
@@ -108,7 +108,7 @@ public sealed class DashboardTests : IAsyncDisposable
     {
         (await _window.Root.ExecuteAsync(vm => vm.PreviewPlanCommand, Wire(Request.Create() with { Action = Actions.Boot, Scope = Scopes.Home }))).ThrowIfFailed();
 
-        var preview = _window.Root.Snapshot().Get(vm => vm.Preview);
+        var preview = (await _window.Root.SnapshotAsync()).Get(vm => vm.Preview);
         await Assert.That(preview.GetProperty("plan").ValueKind).IsEqualTo(JsonValueKind.Null);
         await Assert.That(preview.GetProperty("error").GetProperty("english").GetString()).IsEqualTo("boot requires system scope.");
     }
@@ -118,7 +118,7 @@ public sealed class DashboardTests : IAsyncDisposable
     {
         (await _window.Root.ExecuteAsync(vm => vm.PreviewPlanCommand, Wire(Request.Create() with { Action = Actions.ReviewBuild }))).ThrowIfFailed();
 
-        var preview = _window.Root.Snapshot().Get(vm => vm.Preview);
+        var preview = (await _window.Root.SnapshotAsync()).Get(vm => vm.Preview);
         await Assert.That(preview.GetProperty("plan").ValueKind).IsEqualTo(JsonValueKind.Object);
     }
 
@@ -129,7 +129,7 @@ public sealed class DashboardTests : IAsyncDisposable
 
         (await _window.Root.ExecuteAsync(vm => vm.SavePreferencesCommand, Wire(new PreferenceChange("dark", "de")))).ThrowIfFailed();
 
-        var dashboard = _window.Root.Snapshot();
+        var dashboard = await _window.Root.SnapshotAsync();
         await Assert.That(dashboard.Read(vm => vm.Theme)).IsEqualTo("dark");
         await Assert.That(dashboard.Read(vm => vm.Language)).IsEqualTo("de");
         await Assert.That(dashboard.Read(vm => vm.Locale)).IsEqualTo("de");
@@ -144,7 +144,7 @@ public sealed class DashboardTests : IAsyncDisposable
         (await _window.Root.ExecuteAsync(vm => vm.SavePreferencesCommand, Wire(new PreferenceChange(Detail: "simple", PrepareUpdates: true,
             CleanUp: true, History: true, Backup: true, AppDetails: false)))).ThrowIfFailed();
 
-        var dashboard = _window.Root.Snapshot();
+        var dashboard = await _window.Root.SnapshotAsync();
         await Assert.That(dashboard.Read(vm => vm.Detail)).IsEqualTo("simple");
         await Assert.That(dashboard.Read(vm => vm.PrepareUpdates)).IsTrue();
         await Assert.That(dashboard.Read(vm => vm.CleanUp)).IsTrue();
@@ -160,8 +160,8 @@ public sealed class DashboardTests : IAsyncDisposable
 
         // The page sends only the preference it changes; the others stay as they are.
         (await _window.Root.ExecuteAsync(vm => vm.SavePreferencesCommand, """{"prepareUpdates":false}""")).ThrowIfFailed();
-        await Assert.That(_window.Root.Snapshot().Read(vm => vm.PrepareUpdates)).IsFalse();
-        await Assert.That(_window.Root.Snapshot().Read(vm => vm.History)).IsTrue();
+        await Assert.That((await _window.Root.SnapshotAsync()).Read(vm => vm.PrepareUpdates)).IsFalse();
+        await Assert.That((await _window.Root.SnapshotAsync()).Read(vm => vm.History)).IsTrue();
     }
 
     [Test]
@@ -177,7 +177,7 @@ public sealed class DashboardTests : IAsyncDisposable
     public async Task Someone_who_ran_operations_before_starts_detailed_with_app_details_on()
     {
         // The fixtures hold earlier operation records, so the first choice written on opening is the detailed view.
-        var dashboard = _window.Root.Snapshot();
+        var dashboard = await _window.Root.SnapshotAsync();
         await Assert.That(dashboard.Read(vm => vm.Detail)).IsEqualTo("detailed");
         await Assert.That(dashboard.Read(vm => vm.History)).IsFalse();
         await Assert.That(dashboard.Read(vm => vm.AppDetails)).IsTrue();
@@ -204,14 +204,14 @@ public sealed class DashboardTests : IAsyncDisposable
     [Test]
     public async Task The_pages_connect_to_the_Windows_reviews_computer_and_software()
     {
-        var reviews = _window.Root.View<ReviewsViewModel>(vm => vm.Reviews).Snapshot();
+        var reviews = await (await _window.Root.ViewAsync<ReviewsViewModel>(vm => vm.Reviews)).SnapshotAsync();
         await Assert.That(reviews.Get(vm => vm.Reviews).GetArrayLength()).IsGreaterThan(0);
 
-        await WaitForAsync(() => _window.Root.View<SystemViewModel>(vm => vm.System).Snapshot().Get(vm => vm.System).ValueKind == JsonValueKind.Object);
-        var system = _window.Root.View<SystemViewModel>(vm => vm.System).Snapshot();
+        await WaitForAsync(async () => (await (await _window.Root.ViewAsync<SystemViewModel>(vm => vm.System)).SnapshotAsync()).Get(vm => vm.System).ValueKind == JsonValueKind.Object);
+        var system = await (await _window.Root.ViewAsync<SystemViewModel>(vm => vm.System)).SnapshotAsync();
         await Assert.That(system.Get(vm => vm.HomeGenerations).GetArrayLength()).IsEqualTo(2);
 
-        var software = _window.Root.View<SoftwareViewModel>(vm => vm.Software).Snapshot();
+        var software = await (await _window.Root.ViewAsync<SoftwareViewModel>(vm => vm.Software)).SnapshotAsync();
         await Assert.That(software.Get(vm => vm.Catalog).GetProperty("state").GetString()).IsNotNull();
     }
 
@@ -219,15 +219,15 @@ public sealed class DashboardTests : IAsyncDisposable
     public async Task Opening_the_Window_observes_the_computer_and_reads_the_pending_edits()
     {
         await WaitForAsync(() => _observations > 0);
-        await WaitForAsync(() => _window.Root.Snapshot().Get(vm => vm.Draft).ValueKind == JsonValueKind.Object);
+        await WaitForAsync(async () => (await _window.Root.SnapshotAsync()).Get(vm => vm.Draft).ValueKind == JsonValueKind.Object);
 
-        await Assert.That(_window.Root.Snapshot().Get(vm => vm.Draft).GetProperty("changes").GetArrayLength()).IsEqualTo(0);
+        await Assert.That((await _window.Root.SnapshotAsync()).Get(vm => vm.Draft).GetProperty("changes").GetArrayLength()).IsEqualTo(0);
     }
 
     [Test]
     public async Task Pending_edits_another_process_saves_appear_without_a_refresh()
     {
-        await WaitForAsync(() => _window.Root.Snapshot().Get(vm => vm.Draft).ValueKind == JsonValueKind.Object);
+        await WaitForAsync(async () => (await _window.Root.SnapshotAsync()).Get(vm => vm.Draft).ValueKind == JsonValueKind.Object);
         var draft = new System.Text.Json.Nodes.JsonObject
         {
             ["flake"] = _fixtures.Root,
@@ -240,21 +240,21 @@ public sealed class DashboardTests : IAsyncDisposable
         File.WriteAllText(Path.Combine(_fixtures.StateDir, "draft.json"), draft.ToJsonString());
         await _watching.NextChangeAsync();
 
-        await WaitForAsync(() => _window.Root.Snapshot().Get(vm => vm.Draft).GetProperty("changes").GetArrayLength() == 1);
+        await WaitForAsync(async () => (await _window.Root.SnapshotAsync()).Get(vm => vm.Draft).GetProperty("changes").GetArrayLength() == 1);
     }
 
     [Test]
     public async Task Pending_edits_cross_the_Bridge_as_a_union_and_are_stored_by_kind()
     {
-        await WaitForAsync(() => _window.Root.Snapshot().Get(vm => vm.Draft).ValueKind == JsonValueKind.Object);
-        var software = _window.Root.View<SoftwareViewModel>(vm => vm.Software);
+        await WaitForAsync(async () => (await _window.Root.SnapshotAsync()).Get(vm => vm.Draft).ValueKind == JsonValueKind.Object);
+        var software = await _window.Root.ViewAsync<SoftwareViewModel>(vm => vm.Software);
 
         (await software.ExecuteAsync(vm => vm.SetDraftCommand, """
             [{"$case":"set-option","scope":"system","file":"home.nix","option":"o.p","value":{"a":[1.5,null]},"label":{"english":"L","reference":null}},
              {"$case":"add-package","scope":"home","file":"home.nix","attr":"pkgs.hello"}]
             """)).ThrowIfFailed();
 
-        var changes = software.Snapshot().Get(vm => vm.Draft).GetProperty("changes");
+        var changes = (await software.SnapshotAsync()).Get(vm => vm.Draft).GetProperty("changes");
         await Assert.That(changes.GetRawText()).IsEqualTo("""
             [{"$case":"set-option","scope":"system","file":"home.nix","label":{"english":"L","reference":null},"option":"o.p","value":{"a":[1.5,null]}},{"$case":"add-package","scope":"home","file":"home.nix","label":null,"attr":"pkgs.hello"}]
             """.Trim());
@@ -271,7 +271,7 @@ public sealed class DashboardTests : IAsyncDisposable
             """)).ThrowIfFailed();
         saved = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(_fixtures.StateDir, "draft.json")))!;
         await Assert.That(saved["changes"]![0]!["label"]!.ToJsonString()).IsEqualTo(label.Reference);
-        await Assert.That(software.Snapshot().Get(vm => vm.Draft).GetProperty("changes")[0].GetProperty("label").GetProperty("reference").GetString())
+        await Assert.That((await software.SnapshotAsync()).Get(vm => vm.Draft).GetProperty("changes")[0].GetProperty("label").GetProperty("reference").GetString())
             .IsEqualTo(label.Reference);
 
         var invalid = await software.ExecuteAsync(vm => vm.SetDraftCommand, """
@@ -286,9 +286,9 @@ public sealed class DashboardTests : IAsyncDisposable
     [Test]
     public async Task An_operation_that_ends_observes_the_computer_again()
     {
-        await WaitForAsync(() => _observations > 0 && _window.Root.View<SystemViewModel>(vm => vm.System).Snapshot().Get(vm => vm.System).ValueKind == JsonValueKind.Object);
+        await WaitForAsync(async () => _observations > 0 && (await (await _window.Root.ViewAsync<SystemViewModel>(vm => vm.System)).SnapshotAsync()).Get(vm => vm.System).ValueKind == JsonValueKind.Object);
         var before = _observations;
-        var operations = _window.Root.View<OperationsViewModel>(vm => vm.Operations);
+        var operations = await _window.Root.ViewAsync<OperationsViewModel>(vm => vm.Operations);
 
         (await operations.ExecuteAsync(vm => vm.StartCommand, Wire(Request.Create() with { Action = Actions.Gc, Scope = Scopes.Home, Host = "test" }))).ThrowIfFailed();
 
@@ -306,21 +306,21 @@ public sealed class DashboardTests : IAsyncDisposable
     [Test]
     public async Task A_record_another_process_writes_appears_without_a_refresh()
     {
-        var operations = _window.Root.View<OperationsViewModel>(vm => vm.Operations);
-        var count = operations.Snapshot().Get(vm => vm.Operations).GetArrayLength();
+        var operations = await _window.Root.ViewAsync<OperationsViewModel>(vm => vm.Operations);
+        var count = (await operations.SnapshotAsync()).Get(vm => vm.Operations).GetArrayLength();
         var source = Directory.GetFiles(_fixtures.Operations, "*.json").Order(StringComparer.Ordinal).Last();
         var copy = File.ReadAllText(source).Replace(Path.GetFileNameWithoutExtension(source), "1799999999999-11111111-2222-4333-8444-555555555555");
 
         File.WriteAllText(Path.Combine(_fixtures.Operations, "1799999999999-11111111-2222-4333-8444-555555555555.json"), copy);
         await _watching.NextChangeAsync();
 
-        await Assert.That(operations.Snapshot().Get(vm => vm.Operations).GetArrayLength()).IsEqualTo(count + 1);
+        await Assert.That((await operations.SnapshotAsync()).Get(vm => vm.Operations).GetArrayLength()).IsEqualTo(count + 1);
     }
 
     [Test]
     public async Task A_record_another_process_replaces_by_renaming_is_read_again()
     {
-        var operations = _window.Root.View<OperationsViewModel>(vm => vm.Operations);
+        var operations = await _window.Root.ViewAsync<OperationsViewModel>(vm => vm.Operations);
         var source = Directory.GetFiles(_fixtures.Operations, "*.json").Order(StringComparer.Ordinal).Last();
         var id = Path.GetFileNameWithoutExtension(source);
         var record = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(source))!;
@@ -332,7 +332,7 @@ public sealed class DashboardTests : IAsyncDisposable
         File.Move(temporary, source, overwrite: true);
         await _watching.NextChangeAsync();
 
-        var summaries = operations.Snapshot().Get(vm => vm.Operations).EnumerateArray()
+        var summaries = (await operations.SnapshotAsync()).Get(vm => vm.Operations).EnumerateArray()
             .Where(operation => operation.GetProperty("id").GetString() == id)
             .Select(operation => operation.GetProperty("step").GetProperty("english").GetString());
         await Assert.That(summaries.Single()).IsEqualTo("Replaced by another process");
@@ -422,7 +422,7 @@ public sealed class DashboardTests : IAsyncDisposable
     [Test]
     public async Task A_current_tray_or_none_offers_no_restart()
     {
-        var dashboard = _window.Root.Snapshot();
+        var dashboard = await _window.Root.SnapshotAsync();
         await Assert.That(dashboard.Read(vm => vm.Updated)).IsFalse();
         await Assert.That(dashboard.Read(vm => vm.RestartAvailable)).IsFalse();
         (await _window.Root.ExecuteAsync(vm => vm.RestartCommand, Wire("software"))).ThrowIfFailed();
@@ -442,15 +442,15 @@ public sealed class DashboardTests : IAsyncDisposable
         // Read when the dashboard opens.
         await using var scope = _services.CreateAsyncScope();
         using var window = RunicWindowTestHost.Create<DashboardViewModel>(scope.ServiceProvider);
-        await WaitForAsync(() => window.Root.View<OperationsViewModel>(vm => vm.Operations).Snapshot().Read(vm => vm.Busy));
-        await Assert.That(window.Root.Snapshot().Read(vm => vm.Updated)).IsTrue();
-        await Assert.That(window.Root.Snapshot().Read(vm => vm.RestartAvailable)).IsFalse();
+        await WaitForAsync(async () => (await (await window.Root.ViewAsync<OperationsViewModel>(vm => vm.Operations)).SnapshotAsync()).Read(vm => vm.Busy));
+        await Assert.That((await window.Root.SnapshotAsync()).Read(vm => vm.Updated)).IsTrue();
+        await Assert.That((await window.Root.SnapshotAsync()).Read(vm => vm.RestartAvailable)).IsFalse();
         (await window.Root.ExecuteAsync(vm => vm.RestartCommand, Wire("software"))).ThrowIfFailed();
         await Assert.That(requested).IsEqualTo(0);
 
         _gate.SetResult();
         await operation.Completion;
-        await WaitForAsync(() => window.Root.Snapshot().Read(vm => vm.RestartAvailable));
+        await WaitForAsync(async () => (await window.Root.SnapshotAsync()).Read(vm => vm.RestartAvailable));
         (await window.Root.ExecuteAsync(vm => vm.RestartCommand, Wire("software"))).ThrowIfFailed();
         await Assert.That(requested).IsEqualTo(1);
         await Assert.That(new TrayRestart(TestConfig.Create(_fixtures.Root) with { StateDir = _fixtures.StateDir }).Resume()).IsEqualTo("software");
@@ -463,10 +463,10 @@ public sealed class DashboardTests : IAsyncDisposable
         await Assert.That(Restart.Resume()).IsEqualTo("generations");
         await using var first = _services.CreateAsyncScope();
         using (var window = RunicWindowTestHost.Create<DashboardViewModel>(first.ServiceProvider))
-            await Assert.That(window.Root.Snapshot().Read(vm => vm.ReopenPage)).IsEqualTo("generations");
+            await Assert.That((await window.Root.SnapshotAsync()).Read(vm => vm.ReopenPage)).IsEqualTo("generations");
         await using var second = _services.CreateAsyncScope();
         using (var window = RunicWindowTestHost.Create<DashboardViewModel>(second.ServiceProvider))
-            await Assert.That(window.Root.Snapshot().Read(vm => vm.ReopenPage)).IsNull();
+            await Assert.That((await window.Root.SnapshotAsync()).Read(vm => vm.ReopenPage)).IsNull();
     }
 
     private TrayRestart Restart => _services.GetRequiredService<TrayRestart>();
@@ -494,6 +494,13 @@ public sealed class DashboardTests : IAsyncDisposable
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
         while (!condition()) await Task.Delay(20, timeout.Token);
+    }
+
+    /// <summary>Waits for a condition that reads the Window's state through its driver, which awaits its replies.</summary>
+    private static async Task WaitForAsync(Func<Task<bool>> condition)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        while (!await condition()) await Task.Delay(20, timeout.Token);
     }
 
     /// <summary>A command argument as the generated client sends it: camelCase, every member present.</summary>

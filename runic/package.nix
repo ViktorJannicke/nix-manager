@@ -80,17 +80,17 @@ buildRunicApplication {
   frontend = {
     packageManager = "bun";
     # The hash of the frontend's node_modules for each system; update both with Frontend/bun.lock (the build fails
-    # when they are out of date). Bun installs only the system's optional packages, so they differ; `nix build
-    # .#default.frontendNodeModules.fetchedFor.aarch64-linux` computes the aarch64-linux one on any system.
+    # when they are out of date). Bun installs only the system's optional packages, so they differ; `nix run
+    # .#default.fixedOutputHashes` prints both, and the tools' hashes below.
     hash = {
-      x86_64-linux = "sha256-rOMt1nJourAtS+2P0D+OWVjpgiuRrN+dRGRem85YmsQ=";
-      aarch64-linux = "sha256-qab2mPnz9L+4BfJMwu0HvBCTC9culrZ37qb+V1dTZF4=";
+      x86_64-linux = "sha256-FpmTda37JrInRjXBmSf0ibbYYh81z9/6V0OQmdLrBtU=";
+      aarch64-linux = "sha256-hZhlUHeouu4khsDvLBMUuuwQjYDJW14S8cCAILDbYOo=";
     };
   };
   host = "desktop";
   # The tools of .config/dotnet-tools.json: the frontend's Vite build runs the Translations compiler.
   dotnetTools.hashes = {
-    dotnet-runic = "sha256-SRL48V4APy3qpzjP44yqJgjunh6A7w9+Y4qK6JiHHNc=";
+    dotnet-runic = "sha256-dph317p4TvE4aetyMv9avKwDoZWhhTblTqGtWO0yxQM=";
     dotnet-runic-translations = "sha256-rqTx4tM5QGkbR7psgzoU0agznrFVc0fe+IM5R1gmge0=";
   };
   executables = [ "nix-manager" ];
