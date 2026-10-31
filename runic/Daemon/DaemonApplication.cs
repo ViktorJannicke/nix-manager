@@ -137,11 +137,7 @@ internal sealed class DesktopDashboardWindows(RunicDesktopHost host, Action<IRun
             await DesktopPlatformServices.PresentAsync(_window!, context);
             return false;
         }
-        if (_window is { } previous)
-        {
-            _window = null;
-            await previous.DisposeAsync();
-        }
+        if (Interlocked.Exchange(ref _window, null) is { } previous) await previous.DisposeAsync();
         // A Window the daemon opens for a launch or a click gets focus only with that launch's activation token (KWin,
         // and Wayland compositors generally), which the host presents it with.
         var window = await DashboardApplication.OpenAsync(host, context);
@@ -151,17 +147,21 @@ internal sealed class DesktopDashboardWindows(RunicDesktopHost host, Action<IRun
         return true;
     }
 
-    private static async Task WatchAsync(IRunicWindow window, Action closed)
+    private async Task WatchAsync(IRunicWindow window, Action closed)
     {
         try { await window.WaitForCloseAsync(); }
-        finally { closed(); }
+        finally
+        {
+            // A closed Window's page keeps running in its web process until the Window is disposed. Whoever takes the
+            // Window from _window disposes it, so ShowAsync and CloseAsync do not dispose it a second time.
+            if (Interlocked.CompareExchange(ref _window, null, window) == window) await window.DisposeAsync();
+            closed();
+        }
     }
 
     public async ValueTask CloseAsync()
     {
-        if (_window is not { } window) return;
-        _window = null;
-        await window.DisposeAsync();
+        if (Interlocked.Exchange(ref _window, null) is { } window) await window.DisposeAsync();
     }
 }
 
