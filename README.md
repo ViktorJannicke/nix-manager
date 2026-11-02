@@ -542,7 +542,16 @@ releases, so its stable release is the `latest` dist-tag of npm's
 are never pinned. A pin with `"channel": "nightly"`
 follows the newest `vX.Y.Z-nightly.YYYYMMDD.N` or stable release instead; a
 nightly sorts before the stable release with the same `X.Y.Z`. A package may already be newer in locked
-nixpkgs; its updater detects that and skips an unnecessary pin update. Partial
+nixpkgs; its updater detects that and skips an unnecessary pin update.
+
+The channel is switched with `nix-manager t3code-update --channel stable` (or
+`nightly`), or with the channel selector of the pinned package on the Updates
+page; only T3 Code publishes nightlies. When the newest release on the new
+channel is newer than the pin, it is pinned as any update is. Otherwise only the
+channel is recorded and the pinned release stays until one on the new channel
+is newer: leaving the nightlies never installs an older stable release over data
+a nightly may already have migrated. The update report lists each pin with its
+release and channel, and is checked again for that package after a pin update. Partial
 check failures remain visible and make `check` exit nonzero. Cached results show
 their check time and can become stale until the next check.
 

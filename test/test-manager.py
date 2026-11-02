@@ -117,7 +117,9 @@ class ManagerTests(unittest.TestCase):
         # Invalid combinations are usage errors (2); an unknown host makes the configuration unavailable (1).
         for args, code in ((["switch", "boot"], 2), (["home", "all", "switch"], 2), (["cleanup", "build"], 2),
                            (["update", "rollback"], 2), (["cleanup", "rollback"], 2), (["--force", "switch"], 2),
-                           (["system", "t3code-update"], 2), (["--host", "missing", "switch"], 1)):
+                           (["system", "t3code-update"], 2), (["--channel", "stable", "switch"], 2),
+                           (["--channel", "beta", "t3code-update"], 2), (["--channel", "nightly", "status"], 2),
+                           (["--host", "missing", "switch"], 1)):
             with self.subTest(args=args):
                 result, calls, *_ = self.invoke(args)
                 self.assertEqual(result.returncode, code, result.stderr)

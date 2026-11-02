@@ -8,7 +8,23 @@ namespace NixManager.Updates;
 
 /// <summary>A package's <c>pkgs/NAME/source.json</c>: the pinned release and the channel it follows.</summary>
 /// <param name="Channel">Null, <c>stable</c> or <c>nightly</c>; nightly follows the newest nightly or stable release.</param>
-public sealed record PackagePin(string Version, string? Channel, string? NixpkgsRev);
+public sealed record PackagePin(string Version, string? Channel, string? NixpkgsRev)
+{
+    /// <summary>The channel the pin follows; a pin without one follows stable releases.</summary>
+    public string Follows => Channel ?? PackageChannels.Stable;
+}
+
+/// <summary>The release channels a pin can follow, spelled as the pin stores them.</summary>
+public static class PackageChannels
+{
+    /// <summary>Releases tagged <c>vX.Y.Z</c>.</summary>
+    public const string Stable = "stable";
+
+    /// <summary>The newest of the <c>vX.Y.Z-nightly.YYYYMMDD.N</c> and stable releases.</summary>
+    public const string Nightly = "nightly";
+
+    public static readonly IReadOnlyList<string> All = [Stable, Nightly];
+}
 
 /// <summary>Reads and validates pins.</summary>
 public static partial class PackagePins
@@ -53,7 +69,7 @@ public static partial class PackagePins
         string? channel = null;
         if (pin.TryGetPropertyValue("channel", out var channelNode))
         {
-            if (channelNode is JsonValue c && c.TryGetValue<string>(out var value) && value is "stable" or "nightly") channel = value;
+            if (channelNode is JsonValue c && c.TryGetValue<string>(out var value) && PackageChannels.All.Contains(value)) channel = value;
             else throw new ManagerException(DisplayText.Of("stored_pin_channel_invalid", ("name", name), ("value", Format(channelNode))));
         }
 

@@ -32,6 +32,27 @@
   const pinName = (name: string) => pins[name] ?? name;
   const pinAction = (name: string) => `${name}-update` as Action;
 
+  type Channel = "stable" | "nightly";
+  const channelLabel = (channel: string) => (channel === "nightly" ? m.updates_channel_nightly() : m.updates_channel_stable());
+
+  // Every pin with its update, once a check has listed the pins; reports of earlier versions list only the updates.
+  const pinRows = $derived(
+    app.updates?.pins.length
+      ? app.updates.pins.map((pin) => ({ name: pin.name, pin, item: app.packageUpdates.find((item) => item.name === pin.name) }))
+      : app.packageUpdates.map((item) => ({ name: item.name, pin: undefined, item })),
+  );
+
+  function switchChannel(name: string, channel: Channel) {
+    const label = channelLabel(channel);
+    void app.confirm({
+      title: m.updates_channel_title({ name: pinName(name), channel: label }),
+      description: m.updates_channel_description({ channel: label }),
+      request: app.request(pinAction(name), { scope: "home", channel }),
+      confirmLabel: m.updates_channel_switch(),
+      points: [m.updates_pin_point_configuration(), m.updates_pin_point_nothing_yet()],
+    });
+  }
+
   function updatePin(name: string, latest: string) {
     void app.confirm({
       title: m.updates_pin_title({ name: pinName(name), version: latest }),
@@ -147,26 +168,41 @@
     </section>
   {/if}
 
-  {#if app.packageUpdates.length}
+  {#if pinRows.length}
     <section class="panel overflow-hidden" aria-labelledby="pins-heading">
       <div class="border-b px-4 py-3">
         <h2 id="pins-heading" class="heading">{m.updates_pinned()}</h2>
         <p class="text-xs text-muted-foreground">{m.updates_pinned_body()}</p>
       </div>
       <ul role="list" aria-labelledby="pins-heading" class="divide-y">
-        {#each app.packageUpdates as item (item.name)}
-          <li class="flex items-center gap-4 px-4 py-3">
+        {#each pinRows as { name, pin, item } (name)}
+          <li class="flex flex-wrap items-center gap-4 px-4 py-3">
             <div class="min-w-0 flex-1">
-              <p class="font-medium">{pinName(item.name)}</p>
+              <p class="font-medium">{pinName(name)}</p>
               <p class="text-xs text-muted-foreground">
-                {item.current} → <span class="font-medium text-foreground">{item.latest}</span>
-                {#if item.source}<span class="ml-2">{item.source}</span>{/if}
+                {#if item}
+                  {item.current} → <span class="font-medium text-foreground">{item.latest}</span>
+                  {#if item.source}<span class="ml-2">{item.source}</span>{/if}
+                {:else if pin}
+                  {m.updates_pin_up_to_date({ version: pin.version, channel: channelLabel(pin.channel) })}
+                {/if}
               </p>
             </div>
-            {#if item.url}
-              <Button variant="ghost" size="sm" href={item.url} target="_blank" rel="noreferrer" aria-label={m.updates_release_notes_of({ name: pinName(item.name) })}>{m.updates_release_notes()} <ExternalLinkIcon /></Button>
+            {#if pin && pin.channels.length > 1}
+              <Segmented
+                label={m.updates_channel_of({ name: pinName(name) })}
+                bind:value={() => pin.channel as Channel, (channel: Channel) => {
+                  if (channel !== pin.channel && !app.busy && app.connected) switchChannel(name, channel);
+                }}
+                options={pin.channels.map((channel) => ({ value: channel as Channel, label: channelLabel(channel), disabled: app.busy || !app.connected }))}
+              />
             {/if}
-            <Button variant="outline" size="sm" aria-label={m.updates_update_name({ name: pinName(item.name) })} disabled={app.busy || !app.connected} onclick={() => updatePin(item.name, item.latest)}>{m.updates_update()}</Button>
+            {#if item?.url}
+              <Button variant="ghost" size="sm" href={item.url} target="_blank" rel="noreferrer" aria-label={m.updates_release_notes_of({ name: pinName(name) })}>{m.updates_release_notes()} <ExternalLinkIcon /></Button>
+            {/if}
+            {#if item}
+              <Button variant="outline" size="sm" aria-label={m.updates_update_name({ name: pinName(name) })} disabled={app.busy || !app.connected} onclick={() => updatePin(name, item.latest)}>{m.updates_update()}</Button>
+            {/if}
           </li>
         {/each}
       </ul>

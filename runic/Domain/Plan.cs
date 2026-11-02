@@ -178,7 +178,9 @@ public static partial class Planner
         if (r.Action == Actions.Check)
             notes.Add(DisplayText.Of("stored_resolve_inputs_in_a_temporary_copy_and"));
         else if (Actions.IsPackage(r.Action))
-            notes.Add(DisplayText.Of("stored_compare_the_latest_release_on_the_pin"));
+            notes.Add(r.Channel is { } channel
+                ? DisplayText.Of("stored_move_the_pin_to_the_channel", ("channel", channel))
+                : DisplayText.Of("stored_compare_the_latest_release_on_the_pin"));
         else
         {
             if (r.Action == Actions.Build)

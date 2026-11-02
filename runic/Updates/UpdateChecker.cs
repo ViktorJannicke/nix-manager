@@ -112,29 +112,10 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
             {
                 report.Errors.Add(e.Text);
             }
-            foreach (var (name, owner, repo) in Packages)
+            foreach (var (name, _, _) in Packages)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                try
-                {
-                    var pin = ReadPin(Path.Combine(config.Flake, "pkgs", name, "source.json"), name);
-                    var npm = PackageUpdater.Packages[name].Npm;
-                    var version = await LatestAsync(network, name, owner, repo, pin.Channel, cancellationToken, npm).ConfigureAwait(false);
-                    if (CompareVersions(version, pin.Version) > 0 && !PackageUpdater.Packages[name].BlockedVersions.Contains(version))
-                        report.Items.Add(new UpdateItem
-                        {
-                            Name = name,
-                            Current = pin.Version,
-                            Latest = version,
-                            Kind = "package",
-                            Source = $"{owner}/{repo}",
-                            Url = npm is null ? $"https://github.com/{owner}/{repo}/releases/tag/v{version}" : $"https://github.com/{owner}/{repo}/tree/v{version}",
-                        });
-                }
-                catch (ManagerException e)
-                {
-                    report.Errors.Add(DisplayText.Of("stored_package_check_failed", ("name", name), ("reason", e.Text)));
-                }
+                await CheckPackageAsync(network, config, name, report, cancellationToken).ConfigureAwait(false);
             }
             return report;
         }
@@ -142,6 +123,56 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
         {
             try { work.Delete(recursive: true); }
             catch (IOException) { }
+        }
+    }
+
+    /// <summary>
+    /// <paramref name="report"/> with <paramref name="name"/>'s pin read again and its release looked up again, such
+    /// as after the pin was updated or moved to another channel; the rest of the report is kept.
+    /// </summary>
+    public static async Task<UpdateReport> RecheckPackageAsync(INetwork network, Config config, string name, UpdateReport report, CancellationToken cancellationToken)
+    {
+        var next = report with
+        {
+            Items = [.. report.Items.Where(item => !(item.Kind == "package" && item.Name == name))],
+            Errors = [.. report.Errors],
+            Pins = [.. report.Pins.Where(pin => pin.Name != name)],
+        };
+        await CheckPackageAsync(network, config, name, next, cancellationToken).ConfigureAwait(false);
+        var order = Packages.Select(package => package.Name).ToList();
+        next.Items.Sort((a, b) => Rank(a).CompareTo(Rank(b)));
+        next.Pins.Sort((a, b) => order.IndexOf(a.Name).CompareTo(order.IndexOf(b.Name)));
+        return next;
+
+        // Inputs first as the check lists them, then packages in the order they are checked; a stable sort keeps the rest.
+        int Rank(UpdateItem item) => item.Kind == "package" ? 1 + order.IndexOf(item.Name) : 0;
+    }
+
+    /// <summary>Adds <paramref name="name"/>'s pin, and its update when a newer release is on the pin's channel.</summary>
+    private static async Task CheckPackageAsync(INetwork network, Config config, string name, UpdateReport report, CancellationToken cancellationToken)
+    {
+        var source = PackageUpdater.Packages[name];
+        try
+        {
+            var pin = ReadPin(Path.Combine(config.Flake, "pkgs", name, "source.json"), name);
+            report.Pins.Add(new PinnedPackage { Name = name, Version = pin.Version, Channel = pin.Follows, Channels = source.Channels });
+            var version = await LatestAsync(network, name, source.Owner, source.Repo, pin.Channel, cancellationToken, source.Npm).ConfigureAwait(false);
+            if (CompareVersions(version, pin.Version) > 0 && !source.BlockedVersions.Contains(version))
+                report.Items.Add(new UpdateItem
+                {
+                    Name = name,
+                    Current = pin.Version,
+                    Latest = version,
+                    Kind = "package",
+                    Source = $"{source.Owner}/{source.Repo}",
+                    Url = source.Npm is null
+                        ? $"https://github.com/{source.Owner}/{source.Repo}/releases/tag/v{version}"
+                        : $"https://github.com/{source.Owner}/{source.Repo}/tree/v{version}",
+                });
+        }
+        catch (ManagerException e)
+        {
+            report.Errors.Add(DisplayText.Of("stored_package_check_failed", ("name", name), ("reason", e.Text)));
         }
     }
 

@@ -33,6 +33,7 @@ export const request = (overrides: Partial<Request> = {}): Request => ({
   edits: null,
   undo: null,
   then: null,
+  channel: null,
   ...overrides,
 });
 

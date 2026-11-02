@@ -104,7 +104,8 @@ public static class NixManagerCli
         };
 
     [Command("run", Description = Description,
-        Examples = ["nix-manager home update cleanup switch", "nix-manager --dry-run update cleanup switch", "nix-manager check --format json"])]
+        Examples = ["nix-manager home update cleanup switch", "nix-manager --dry-run update cleanup switch", "nix-manager check --format json",
+            "nix-manager t3code-update --channel stable"])]
     [RootCommand]
     [CommandResult(RunResult.PayloadType, typeof(ManagerJsonContext))]
     internal static async Task<CommandOutcome<RunResult>> Run(
@@ -119,6 +120,8 @@ public static class NixManagerCli
         [Option("--host", Description = HostHelp)] string? host = null,
         [Option("--dry-run", Description = DryRunHelp)] bool dryRun = false,
         [Option("--force", Description = "Recalculate package hashes even when the pin is current")] bool force = false,
+        [Option("--channel", Description = "Move a package pin to stable or nightly releases; an older release is not installed",
+            ValueName = "CHANNEL", Choices = ["stable", "nightly"])] string? channel = null,
         [Option("--plain", Description = PlainHelp)] bool plain = false,
         [Option("--verbose", Description = "Retain detailed command output on success")] bool verbose = false,
         [Option("--browser", Description = "Open the dashboard in the default browser")] bool browser = false,
@@ -130,7 +133,7 @@ public static class NixManagerCli
         CliInvocation cli;
         try
         {
-            cli = CliArguments.Resolve(words ?? [], new CliOptions(flake, host, dryRun, force, json, plain, verbose, browser, noOpen, interval), native ?? []);
+            cli = CliArguments.Resolve(words ?? [], new CliOptions(flake, host, dryRun, force, json, plain, verbose, browser, noOpen, interval, channel), native ?? []);
         }
         catch (ManagerException error)
         {

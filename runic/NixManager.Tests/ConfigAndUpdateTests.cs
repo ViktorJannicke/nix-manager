@@ -140,6 +140,7 @@ public sealed class UpdateCheckerTests
                 ["https://api.github.com/repos/pingdotgg/t3code/releases?per_page=100"] =
                     """[{"tag_name":"v0.0.46-nightly.20261015.3145"},{"tag_name":"v0.0.47-nightly.20261016.1","draft":true},{"tag_name":"v0.0.45"}]""",
                 ["https://api.github.com/repos/korcankaraokcu/PINCE/releases/latest"] = """{"tag_name":"v0.10.2"}""",
+                ["https://api.github.com/repos/pingdotgg/t3code/releases/latest"] = """{"tag_name":"v0.0.45"}""",
             });
             var commands = new List<Command>();
             Task<CommandResult> Run(Command command)
@@ -164,6 +165,18 @@ public sealed class UpdateCheckerTests
             await Assert.That(report.Items[1].Url).IsEqualTo("https://github.com/pingdotgg/t3code/releases/tag/v0.0.46-nightly.20261015.3145");
             // A pin that is missing is an error of its own; the other checks still report.
             await Assert.That(report.Errors.Single().English).StartsWith("opencode: Read opencode pin:");
+            await Assert.That(report.Pins.Select(pin => (pin.Name, pin.Version, pin.Channel, string.Join(',', pin.Channels)))).IsEquivalentTo([
+                ("t3code", "0.0.46-nightly.20261014.3118", "nightly", "stable,nightly"),
+                ("pince", "0.10.2", "stable", "stable"),
+            ], TUnit.Assertions.Enums.CollectionOrdering.Matching);
+
+            // A pin moved to stable keeps its newer nightly: the recheck drops the nightly update and keeps the rest.
+            File.WriteAllText(Path.Combine(flake, "pkgs/t3code/source.json"), """{"version":"0.0.46-nightly.20261014.3118","channel":"stable"}""");
+            var rechecked = await UpdateChecker.RecheckPackageAsync(network, TestConfig.Create(flake), "t3code", report, CancellationToken.None);
+            await Assert.That(rechecked.Items.Select(item => item.Name)).IsEquivalentTo(["nixpkgs"]);
+            await Assert.That(rechecked.Pins.Select(pin => (pin.Name, pin.Channel))).IsEquivalentTo([("t3code", "stable"), ("pince", "stable")], TUnit.Assertions.Enums.CollectionOrdering.Matching);
+            await Assert.That(rechecked.Errors.Count).IsEqualTo(1);
+            await Assert.That(report.Items.Count).IsEqualTo(2);
         }
         finally
         {

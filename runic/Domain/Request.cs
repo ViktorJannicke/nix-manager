@@ -91,6 +91,11 @@ public sealed record Request
     public string? Undo { get; init; }
     /// <summary>Apply the prepared edits right away.</summary>
     public string? Then { get; init; }
+    /// <summary>
+    /// The release channel a package update switches the pin to (<c>stable</c> or <c>nightly</c>); null keeps the
+    /// pin's channel.
+    /// </summary>
+    public string? Channel { get; init; }
 
     /// <summary>Members of a stored request this version does not know, kept as they were.</summary>
     [JsonExtensionData]
@@ -128,6 +133,10 @@ public static partial class RequestValidation
                 Fail(DisplayText.Of("stored_request_package_updates_cannot_combine"));
         }
         else if (r.Force) Fail(DisplayText.Of("stored_request_force_applies_to_package_updates"));
+        if (r.Channel is not null && !Actions.IsPackage(r.Action))
+            Fail(DisplayText.Of("stored_request_channel_applies_to_package_updates"));
+        if (r.Channel is not null && !NixManager.Updates.PackageChannels.All.Contains(r.Channel))
+            Fail(DisplayText.Of("stored_request_unknown_channel", ("channel", r.Channel)));
         if (r.Action is Actions.Rollback or Actions.Gc or Actions.Check && r.Update)
             Fail(DisplayText.Of("stored_request_cannot_update_inputs_during", ("action", r.Action)));
         if (r.Action is Actions.Rollback or Actions.Build or Actions.Check && r.Cleanup)

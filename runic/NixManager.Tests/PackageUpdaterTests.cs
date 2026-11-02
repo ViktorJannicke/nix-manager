@@ -43,6 +43,8 @@ public sealed class PackageUpdaterTests : IDisposable
         public bool DryRun { get; init; }
         public bool ConcurrentEdit { get; init; }
         public string? Channel { get; init; }
+        /// <summary>The channel the request moves the pin to.</summary>
+        public string? Switch { get; init; }
         public IReadOnlyList<string>? Blocked { get; init; }
     }
 
@@ -112,7 +114,7 @@ public sealed class PackageUpdaterTests : IDisposable
             ? null
             : PackageUpdater.Packages.ToDictionary(pair => pair.Key, pair => pair.Value with { BlockedVersions = options.Blocked });
         var updater = new PackageUpdater(network, packages);
-        var request = Request.Create() with { Action = $"{name}-update", Host = "test", DryRun = options.DryRun, Force = options.Force };
+        var request = Request.Create() with { Action = $"{name}-update", Host = "test", DryRun = options.DryRun, Force = options.Force, Channel = options.Switch };
         return new Harness(config, before, pinFile, calls, log,
             () => updater.UpdateAsync(config, request, Run, log.Add, CancellationToken.None));
     }
@@ -136,6 +138,56 @@ public sealed class PackageUpdaterTests : IDisposable
         var caughtUp = Create("t3code", new Options { Current = "0.0.39-nightly.20261013.12", Channel = "nightly", Locked = "0.0.39" });
         await caughtUp.Run();
         await Assert.That(Built(caughtUp)).IsFalse();
+    }
+
+    [Test]
+    public async Task Moving_to_another_channel_pins_its_newest_release_when_it_is_newer()
+    {
+        var stable = Create("t3code", new Options { Current = "0.0.37-nightly.20261001.1", Channel = "nightly", Switch = "stable" });
+        await stable.Run();
+        await Assert.That(Pin(stable)["version"]!.GetValue<string>()).IsEqualTo("0.0.38");
+        await Assert.That(Pin(stable)["channel"]!.GetValue<string>()).IsEqualTo("stable");
+        await Assert.That(Built(stable)).IsTrue();
+        var nightly = Create("t3code", new Options { Current = "0.0.38", Switch = "nightly" });
+        await nightly.Run();
+        await Assert.That(Pin(nightly)["version"]!.GetValue<string>()).IsEqualTo("0.0.39-nightly.20261013.12");
+        await Assert.That(Pin(nightly)["channel"]!.GetValue<string>()).IsEqualTo("nightly");
+        // Asking for the channel the pin follows is an ordinary update.
+        var same = Create("t3code", new Options { Current = "0.0.38", Switch = "stable" });
+        await same.Run();
+        await Assert.That(File.ReadAllText(same.PinFile)).IsEqualTo(same.Before);
+        await Assert.That(same.Log[^1]).IsEqualTo("t3code is current. Use --force to recalculate hashes.");
+    }
+
+    [Test]
+    public async Task Moving_to_stable_keeps_a_newer_nightly_and_records_only_the_channel()
+    {
+        var h = Create("t3code", new Options { Current = "0.0.39-nightly.20261013.12", Channel = "nightly", Switch = "stable" });
+        await h.Run();
+        await Assert.That(h.Calls).IsEmpty();
+        await Assert.That(File.ReadAllText(h.PinFile)).IsEqualTo(
+            $"{{\n  \"version\": \"0.0.39-nightly.20261013.12\",\n  \"channel\": \"stable\",\n  \"nixpkgsRev\": \"{Rev}\"\n}}\n");
+        await Assert.That(h.Log[^1]).IsEqualTo("t3code now follows stable releases; 0.0.39-nightly.20261013.12 stays until a stable release is newer.");
+        var dryRun = Create("t3code", new Options { Current = "0.0.39-nightly.20261013.12", Channel = "nightly", Switch = "stable", DryRun = true });
+        await dryRun.Run();
+        await Assert.That(File.ReadAllText(dryRun.PinFile)).IsEqualTo(dryRun.Before);
+        await Assert.That(dryRun.Log[^1]).StartsWith("Would record the stable channel in ");
+        // nixpkgs' own package already has the newest stable release: nothing to build, only the channel changes.
+        var caughtUp = Create("t3code", new Options { Current = "0.0.37-nightly.20261001.1", Channel = "nightly", Switch = "stable", Locked = "0.0.38" });
+        await caughtUp.Run();
+        await Assert.That(Built(caughtUp)).IsFalse();
+        await Assert.That(Pin(caughtUp)["version"]!.GetValue<string>()).IsEqualTo("0.0.37-nightly.20261001.1");
+        await Assert.That(Pin(caughtUp)["channel"]!.GetValue<string>()).IsEqualTo("stable");
+    }
+
+    [Test]
+    [Arguments("opencode")]
+    [Arguments("pince")]
+    public async Task Packages_without_nightlies_refuse_the_nightly_channel(string name)
+    {
+        var h = Create(name, new Options { Switch = "nightly" });
+        await Assert.That(h.Run).Throws<ManagerException>().WithMessage($"{name} publishes no nightly releases.");
+        await Assert.That(File.ReadAllText(h.PinFile)).IsEqualTo(h.Before);
     }
 
     [Test]
@@ -171,7 +223,7 @@ public sealed class PackageUpdaterTests : IDisposable
         await h.Run();
         await Assert.That(File.ReadAllText(h.PinFile)).IsEqualTo(h.Before);
         await Assert.That(h.Calls.Any(c => c.Argv[0] == "nix-prefetch-url") || Built(h)).IsFalse();
-        await Assert.That(h.Log[^1]).IsEqualTo($"Would fetch, hash and build {name} 0.0.38, then atomically save {h.PinFile}.");
+        await Assert.That(h.Log[^1]).IsEqualTo($"Would fetch, hash and build {name} 0.0.38 from stable releases, then atomically save {h.PinFile}.");
         await Assert.That(h.Log[0]).IsEqualTo($"{name}: local pin 0.0.34 | stable release 0.0.38");
     }
 
