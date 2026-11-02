@@ -19,8 +19,13 @@ namespace NixManager.Updates;
 /// The names of the fixed-output derivations whose hashes the pin holds, with <c>{version}</c> for the pinned version,
 /// by which a hash mismatch in a configuration build is traced to the pin.
 /// </param>
+/// <param name="Nightlies">The project tags nightly releases, so its pin can follow the <c>nightly</c> channel.</param>
 public sealed record PackageSource(string Owner, string Repo, string Prefix, IReadOnlyList<string> Recipes, IReadOnlyList<string> BlockedVersions, string? Npm = null,
-    IReadOnlyList<string>? FixedOutputs = null);
+    IReadOnlyList<string>? FixedOutputs = null, bool Nightlies = false)
+{
+    /// <summary>The channels the pin can follow, stable first.</summary>
+    public IReadOnlyList<string> Channels => Nightlies ? PackageChannels.All : [PackageChannels.Stable];
+}
 
 /// <summary>
 /// Updates a package's pin in the checkout: the newest release on the
@@ -35,13 +40,17 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
     public static readonly IReadOnlyDictionary<string, PackageSource> Packages = new Dictionary<string, PackageSource>
     {
         ["t3code"] = new("pingdotgg", "t3code", "t3", ["package.nix", "unwrapped.nix", "resource-monitor.nix"], [],
-            FixedOutputs: ["t3code-unwrapped-pnpm-deps.drv", "t3code-resource-monitor-{version}-vendor-staging.drv", "t3code-resource-monitor-{version}-vendor.drv"]),
+            FixedOutputs: ["t3code-unwrapped-pnpm-deps.drv", "t3code-resource-monitor-{version}-vendor-staging.drv", "t3code-resource-monitor-{version}-vendor.drv"],
+            Nightlies: true),
         // OpenCode 2.x is tagged and published to npm only; GitHub's latest release stays on 1.x.
         ["opencode"] = new("anomalyco", "opencode", "op", ["package.nix"], [], Npm: "@opencode/cli", FixedOutputs: ["opencode-node_modules-{version}.drv"]),
         ["pince"] = new("korcankaraokcu", "PINCE", "", [], []),
     };
 
     private readonly IReadOnlyDictionary<string, PackageSource> _packages = packages ?? Packages;
+
+    /// <summary>Where release lookups go.</summary>
+    public INetwork Network => network;
 
     /// <summary>The hash a candidate starts with, so the build fails and names the real one (<c>fakeHash</c>).</summary>
     public const string FakeHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
@@ -173,6 +182,21 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
         }, path);
     }
 
+    /// <summary>The pin <paramref name="text"/> following <paramref name="channel"/>, its other fields as they were.</summary>
+    internal static JsonObject WithChannel(string text, string channel)
+    {
+        var pin = JsonNode.Parse(text)!.AsObject();
+        var result = new JsonObject();
+        foreach (var (key, value) in pin.ToList())
+        {
+            if (key == "channel") continue;
+            pin.Remove(key);
+            result[key] = value;
+            if (key == "version") result["channel"] = channel;
+        }
+        return result;
+    }
+
     private static void SaveJson(string path, JsonNode data) =>
         FileErrors.Attempt(DisplayText.Of("stored_write", ("file", path)), () => File.WriteAllText(path, JsJson.Indented(data) + "\n"), path);
 
@@ -180,6 +204,11 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
     /// Updates the pin of <c>r.action</c>'s package. Commands go through <paramref name="run"/>, which runs each as a
     /// step of the operation; <paramref name="log"/> receives the decisions.
     /// </summary>
+    /// <remarks>
+    /// With <see cref="Request.Channel"/> the pin moves to that channel. A newer release on it is pinned as any update
+    /// is; otherwise only the channel is recorded and the pinned release stays until one on the new channel is newer,
+    /// so leaving the nightlies never installs an older release over the data a nightly may have migrated.
+    /// </remarks>
     public async Task UpdateAsync(Config config, Request r, Func<Command, Task<CommandResult>> run, Action<string> log, CancellationToken cancellationToken)
     {
         var name = r.Action.Replace("-update", "", StringComparison.Ordinal);
@@ -187,12 +216,33 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
         var pinFile = Path.Combine(config.Flake, "pkgs", name, "source.json");
         var before = FileErrors.Attempt(DisplayText.Of("stored_read_current_pin"), () => File.ReadAllText(pinFile), pinFile);
         var pin = PackagePins.Parse(before, name);
-        var channel = pin.Channel ?? "stable";
+        var channel = r.Channel ?? pin.Follows;
+        if (!p.Channels.Contains(channel))
+            throw new ManagerException(DisplayText.Of("stored_channel_not_offered", ("name", name), ("channel", channel)));
+        var switching = channel != pin.Follows;
         var version = await UpdateChecker.LatestAsync(network, name, p.Owner, p.Repo, channel, cancellationToken, p.Npm).ConfigureAwait(false);
+        var order = UpdateChecker.CompareVersions(pin.Version, version);
+        log(switching
+            ? $"{name}: local pin {pin.Version} on {pin.Follows} | {channel} release {version}"
+            : $"{name}: local pin {pin.Version} | {channel} release {version}");
+
+        // Moving to a channel whose newest release is not newer: record the channel and keep the release.
+        bool KeepsRelease(string reason)
+        {
+            if (!switching) return false;
+            if (r.DryRun) log($"Would record the {channel} channel in {pinFile}; {reason}");
+            else
+            {
+                AtomicPin(pinFile, before, WithChannel(before, channel));
+                log($"{name} now follows {channel} releases; {reason}");
+            }
+            return true;
+        }
+        if ((order > 0 || (order == 0 && !r.Force)) &&
+            KeepsRelease(order > 0 ? $"{pin.Version} stays until a {channel} release is newer." : $"{pin.Version} is the newest {channel} release."))
+            return;
         if (p.BlockedVersions.Contains(version))
             throw new ManagerException(DisplayText.Of("stored_version_blocked_by_upstream_regression", ("name", name), ("version", version)));
-        var order = UpdateChecker.CompareVersions(pin.Version, version);
-        log($"{name}: local pin {pin.Version} | {channel} release {version}");
         if (order > 0) throw new ManagerException(DisplayText.Of("stored_refusing_a_downgrade", ("name", name)));
 
         var work = FileErrors.Attempt(DisplayText.Of("stored_create_temporary_workspace"), () => Directory.CreateTempSubdirectory("nix-manager-").FullName);
@@ -241,7 +291,8 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
                 var lockedOrder = UpdateChecker.CompareVersions(locked, version);
                 if (lockedOrder > 0 || (!r.Force && (locked == version || (order == 0 && pin.NixpkgsRev == rev))))
                 {
-                    log($"{name} is current. Use --force to recalculate hashes.");
+                    // The configuration uses nixpkgs' own package, which is at least as new.
+                    if (!KeepsRelease($"nixpkgs' {locked} is in use.")) log($"{name} is current. Use --force to recalculate hashes.");
                     return;
                 }
             }
@@ -252,7 +303,7 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
             }
             if (r.DryRun)
             {
-                log($"Would fetch, hash and build {name} {version}, then atomically save {pinFile}.");
+                log($"Would fetch, hash and build {name} {version} from {channel} releases, then atomically save {pinFile}.");
                 return;
             }
 
@@ -274,7 +325,7 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
             if (name == "pince") candidate["hash"] = hash;
             else
             {
-                if (pin.Channel is { } pinned) candidate["channel"] = pinned;
+                if (pin.Channel is not null || switching) candidate["channel"] = channel;
                 candidate["srcHash"] = hash;
                 candidate["nixpkgsRev"] = rev;
                 if (name == "t3code")

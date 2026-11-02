@@ -273,6 +273,13 @@ updates {
   update_name = Update {$name}
   update_pin = Update pin
   what_to_prepare = What to prepare
+  channel_description = Nix Manager pins the newest release on the {$channel} channel when it is newer than the version in use. Otherwise it records the channel and keeps the version in use until a newer release appears there, so nothing is downgraded.
+  channel_nightly = Nightly
+  channel_of = Release channel of {$name}
+  channel_stable = Stable
+  channel_switch = Switch channel
+  channel_title = Follow the {$channel} channel of {$name}?
+  pin_up_to_date = {$version} · {$channel} channel
 }
 
 restore {

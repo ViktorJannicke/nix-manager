@@ -27,8 +27,9 @@ public sealed record CliInvocation
 }
 
 /// <summary>The options the parser bound, before the tokens are resolved.</summary>
+/// <param name="Channel">The release channel a package update moves the pin to.</param>
 public sealed record CliOptions(
-    string? Flake, string? Host, bool DryRun, bool Force, bool Json, bool Plain, bool Verbose, bool Browser, bool NoOpen, int Interval);
+    string? Flake, string? Host, bool DryRun, bool Force, bool Json, bool Plain, bool Verbose, bool Browser, bool NoOpen, int Interval, string? Channel = null);
 
 /// <summary>The root command's grammar: scope, modifier and action words in any order.</summary>
 public static class CliArguments
@@ -47,7 +48,7 @@ public static class CliArguments
     public static CliInvocation Resolve(IReadOnlyList<string> tokens, CliOptions options, IReadOnlyList<string> extra)
     {
         static void Fail(string key) => throw new ManagerException(DisplayText.Of(key));
-        var request = Request.Create() with { DryRun = options.DryRun, Force = options.Force, Extra = [.. extra] };
+        var request = Request.Create() with { DryRun = options.DryRun, Force = options.Force, Channel = options.Channel, Extra = [.. extra] };
         if (options.Host is { Length: > 0 } host) request = request with { Host = host };
         var mode = CliMode.Run;
         bool action = false, scope = false, explicitMode = false;
@@ -90,7 +91,7 @@ public static class CliArguments
             if (options.Browser || options.NoOpen || options.Interval != 360)
                 Fail("stored_cli_window_options_require_ui_or_tray");
         }
-        else if (scope || request.Update || request.Cleanup || request.Force || request.DryRun || request.Extra.Count > 0)
+        else if (scope || request.Update || request.Cleanup || request.Force || request.DryRun || request.Channel is not null || request.Extra.Count > 0)
             Fail("stored_cli_modifiers_require_an_action");
         return new CliInvocation
         {

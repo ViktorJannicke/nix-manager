@@ -259,6 +259,13 @@ updates {
   update_name = {$name} aktualisieren
   update_pin = Festgelegte Version aktualisieren
   what_to_prepare = Was vorbereitet wird
+  channel_description = Nix Manager legt die neueste Version des Kanals {$channel} fest, wenn sie neuer ist als die verwendete. Sonst wird nur der Kanal gespeichert, und die verwendete Version bleibt, bis dort eine neuere erscheint; es wird also nichts auf eine ältere Version zurückgesetzt.
+  channel_nightly = Nightly
+  channel_of = Versionskanal von {$name}
+  channel_stable = Stabil
+  channel_switch = Kanal wechseln
+  channel_title = Dem Kanal {$channel} von {$name} folgen?
+  pin_up_to_date = {$version} · Kanal {$channel}
 }
 
 restore {

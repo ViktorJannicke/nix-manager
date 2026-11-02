@@ -148,11 +148,24 @@ public sealed record UpdateItem
     public string? Url { get; init; }
 }
 
+/// <summary>A package pin as the update check read it: its release and the channel it follows.</summary>
+public sealed record PinnedPackage
+{
+    public required string Name { get; init; }
+    public required string Version { get; init; }
+    /// <summary><c>stable</c> or <c>nightly</c>.</summary>
+    public required string Channel { get; init; }
+    /// <summary>The channels the package offers, stable first.</summary>
+    public required IReadOnlyList<string> Channels { get; init; }
+}
+
 public sealed record UpdateReport
 {
     public required string CheckedAt { get; init; }
     public List<UpdateItem> Items { get; init; } = [];
     public List<DisplayText> Errors { get; init; } = [];
+    /// <summary>The package pins, in the order they are checked; reports of earlier versions have none.</summary>
+    public List<PinnedPackage> Pins { get; init => field = value ?? []; } = [];
 }
 
 /// <summary><c>updates.json</c>: the last report, for the checkout it was made for.</summary>

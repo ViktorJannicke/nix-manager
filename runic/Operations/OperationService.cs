@@ -663,6 +663,20 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                 var outcome = StartStep(PinLabel(r.Action));
                 // Each command is a step of its own in the log.
                 await service.Packages.UpdateAsync(service.Config, r, RunStepAsync, Log, token).ConfigureAwait(false);
+                // The saved report shows the pin as it is now, so the dashboard offers no update already made and
+                // the channel the pin follows.
+                if (!r.DryRun && _store.Updates() is { } saved)
+                {
+                    try
+                    {
+                        _store.SaveUpdates(await NixManager.Updates.UpdateChecker.RecheckPackageAsync(service.Packages.Network, service.Config,
+                            PackageName(r.Action), saved, token).ConfigureAwait(false));
+                    }
+                    catch (ManagerException e)
+                    {
+                        Log($"The update report still shows the earlier pin: {e.Text.English}");
+                    }
+                }
                 FinishStep(outcome, StepStatuses.Succeeded);
                 return;
             }
