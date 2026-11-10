@@ -252,7 +252,8 @@ public sealed class DaemonCore
         {
             // A second operation is refused as a second process would be: with the operation lock's message. The
             // client starts the operation before its first await, so the check and the start are one step here.
-            run = _service.Busy
+            // Nothing starts ahead of what the queue waits to start, such as an application after preparing.
+            run = _service.Busy || _service.Pending
                 ? Task.FromException<Operation>(OperationStore.Busy())
                 // Only the command line's cancel request (Ctrl+C) stops the operation; one that goes away, such as with a
                 // dropped SSH session, leaves it running to its end.
@@ -306,6 +307,8 @@ public sealed class DaemonCore
         _windows = windows;
         using var subscription = _service.Subscribe(e =>
         {
+            // The queue holding or emptying can let the process end, or the tray restart.
+            if (e is QueueChanged) _inbox.Writer.TryWrite(new Changed());
             if (e is not OperationChanged { Operation: var operation }) return;
             _inbox.Writer.TryWrite(operation.Status == OperationStatuses.Running ? new Changed() : new Ended(operation));
         });
@@ -327,6 +330,8 @@ public sealed class DaemonCore
             // Apps of an update applied on next boot follow once the computer runs it.
             try { await _service.ResumeAfterBootAsync(); }
             catch (Exception error) when (error is ManagerException or IOException) { _log.WriteLine($"Resuming after boot failed: {error.Message}"); }
+            // The queue an earlier tray or dashboard left goes on, after the apps of a boot apply.
+            _service.RunQueue();
             Refresh();
             // The tray before this one restarted from the dashboard's "Restart now"; its page opens again.
             if (tray && _restart?.Resume() is { } page)
@@ -343,12 +348,13 @@ public sealed class DaemonCore
             {
                 if (item is DesktopStatusIconActivation { CommandId: TrayCommands.Quit }) break;
                 await HandleAsync(item);
-                if (!tray && !windows.IsOpen && !_service.Busy && _serving.IsEmpty) break;
+                // The queue goes on without the Window, as the running operation does.
+                if (!tray && !windows.IsOpen && !_service.Busy && !_service.Pending && _serving.IsEmpty) break;
                 // A system switch leaves this service running (the switch may be its own operation); once nothing
                 // runs, no command line follows and no Window is open, the tray makes way for the installed one. The
                 // dashboard's "Restart now" does so with its Window open, which the next tray opens again.
                 var restart = item is RestartRequested;
-                if (tray && (restart || (item is (Ended or WindowClosed or ServeEnded) && !windows.IsOpen)) && !_service.Busy && _serving.IsEmpty
+                if (tray && (restart || (item is (Ended or WindowClosed or ServeEnded) && !windows.IsOpen)) && !_service.Busy && !_service.Pending && _serving.IsEmpty
                     && _settings.Outdated?.Invoke() == true)
                 {
                     _log.WriteLine("A newer Nix Manager is installed; restarting the tray.");
@@ -576,7 +582,8 @@ public sealed class DaemonCore
     /// </summary>
     private async Task CheckAsync()
     {
-        if (_service.Busy || _ending) return;
+        // Queued requests come first; the next check is due later.
+        if (_service.Busy || _service.Pending || _ending) return;
         try
         {
             _checked = _clock.GetUtcNow();
@@ -599,12 +606,9 @@ public sealed class DaemonCore
     /// <summary>Cancels a running operation, lets command lines receive its end, and closes the Window and the icon.</summary>
     private async Task EndAsync()
     {
-        if (_service.Busy)
-        {
-            _log.WriteLine("Nix Manager is ending; cancelling the running operation.");
-            _service.Cancel();
-            await _service.WaitAsync();
-        }
+        if (_service.Busy) _log.WriteLine("Nix Manager is ending; cancelling the running operation.");
+        // Nothing more starts from the queue; what waits stays for the next start.
+        await _service.StopAsync();
         var serving = _serving.Keys.ToArray();
         if (serving.Length > 0)
             await Task.WhenAny(Task.WhenAll(serving), Task.Delay(TimeSpan.FromSeconds(10), _clock));

@@ -200,6 +200,29 @@ public sealed class ReviewEditFlowTests : IDisposable
     }
 
     [Test]
+    public async Task Changes_queued_to_be_applied_after_preparing_are_applied_before_the_next_entry_starts()
+    {
+        EditEngine.Require();
+        await using var service = Service();
+        Drafts.Write(Config, [Btop]);
+
+        var prepare = service.Submit(Build(then: Followups.Switch));
+        var clean = service.Submit(Request.Create() with { Action = Actions.Gc, Scope = Scopes.Home });
+        await Assert.That(prepare.Started).IsNotNull();
+        await Assert.That(clean.Queued).IsNotNull();
+        await service.IdleAsync();
+
+        // Newest first: the cleanup waited for the changes to be applied.
+        var history = service.History();
+        await Assert.That(string.Join(" ", history.Select(operation => $"{operation.Request.Action}:{operation.Status}")))
+            .IsEqualTo("gc:succeeded review-apply:succeeded review-build:succeeded");
+        await Assert.That(history[1].Request.Queued).IsEqualTo(history[2].Request.Queued);
+        await Assert.That((history[1].Request.Activation, history[1].Request.Scope)).IsEqualTo(("switch", Scopes.Home));
+        await Assert.That(AppsNow).Contains("    btop\n");
+        await Assert.That(service.Queue).IsEmpty();
+    }
+
+    [Test]
     public async Task A_failed_activation_goes_back_to_the_earlier_generation_and_files()
     {
         EditEngine.Require();

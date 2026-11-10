@@ -56,6 +56,8 @@ public sealed record StatusDocument(string Host, string Flake, Host Config,
 [JsonSerializable(typeof(UpdateReport))]
 [JsonSerializable(typeof(SavedUpdates))]
 [JsonSerializable(typeof(ManagerEvent))]
+[JsonSerializable(typeof(SavedQueue))]
+[JsonSerializable(typeof(Submission))]
 [JsonSerializable(typeof(LogResult))]
 [JsonSerializable(typeof(StatusDocument))]
 [JsonSerializable(typeof(Cli.RunResult))]

@@ -101,8 +101,8 @@
           {#if preparing}
             <Button variant="outline" onclick={() => app.navigate("activity")}>{m.changes_show_progress()}</Button>
           {:else}
-            <Button disabled={app.busy || !app.connected} onclick={() => app.prepare("home")}>{m.changes_prepare_home()}</Button>
-            <Button variant="outline" disabled={app.busy || !app.connected} onclick={() => app.prepare("all")}>{m.changes_prepare_all()}</Button>
+            <Button disabled={!app.connected} onclick={() => app.prepare("home")}>{m.changes_prepare_home()}</Button>
+            <Button variant="outline" disabled={!app.connected} onclick={() => app.prepare("all")}>{m.changes_prepare_all()}</Button>
           {/if}
         {/snippet}
       </EmptyState>
@@ -116,11 +116,11 @@
           <p class="mt-1 max-w-prose">{reviewSummary(review)}</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <Button variant="ghost" disabled={app.busy} aria-describedby="review-title" onclick={() => app.discard(review)}><TrashIcon /> {m.changes_discard()}</Button>
+          <Button variant="ghost" disabled={app.active?.request.reviewId === review.id} aria-describedby="review-title" onclick={() => app.discard(review)}><TrashIcon /> {m.changes_discard()}</Button>
           {#if review.system}
-            <Button variant="outline" disabled={app.busy || !app.connected || lockChanged || checkoutChanged} aria-describedby="review-title" onclick={() => apply(review, "boot")}>{m.changes_apply_on_boot()}</Button>
+            <Button variant="outline" disabled={!app.connected || lockChanged || checkoutChanged} aria-describedby="review-title" onclick={() => apply(review, "boot")}>{m.changes_apply_on_boot()}</Button>
           {/if}
-          <Button disabled={app.busy || !app.connected || lockChanged || checkoutChanged} aria-describedby="review-title" onclick={() => apply(review, "switch")}>{m.changes_apply_now()}</Button>
+          <Button disabled={!app.connected || lockChanged || checkoutChanged} aria-describedby="review-title" onclick={() => apply(review, "switch")}>{m.changes_apply_now()}</Button>
         </div>
       </div>
 

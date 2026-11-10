@@ -81,7 +81,8 @@
     { id: "changes" as Page, label: m.nav_changes(), icon: GitCompareIcon, count: app.reviews.length || undefined, prepared: true },
     { id: "updates" as Page, label: m.nav_updates(), icon: CloudDownloadIcon, count: app.inputUpdates.length + app.packageUpdates.length || undefined, prepared: false },
     { id: "generations" as Page, label: m.nav_restore_points(), icon: HistoryIcon, count: undefined, prepared: false },
-    { id: "activity" as Page, label: m.nav_activity(), icon: ListIcon, count: undefined, prepared: false },
+    // While nothing runs, entries that wait in the queue are held, or wait for another Nix Manager process.
+    { id: "activity" as Page, label: m.nav_activity(), icon: ListIcon, count: app.queue.length || undefined, prepared: false },
     { id: "settings" as Page, label: m.nav_settings(), icon: SettingsIcon, count: undefined, prepared: false },
   ]);
   const running = $derived(app.active);
@@ -166,6 +167,9 @@
         <span class="font-semibold">{actionLabel(running.request.action)}</span>
         <span class="min-w-0 flex-1 truncate text-muted-foreground">{text(runningStep?.label ?? running.step)}</span>
         {#if runningStep}<div class="w-56"><BuildProgress compact progress={runningStep.progress} /></div>{/if}
+        {#if app.queue.length}
+          <Button variant="ghost" size="sm" onclick={() => app.navigate("activity")}>{app.queueSummary}</Button>
+        {/if}
         <Button variant="ghost" size="sm" onclick={() => app.show(running.id)}>{m.nav_show()}</Button>
       </div>
     {/if}

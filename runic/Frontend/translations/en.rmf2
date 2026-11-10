@@ -126,6 +126,10 @@ toast {
   pin_saved_body = Prepare your user's changes to build and apply the new version.
   ready_to_review = Changes are ready to review
   will_apply_on_next_boot = Will apply on next boot
+  queued = Added to the queue
+  queued_body = It starts after what runs now.
+  queued_several_body = They run one after another. Activity shows what waits.
+  could_not_change_queue = Could not change the queue
 }
 
 confirm {
@@ -183,6 +187,10 @@ overview {
     .match $count
     one {{{$count} unsaved change in the folder}}
     * {{{$count} unsaved changes in the folder}}
+  @param $queue - Such as "2 queued, 1 waiting for you"
+  after_this = After this: {$queue}
+  queue = Queue: {$queue}
+  show_queue = Show queue
 }
 
 activity {
@@ -201,6 +209,21 @@ activity {
   updates_all_inputs = Updates all flake inputs
   updates_inputs = Updates {$inputs}
   what_nix_reported = What Nix reported
+  history = History
+  queue = Queue
+  queue_all_sources = Updates all software sources
+  queue_pending_edits = With your pending edits
+  queue_undo = Undoes a change
+  queue_then_apply_now = Then applies the changes now
+  queue_then_apply_on_boot = Then applies the changes on next boot
+  queue_remove = Remove
+  @param $label - An action, such as "Update T3 Code"
+  queue_remove_label = Remove {$label} from the queue
+  queue_held_hint = Continue the queue to start what waits for you, or remove it.
+  queue_continue = Continue
+  queue_clear = Clear queue
+  queued_count = {$count :integer} queued
+  held_count = {$count :integer} waiting for you
 }
 
 log {
@@ -280,6 +303,23 @@ updates {
   channel_switch = Switch channel
   channel_title = Follow the {$channel} channel of {$name}?
   pin_up_to_date = {$version} · {$channel} channel
+  queued = Queued
+  updating = Updating…
+  after_preparing = After preparing
+  then_review = Review first
+  then_apply_now = Apply now
+  then_apply_on_boot = Apply on next boot
+  everything_ellipsis = Update everything…
+  everything_title = Update everything?
+  everything_description = These steps run one after another:
+  @param $name - An app, such as "T3 Code"
+  everything_pin = {$name} is updated to {$version}.
+  everything_sources = All software sources are updated to their latest versions.
+  everything_prepare = The changes for your user and system are prepared, then applied now or kept for your review, as you choose.
+  everything_prepare_review = The changes for your user and system are prepared for your review.
+  everything_waits = If a step fails, the steps after it wait for you. Changes that need a restart, such as a new kernel, wait for your review.
+  everything_review = Update and review first
+  everything_apply = Update and apply
 }
 
 restore {

@@ -282,6 +282,19 @@ public static partial class ChangeRules
         return simple ? null : DisplayText.Of("stored_it_changes_settings_which_can_restart_programs");
     }
 
+    /// <summary>
+    /// Why changes that were asked to be applied right after preparing them (<see cref="Request.Then"/> <c>switch</c> or
+    /// <c>boot</c>) wait for a review instead: they were prepared for another computer, or the kernel changes while
+    /// they would be applied now, so restarting is a choice to make. Null when they are applied.
+    /// </summary>
+    public static DisplayText? QueuedApplyProblem(BuildReview review, string host, string then)
+    {
+        if (review.Host != host) return DisplayText.Of("stored_it_was_prepared_for_another_computer", ("host", review.Host));
+        if (then == Followups.Switch && review.System?.Kernel is { } kernel && kernel.Before != kernel.After)
+            return DisplayText.Of("stored_the_kernel_changes_so_you_choose_when");
+        return null;
+    }
+
     /// <summary>Why a prepared review is not applied in one step, checking what it turned out to change (<c>oneStepReviewProblem</c>).</summary>
     public static DisplayText? OneStepReviewProblem(BuildReview review)
     {

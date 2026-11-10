@@ -168,6 +168,38 @@ public sealed record UpdateReport
     public List<PinnedPackage> Pins { get; init => field = value ?? []; } = [];
 }
 
+/// <summary>
+/// A request waiting in the queue for the running operation, and the ones before it, to end
+/// (<see cref="IOperationService.Submit"/>).
+/// </summary>
+public sealed record QueuedOperation
+{
+    public required string Id { get; init; }
+    /// <summary>The request as it will start, with its review ID chosen already.</summary>
+    public required Request Request { get; init; }
+    public required string QueuedAt { get; init; }
+    /// <summary>
+    /// Why it does not start by itself, such as an earlier entry that failed; it waits until the queue is continued
+    /// (<see cref="IOperationService.ContinueQueue"/>) or it is removed. Null while it waits its turn.
+    /// </summary>
+    public DisplayText? Held { get; init; }
+    [JsonExtensionData] public Dictionary<string, JsonElement>? Unknown { get; set; }
+}
+
+/// <summary>What became of a submitted request: started now, or queued after what runs; or why neither.</summary>
+/// <param name="Started">The operation it started.</param>
+/// <param name="Queued">Its queue entry, when something else runs or waits before it.</param>
+/// <param name="Error">Why it was refused, such as an invalid request.</param>
+public sealed record Submission(Operation? Started, QueuedOperation? Queued, DisplayText? Error = null);
+
+/// <summary><c>queue.json</c>: the queue, and the entry whose operation runs, which a new process continues after.</summary>
+public sealed record SavedQueue
+{
+    public List<QueuedOperation> Entries { get; init; } = [];
+    /// <summary>The entry whose operation, or its follow-up, ran when the queue was written.</summary>
+    public string? Running { get; init; }
+}
+
 /// <summary><c>updates.json</c>: the last report, for the checkout it was made for.</summary>
 public sealed record SavedUpdates(string Flake, UpdateReport Report);
 
@@ -180,6 +212,7 @@ public sealed record SavedUpdates(string Flake, UpdateReport Report);
 [JsonDerivedType(typeof(OperationChanged), "operation")]
 [JsonDerivedType(typeof(OperationOutput), "output")]
 [JsonDerivedType(typeof(OperationProgress), "progress")]
+[JsonDerivedType(typeof(QueueChanged), "queue")]
 public abstract record ManagerEvent
 {
     public long Sequence { get; init; }
@@ -191,6 +224,9 @@ public sealed record OperationChanged(Operation Operation) : ManagerEvent;
 public sealed record OperationOutput(string OperationId, string Stream, string Text, long Offset) : ManagerEvent;
 
 public sealed record OperationProgress(string OperationId, string StepId, BuildProgress Progress) : ManagerEvent;
+
+/// <summary>The queue changed: an entry was added, started, removed, held or continued.</summary>
+public sealed record QueueChanged(IReadOnlyList<QueuedOperation> Queue) : ManagerEvent;
 
 /// <summary>Timestamps as JavaScript's <c>toISOString</c> writes them, which every stored record uses.</summary>
 public static class Timestamps

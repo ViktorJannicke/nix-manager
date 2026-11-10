@@ -3,6 +3,7 @@
   import CloudDownloadIcon from "@lucide/svelte/icons/cloud-download";
   import PencilLineIcon from "@lucide/svelte/icons/pencil-line";
   import Undo2Icon from "@lucide/svelte/icons/undo-2";
+  import CirclePauseIcon from "@lucide/svelte/icons/circle-pause";
   import { Button } from "$lib/components/ui/button";
   import { app } from "$lib/app.svelte";
   import { actionLabel, m, plain, text } from "$lib/i18n";
@@ -93,7 +94,7 @@
           })}
         </p>
       </div>
-      <Button variant="outline" size="sm" aria-describedby="last-change" disabled={app.busy || !app.connected} onclick={() => app.undo(last.operation)}>
+      <Button variant="outline" size="sm" aria-describedby="last-change" disabled={undoing || !app.connected} onclick={() => app.undo(last.operation)}>
         {undoing ? m.common_preparing() : m.common_undo()}
       </Button>
     </section>
@@ -119,6 +120,9 @@
           <h2 id="running-heading" class="heading">{actionLabel(running.request.action)}</h2>
           <p class="text-muted-foreground">{m.overview_step_so_far({ step: text(runningStep?.label ?? running.step), duration: duration(running, app.now) })}</p>
           {#if left}<p class="text-xs text-muted-foreground">{left}</p>{/if}
+          {#if app.queue.length}
+            <button class="focus-ring rounded text-xs text-primary hover:underline" onclick={() => app.navigate("activity")}>{m.overview_after_this({ queue: app.queueSummary })}</button>
+          {/if}
         </div>
         <div class="flex gap-2">
           <Button variant="outline" size="sm" onclick={() => app.show(running.id)}>{m.overview_show_output()}</Button>
@@ -126,6 +130,15 @@
         </div>
       </div>
       {#if runningStep}<BuildProgress progress={runningStep.progress} />{/if}
+    </section>
+  {:else if app.queue.length}
+    <section class="panel flex flex-wrap items-start gap-4 p-4" aria-labelledby="queue-overview">
+      <CirclePauseIcon class="mt-0.5 size-4 shrink-0 text-warning" />
+      <div class="min-w-0 flex-1">
+        <h2 id="queue-overview" class="font-semibold">{m.overview_queue({ queue: app.queueSummary })}</h2>
+        {#if app.queue.some((entry) => entry.held)}<p class="mt-1 text-muted-foreground">{m.activity_queue_held_hint()}</p>{/if}
+      </div>
+      <Button variant="outline" size="sm" onclick={() => app.navigate("activity")}>{m.overview_show_queue()}</Button>
     </section>
   {/if}
 

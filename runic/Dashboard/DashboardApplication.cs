@@ -127,6 +127,8 @@ public static class DashboardApplication
         await SpeakAsync(provider, DashboardPreferences.LocaleOf(config));
         var host = CreateHost(provider, desktop);
         var service = provider.GetRequiredService<IOperationService>();
+        // The queue an earlier dashboard or tray left goes on.
+        service.RunQueue();
         var shutdown = desktop.ShutdownRequested;
         await using (var window = await OpenAsync(host, shutdown))
         {
@@ -138,11 +140,11 @@ public static class DashboardApplication
             await served.CancelAsync();
             await watch;
         }
-        if (service.Busy)
+        if (service.Busy || service.Pending)
         {
-            Console.Error.WriteLine("The dashboard closed; waiting for the running operation to finish. Press Ctrl+C to cancel it.");
-            using (shutdown.Register(service.Cancel))
-                await service.WaitAsync();
+            Console.Error.WriteLine("The dashboard closed; waiting for the running operation and the queue to finish. Press Ctrl+C to cancel the operation; the queue waits for the next start.");
+            using (shutdown.Register(() => _ = service.StopAsync()))
+                await service.IdleAsync();
         }
         return 0;
     }

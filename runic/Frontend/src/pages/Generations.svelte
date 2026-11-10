@@ -111,7 +111,7 @@
         {profile}
         label={profile === "home" ? m.restore_list_home() : m.restore_list_system()}
         now={app.now}
-        disabled={app.busy || !app.connected}
+        disabled={!app.connected}
         onGoBack={goBack}
       />
     {:else if list}
@@ -143,7 +143,7 @@
       </div>
       <RetentionField bind:value={retention} />
       <Segmented label={m.restore_what_to_clean_up()} bind:value={cleanupScope} options={[{ value: "home", label: m.scope_home() }, { value: "all", label: m.scope_all() }]} />
-      <Button variant="outline" disabled={app.busy || !app.connected} onclick={cleanup}>{m.restore_clean_up_ellipsis()}</Button>
+      <Button variant="outline" disabled={!app.connected} onclick={cleanup}>{m.restore_clean_up_ellipsis()}</Button>
     </div>
     <p class="mt-3 text-xs text-muted-foreground">
       {#if !removed}

@@ -304,7 +304,7 @@ public sealed class DashboardTests : IAsyncDisposable
         var before = _observations;
         var operations = await _window.Root.ViewAsync<OperationsViewModel>(vm => vm.Operations);
 
-        (await operations.ExecuteAsync(vm => vm.StartCommand, Wire(Request.Create() with { Action = Actions.Gc, Scope = Scopes.Home, Host = "test" }))).ThrowIfFailed();
+        (await operations.ExecuteAsync(vm => vm.SubmitCommand, Wire(Request.Create() with { Action = Actions.Gc, Scope = Scopes.Home, Host = "test" }))).ThrowIfFailed();
 
         await WaitForAsync(() => _observations > before);
     }
