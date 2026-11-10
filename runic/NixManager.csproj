@@ -36,6 +36,8 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
+    <!-- Runic logs through the registered factory (Logging.cs). -->
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.14" />
     <PackageReference Include="Runic.Application.Views.Desktop" Version="0.17.0" />
     <!-- The Desktop server the page is served with; NativeAOT links its library, so no ASP.NET Core is shipped. -->
     <PackageReference Include="Runic.Desktop.NativeServer" Version="0.17.0" />

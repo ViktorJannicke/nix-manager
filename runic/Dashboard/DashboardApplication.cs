@@ -25,6 +25,8 @@ public static class DashboardApplication
     public static IServiceCollection AddNixManagerDashboard(this IServiceCollection services)
     {
         services.TryAddScoped<DashboardViewModel>();
+        // Runic's log, and the page's errors it receives, on standard error.
+        services.AddNixManagerLogging();
         // Without the tray service (Daemon.DaemonApplication registers its own), the dashboard offers no restart.
         services.TryAddSingleton(provider => new Daemon.TrayRestart(provider.GetRequiredService<Config>()));
         // The Window's native services; the dashboard announces statuses through them (DashboardViewModel.AnnounceCommand).
