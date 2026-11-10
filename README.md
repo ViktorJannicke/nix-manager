@@ -241,7 +241,8 @@ accounts, edited as pending edits like software), Updates (flake inputs and
 package pins, each selectable before preparing), Restore points (generations,
 rollback, cleanup and history), Activity (step outcomes and a filterable live
 log with copy) and Settings. The Svelte 5 interface supports light, dark and
-system themes.
+system themes; in the Window, the frame follows the chosen theme too
+(`IRunicWindowPresentation.SetColorSchemeAsync`).
 
 Settings chooses how much the dashboard shows. Simple, the default for a new
 state directory, gives pending edits one button: "Apply changes" when they can be
@@ -537,7 +538,9 @@ operation as they are. The dashboard also watches the state directory, so
 operations started by a command line in another process, new update reports,
 reviews, pending edits and preferences changed elsewhere appear without a
 refresh. It observes the computer again when the Window opens, after each
-operation and every 30 seconds while it is open.
+operation and every 30 seconds while it is in front. While another window has
+the focus, or it is hidden or minimized, it observes every five minutes, and at
+once when it comes back after more than 30 seconds (Runic's window activity).
 
 Update checks write a proposed flake lock to a temporary directory using Nix's
 `--output-lock-file`, then compare input revisions. Stable GitHub releases are

@@ -59,13 +59,19 @@ public sealed record PlanPreview(Request Request, Plan? Plan, DisplayText? Error
 /// A view of the process's services, like <see cref="OperationsViewModel"/>: closing the Window leaves a running
 /// operation running (D025.1). The state directory is watched, so an operation that the command line runs, a new update
 /// report, reviews, pending edits and preferences changed elsewhere appear without a refresh. The computer is observed
-/// again when the Window opens, after each operation and every 30 seconds while it is open, to notice edits to the
-/// checkout and changes made outside Nix Manager; whether a newer tray is installed is read again with it.
+/// again when the Window opens, after each operation and every 30 seconds while it is in front, to notice edits to the
+/// checkout and changes made outside Nix Manager; whether a newer tray is installed is read again with it. While the
+/// Window is in the background (another window has the focus, or it is hidden or minimized), it is observed every five
+/// minutes, and again as soon as it comes back when that was longer ago than 30 seconds. Operations update the page as
+/// they run either way.
 /// </remarks>
 public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 {
-    /// <summary>How often the computer is observed again while the Window is open.</summary>
+    /// <summary>How often the computer is observed again while the Window is in front.</summary>
     public static readonly TimeSpan ObservationInterval = TimeSpan.FromSeconds(30);
+
+    /// <summary>How often the computer is observed again while the Window is in the background.</summary>
+    public static readonly TimeSpan BackgroundObservationInterval = TimeSpan.FromMinutes(5);
 
     private readonly IOperationService _service;
     private readonly ISoftwareService _software;
@@ -79,13 +85,16 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     private readonly ITimer _ticker;
     private readonly TrayRestart? _restart;
     private readonly IRunicApplicationLocale? _locale;
+    private readonly IRunicWindowPresentation? _presentation;
+    private readonly TimeProvider _clock;
+    private DateTimeOffset _observedAt;
     private bool _running;
     private string? _draftFingerprint;
 
     public DashboardViewModel(OperationsViewModel operations, ReviewsViewModel reviews, SystemViewModel system,
         SoftwareViewModel software, IOperationService service, ISoftwareService softwareService, IRunicModelContext context,
         TimeProvider? clock = null, RunicPathWatcherOptions? watching = null, DesktopWindowPlatformServices? platform = null,
-        TrayRestart? restart = null, IRunicApplicationLocale? locale = null)
+        TrayRestart? restart = null, IRunicApplicationLocale? locale = null, IRunicWindowPresentation? presentation = null)
     {
         Operations = operations;
         Reviews = reviews;
@@ -98,6 +107,8 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         _watching = watching;
         _restart = restart;
         _locale = locale;
+        _presentation = presentation;
+        _clock = clock ?? TimeProvider.System;
         var config = service.Config;
         Configuration = new DashboardConfiguration(config.Flake, config.HostKey, config.HomeProfile,
             [.. config.Hosts.OrderBy(host => host.Key, StringComparer.Ordinal)
@@ -140,14 +151,12 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         _software.Changed += OnSoftwareChanged;
         // A fresh observation unless another Window or the daemon made one in the last seconds.
         var observed = System.System is { } state && Timestamps.Parse(state.ObservedAt) is { } at ? at : (DateTimeOffset?)null;
-        var now = (clock ?? TimeProvider.System).GetUtcNow();
-        if (observed is null || now - observed > TimeSpan.FromSeconds(5)) _context.TryPost(RefreshSystem);
+        _observedAt = _clock.GetUtcNow();
+        if (observed is null || _observedAt - observed > TimeSpan.FromSeconds(5)) _context.TryPost(RefreshSystem);
         ReadDraft(force: false);
-        _ticker = (clock ?? TimeProvider.System).CreateTimer(_ => _context.TryPost(() =>
-        {
-            RefreshSystem();
-            ReadUpdated();
-        }), null, ObservationInterval, ObservationInterval);
+        _ticker = _clock.CreateTimer(_ => _context.TryPost(Observe), null, ObservationInterval, ObservationInterval);
+        // Raised in a turn of the model context, as commands run.
+        if (_presentation is not null) _presentation.ActivityChanged += OnActivityChanged;
     }
 
     /// <summary>The running operation, its log and the history.</summary>
@@ -317,6 +326,50 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 
     private void RefreshSystem() => Execute(System.RefreshCommand);
 
+    /// <summary>Observes the computer again, and whether a newer tray is installed.</summary>
+    private void Observe()
+    {
+        _observedAt = _clock.GetUtcNow();
+        RefreshSystem();
+        ReadUpdated();
+    }
+
+    /// <summary>
+    /// Observes less often while the Window is in the background, and at once when it comes back after a while. A host
+    /// that reports no activity counts the Window as in front (<see cref="RunicWindowActivity.Assumed"/>); GTK 3 on
+    /// Wayland reports a minimized Window only as no longer focused.
+    /// </summary>
+    private void OnActivityChanged(object? sender, RunicWindowActivityChangedEventArgs e)
+    {
+        var front = e.Activity is { IsActive: true, IsVisible: true, IsMinimized: false };
+        var interval = front ? ObservationInterval : BackgroundObservationInterval;
+        if (front && _clock.GetUtcNow() - _observedAt >= ObservationInterval) Observe();
+        // The next observation is an interval after the last one.
+        var due = interval - (_clock.GetUtcNow() - _observedAt);
+        _ticker.Change(due > TimeSpan.Zero ? due : TimeSpan.Zero, interval);
+    }
+
+    partial void OnThemeChanged(string value) => _ = ApplyColorSchemeAsync();
+
+    /// <summary>
+    /// Shows the chosen theme in the Window's frame as well as the page: <c>system</c> follows the desktop, <c>light</c>
+    /// and <c>dark</c> set it (<see cref="IRunicWindowPresentation.SetColorSchemeAsync"/>), and the page's
+    /// <c>prefers-color-scheme</c> follows. GTK shares the scheme between the Windows of the application. Before the native
+    /// Window exists the request changes nothing, so <see cref="DashboardApplication.OpenAsync(IRunicWindowHost, CancellationToken)"/>
+    /// applies it once the Window opened; a browser has no frame to change, and the page applies the theme itself.
+    /// </summary>
+    internal async Task ApplyColorSchemeAsync()
+    {
+        if (_presentation is null) return;
+        var scheme = Theme switch
+        {
+            "dark" => DesktopColorScheme.Dark,
+            "light" => DesktopColorScheme.Light,
+            _ => DesktopColorScheme.NoPreference,
+        };
+        await _presentation.SetColorSchemeAsync(scheme).ConfigureAwait(false);
+    }
+
     private static void Execute(global::System.Windows.Input.ICommand command)
     {
         if (command.CanExecute(null)) command.Execute(null);
@@ -387,6 +440,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        if (_presentation is not null) _presentation.ActivityChanged -= OnActivityChanged;
         _ticker.Dispose();
         Operations.PropertyChanged -= OnOperationsChanged;
         System.PropertyChanged -= OnSystemChanged;

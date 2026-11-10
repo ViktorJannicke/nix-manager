@@ -9,6 +9,7 @@ using NixManager.Operations;
 using NixManager.ViewModels;
 using Runic.Application.Testing;
 using Runic.Application.Views;
+using Runic.Platform;
 
 namespace NixManager.Tests;
 
@@ -32,26 +33,38 @@ public sealed class DashboardTests : IAsyncDisposable
 
     public DashboardTests()
     {
+        _services = Services();
+        _scope = _services.CreateAsyncScope();
+        _window = RunicWindowTestHost.Create<DashboardViewModel>(_scope.ServiceProvider);
+    }
+
+    /// <summary>
+    /// The dashboard's services over the fixtures, with <paramref name="add"/>'s registered first; <paramref name="observed"/>
+    /// counts the observations of these services alone.
+    /// </summary>
+    private ServiceProvider Services(Action<IServiceCollection>? add = null, Action? observed = null)
+    {
         var config = TestConfig.Create(_fixtures.Root) with { StateDir = _fixtures.StateDir };
         var runner = new FakeRunner(async (_, _, token) =>
         {
             if (_held) await _gate.Task.WaitAsync(token);
             return new CommandResult(0, "", "");
         });
-        _services = new ServiceCollection()
+        var services = new ServiceCollection();
+        add?.Invoke(services);
+        return services
             .AddSingleton<IOperationService>(new OperationService(config, runner, new FakeUpdates(new UpdateReport { CheckedAt = "" })))
             .AddSingleton(new TrayRestart(config, () => _outdated))
             .AddSingleton(new Observer(config, _ =>
             {
                 Interlocked.Increment(ref _observations);
+                observed?.Invoke();
                 return Task.FromResult(Observed);
             }))
             .AddNixManagerBackend(config)
             .AddNixManagerDashboard()
             .AddSingleton(_watching.Options)
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
-        _scope = _services.CreateAsyncScope();
-        _window = RunicWindowTestHost.Create<DashboardViewModel>(_scope.ServiceProvider);
     }
 
     [Test]
@@ -473,6 +486,52 @@ public sealed class DashboardTests : IAsyncDisposable
     }
 
     private TrayRestart Restart => _services.GetRequiredService<TrayRestart>();
+
+    [Test]
+    public async Task The_Windows_frame_shows_the_chosen_theme()
+    {
+        await using var services = Services(add => add.AddRunicTestWindowPresentation());
+        await using var scope = services.CreateAsyncScope();
+        using var window = RunicWindowTestHost.Create<DashboardViewModel>(scope.ServiceProvider);
+        await window.FlushWindowPresentationAsync();
+        // The desktop's scheme until a theme is chosen.
+        await Assert.That(window.Presentation!.ColorScheme).IsEqualTo(DesktopColorScheme.NoPreference);
+
+        (await window.Root.ExecuteAsync(vm => vm.SavePreferencesCommand, Wire(new PreferenceChange(Theme: "dark")))).ThrowIfFailed();
+        await window.FlushWindowPresentationAsync();
+        await Assert.That(window.Presentation.ColorScheme).IsEqualTo(DesktopColorScheme.Dark);
+        await Assert.That(window.Presentation.Requests.Last().Kind).IsEqualTo(RunicWindowPresentationRequestKind.SetColorScheme);
+
+        (await window.Root.ExecuteAsync(vm => vm.SavePreferencesCommand, Wire(new PreferenceChange(Theme: "system")))).ThrowIfFailed();
+        await window.FlushWindowPresentationAsync();
+        await Assert.That(window.Presentation.ColorScheme).IsEqualTo(DesktopColorScheme.NoPreference);
+    }
+
+    [Test]
+    public async Task A_Window_that_comes_back_after_a_while_observes_the_computer_at_once()
+    {
+        var clock = new ManualClock(DateTimeOffset.UtcNow);
+        var observations = 0;
+        await using var services = Services(add => add.AddSingleton<TimeProvider>(clock).AddRunicTestWindowPresentation(),
+            () => Interlocked.Increment(ref observations));
+        await using var scope = services.CreateAsyncScope();
+        using var window = RunicWindowTestHost.Create<DashboardViewModel>(scope.ServiceProvider);
+        // The observation the Window makes when it opens.
+        await WaitForAsync(() => Volatile.Read(ref observations) == 1);
+        await window.SetWindowActivityAsync(new RunicWindowActivity(IsActive: false, IsMinimized: false, IsVisible: true));
+
+        // Back in front within half a minute of the last observation: nothing new to look at yet.
+        clock.Now += TimeSpan.FromSeconds(10);
+        await window.SetWindowActivityAsync(new RunicWindowActivity(IsActive: true, IsMinimized: false, IsVisible: true));
+        await window.SetWindowActivityAsync(new RunicWindowActivity(IsActive: false, IsMinimized: false, IsVisible: true));
+        await (await window.Root.ViewAsync<SystemViewModel>(vm => vm.System)).SnapshotAsync();
+        await Assert.That(Volatile.Read(ref observations)).IsEqualTo(1);
+
+        // Back after two minutes in the background: observed at once.
+        clock.Now += TimeSpan.FromMinutes(2);
+        await window.SetWindowActivityAsync(new RunicWindowActivity(IsActive: true, IsMinimized: false, IsVisible: true));
+        await WaitForAsync(() => Volatile.Read(ref observations) == 2);
+    }
 
     private string PreferencesPath => DashboardPreferences.PathOf(TestConfig.Create(_fixtures.Root) with { StateDir = _fixtures.StateDir });
 

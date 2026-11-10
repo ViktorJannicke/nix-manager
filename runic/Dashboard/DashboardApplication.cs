@@ -56,7 +56,7 @@ public static class DashboardApplication
 
     /// <summary>Opens the dashboard and returns its Window, which the daemon brings forward on a later launch.</summary>
     public static async Task<IRunicWindow> OpenAsync(IRunicWindowHost host, CancellationToken cancellationToken = default) =>
-        await host.OpenWindowAsync<DashboardWindow>(WindowOptions, cancellationToken);
+        await ShowThemeAsync(await host.OpenWindowAsync<DashboardWindow>(WindowOptions, cancellationToken));
 
     /// <summary>
     /// Opens the dashboard for a launch or a click and presents it with that launch's activation token or startup ID,
@@ -64,7 +64,14 @@ public static class DashboardApplication
     /// </summary>
     public static async Task<IRunicWindow> OpenAsync(RunicDesktopHost host, DesktopActivationContext? activation,
         CancellationToken cancellationToken = default) =>
-        await host.OpenWindowAsync<DashboardWindow>(WindowOptions, activation, cancellationToken);
+        await ShowThemeAsync(await host.OpenWindowAsync<DashboardWindow>(WindowOptions, activation, cancellationToken));
+
+    /// <summary>The native Window exists once it opened, so its frame shows the chosen theme from now on.</summary>
+    private static async Task<IRunicWindow> ShowThemeAsync(IRunicWindow window)
+    {
+        if (window is DashboardWindow { ViewModel: { } dashboard }) await dashboard.ApplyColorSchemeAsync();
+        return window;
+    }
 
     /// <summary>
     /// The Window host of a process that registered the dashboard (<see cref="AddNixManagerDashboard"/>): a dashboard
