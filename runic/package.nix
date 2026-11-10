@@ -83,15 +83,15 @@ buildRunicApplication {
     # when they are out of date). Bun installs only the system's optional packages, so they differ; `nix run
     # .#default.fixedOutputHashes` prints both, and the tools' hashes below.
     hash = {
-      x86_64-linux = "sha256-FpmTda37JrInRjXBmSf0ibbYYh81z9/6V0OQmdLrBtU=";
-      aarch64-linux = "sha256-hZhlUHeouu4khsDvLBMUuuwQjYDJW14S8cCAILDbYOo=";
+      x86_64-linux = "sha256-j2vDxSRdGfX6l/NzfR9310xCvcxIaLllHjE+hP9vJLs=";
+      aarch64-linux = "sha256-kUynA6wfEFd+10By4Opwgf2SIx6TFnI4gp3YQnEfRAg=";
     };
   };
   host = "desktop";
   # The tools of .config/dotnet-tools.json: the frontend's Vite build runs the Translations compiler.
   dotnetTools.hashes = {
-    dotnet-runic = "sha256-dph317p4TvE4aetyMv9avKwDoZWhhTblTqGtWO0yxQM=";
-    dotnet-runic-translations = "sha256-rqTx4tM5QGkbR7psgzoU0agznrFVc0fe+IM5R1gmge0=";
+    dotnet-runic = "sha256-25K9z96t1AMfH+/8DaaWJhkT8Sifq0q9WKdsd97I8EU=";
+    dotnet-runic-translations = "sha256-flglipw5ZftPxQyz5C3/iT9SOb/6+8RqLrYz0z1mlH4=";
   };
   executables = [ "nix-manager" ];
   desktopItems = [ desktop ];
