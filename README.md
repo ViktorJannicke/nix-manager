@@ -160,6 +160,20 @@ checkout is not evaluated again, so a review whose checkout changed since cannot
 applied (see the lifecycle of prepared changes below). Nothing is
 switched without a review, except installs in one step (below).
 
+One operation runs at a time, and what is asked for meanwhile waits in a
+queue, so updating two package pins, preparing every source and applying
+them can be asked for at once. The Updates page's "Update everything" does
+exactly that, and preparing can apply the changes right after, now or on the
+next boot, instead of waiting for a review. Such changes still wait for a
+review when they were prepared for another computer or the kernel changes
+while they would be applied now. When a queued operation fails or is stopped,
+or its changes wait for a review, what was asked for after it is held: the
+Activity page shows why, and continues or removes it. Requests asked for later
+still run. The tray and the dashboard keep the queue in `queue.json` and
+continue it after a restart, holding it when an operation did not finish; a
+command line does not queue, and a queued request waits while another
+process's operation runs.
+
 The Software page installs packages and turns on features by editing the
 checkout's Nix files, through the same flow. Discover searches an index of every
 package in the locked nixpkgs (with overlays), built on first search and kept per

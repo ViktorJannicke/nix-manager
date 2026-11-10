@@ -104,6 +104,16 @@ class AppState {
   detail = $derived<Detail>(this.dashboard?.detail === "detailed" ? "detailed" : "simple");
   active = $derived(this.operations?.active ?? undefined);
   busy = $derived(Boolean(this.operations?.busy));
+  /** The requests waiting for the running operation, in order; held ones wait to be continued or removed. */
+  queue = $derived(this.operations?.queue ?? []);
+  /** The queue in short, such as "2 queued, 1 waiting for you"; empty when nothing waits. */
+  queueSummary = $derived.by(() => {
+    const held = this.queue.filter((entry) => entry.held).length;
+    const waiting = this.queue.length - held;
+    return [waiting && m.activity_queued_count({ count: waiting }), held && m.activity_held_count({ count: held })]
+      .filter(Boolean)
+      .join(", ");
+  });
   /** The history with the running operation in it; the backend adds it to the history when it ends. */
   history = $derived.by(() => {
     const list = this.operations?.operations ?? [];
@@ -253,8 +263,29 @@ class AppState {
     return request({ action, host: this.host, ...overrides });
   }
 
-  /** Starts an operation, or queues it after what runs; the backend runs it beyond this Window. */
+  /**
+   * Starts an operation, or queues it after what runs; the backend runs it beyond this Window. Returns the operation
+   * when it started now.
+   */
   async run(next: Request) {
+    const submitted = await this.submit(next);
+    if (submitted?.queued) this.toast({ tone: "info", title: m.toast_queued(), body: m.toast_queued_body() });
+    return submitted?.started;
+  }
+
+  /** Submits `requests` in their order, as `run` does each, and stops at one that is refused. */
+  async runAll(requests: Request[]) {
+    let queued = false;
+    for (const next of requests) {
+      const submitted = await this.submit(next);
+      if (!submitted) return;
+      queued ||= Boolean(submitted.queued);
+    }
+    if (queued) this.toast({ tone: "info", title: m.toast_queued(), body: m.toast_queued_several_body() });
+  }
+
+  /** Submits `next` and follows what becomes of it; undefined when it was refused, which a toast says. */
+  private async submit(next: Request) {
     const client = this.operationsView?.client;
     if (!client) return undefined;
     try {
@@ -263,18 +294,46 @@ class AppState {
       if (!outcome.ok) return undefined;
       const { started, queued, error } = outcome.value;
       if (error) throw new TextError(error);
-      const operation = started ?? undefined;
-      if (operation) {
-        this.watched.add(operation.id);
-        this.selectOperation(operation.id);
+      if (started) {
+        this.watched.add(started.id);
+        // What the backend starts after it for the same entry, such as applying what it prepares, is followed too.
+        if (started.request.queued) this.queued.add(started.request.queued);
+        this.selectOperation(started.id);
         // It may have ended before the start returned.
         this.settle(this.history);
       }
       if (queued) this.queued.add(queued.id);
-      return operation;
+      return { started: started ?? undefined, queued: queued ?? undefined };
     } catch (error) {
       this.fail(error, m.toast_could_not_start({ action: actionLabel(next.action) }));
       return undefined;
+    }
+  }
+
+  /** Removes an entry from the queue. */
+  async unqueue(id: string) {
+    try {
+      await this.operationsView?.client?.unqueue(id);
+    } catch (error) {
+      this.fail(error, m.toast_could_not_change_queue());
+    }
+  }
+
+  /** Lets the held entries of the queue start again, in their order. */
+  async continueQueue() {
+    try {
+      await this.operationsView?.client?.continueQueue();
+    } catch (error) {
+      this.fail(error, m.toast_could_not_change_queue());
+    }
+  }
+
+  /** Removes every entry from the queue; the running operation goes on. */
+  async clearQueue() {
+    try {
+      await this.operationsView?.client?.clearQueue();
+    } catch (error) {
+      this.fail(error, m.toast_could_not_change_queue());
     }
   }
 
@@ -413,12 +472,14 @@ class AppState {
       });
       return;
     }
-    if (r.action === "review-build" && r.then === "apply" && !operation.held) return;
+    // Prepared changes that are applied right after preparing are followed when they are applied.
+    if (r.action === "review-build" && r.then && !operation.held) return;
     if (r.action === "review-build") {
       this.selectedReview = r.reviewId ?? undefined;
       if (shown) return;
       this.navigate("changes");
-      this.toast({ tone: "success", title: m.toast_ready_to_review(), body: m.toast_nothing_changed_yet() });
+      const held = operation.held ? `${text(operation.held)} ` : "";
+      this.toast({ tone: "success", title: m.toast_ready_to_review(), body: held + m.toast_nothing_changed_yet() });
     } else if (r.action === "review-apply") {
       if (shown) return;
       const boot = r.activation === "boot";
@@ -433,11 +494,17 @@ class AppState {
       const count = this.updates?.items.length ?? 0;
       this.toast({ tone: "success", title: count ? m.updates_available({ count }) : m.updates_up_to_date() });
     } else if (r.action.endsWith("-update")) {
+      // When preparing your user's changes runs or waits its turn already, such as after "Update everything", the
+      // new version is built there.
+      const preparing = [this.active?.request, ...this.queue.filter((entry) => !entry.held).map((entry) => entry.request)].some(
+        (next) => next?.action === "review-build" && next.scope !== "system",
+      );
       this.toast({
         tone: "success",
         title: m.toast_pin_saved({ label }),
-        body: m.toast_pin_saved_body(),
-        action: { label: m.common_prepare(), run: () => void this.prepare("home") },
+        ...(preparing
+          ? {}
+          : { body: m.toast_pin_saved_body(), action: { label: m.common_prepare(), run: () => void this.prepare("home") } }),
       });
     } else this.toast({ tone: "success", title: m.toast_finished({ label }) });
   }

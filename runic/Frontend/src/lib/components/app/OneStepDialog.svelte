@@ -149,7 +149,7 @@
           <Button variant="ghost" onclick={close}>{m.onestep_hide()}</Button>
         {:else if apply?.status === "succeeded"}
           {#if lastChange === apply.id}
-            <Button variant="outline" disabled={app.busy} onclick={() => { close(); void app.undo(apply); }}>{m.common_undo()}</Button>
+            <Button variant="outline" onclick={() => { close(); void app.undo(apply); }}>{m.common_undo()}</Button>
           {/if}
           <Button onclick={close}>{m.common_done()}</Button>
         {:else if prepare.status === "succeeded" && prepare.held}

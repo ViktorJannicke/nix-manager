@@ -13,18 +13,18 @@ namespace NixManager.Tests;
 public sealed class QueueTests : IDisposable
 {
     private readonly string _flake = TestConfig.TemporaryFlake();
-    // Commands wait while the gate is closed; a build of the home configuration fails while _failHome is set.
-    private TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private volatile bool _failHome;
+    // Commands wait while the gate is closed.
+    private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private Config Config => TestConfig.Create(_flake);
 
     public void Dispose() => Directory.Delete(_flake, recursive: true);
 
-    private OperationService Service() => new(Config, new FakeRunner(async (command, _, token) =>
+    /// <param name="failHome">A build of the home configuration fails.</param>
+    private OperationService Service(bool failHome = false) => new(Config, new FakeRunner(async (command, _, token) =>
     {
         await _gate.Task.WaitAsync(token);
-        if (_failHome && command.Label.English == "Build home configuration")
+        if (failHome && command.Label.English == "Build home configuration")
             throw new ManagerException(DisplayText.Plain("Build home configuration failed (exit 1)."));
         return new CommandResult(0, "", "");
     }), new FakeUpdates(new UpdateReport { CheckedAt = "" }));
@@ -67,8 +67,7 @@ public sealed class QueueTests : IDisposable
     [Test]
     public async Task A_failure_holds_what_was_asked_after_it_while_later_requests_still_run()
     {
-        _failHome = true;
-        await using var service = Service();
+        await using var service = Service(failHome: true);
         service.Submit(Build(Scopes.Home));
         var held = service.Submit(Build(Scopes.System)).Queued!;
 

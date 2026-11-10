@@ -79,7 +79,7 @@
       {:else}
         <button
           class="focus-ring flex h-full w-full items-center gap-2 rounded-xl border-2 border-dashed border-border bg-card px-4 py-2 text-left text-muted-foreground hover:border-prepared/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-          disabled={app.busy || !app.connected}
+          disabled={!app.connected}
           onclick={() => app.prepare(profile)}
         >
           <PlusIcon class="size-4 shrink-0" />

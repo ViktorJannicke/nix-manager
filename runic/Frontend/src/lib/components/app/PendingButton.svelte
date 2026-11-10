@@ -14,6 +14,6 @@
 
 <Button
   size="sm"
-  disabled={app.busy || !app.connected || problems === app.pendingChanges.length}
+  disabled={preparing || !app.connected || problems === app.pendingChanges.length}
   onclick={() => (simple ? app.applyPending() : app.preparePending())}
 >{label}</Button>

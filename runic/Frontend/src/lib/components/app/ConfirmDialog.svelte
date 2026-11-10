@@ -76,7 +76,7 @@
         <Button variant="outline" disabled={confirmation.running} onclick={() => (app.confirmation = undefined)}>{m.common_cancel()}</Button>
         <Button
           variant={confirmation.destructive ? "destructive" : "default"}
-          disabled={confirmation.running || Boolean(error) || !preview?.plan || app.busy}
+          disabled={confirmation.running || Boolean(error) || !preview?.plan}
           onclick={() => app.accept()}
         >
           {confirmation.running ? m.confirm_starting() : confirmation.confirmLabel}

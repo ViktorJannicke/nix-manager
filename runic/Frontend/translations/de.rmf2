@@ -117,6 +117,10 @@ toast {
   pin_saved_body = Bereiten Sie die Änderungen Ihres Benutzers vor, um die neue Version zu bauen und anzuwenden.
   ready_to_review = Änderungen sind bereit zur Prüfung
   will_apply_on_next_boot = Wird beim nächsten Start angewendet
+  queued = Zur Warteschlange hinzugefügt
+  queued_body = Der Vorgang startet nach dem, was gerade läuft.
+  queued_several_body = Die Vorgänge laufen nacheinander. Unter „Aktivität“ sehen Sie, was wartet.
+  could_not_change_queue = Die Warteschlange konnte nicht geändert werden
 }
 
 confirm {
@@ -169,6 +173,9 @@ overview {
     .match $count
     one {{{$count} nicht gespeicherte Änderung im Ordner}}
     * {{{$count} nicht gespeicherte Änderungen im Ordner}}
+  after_this = Danach: {$queue}
+  queue = Warteschlange: {$queue}
+  show_queue = Warteschlange anzeigen
 }
 
 activity {
@@ -187,6 +194,24 @@ activity {
   updates_all_inputs = Aktualisiert alle Flake-Eingaben
   updates_inputs = Aktualisiert {$inputs}
   what_nix_reported = Was Nix gemeldet hat
+  history = Verlauf
+  queue = Warteschlange
+  queue_all_sources = Aktualisiert alle Softwarequellen
+  queue_pending_edits = Mit Ihren vorgemerkten Änderungen
+  queue_undo = Macht eine Änderung rückgängig
+  queue_then_apply_now = Wendet die Änderungen danach jetzt an
+  queue_then_apply_on_boot = Wendet die Änderungen danach beim nächsten Start an
+  queue_remove = Entfernen
+  queue_remove_label = {$label} aus der Warteschlange entfernen
+  queue_held_hint = Setzen Sie die Warteschlange fort, um zu starten, was auf Sie wartet, oder entfernen Sie es.
+  queue_continue = Fortsetzen
+  queue_clear = Warteschlange leeren
+  queued_count = {$count :integer} in der Warteschlange
+  held_count =
+    .input {$count :integer}
+    .match $count
+    one {{{$count} wartet auf Sie}}
+    * {{{$count} warten auf Sie}}
 }
 
 log {
@@ -266,6 +291,22 @@ updates {
   channel_switch = Kanal wechseln
   channel_title = Dem Kanal {$channel} von {$name} folgen?
   pin_up_to_date = {$version} · Kanal {$channel}
+  queued = In der Warteschlange
+  updating = Wird aktualisiert…
+  after_preparing = Nach dem Vorbereiten
+  then_review = Zuerst prüfen
+  then_apply_now = Jetzt anwenden
+  then_apply_on_boot = Beim nächsten Start anwenden
+  everything_ellipsis = Alles aktualisieren…
+  everything_title = Alles aktualisieren?
+  everything_description = Diese Schritte laufen nacheinander ab:
+  everything_pin = {$name} wird auf {$version} aktualisiert.
+  everything_sources = Alle Softwarequellen werden auf ihre neuesten Versionen aktualisiert.
+  everything_prepare = Die Änderungen für Ihren Benutzer und das System werden vorbereitet und dann, wie Sie wählen, jetzt angewendet oder zur Prüfung bereitgehalten.
+  everything_prepare_review = Die Änderungen für Ihren Benutzer und das System werden zur Prüfung vorbereitet.
+  everything_waits = Wenn ein Schritt fehlschlägt, warten die folgenden Schritte auf Sie. Änderungen, die einen Neustart brauchen, etwa durch einen neuen Kernel, warten auf Ihre Prüfung.
+  everything_review = Aktualisieren und zuerst prüfen
+  everything_apply = Aktualisieren und anwenden
 }
 
 restore {

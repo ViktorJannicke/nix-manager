@@ -404,10 +404,11 @@ class SoftwareState {
 
   /**
    * Whether `changes` can be installed in one step from here: they qualify (see `oneStepProblem`), nothing else
-   * is pending to be swept along, and the dashboard can apply to this computer now.
+   * is pending to be swept along, and the dashboard applies to this computer. While something runs, the install
+   * waits its turn in the queue.
    */
   canInstallNow(changes: Change[]) {
-    return !this.changes.length && !oneStepProblem(changes) && !app.foreignHost && !app.busy && app.connected;
+    return !this.changes.length && !oneStepProblem(changes) && !app.foreignHost && app.connected;
   }
 
   /** Stages `changes`, then prepares and applies them in one step. */
