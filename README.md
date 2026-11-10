@@ -241,7 +241,11 @@ accounts, edited as pending edits like software), Updates (flake inputs and
 package pins, each selectable before preparing), Restore points (generations,
 rollback, cleanup and history), Activity (step outcomes and a filterable live
 log with copy) and Settings. The Svelte 5 interface supports light, dark and
-system themes.
+system themes; in the Window, the frame follows the chosen theme too
+(`IRunicWindowPresentation.SetColorSchemeAsync`). When the desktop asks for more
+contrast, text and borders are drawn stronger (7:1 and 3:1), and when it asks
+for less motion, nothing is animated; both come from Runic's appearance store,
+which follows the desktop also where the web view does not.
 
 Settings chooses how much the dashboard shows. Simple, the default for a new
 state directory, gives pending edits one button: "Apply changes" when they can be
@@ -301,7 +305,8 @@ portal. Its menu opens the dashboard, checks updates, prepares all updates for
 review, or quits. Preparing builds with every input updated, and the dashboard
 shows the changes for review before anything is applied. Checks run ten seconds
 after startup and then every six hours (`--interval MINUTES`, from 5 to 10080,
-changes this). Notifications report new update sets, failed operations, and
+changes this). The interval does not count the time the computer sleeps, so a
+check that became due meanwhile runs when it wakes up (Runic's power events). Notifications report new update sets, failed operations, and
 completed changes. Clicking a notification opens the dashboard. Checks never
 activate a configuration automatically.
 
@@ -312,13 +317,13 @@ change" also pushes when the branch has an upstream. Neither ever fails an apply
 
 The Restore points page measures how much a cleanup frees before it runs. With
 "Clean up automatically" switched on, the tray removes all but the newest five
-home generations and unused store paths at most once a week, on mains power
-and when the computer is not busy. System generations are only removed on
+home generations and unused store paths at most once a week, on mains power,
+not in power-saver mode, and when the computer is not busy. System generations are only removed on
 request, since that needs a password.
 
 With "Prepare updates in the background" switched on in Settings, the tray also
 builds a review of new source updates after a check, while the computer is on
-mains power and not busy, and notifies when it is ready. The notification can
+mains power, not in power-saver mode and not busy, and notifies when it is ready. The notification can
 apply it now or on the next boot. Applying a review on the next boot keeps its
 home part; once the computer runs that system, the next tray or dashboard start
 applies the home part from the same review. Package pins are never prepared in
@@ -386,8 +391,13 @@ status icon, and that process owns every operation.
 ### Translations
 
 The dashboard, the setup assistant and the tray speak English or German. They
-follow the desktop's language (`LC_ALL`, `LC_MESSAGES`, then `LANG`) unless
-Settings → Language chooses one. The command line stays in English, so its
+follow the desktop's language (`LANGUAGE`, `LC_ALL`, `LC_MESSAGES`, then
+`LANG`, as gettext reads them, through Runic's `DesktopLanguages.Preferred`;
+`de-CH` speaks German) unless Settings → Language chooses one. The process sets
+that language for every Window before the first one opens
+(`IRunicApplicationLocale`), and the dashboard switches it when the setting
+changes; Runic passes it to the page, which renders in it and sets
+`<html lang dir>`. The command line stays in English, so its
 output can be searched for and pasted into reports. Output from Nix itself is
 shown as Nix wrote it.
 
@@ -397,7 +407,7 @@ the backend writes for people, such as step labels, notes, errors and failure
 explanations, together with the curated features and the Computer page's
 settings (`stored/`), and the daemon's status icon, menu and notifications
 (`tray/`). The page reads it through the Vite plugin as `m.*()`, in the
-language the ViewModel says (`useMessageLocale`). Messages with markup, such
+Window's language (`runic/Frontend/src/lib/locale.svelte.ts`). Messages with markup, such
 as `Detected as {#highlight}{$host}{/highlight}.`, render with
 `LocalizedInline`; the page's own tags are declared in `runic.json`. The daemon
 formats the same catalogue through the C# that Runic.Translations.Build
@@ -518,7 +528,9 @@ files remain on disk. The lock is a `flock` on `operation.lock`, which the OS
 releases even if a manager process crashes. It covers CLI, dashboard, tray, and
 different checkout selections using that state directory. It does not lock out
 native Nix commands or other users.
-`NIX_MANAGER_STATE_DIR` can select an isolated state directory for testing. `NIX_MANAGER_SYSFS` points hardware detection at a fake `/sys` tree, and
+`NIX_MANAGER_STATE_DIR` can select an isolated state directory for testing. `NIX_MANAGER_SYSFS` points hardware detection at a fake `/sys` tree (the
+power supply comes from Runic's power events: UPower and the power-profiles
+daemon; without them the computer counts as plugged in), and
 `NIX_MANAGER_SETUP_SOURCE` points the setup assistant at another classic configuration.
 Pending software edits are stored in `draft.json` and the package index under
 `catalog/`, keyed by the lock file; building an index evaluates every package and
@@ -532,7 +544,9 @@ operation as they are. The dashboard also watches the state directory, so
 operations started by a command line in another process, new update reports,
 reviews, pending edits and preferences changed elsewhere appear without a
 refresh. It observes the computer again when the Window opens, after each
-operation and every 30 seconds while it is open.
+operation and every 30 seconds while it is in front. While another window has
+the focus, or it is hidden or minimized, it observes every five minutes, and at
+once when it comes back after more than 30 seconds (Runic's window activity).
 
 Update checks write a proposed flake lock to a temporary directory using Nix's
 `--output-lock-file`, then compare input revisions. Stable GitHub releases are

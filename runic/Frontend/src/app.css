@@ -96,6 +96,42 @@
   --sidebar: #0f1420;
 }
 
+/*
+ * More contrast, as the desktop asks for it (data-contrast, lib/appearance.svelte.ts): text at 7:1 or more and
+ * borders at 3:1 or more against cards, the page and muted surfaces.
+ */
+html:not(.dark)[data-contrast="more"] {
+  --muted-foreground: #3a4457;
+  --secondary-foreground: #18202f;
+  --accent-foreground: #173462;
+  --prepared-foreground: #164f7d;
+  --destructive: #a2342b;
+  --success: #1f6047;
+  --warning: #6b4610;
+  --border: #737d8d;
+  --input: #6b7485;
+  --field: #4f5868;
+  --ring: #23406f;
+}
+
+html.dark[data-contrast="more"] {
+  --muted-foreground: #c6cfde;
+  --secondary-foreground: #f1f5fb;
+  --accent-foreground: #e1effa;
+  --prepared-foreground: #b8dcf4;
+  --destructive: #f39189;
+  --success: #7dd6b0;
+  --warning: #f2c477;
+  --border: #75839f;
+  --input: #8291b0;
+  --field: #9caacb;
+  --ring: #b9cbf0;
+}
+
+html[data-contrast="more"] :focus-visible {
+  outline-width: 3px;
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -170,13 +206,12 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+/* Less motion, as the desktop asks for it (data-motion, lib/appearance.svelte.ts, which includes the engine's prefers-reduced-motion). */
+html[data-motion="reduce"] *,
+html[data-motion="reduce"] *::before,
+html[data-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }

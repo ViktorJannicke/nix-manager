@@ -87,6 +87,7 @@ public sealed class DaemonCore
     private readonly TextWriter _log;
     private readonly Func<long?> _freeSpace;
     private readonly TrayRestart? _restart;
+    private readonly PowerWatch? _power;
     private readonly Channel<object> _inbox = Channel.CreateUnbounded<object>(new UnboundedChannelOptions { SingleReader = true });
     private readonly ConcurrentDictionary<Task, byte> _serving = new();
     // Operations a command line asked for: its terminal shows how they ended.
@@ -100,6 +101,8 @@ public sealed class DaemonCore
     private string _iconKey = "";
     private bool _iconShown;
     private (DateTime Written, TrayText Text)? _text;
+    // When the last update check started; the daemon's start until the first.
+    private DateTimeOffset _checked;
 
     private sealed record Show(DesktopActivationContext? Context)
     {
@@ -111,11 +114,12 @@ public sealed class DaemonCore
     private sealed record Ended(Operation Operation);
     private sealed record ServeEnded;
     private sealed record CheckDue;
+    private sealed record Woke;
     private sealed record RestartRequested;
 
     public DaemonCore(IOperationService service, BackgroundTasks background, Observer observer, IDesktopStatusIcon icon,
         IDesktopNotifications notifications, DaemonSettings settings, TimeProvider? clock = null, TextWriter? log = null,
-        Func<long?>? freeSpace = null, TrayRestart? restart = null)
+        Func<long?>? freeSpace = null, TrayRestart? restart = null, PowerWatch? power = null)
     {
         _service = service;
         _background = background;
@@ -127,6 +131,9 @@ public sealed class DaemonCore
         _log = log ?? Console.Error;
         _freeSpace = freeSpace ?? (() => BackgroundTasks.FreeSpace());
         _restart = restart;
+        _power = power;
+        _checked = _clock.GetUtcNow();
+        if (power is not null) power.Resumed += () => _inbox.Writer.TryWrite(new Woke());
         if (restart is not null) restart.Requested += () => _inbox.Writer.TryWrite(new RestartRequested());
         _icon.Activated += (_, activation) => _inbox.Writer.TryWrite(activation);
         _notifications.Activated += (_, activation) => _inbox.Writer.TryWrite(activation);
@@ -146,7 +153,7 @@ public sealed class DaemonCore
             var path = DashboardPreferences.PathOf(Config);
             var written = File.Exists(path) ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
             if (_text is { } cached && cached.Written == written) return cached.Text;
-            var locale = DashboardPreferences.ResolveLocale(DashboardPreferences.Read(Config).Language, Environment.GetEnvironmentVariable);
+            var locale = DashboardPreferences.LocaleOf(Config);
             var text = TrayText.For(locale);
             _text = (written, text);
             return text;
@@ -314,6 +321,8 @@ public sealed class DaemonCore
             {
                 await RefreshIconAsync();
                 _ = ScheduleChecksAsync(timers.Token);
+                // Battery and power saving for the background work, and wakes from sleep.
+                if (_power is not null) _ = _power.RunAsync(timers.Token);
             }
             // Apps of an update applied on next boot follow once the computer runs it.
             try { await _service.ResumeAfterBootAsync(); }
@@ -412,6 +421,15 @@ public sealed class DaemonCore
                 break;
             case CheckDue:
                 _ = CheckAsync();
+                break;
+            case Woke:
+                // The interval's timer does not count the time asleep, so a computer that sleeps often would rarely
+                // check; a check that became due meanwhile runs now.
+                if (_clock.GetUtcNow() - _checked >= _settings.CheckInterval)
+                {
+                    _log.WriteLine("The computer woke up after the update check became due; checking now.");
+                    _ = CheckAsync();
+                }
                 break;
         }
     }
@@ -561,6 +579,7 @@ public sealed class DaemonCore
         if (_service.Busy || _ending) return;
         try
         {
+            _checked = _clock.GetUtcNow();
             var run = _service.Start(Request.Create() with { Action = Actions.Check, Host = Config.HostKey });
             await run.Completion.ConfigureAwait(false);
             if (_ending) return;

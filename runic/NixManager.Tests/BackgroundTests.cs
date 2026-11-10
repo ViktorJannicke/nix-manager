@@ -1,6 +1,9 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
+using System.Threading.Channels;
 using NixManager.Domain;
 using NixManager.Operations;
+using Runic.Platform;
 
 namespace NixManager.Tests;
 
@@ -35,24 +38,48 @@ public sealed class BackgroundTests : IDisposable
         }.ToJsonString());
 
     [Test]
-    public async Task Only_a_system_battery_without_mains_power_counts_as_battery()
+    public async Task Runics_power_state_decides_battery_and_power_saving_and_unknown_counts_as_plugged_in()
     {
-        var root = Path.Combine(_flake, "sys");
-        void Write(string path, string content)
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(root, path))!);
-            File.WriteAllText(Path.Combine(root, path), content + "\n");
-        }
-        await Assert.That(Hardware.OnMains(Path.Combine(root, "missing"))).IsTrue();
-        Write("class/power_supply/hidpp_battery_0/type", "Battery");
-        Write("class/power_supply/hidpp_battery_0/scope", "Device");
-        await Assert.That(Hardware.OnMains(root)).IsTrue();
-        Write("class/power_supply/BAT0/type", "Battery");
-        Write("class/power_supply/AC/type", "Mains");
-        Write("class/power_supply/AC/online", "0");
-        await Assert.That(Hardware.OnMains(root)).IsFalse();
-        Write("class/power_supply/AC/online", "1");
-        await Assert.That(Hardware.OnMains(root)).IsTrue();
+        var events = new FakePowerEvents();
+        var power = new PowerWatch(events);
+        var resumed = 0;
+        power.Resumed += () => Interlocked.Increment(ref resumed);
+        using var stop = new CancellationTokenSource();
+        var watching = power.RunAsync(stop.Token);
+        await Assert.That(power.OnMains).IsTrue();
+        await Assert.That(power.SavingPower).IsFalse();
+
+        events.Report(DesktopPowerEventKind.StateChanged, new DesktopPowerState { IsOnBattery = true, IsLowPower = false });
+        await WaitForAsync(() => !power.OnMains);
+        events.Report(DesktopPowerEventKind.StateChanged, new DesktopPowerState { IsOnBattery = false, IsLowPower = true });
+        await WaitForAsync(() => power.OnMains && power.SavingPower);
+        events.Report(DesktopPowerEventKind.Resumed, new DesktopPowerState { IsOnBattery = false, IsLowPower = false });
+        await WaitForAsync(() => Volatile.Read(ref resumed) == 1);
+        await Assert.That(power.SavingPower).IsFalse();
+        // A platform that does not say keeps the background work possible.
+        events.Report(DesktopPowerEventKind.StateChanged, new DesktopPowerState());
+        await WaitForAsync(() => power.State is { IsOnBattery: null });
+        await Assert.That(power.OnMains).IsTrue();
+
+        await stop.CancelAsync();
+        await watching;
+    }
+
+    [Test]
+    public async Task Nothing_runs_unasked_while_the_computer_saves_power()
+    {
+        await using var service = new OperationService(Config, new FakeRunner(), new FakeUpdates(new UpdateReport { CheckedAt = "" }));
+        Preferences("""{"detail":"simple","cleanUp":true,"prepareUpdates":true}""");
+        Report(("nixpkgs", "b", "input"));
+        var saving = new BackgroundTasks(service, new(() => true, () => true, () => true));
+        await Assert.That(saving.CleanUpInBackground().Reason).IsEqualTo("The computer saves power.");
+        await Assert.That(saving.PrepareInBackground().Reason).IsEqualTo("The computer saves power.");
+    }
+
+    private static async Task WaitForAsync(Func<bool> condition)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        while (!condition()) await Task.Delay(10, timeout.Token);
     }
 
     [Test]
@@ -117,5 +144,32 @@ public sealed class BackgroundTests : IDisposable
         await Assert.That(new BackgroundTasks(busy, Always).PrepareInBackground().Reason).IsEqualTo("Something else is running.");
         release.SetResult();
         await busy.WaitAsync();
+    }
+}
+
+/// <summary>Power events the test reports, as Runic's would.</summary>
+internal sealed class FakePowerEvents : IDesktopPowerEvents
+{
+    private readonly Channel<PlatformResult<DesktopPowerEvent>> _events = Channel.CreateUnbounded<PlatformResult<DesktopPowerEvent>>();
+    private DesktopPowerState _state = new();
+
+    public void Report(DesktopPowerEventKind kind, DesktopPowerState state)
+    {
+        _state = state;
+        _events.Writer.TryWrite(new PlatformResult<DesktopPowerEvent>.Success(new DesktopPowerEvent(kind, state)));
+    }
+
+    public ValueTask<PlatformResult<DesktopPowerState>> ReadAsync(CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult<PlatformResult<DesktopPowerState>>(new PlatformResult<DesktopPowerState>.Success(_state));
+
+    public async IAsyncEnumerable<PlatformResult<DesktopPowerEvent>> WatchAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await foreach (var item in _events.Reader.ReadAllAsync(cancellationToken)) yield return item;
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _events.Writer.TryComplete();
+        return ValueTask.CompletedTask;
     }
 }

@@ -9,6 +9,7 @@ using NixManager.Setup;
 using NixManager.Software;
 using NixManager.Updates;
 using NixManager.ViewModels;
+using Runic.Application.Views.Desktop;
 using Runic.Navigation;
 using Runic.Platform;
 using Runic.Platform.Linux.Polkit;
@@ -44,8 +45,11 @@ public static class BackendServices
         services.TryAddScoped<OperationsViewModel>();
         // One observation cache for the process; Windows and operation events share its refreshes.
         services.TryAddSingleton(_ => new Observer(config));
+        // The computer's power state, which the background work asks, from Runic's power events.
+        services.TryAddSingleton<IDesktopPowerEvents>(_ => DesktopPlatformServices.CreatePowerEvents());
+        services.TryAddSingleton(provider => new PowerWatch(provider.GetRequiredService<IDesktopPowerEvents>(), Console.Error));
         services.TryAddSingleton(provider => new BackgroundTasks(provider.GetRequiredService<IOperationService>(),
-            clock: provider.GetRequiredService<TimeProvider>()));
+            BackgroundConditions.Of(provider.GetRequiredService<PowerWatch>()), provider.GetRequiredService<TimeProvider>()));
         services.TryAddScoped<SystemViewModel>();
         services.TryAddScoped<ReviewsViewModel>();
         services.TryAddScoped<SoftwareViewModel>();

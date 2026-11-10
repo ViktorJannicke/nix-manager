@@ -3,8 +3,6 @@
 <script lang="ts">
   import { onMount, untrack } from "svelte";
   import { useView } from "@runic-artifex/svelte";
-  import { useMessageLocale } from "@runic-artifex/translations-svelte";
-  import { configureLocaleResolver, getLocale } from "virtual:runic-translations/dashboard/runtime";
   import LayoutIcon from "@lucide/svelte/icons/layout-dashboard";
   import CloudDownloadIcon from "@lucide/svelte/icons/cloud-download";
   import GitCompareIcon from "@lucide/svelte/icons/git-compare";
@@ -20,6 +18,7 @@
   import { connectDashboard } from "./generated/dashboard.js";
   import { Button } from "$lib/components/ui/button";
   import { app, type Page } from "$lib/app.svelte";
+  import { followAppearance } from "$lib/appearance.svelte";
   import { actionLabel, m, plain, text } from "$lib/i18n";
   import Toasts from "$lib/components/app/Toasts.svelte";
   import ConfirmDialog from "$lib/components/app/ConfirmDialog.svelte";
@@ -49,12 +48,6 @@
 
   onMount(() => app.start());
 
-  // The ViewModel says which language to speak: the chosen one, or the desktop's.
-  useMessageLocale(configureLocaleResolver, () => dashboard.state?.locale ?? "en");
-  $effect(() => {
-    document.documentElement.lang = getLocale();
-  });
-
   // The chosen theme, or the desktop's through the page's colour scheme.
   $effect(() => {
     const theme = dashboard.state?.theme ?? "system";
@@ -69,14 +62,9 @@
   $effect(() => app.settle(app.history));
 
   // After "Restart now", the restarted tray's Window opens on the page the previous one showed.
-  let reopened = false;
-  $effect(() => {
-    const page = dashboard.state?.reopenPage;
-    if (page && !reopened) {
-      reopened = true;
-      untrack(() => app.reopen(page));
-    }
-  });
+  $effect(() => dashboard.client?.requests.reopen.handle((page) => app.reopen(page)));
+
+  followAppearance();
 
   // The configuration's history is read again whenever its last commit changes, not with every observation.
   const revision = $derived(app.system ? (app.system.repository.revision ?? "") : undefined);

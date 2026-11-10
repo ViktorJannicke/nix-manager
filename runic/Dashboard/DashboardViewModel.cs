@@ -11,6 +11,7 @@ using Runic.Application.Views;
 using Runic.Application.Views.Desktop;
 using Runic.Desktop;
 using Runic.Navigation;
+using Runic.Platform;
 
 namespace NixManager.Dashboard;
 
@@ -58,13 +59,19 @@ public sealed record PlanPreview(Request Request, Plan? Plan, DisplayText? Error
 /// A view of the process's services, like <see cref="OperationsViewModel"/>: closing the Window leaves a running
 /// operation running (D025.1). The state directory is watched, so an operation that the command line runs, a new update
 /// report, reviews, pending edits and preferences changed elsewhere appear without a refresh. The computer is observed
-/// again when the Window opens, after each operation and every 30 seconds while it is open, to notice edits to the
-/// checkout and changes made outside Nix Manager; whether a newer tray is installed is read again with it.
+/// again when the Window opens, after each operation and every 30 seconds while it is in front, to notice edits to the
+/// checkout and changes made outside Nix Manager; whether a newer tray is installed is read again with it. While the
+/// Window is in the background (another window has the focus, or it is hidden or minimized), it is observed every five
+/// minutes, and again as soon as it comes back when that was longer ago than 30 seconds. Operations update the page as
+/// they run either way.
 /// </remarks>
 public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 {
-    /// <summary>How often the computer is observed again while the Window is open.</summary>
+    /// <summary>How often the computer is observed again while the Window is in front.</summary>
     public static readonly TimeSpan ObservationInterval = TimeSpan.FromSeconds(30);
+
+    /// <summary>How often the computer is observed again while the Window is in the background.</summary>
+    public static readonly TimeSpan BackgroundObservationInterval = TimeSpan.FromMinutes(5);
 
     private readonly IOperationService _service;
     private readonly ISoftwareService _software;
@@ -77,13 +84,17 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     private readonly RunicWatchTarget _reviews;
     private readonly ITimer _ticker;
     private readonly TrayRestart? _restart;
+    private readonly IRunicApplicationLocale? _locale;
+    private readonly IRunicWindowPresentation? _presentation;
+    private readonly TimeProvider _clock;
+    private DateTimeOffset _observedAt;
     private bool _running;
     private string? _draftFingerprint;
 
     public DashboardViewModel(OperationsViewModel operations, ReviewsViewModel reviews, SystemViewModel system,
         SoftwareViewModel software, IOperationService service, ISoftwareService softwareService, IRunicModelContext context,
         TimeProvider? clock = null, RunicPathWatcherOptions? watching = null, DesktopWindowPlatformServices? platform = null,
-        TrayRestart? restart = null)
+        TrayRestart? restart = null, IRunicApplicationLocale? locale = null, IRunicWindowPresentation? presentation = null)
     {
         Operations = operations;
         Reviews = reviews;
@@ -95,6 +106,9 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         _platform = platform;
         _watching = watching;
         _restart = restart;
+        _locale = locale;
+        _presentation = presentation;
+        _clock = clock ?? TimeProvider.System;
         var config = service.Config;
         Configuration = new DashboardConfiguration(config.Flake, config.HostKey, config.HomeProfile,
             [.. config.Hosts.OrderBy(host => host.Key, StringComparer.Ordinal)
@@ -115,7 +129,11 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
             ],
             change =>
             {
-                if (change.Contains(_preferences)) ReadPreferences();
+                if (change.Contains(_preferences))
+                {
+                    ReadPreferences();
+                    _ = FollowLanguageAsync();
+                }
                 if (change.Contains(_draft)) ReadDraft(force: true);
                 if (change.Contains(_reviews)) Execute(Reviews.RefreshCommand);
                 RefreshOperations();
@@ -123,25 +141,22 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
             options: watching);
         Theme = "system";
         Language = "system";
-        Locale = "en";
         Detail = "simple";
         ReadPreferences();
         _running = Running();
-        ReopenPage = restart?.TakePage();
+        if (restart?.TakePage() is { } page) Reopen.Raise(page);
         ReadUpdated();
         Operations.PropertyChanged += OnOperationsChanged;
         System.PropertyChanged += OnSystemChanged;
         _software.Changed += OnSoftwareChanged;
         // A fresh observation unless another Window or the daemon made one in the last seconds.
         var observed = System.System is { } state && Timestamps.Parse(state.ObservedAt) is { } at ? at : (DateTimeOffset?)null;
-        var now = (clock ?? TimeProvider.System).GetUtcNow();
-        if (observed is null || now - observed > TimeSpan.FromSeconds(5)) _context.TryPost(RefreshSystem);
+        _observedAt = _clock.GetUtcNow();
+        if (observed is null || _observedAt - observed > TimeSpan.FromSeconds(5)) _context.TryPost(RefreshSystem);
         ReadDraft(force: false);
-        _ticker = (clock ?? TimeProvider.System).CreateTimer(_ => _context.TryPost(() =>
-        {
-            RefreshSystem();
-            ReadUpdated();
-        }), null, ObservationInterval, ObservationInterval);
+        _ticker = _clock.CreateTimer(_ => _context.TryPost(Observe), null, ObservationInterval, ObservationInterval);
+        // Raised in a turn of the model context, as commands run.
+        if (_presentation is not null) _presentation.ActivityChanged += OnActivityChanged;
     }
 
     /// <summary>The running operation, its log and the history.</summary>
@@ -166,10 +181,6 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     /// <summary>The chosen language: <c>system</c>, <c>en</c> or <c>de</c>.</summary>
     [ObservableProperty]
     public partial string Language { get; private set; }
-
-    /// <summary>The language the dashboard speaks, <c>en</c> or <c>de</c>: the chosen one, or the desktop's.</summary>
-    [ObservableProperty]
-    public partial string Locale { get; private set; }
 
     /// <summary>
     /// <c>simple</c> shows one button and a plain summary; <c>detailed</c> shows every prepare, review and apply step.
@@ -218,20 +229,47 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial bool RestartAvailable { get; private set; }
 
-    /// <summary>The page this Window opens on after <see cref="RestartCommand"/> restarted the tray; null otherwise.</summary>
-    [ObservableProperty]
-    public partial string? ReopenPage { get; private set; }
+    /// <summary>
+    /// Asks the page to show a page of the dashboard: the one the Window showed before <see cref="RestartCommand"/>
+    /// restarted the tray. It waits for the page to handle it, once.
+    /// </summary>
+    public ViewRequest<string> Reopen { get; } = new(ViewRequestDelivery.NextMounted);
 
     /// <summary>The last dry run, with the request it answers.</summary>
     [ObservableProperty]
     public partial PlanPreview? Preview { get; private set; }
 
-    /// <summary>Saves preferences for this and later launches; the background tasks read the same file.</summary>
+    /// <summary>
+    /// Saves preferences for this and later launches; the background tasks read the same file. A new language is
+    /// spoken once this completes.
+    /// </summary>
     [RelayCommand]
-    private void SavePreferences(PreferenceChange change)
+    private async Task SavePreferencesAsync(PreferenceChange change)
     {
         DashboardPreferences.Save(_service.Config, change);
         ReadPreferences();
+        await FollowLanguageAsync();
+    }
+
+    /// <summary>
+    /// Switches the application's language (<see cref="IRunicApplicationLocale"/>), which every Window and its page
+    /// follow, to the one <see cref="Language"/> asks for, when it speaks another. The process sets it before its first
+    /// Window opens (<see cref="DashboardPreferences.LocaleOf"/>).
+    /// </summary>
+    private async Task FollowLanguageAsync()
+    {
+        if (_locale is null) return;
+        var locale = DashboardPreferences.ResolveLocale(Language, DesktopLanguages.Preferred);
+        if (_locale.Locale == locale) return;
+        try
+        {
+            await _locale.SetLocaleAsync(locale);
+        }
+        catch (AggregateException error)
+        {
+            // Every Window that could follow did; the page keeps its language until the next switch.
+            Console.Error.WriteLine($"Switching to {locale} failed in a Window: {error.InnerException?.Message}");
+        }
     }
 
     /// <summary>
@@ -280,7 +318,6 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         var preferences = DashboardPreferences.Read(_service.Config);
         Theme = preferences.Theme;
         Language = preferences.Language;
-        Locale = DashboardPreferences.ResolveLocale(preferences.Language, Environment.GetEnvironmentVariable);
         Detail = preferences.Detail;
         PrepareUpdates = preferences.PrepareUpdates;
         CleanUp = preferences.CleanUp;
@@ -290,6 +327,50 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     }
 
     private void RefreshSystem() => Execute(System.RefreshCommand);
+
+    /// <summary>Observes the computer again, and whether a newer tray is installed.</summary>
+    private void Observe()
+    {
+        _observedAt = _clock.GetUtcNow();
+        RefreshSystem();
+        ReadUpdated();
+    }
+
+    /// <summary>
+    /// Observes less often while the Window is in the background, and at once when it comes back after a while. A host
+    /// that reports no activity counts the Window as in front (<see cref="RunicWindowActivity.Assumed"/>); GTK 3 on
+    /// Wayland reports a minimized Window only as no longer focused.
+    /// </summary>
+    private void OnActivityChanged(object? sender, RunicWindowActivityChangedEventArgs e)
+    {
+        var front = e.Activity is { IsActive: true, IsVisible: true, IsMinimized: false };
+        var interval = front ? ObservationInterval : BackgroundObservationInterval;
+        if (front && _clock.GetUtcNow() - _observedAt >= ObservationInterval) Observe();
+        // The next observation is an interval after the last one.
+        var due = interval - (_clock.GetUtcNow() - _observedAt);
+        _ticker.Change(due > TimeSpan.Zero ? due : TimeSpan.Zero, interval);
+    }
+
+    partial void OnThemeChanged(string value) => _ = ApplyColorSchemeAsync();
+
+    /// <summary>
+    /// Shows the chosen theme in the Window's frame as well as the page: <c>system</c> follows the desktop, <c>light</c>
+    /// and <c>dark</c> set it (<see cref="IRunicWindowPresentation.SetColorSchemeAsync"/>), and the page's
+    /// <c>prefers-color-scheme</c> follows. GTK shares the scheme between the Windows of the application. Before the native
+    /// Window exists the request changes nothing, so <see cref="DashboardApplication.OpenAsync(IRunicWindowHost, CancellationToken)"/>
+    /// applies it once the Window opened; a browser has no frame to change, and the page applies the theme itself.
+    /// </summary>
+    internal async Task ApplyColorSchemeAsync()
+    {
+        if (_presentation is null) return;
+        var scheme = Theme switch
+        {
+            "dark" => DesktopColorScheme.Dark,
+            "light" => DesktopColorScheme.Light,
+            _ => DesktopColorScheme.NoPreference,
+        };
+        await _presentation.SetColorSchemeAsync(scheme).ConfigureAwait(false);
+    }
 
     private static void Execute(global::System.Windows.Input.ICommand command)
     {
@@ -361,6 +442,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        if (_presentation is not null) _presentation.ActivityChanged -= OnActivityChanged;
         _ticker.Dispose();
         Operations.PropertyChanged -= OnOperationsChanged;
         System.PropertyChanged -= OnSystemChanged;

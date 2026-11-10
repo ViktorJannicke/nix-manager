@@ -1,5 +1,5 @@
 // Interface text through Runic Translations: components call the typed message functions of `m`, which follow the
-// ViewModel's language (App and Setup call `useMessageLocale`). Text the backend writes for people, such as step
+// Window's language (locale.svelte.ts). Text the backend writes for people, such as step
 // labels, errors and failure explanations, arrives as `DisplayText`: a text reference to a message of the same
 // catalogue (translations/stored) with its English, which `text` shows in the current language. Text that is not a
 // message, such as Nix's output, or a record written before text references, has no reference and stays as it is.

@@ -6,11 +6,12 @@ using NixManager.Observation;
 
 namespace NixManager.Operations;
 
-/// <summary>Whether the computer may work unasked: plugged in and not busy.</summary>
-public sealed record BackgroundConditions(Func<bool> Mains, Func<bool> Idle)
+/// <summary>Whether the computer may work unasked: plugged in, not saving power and not busy.</summary>
+/// <param name="SavingPower">The user or the system asks applications to save energy; never when null.</param>
+public sealed record BackgroundConditions(Func<bool> Mains, Func<bool> Idle, Func<bool>? SavingPower = null)
 {
-    /// <summary>This computer: <c>NIX_MANAGER_SYSFS</c> or /sys for power, the load average for work.</summary>
-    public static BackgroundConditions Computer { get; } = new(() => Hardware.OnMains(Hardware.SysfsRoot), Hardware.NotBusy);
+    /// <summary>This computer: Runic's power state (<see cref="PowerWatch"/>), and the load average for work.</summary>
+    public static BackgroundConditions Of(PowerWatch power) => new(() => power.OnMains, Hardware.NotBusy, () => power.SavingPower);
 }
 
 /// <summary>The input updates last prepared in the background, so the same ones are not prepared twice.</summary>
@@ -22,15 +23,16 @@ public sealed record AutomaticCleanup(string At, string OperationId, long? Free)
 /// <summary>
 /// Work the daemon (W300-031) starts unasked: preparing the input updates the last check
 /// found, and a weekly cleanup of the apps' restore points, each only when the preferences allow it and the computer
-/// is plugged in and not busy. Each call returns the started operation or why nothing started.
+/// is plugged in, not saving power and not busy. Each call returns the started operation or why nothing started.
 /// </summary>
+/// <param name="conditions">When the computer may work unasked; without them, always.</param>
 public sealed class BackgroundTasks(IOperationService manager, BackgroundConditions? conditions = null, TimeProvider? clock = null)
 {
     /// <summary>Automatic cleanup keeps this many restore points of the apps (<c>keptAutomatically</c>).</summary>
     public const int KeptAutomatically = 5;
 
     private static readonly TimeSpan Week = TimeSpan.FromDays(7);
-    private readonly BackgroundConditions _conditions = conditions ?? BackgroundConditions.Computer;
+    private readonly BackgroundConditions _conditions = conditions ?? new BackgroundConditions(() => true, () => true);
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
 
     private static string PreparedPath(Config config) => Path.Combine(config.StateDir, "background.json");
@@ -88,9 +90,7 @@ public sealed class BackgroundTasks(IOperationService manager, BackgroundConditi
         if (inputs.Count == 0) return (null, "There are no updates to prepare.");
         var signature = JsJson.Stringify(new JsonArray([.. inputs.Select(item => (JsonNode)new JsonArray(item.Name, item.Latest))]));
         if (LastPrepared(config)?.Signature == signature) return (null, "These updates were prepared already.");
-        if (manager.Busy) return (null, "Something else is running.");
-        if (!_conditions.Mains()) return (null, "The computer runs on battery.");
-        if (!_conditions.Idle()) return (null, "The computer is busy.");
+        if (Unfit() is { } reason) return (null, reason);
         var run = manager.Start(Request.Create() with
         {
             Action = Actions.ReviewBuild,
@@ -116,9 +116,7 @@ public sealed class BackgroundTasks(IOperationService manager, BackgroundConditi
         if (!Allowed(config, "cleanUp")) return (null, "Cleaning up automatically is off.");
         if (LastCleanup(config) is { } last && Timestamps.Parse(last.At) is { } previous && at - previous < Week)
             return (null, "The last cleanup was less than a week ago.");
-        if (manager.Busy) return (null, "Something else is running.");
-        if (!_conditions.Mains()) return (null, "The computer runs on battery.");
-        if (!_conditions.Idle()) return (null, "The computer is busy.");
+        if (Unfit() is { } reason) return (null, reason);
         var free = FreeSpace(store);
         var run = manager.Start(Request.Create() with { Action = Actions.Gc, Scope = Scopes.Home, Host = config.HostKey, Retention = KeptAutomatically });
         var record = new JsonObject { ["at"] = Timestamps.Format(at), ["operationId"] = run.Operation.Id };
@@ -126,5 +124,15 @@ public sealed class BackgroundTasks(IOperationService manager, BackgroundConditi
         if (free is { } bytes) record["free"] = (double)bytes;
         OperationStore.AtomicJson(CleanedPath(config), JsJson.Indented(record));
         return (run.Operation, null);
+    }
+
+    /// <summary>Why the computer should not work unasked now, or null when it may.</summary>
+    private string? Unfit()
+    {
+        if (manager.Busy) return "Something else is running.";
+        if (!_conditions.Mains()) return "The computer runs on battery.";
+        if (_conditions.SavingPower?.Invoke() == true) return "The computer saves power.";
+        if (!_conditions.Idle()) return "The computer is busy.";
+        return null;
     }
 }
