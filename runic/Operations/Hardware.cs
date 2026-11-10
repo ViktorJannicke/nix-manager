@@ -11,7 +11,7 @@ namespace NixManager.Operations;
 /// <param name="Fingerprint">Has a fingerprint reader.</param>
 public sealed record HardwareFeatures(bool Laptop, bool Nvidia, bool Bluetooth, bool Printer, bool Fingerprint);
 
-/// <summary>The computer's hardware, power supply and load.</summary>
+/// <summary>The computer's hardware and load; Runic reports its power supply (<see cref="PowerWatch"/>).</summary>
 public static partial class Hardware
 {
     /// <summary>Where the kernel's device tree is read: <c>NIX_MANAGER_SYSFS</c>, which tests point at a copy, or /sys.</summary>
@@ -64,15 +64,6 @@ public static partial class Hardware
             Printer: usbDevices.Any(device => Read(Path.Combine(usb, device, "bInterfaceClass")) == "07"),
             Fingerprint: usbDevices.Any(device => FingerprintVendors.Contains(Read(Path.Combine(usb, device, "idVendor")))
                 || FingerprintProduct().IsMatch(Read(Path.Combine(usb, device, "product")))));
-    }
-
-    /// <summary>Plugged in: no battery of its own (a mouse's battery does not count), or a mains supply that is online (<c>onMains</c>).</summary>
-    public static bool OnMains(string root = "/sys")
-    {
-        var supplies = Path.Combine(root, "class/power_supply");
-        var names = List(supplies);
-        return !HasBattery(supplies, names)
-            || names.Any(name => Read(Path.Combine(supplies, name, "type")) == "Mains" && Read(Path.Combine(supplies, name, "online")) == "1");
     }
 
     /// <summary>Not busy: the load of the last minute is below half the processors.</summary>

@@ -152,10 +152,38 @@ public sealed class DaemonTests : IDisposable
         Directory.Delete(_flake, recursive: true);
     }
 
-    private DaemonCore Core(DaemonMode mode = DaemonMode.Tray, Func<bool>? outdated = null, TrayRestart? restart = null) =>
+    private DaemonCore Core(DaemonMode mode = DaemonMode.Tray, Func<bool>? outdated = null, TrayRestart? restart = null,
+        TimeProvider? clock = null, PowerWatch? power = null) =>
         new(_service, new BackgroundTasks(_service), new Observer(Config, _ => Task.FromResult<SystemState>(null!)), _icon, _notifications,
-            new DaemonSettings { Mode = mode, FirstCheck = TimeSpan.FromHours(1), Outdated = outdated }, log: _log, freeSpace: () => null,
-            restart: restart);
+            new DaemonSettings { Mode = mode, FirstCheck = TimeSpan.FromHours(1), CheckInterval = TimeSpan.FromHours(6), Outdated = outdated },
+            clock, log: _log, freeSpace: () => null, restart: restart, power: power);
+
+    [Test]
+    public async Task Waking_up_after_the_check_became_due_checks_at_once()
+    {
+        var clock = new ManualClock(DateTimeOffset.UtcNow);
+        var events = new FakePowerEvents();
+        var core = Core(clock: clock, power: new PowerWatch(events));
+        using var shutdown = new CancellationTokenSource();
+        var running = core.RunAsync(_windows, shutdown.Token);
+        int Checks() => _service.History().Count(operation => operation.Request.Action == Actions.Check);
+
+        // Asleep for an hour of the six: nothing is due yet.
+        clock.Now += TimeSpan.FromHours(1);
+        events.Report(DesktopPowerEventKind.Resumed, new DesktopPowerState());
+        await Task.Delay(300);
+        await Assert.That(Checks()).IsEqualTo(0);
+
+        // Asleep past the interval, which the timer does not count.
+        clock.Now += TimeSpan.FromHours(6);
+        events.Report(DesktopPowerEventKind.Resumed, new DesktopPowerState());
+        using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20)))
+            while (Checks() == 0) await Task.Delay(20, timeout.Token);
+        await Assert.That(_log.ToString()).Contains("woke up after the update check became due");
+
+        await shutdown.CancelAsync();
+        await running.WaitAsync(TimeSpan.FromSeconds(30));
+    }
 
     private static ApplicationLaunch Launch(DaemonRequest request, IApplicationLaunchReply? reply) =>
         DaemonProtocol.Launch(request) with { Reply = reply };

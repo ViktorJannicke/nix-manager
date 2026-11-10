@@ -49,7 +49,7 @@ public static class DaemonApplication
         {
             var core = new DaemonCore(provider.GetRequiredService<IOperationService>(), provider.GetRequiredService<BackgroundTasks>(),
                 provider.GetRequiredService<Observer>(), icon, notifications, settings, provider.GetRequiredService<TimeProvider>(),
-                restart: provider.GetRequiredService<TrayRestart>());
+                restart: provider.GetRequiredService<TrayRestart>(), power: provider.GetRequiredService<PowerWatch>());
             // Right after claiming: launches wait for the first handler, and the core queues them until its loop runs.
             if (instance is not null) instance.Launched += (_, launch) => core.OnLaunch(launch);
             if (settings.Mode == DaemonMode.Tray) Console.WriteLine("Nix Manager is running in the tray.");

@@ -302,7 +302,8 @@ portal. Its menu opens the dashboard, checks updates, prepares all updates for
 review, or quits. Preparing builds with every input updated, and the dashboard
 shows the changes for review before anything is applied. Checks run ten seconds
 after startup and then every six hours (`--interval MINUTES`, from 5 to 10080,
-changes this). Notifications report new update sets, failed operations, and
+changes this). The interval does not count the time the computer sleeps, so a
+check that became due meanwhile runs when it wakes up (Runic's power events). Notifications report new update sets, failed operations, and
 completed changes. Clicking a notification opens the dashboard. Checks never
 activate a configuration automatically.
 
@@ -313,13 +314,13 @@ change" also pushes when the branch has an upstream. Neither ever fails an apply
 
 The Restore points page measures how much a cleanup frees before it runs. With
 "Clean up automatically" switched on, the tray removes all but the newest five
-home generations and unused store paths at most once a week, on mains power
-and when the computer is not busy. System generations are only removed on
+home generations and unused store paths at most once a week, on mains power,
+not in power-saver mode, and when the computer is not busy. System generations are only removed on
 request, since that needs a password.
 
 With "Prepare updates in the background" switched on in Settings, the tray also
 builds a review of new source updates after a check, while the computer is on
-mains power and not busy, and notifies when it is ready. The notification can
+mains power, not in power-saver mode and not busy, and notifies when it is ready. The notification can
 apply it now or on the next boot. Applying a review on the next boot keeps its
 home part; once the computer runs that system, the next tray or dashboard start
 applies the home part from the same review. Package pins are never prepared in
@@ -524,7 +525,9 @@ files remain on disk. The lock is a `flock` on `operation.lock`, which the OS
 releases even if a manager process crashes. It covers CLI, dashboard, tray, and
 different checkout selections using that state directory. It does not lock out
 native Nix commands or other users.
-`NIX_MANAGER_STATE_DIR` can select an isolated state directory for testing. `NIX_MANAGER_SYSFS` points hardware detection at a fake `/sys` tree, and
+`NIX_MANAGER_STATE_DIR` can select an isolated state directory for testing. `NIX_MANAGER_SYSFS` points hardware detection at a fake `/sys` tree (the
+power supply comes from Runic's power events: UPower and the power-profiles
+daemon; without them the computer counts as plugged in), and
 `NIX_MANAGER_SETUP_SOURCE` points the setup assistant at another classic configuration.
 Pending software edits are stored in `draft.json` and the package index under
 `catalog/`, keyed by the lock file; building an index evaluates every package and
