@@ -14,7 +14,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="TUnit" Version="1.76.45" />
-    <PackageReference Include="Runic.Application.Testing" Version="0.15.0" />
+    <PackageReference Include="Runic.Application.Testing" Version="0.17.0" />
     <PackageReference Include="Runic.CommandLine.Testing" Version="0.11.0" />
   </ItemGroup>
   <ItemGroup>
