@@ -32,12 +32,6 @@ public sealed partial class SetupViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial SetupState State { get; private set; }
 
-    /// <summary>
-    /// The language the assistant speaks, <c>en</c> or <c>de</c>: the desktop's, since there are no preferences before
-    /// setup (<c>locale</c> of <c>SetupState</c>).
-    /// </summary>
-    public string Locale { get; } = Dashboard.DashboardPreferences.ResolveLocale("system", Environment.GetEnvironmentVariable);
-
     /// <summary>The folder to create; the suggested one until the user types another.</summary>
     [ObservableProperty]
     public partial string Target { get; set; } = "";

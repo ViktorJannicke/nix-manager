@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using NixManager.Domain;
 using NixManager.Operations;
+using Runic.Platform;
 
 namespace NixManager.Dashboard;
 
@@ -61,23 +62,22 @@ public static class DashboardPreferences
         OperationStore.AtomicJson(PathOf(config), next.ToJsonString(new JsonSerializerOptions(ManagerJson.Default.Options)));
     }
 
-    /// <summary>The chosen language, or the desktop's from the locale variables (<c>resolveLocale</c>).</summary>
-    public static string ResolveLocale(string language, Func<string, string?> environment) =>
-        language != "system" && Locales.Contains(language)
-            ? language
-            : LocaleFrom([environment("LC_ALL"), environment("LC_MESSAGES"), environment("LANG")]);
+    /// <summary>
+    /// The chosen language, or the best match of the desktop's <paramref name="preferred"/> languages among the
+    /// catalogue's (<c>de-CH</c> speaks <c>de</c>); English when none matches.
+    /// </summary>
+    public static string ResolveLocale(string language, IEnumerable<string> preferred) =>
+        language != "system" && Locales.Contains(language) ? language : DashboardTextCatalog.ResolveLocale(preferred);
 
-    /// <summary>The first supported language among tags like <c>de-DE</c>, <c>de_DE.UTF-8</c> or <c>C</c>; English otherwise.</summary>
-    public static string LocaleFrom(IEnumerable<string?> tags)
-    {
-        foreach (var tag in tags)
-        {
-            var language = tag?.Split(['-', '_', '.', '@', ':'])[0].ToLowerInvariant();
-            if (string.IsNullOrEmpty(language) || language is "c" or "posix") continue;
-            return Locales.Contains(language) ? language : "en";
-        }
-        return "en";
-    }
+    /// <summary>
+    /// The language the dashboard and the tray speak: the one chosen in Settings, or the desktop's
+    /// (<see cref="DesktopLanguages.Preferred"/>: <c>LANGUAGE</c>, <c>LC_ALL</c>, <c>LC_MESSAGES</c> and <c>LANG</c> as
+    /// gettext reads them).
+    /// </summary>
+    public static string LocaleOf(Config config) => ResolveLocale(Read(config).Language, DesktopLanguages.Preferred);
+
+    /// <summary>The desktop's language, which the setup assistant speaks before there are preferences.</summary>
+    public static string DesktopLocale() => ResolveLocale("system", DesktopLanguages.Preferred);
 
     private static string Known(JsonObject stored, string name, IReadOnlyList<string> choices) =>
         stored[name] is JsonValue value && value.TryGetValue<string>(out var text) && choices.Contains(text) ? text : choices[0];

@@ -8,8 +8,6 @@
 <script lang="ts">
   import { useView } from "@runic-artifex/svelte";
   import { LocalizedInline } from "@runic-artifex/translations-svelte/inline";
-  import { useMessageLocale } from "@runic-artifex/translations-svelte";
-  import { configureLocaleResolver, getLocale } from "virtual:runic-translations/dashboard/runtime";
   import SnowflakeIcon from "@lucide/svelte/icons/snowflake";
   import LoaderIcon from "@lucide/svelte/icons/loader-circle";
   import CheckIcon from "@lucide/svelte/icons/check";
@@ -22,11 +20,7 @@
 
   const setup = useView(() => ({ connect: connectSetup }));
 
-  // There are no preferences before setup: the desktop's language and colour scheme.
-  useMessageLocale(configureLocaleResolver, () => setup.state?.locale ?? "en");
-  $effect(() => {
-    document.documentElement.lang = getLocale();
-  });
+  // There are no preferences before setup: the desktop's colour scheme (and language, which the Window speaks).
   $effect(() => {
     const media = matchMedia("(prefers-color-scheme: dark)");
     const apply = () => document.documentElement.classList.toggle("dark", media.matches);

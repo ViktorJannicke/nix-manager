@@ -11,6 +11,7 @@ using Runic.Application.Views;
 using Runic.Application.Views.Desktop;
 using Runic.Desktop;
 using Runic.Navigation;
+using Runic.Platform;
 
 namespace NixManager.Dashboard;
 
@@ -77,13 +78,14 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     private readonly RunicWatchTarget _reviews;
     private readonly ITimer _ticker;
     private readonly TrayRestart? _restart;
+    private readonly IRunicApplicationLocale? _locale;
     private bool _running;
     private string? _draftFingerprint;
 
     public DashboardViewModel(OperationsViewModel operations, ReviewsViewModel reviews, SystemViewModel system,
         SoftwareViewModel software, IOperationService service, ISoftwareService softwareService, IRunicModelContext context,
         TimeProvider? clock = null, RunicPathWatcherOptions? watching = null, DesktopWindowPlatformServices? platform = null,
-        TrayRestart? restart = null)
+        TrayRestart? restart = null, IRunicApplicationLocale? locale = null)
     {
         Operations = operations;
         Reviews = reviews;
@@ -95,6 +97,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         _platform = platform;
         _watching = watching;
         _restart = restart;
+        _locale = locale;
         var config = service.Config;
         Configuration = new DashboardConfiguration(config.Flake, config.HostKey, config.HomeProfile,
             [.. config.Hosts.OrderBy(host => host.Key, StringComparer.Ordinal)
@@ -115,7 +118,11 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
             ],
             change =>
             {
-                if (change.Contains(_preferences)) ReadPreferences();
+                if (change.Contains(_preferences))
+                {
+                    ReadPreferences();
+                    _ = FollowLanguageAsync();
+                }
                 if (change.Contains(_draft)) ReadDraft(force: true);
                 if (change.Contains(_reviews)) Execute(Reviews.RefreshCommand);
                 RefreshOperations();
@@ -123,7 +130,6 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
             options: watching);
         Theme = "system";
         Language = "system";
-        Locale = "en";
         Detail = "simple";
         ReadPreferences();
         _running = Running();
@@ -166,10 +172,6 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     /// <summary>The chosen language: <c>system</c>, <c>en</c> or <c>de</c>.</summary>
     [ObservableProperty]
     public partial string Language { get; private set; }
-
-    /// <summary>The language the dashboard speaks, <c>en</c> or <c>de</c>: the chosen one, or the desktop's.</summary>
-    [ObservableProperty]
-    public partial string Locale { get; private set; }
 
     /// <summary>
     /// <c>simple</c> shows one button and a plain summary; <c>detailed</c> shows every prepare, review and apply step.
@@ -226,12 +228,37 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial PlanPreview? Preview { get; private set; }
 
-    /// <summary>Saves preferences for this and later launches; the background tasks read the same file.</summary>
+    /// <summary>
+    /// Saves preferences for this and later launches; the background tasks read the same file. A new language is
+    /// spoken once this completes.
+    /// </summary>
     [RelayCommand]
-    private void SavePreferences(PreferenceChange change)
+    private async Task SavePreferencesAsync(PreferenceChange change)
     {
         DashboardPreferences.Save(_service.Config, change);
         ReadPreferences();
+        await FollowLanguageAsync();
+    }
+
+    /// <summary>
+    /// Switches the application's language (<see cref="IRunicApplicationLocale"/>), which every Window and its page
+    /// follow, to the one <see cref="Language"/> asks for, when it speaks another. The process sets it before its first
+    /// Window opens (<see cref="DashboardPreferences.LocaleOf"/>).
+    /// </summary>
+    private async Task FollowLanguageAsync()
+    {
+        if (_locale is null) return;
+        var locale = DashboardPreferences.ResolveLocale(Language, DesktopLanguages.Preferred);
+        if (_locale.Locale == locale) return;
+        try
+        {
+            await _locale.SetLocaleAsync(locale);
+        }
+        catch (AggregateException error)
+        {
+            // Every Window that could follow did; the page keeps its language until the next switch.
+            Console.Error.WriteLine($"Switching to {locale} failed in a Window: {error.InnerException?.Message}");
+        }
     }
 
     /// <summary>
@@ -280,7 +307,6 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         var preferences = DashboardPreferences.Read(_service.Config);
         Theme = preferences.Theme;
         Language = preferences.Language;
-        Locale = DashboardPreferences.ResolveLocale(preferences.Language, Environment.GetEnvironmentVariable);
         Detail = preferences.Detail;
         PrepareUpdates = preferences.PrepareUpdates;
         CleanUp = preferences.CleanUp;

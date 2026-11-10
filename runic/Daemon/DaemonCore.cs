@@ -146,7 +146,7 @@ public sealed class DaemonCore
             var path = DashboardPreferences.PathOf(Config);
             var written = File.Exists(path) ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
             if (_text is { } cached && cached.Written == written) return cached.Text;
-            var locale = DashboardPreferences.ResolveLocale(DashboardPreferences.Read(Config).Language, Environment.GetEnvironmentVariable);
+            var locale = DashboardPreferences.LocaleOf(Config);
             var text = TrayText.For(locale);
             _text = (written, text);
             return text;

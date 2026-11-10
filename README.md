@@ -386,8 +386,13 @@ status icon, and that process owns every operation.
 ### Translations
 
 The dashboard, the setup assistant and the tray speak English or German. They
-follow the desktop's language (`LC_ALL`, `LC_MESSAGES`, then `LANG`) unless
-Settings → Language chooses one. The command line stays in English, so its
+follow the desktop's language (`LANGUAGE`, `LC_ALL`, `LC_MESSAGES`, then
+`LANG`, as gettext reads them, through Runic's `DesktopLanguages.Preferred`;
+`de-CH` speaks German) unless Settings → Language chooses one. The process sets
+that language for every Window before the first one opens
+(`IRunicApplicationLocale`), and the dashboard switches it when the setting
+changes; Runic passes it to the page, which renders in it and sets
+`<html lang dir>`. The command line stays in English, so its
 output can be searched for and pasted into reports. Output from Nix itself is
 shown as Nix wrote it.
 
@@ -397,7 +402,7 @@ the backend writes for people, such as step labels, notes, errors and failure
 explanations, together with the curated features and the Computer page's
 settings (`stored/`), and the daemon's status icon, menu and notifications
 (`tray/`). The page reads it through the Vite plugin as `m.*()`, in the
-language the ViewModel says (`useMessageLocale`). Messages with markup, such
+Window's language (`runic/Frontend/src/lib/locale.svelte.ts`). Messages with markup, such
 as `Detected as {#highlight}{$host}{/highlight}.`, render with
 `LocalizedInline`; the page's own tags are declared in `runic.json`. The daemon
 formats the same catalogue through the C# that Runic.Translations.Build

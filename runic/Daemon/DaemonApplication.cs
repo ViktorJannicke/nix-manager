@@ -38,6 +38,7 @@ public static class DaemonApplication
             .AddSingleton(provider => new TrayRestart(config, settings.Outdated, provider.GetRequiredService<TimeProvider>()))
             .AddNixManagerDashboard()
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
+        await DashboardApplication.SpeakAsync(provider, DashboardPreferences.LocaleOf(config));
         // On Linux the icon is a StatusNotifierItem and notifications go through the desktop portal, without GTK. The
         // dashboard alone (DaemonMode.Ui) shows no icon.
         var icon = settings.Mode == DaemonMode.Tray

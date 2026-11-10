@@ -132,7 +132,8 @@ public sealed class DashboardTests : IAsyncDisposable
         var dashboard = await _window.Root.SnapshotAsync();
         await Assert.That(dashboard.Read(vm => vm.Theme)).IsEqualTo("dark");
         await Assert.That(dashboard.Read(vm => vm.Language)).IsEqualTo("de");
-        await Assert.That(dashboard.Read(vm => vm.Locale)).IsEqualTo("de");
+        // Every Window speaks the chosen language once the command completes.
+        await Assert.That(_scope.ServiceProvider.GetRequiredService<IRunicApplicationLocale>().Locale).IsEqualTo("de");
         await Assert.That(dashboard.Read(vm => vm.CleanUp)).IsTrue();
         var stored = File.ReadAllText(PreferencesPath);
         await Assert.That(stored).Contains("\"cleanUp\": true").And.Contains("\"theme\": \"dark\"").And.Contains("\"later\": 1");
@@ -339,13 +340,15 @@ public sealed class DashboardTests : IAsyncDisposable
     }
 
     [Test]
-    [Arguments("system", "de_DE.UTF-8", "de")]
-    [Arguments("system", "C", "en")]
-    [Arguments("system", "fr_FR.UTF-8", "en")]
-    [Arguments("en", "de_DE.UTF-8", "en")]
-    [Arguments("de", "en_US.UTF-8", "de")]
-    public async Task The_language_is_the_chosen_one_or_the_desktops(string language, string lang, string locale) =>
-        await Assert.That(DashboardPreferences.ResolveLocale(language, name => name == "LANG" ? lang : null)).IsEqualTo(locale);
+    [Arguments("system", "de-DE", "de")]
+    [Arguments("system", "de-CH", "de")]
+    [Arguments("system", "fr-FR,de-AT", "de")]
+    [Arguments("system", "fr-FR", "en")]
+    [Arguments("system", "", "en")]
+    [Arguments("en", "de-DE", "en")]
+    [Arguments("de", "en-US", "de")]
+    public async Task The_language_is_the_chosen_one_or_the_desktops(string language, string preferred, string locale) =>
+        await Assert.That(DashboardPreferences.ResolveLocale(language, preferred.Split(',', StringSplitOptions.RemoveEmptyEntries))).IsEqualTo(locale);
 
     /// <summary>Runs the command line as <c>Main</c> does, with the dashboard and the daemon recorded instead of started.</summary>
     private static (int ExitCode, object? Started, string Stderr, string Stdout) Launch(params string[] args)

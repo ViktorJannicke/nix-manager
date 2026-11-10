@@ -10,7 +10,7 @@
   import { software, type Target } from "$lib/software.svelte";
   import { origin } from "$lib/changes";
   import { relative } from "$lib/format";
-  import { display, m, sameText, say, text } from "$lib/i18n";
+  import { display, getLocale, m, sameText, say, text } from "$lib/i18n";
   import { experiences, type Experience } from "$lib/curated";
   import Segmented from "$lib/components/app/Segmented.svelte";
   import EmptyState from "$lib/components/app/EmptyState.svelte";
@@ -97,7 +97,7 @@
     void shelf;
     showAll = false;
   });
-  const byName = (a: AppEntry, b: AppEntry) => a.app!.name.localeCompare(b.app!.name, app.dashboard?.locale);
+  const byName = (a: AppEntry, b: AppEntry) => a.app!.name.localeCompare(b.app!.name, getLocale());
   const featured = $derived(
     featuredApps.flatMap((id) => software.apps.find((item) => item.app?.id === id) ?? []),
   );

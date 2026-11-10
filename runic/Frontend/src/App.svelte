@@ -3,8 +3,6 @@
 <script lang="ts">
   import { onMount, untrack } from "svelte";
   import { useView } from "@runic-artifex/svelte";
-  import { useMessageLocale } from "@runic-artifex/translations-svelte";
-  import { configureLocaleResolver, getLocale } from "virtual:runic-translations/dashboard/runtime";
   import LayoutIcon from "@lucide/svelte/icons/layout-dashboard";
   import CloudDownloadIcon from "@lucide/svelte/icons/cloud-download";
   import GitCompareIcon from "@lucide/svelte/icons/git-compare";
@@ -48,12 +46,6 @@
   app.appListView = appList;
 
   onMount(() => app.start());
-
-  // The ViewModel says which language to speak: the chosen one, or the desktop's.
-  useMessageLocale(configureLocaleResolver, () => dashboard.state?.locale ?? "en");
-  $effect(() => {
-    document.documentElement.lang = getLocale();
-  });
 
   // The chosen theme, or the desktop's through the page's colour scheme.
   $effect(() => {
