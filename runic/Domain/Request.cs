@@ -63,6 +63,18 @@ public static class Scopes
     public static readonly IReadOnlyList<string> Values = [All, Home, System];
 }
 
+/// <summary>What follows preparing changes (<see cref="Request.Then"/>).</summary>
+public static class Followups
+{
+    /// <summary>Apply home edits in one step.</summary>
+    public const string Apply = "apply";
+    /// <summary>Apply the prepared changes now.</summary>
+    public const string Switch = "switch";
+    /// <summary>Apply the prepared changes on the next boot.</summary>
+    public const string Boot = "boot";
+    public static readonly IReadOnlyList<string> All = [Apply, Switch, Boot];
+}
+
 /// <summary>
 /// One requested operation, stored with every operation record. The property names and the optional members
 /// are kept as stored, so records written by earlier versions still read.
@@ -89,8 +101,15 @@ public sealed record Request
     public bool? Edits { get; init; }
     /// <summary>Review going back from the change this operation applied.</summary>
     public string? Undo { get; init; }
-    /// <summary>Apply the prepared edits right away.</summary>
+    /// <summary>
+    /// What follows preparing changes, once they are prepared: <c>apply</c> applies home edits in one step (when they only
+    /// install or remove apps); <c>switch</c> and <c>boot</c> apply the prepared changes, now or on the next boot, unless
+    /// they need a review (<see cref="Edits.ChangeRules.QueuedApplyProblem"/>). Null waits for a review.
+    /// </summary>
     public string? Then { get; init; }
+
+    /// <summary>The queue entry this operation runs (<see cref="Operations.QueuedOperation"/>), and its follow-up does.</summary>
+    public string? Queued { get; init; }
     /// <summary>
     /// The release channel a package update switches the pin to (<c>stable</c> or <c>nightly</c>); null keeps the
     /// pin's channel.
@@ -167,8 +186,12 @@ public static partial class RequestValidation
             if (r.Edits == true || r.Generation is not null || r.Update || r.Inputs?.Count > 0)
                 Fail(DisplayText.Of("stored_request_undo_review_cannot_include"));
         }
-        if (r.Then is not null && (r.Action != Actions.ReviewBuild || r.Edits != true || r.Scope != Scopes.Home || r.Update || r.Inputs?.Count > 0))
+        if (r.Then is not null && !Followups.All.Contains(r.Then)) Fail(DisplayText.Of("stored_request_unknown_followup", ("then", r.Then)));
+        if (r.Then == Followups.Apply && (r.Action != Actions.ReviewBuild || r.Edits != true || r.Scope != Scopes.Home || r.Update || r.Inputs?.Count > 0))
             Fail(DisplayText.Of("stored_request_only_home_edits_in_one_step"));
+        if (r.Then is not null && r.Action != Actions.ReviewBuild) Fail(DisplayText.Of("stored_request_followup_applies_to_prepared_changes"));
+        if (r.Then == Followups.Boot && r.Scope == Scopes.Home) Fail(DisplayText.Of("stored_request_applying_on_boot_needs_the_system"));
+        if (r.Queued is not null && !ValidId(r.Queued)) Fail(DisplayText.Of("stored_request_valid_queue_id_required"));
         if (Actions.IsReview(r.Action))
         {
             if (r.ReviewId is not null && !ValidId(r.ReviewId)) Fail(DisplayText.Of("stored_request_valid_review_id_required"));

@@ -94,6 +94,8 @@ class AppState {
   private settled = new Set<string>();
   /** Reviews prepared here in one step, whose application is followed too. */
   private followed = new Set<string>();
+  /** Queue entries submitted from this Window; their operations get a follow-up once they ran. */
+  private queued = new Set<string>();
 
   dashboard = $derived(this.dashboardView?.state);
   operations = $derived(this.operationsView?.state);
@@ -251,20 +253,24 @@ class AppState {
     return request({ action, host: this.host, ...overrides });
   }
 
-  /** Starts an operation; the backend runs it beyond this Window. */
+  /** Starts an operation, or queues it after what runs; the backend runs it beyond this Window. */
   async run(next: Request) {
     const client = this.operationsView?.client;
     if (!client) return undefined;
     try {
-      const state = await client.start(next);
-      if (state.startError) throw new TextError(state.startError);
-      const operation = state.active ?? undefined;
+      const outcome = await (await client.startSubmit(next)).outcome();
+      // Submit declares no failure: a refused request comes back as its error.
+      if (!outcome.ok) return undefined;
+      const { started, queued, error } = outcome.value;
+      if (error) throw new TextError(error);
+      const operation = started ?? undefined;
       if (operation) {
         this.watched.add(operation.id);
         this.selectOperation(operation.id);
         // It may have ended before the start returned.
         this.settle(this.history);
       }
+      if (queued) this.queued.add(queued.id);
       return operation;
     } catch (error) {
       this.fail(error, m.toast_could_not_start({ action: actionLabel(next.action) }));
@@ -375,6 +381,8 @@ class AppState {
       const r = operation.request;
       // Applying edits prepared in one step starts in the backend; it is followed like its preparation.
       if (r.action === "review-apply" && r.reviewId && this.followed.has(r.reviewId)) this.watched.add(operation.id);
+      // A request queued from this Window is followed once it started.
+      if (r.queued && this.queued.has(r.queued)) this.watched.add(operation.id);
       if (operation.status === "running" || !this.watched.has(operation.id) || this.settled.has(operation.id)) continue;
       this.settled.add(operation.id);
       this.follow(operation);

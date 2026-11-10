@@ -34,6 +34,29 @@ public interface IOperationService
     /// <summary>Starts an operation: its first snapshot, and its final record once it ends.</summary>
     /// <exception cref="ManagerException">The request is invalid, or another operation runs.</exception>
     OperationRun Start(Request request);
+    /// <summary>The queue: requests that wait for the running operation, and the ones before them, in order.</summary>
+    IReadOnlyList<QueuedOperation> Queue { get; }
+    /// <summary>An entry of the queue waits its turn: something starts without being asked again.</summary>
+    bool Pending { get; }
+    /// <summary>
+    /// Starts <paramref name="request"/> when nothing runs and nothing waits its turn before it, and queues it to start
+    /// after them otherwise. A request queued already, and not held, is not queued again.
+    /// </summary>
+    /// <exception cref="ManagerException">The request is invalid.</exception>
+    Submission Submit(Request request);
+    /// <summary>Removes an entry from the queue; false when it is not there, such as one that started.</summary>
+    bool Unqueue(string id);
+    /// <summary>Lets the held entries start again, in their order.</summary>
+    void ContinueQueue();
+    /// <summary>Removes every entry from the queue; the running operation goes on.</summary>
+    void ClearQueue();
+    /// <summary>
+    /// Keeps the queue in the state directory and continues it from there: the daemon and the dashboard run the queue, a
+    /// command line does not. An entry whose operation did not succeed when the process ended holds the ones after it.
+    /// </summary>
+    void RunQueue();
+    /// <summary>Completes once nothing runs and no entry of the queue waits its turn.</summary>
+    Task IdleAsync();
     /// <summary>The final record of the running operation, or null when none runs.</summary>
     Task<Operation?> WaitAsync();
     /// <summary>Asks the running operation to stop. A privileged step that already runs finishes first.</summary>
@@ -277,6 +300,11 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
 
     public async ValueTask DisposeAsync()
     {
+        lock (_queueGate)
+        {
+            _queueRetry?.Dispose();
+            _queueRetry = null;
+        }
         Cancel();
         await WaitAsync().ConfigureAwait(false);
     }
@@ -511,13 +539,19 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                                 JsJson.Indented(System.Text.Json.JsonSerializer.SerializeToNode(undoable.Contents, ManagerJson.Default.DictionaryStringString)));
                         }
                     }
-                    if (r.Then == "apply" && !r.DryRun)
+                    if (r.Then is { } then && !r.DryRun)
                     {
                         DisplayText? held;
                         lock (service._gate) held = operation.Held;
+                        BuildReview? prepared = null;
                         try
                         {
-                            held ??= ChangeRules.OneStepReviewProblem(ReviewStore.Get(service.Config, r.ReviewId!));
+                            prepared = ReviewStore.Get(service.Config, r.ReviewId!);
+                            // Edits applied in one step only install apps; changes asked to be applied after preparing
+                            // wait when they need a decision, such as a kernel that changes.
+                            held ??= then == Followups.Apply
+                                ? ChangeRules.OneStepReviewProblem(prepared)
+                                : ChangeRules.QueuedApplyProblem(prepared, service.Config.HostKey, then);
                         }
                         catch (Exception error)
                         {
@@ -527,7 +561,8 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                         if (held is not null) Log($"Waiting for your review: {held.English}");
                         else follow = Request.Create() with
                         {
-                            Action = Actions.ReviewApply, Scope = Scopes.Home, Host = r.Host, ReviewId = r.ReviewId, Activation = "switch",
+                            Action = Actions.ReviewApply, Scope = then == Followups.Apply ? Scopes.Home : prepared!.Scope, Host = r.Host,
+                            ReviewId = r.ReviewId, Activation = then == Followups.Boot ? "boot" : "switch", Queued = r.Queued,
                         };
                     }
                 }
@@ -589,6 +624,8 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                 finally
                 {
                     release.Dispose();
+                    // The queue waits for the follow-up to start instead of starting its next entry first.
+                    if (follow is not null) lock (service._queueGate) service._handingOver++;
                     lock (service._gate)
                     {
                         service._current = null;
@@ -597,11 +634,13 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                     cancellation.Dispose();
                 }
             }
+            var followed = false;
             if (follow is not null)
             {
                 try
                 {
                     service.Start(follow);
+                    followed = true;
                 }
                 catch (Exception error)
                 {
@@ -612,8 +651,16 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
                         service.Changed(operation);
                     }
                 }
+                finally
+                {
+                    lock (service._queueGate) service._handingOver--;
+                }
             }
-            lock (service._gate) return operation.Clone();
+            Operation ended;
+            lock (service._gate) ended = operation.Clone();
+            // The next queued request starts, unless the follow-up runs for this one.
+            service.QueueAfter(ended, followed);
+            return ended;
         }
 
         /// <summary>

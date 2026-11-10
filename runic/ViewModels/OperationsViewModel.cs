@@ -10,7 +10,8 @@ namespace NixManager.ViewModels;
 
 /// <summary>
 /// The operations of one checkout as the dashboard shows them: the running operation with its steps, progress and
-/// live log, the recent history, the update report, and commands to start and cancel operations.
+/// live log, the queue after it, the recent history, the update report, and commands to submit, queue and cancel
+/// operations.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -41,6 +42,7 @@ public sealed partial class OperationsViewModel : ObservableObject, IDisposable
         _context = context;
         _subscription = service.Subscribe(OnEvent);
         Active = service.Active;
+        Queue = service.Queue;
         Operations = service.History();
         Updates = service.Updates();
         SelectedOperationId = Active?.Id ?? Operations.FirstOrDefault()?.Id;
@@ -50,6 +52,10 @@ public sealed partial class OperationsViewModel : ObservableObject, IDisposable
     /// <summary>The operation running in the service, with its steps and their progress.</summary>
     [ObservableProperty]
     public partial Operation? Active { get; private set; }
+
+    /// <summary>The requests waiting for the running operation, in order; held ones wait to be continued.</summary>
+    [ObservableProperty]
+    public partial IReadOnlyList<QueuedOperation> Queue { get; private set; }
 
     /// <summary>The latest operations of this checkout, newest first; records of earlier versions included.</summary>
     [ObservableProperty]
@@ -73,7 +79,7 @@ public sealed partial class OperationsViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial bool LogTruncated { get; private set; }
 
-    /// <summary>Why the last start failed, such as another operation running.</summary>
+    /// <summary>Why the last request was refused, such as an invalid one.</summary>
     [ObservableProperty]
     public partial DisplayText? StartError { get; private set; }
 
@@ -83,21 +89,55 @@ public sealed partial class OperationsViewModel : ObservableObject, IDisposable
 
     partial void OnSelectedOperationIdChanged(string? value) => LoadLog();
 
-    /// <summary>Starts an operation; it runs in the service, beyond this ViewModel.</summary>
+    /// <summary>
+    /// Runs <paramref name="request"/> now when nothing runs and nothing waits its turn, and queues it after them
+    /// otherwise; it runs in the service, beyond this ViewModel. The result says which, or why it was refused.
+    /// </summary>
     [RelayCommand]
-    private void Start(Request request)
+    private Task<Submission> SubmitAsync(Request request)
     {
+        Submission submission;
         try
         {
-            var run = _service.Start(request with { Host = request.Host is { Length: > 0 } ? request.Host : _service.Config.HostKey });
-            StartError = null;
-            Active = run.Operation;
-            SelectedOperationId = run.Operation.Id;
+            submission = _service.Submit(request with { Host = request.Host is { Length: > 0 } ? request.Host : _service.Config.HostKey });
         }
         catch (ManagerException error)
         {
             StartError = error.Text;
+            return Task.FromResult(new Submission(null, null, error.Text));
         }
+        StartError = null;
+        if (submission.Started is { } started)
+        {
+            Active = started;
+            SelectedOperationId = started.Id;
+        }
+        Queue = _service.Queue;
+        return Task.FromResult(submission);
+    }
+
+    /// <summary>Removes an entry from the queue.</summary>
+    [RelayCommand]
+    private void Unqueue(string id)
+    {
+        _service.Unqueue(id);
+        Queue = _service.Queue;
+    }
+
+    /// <summary>Lets the held entries of the queue start again, in their order.</summary>
+    [RelayCommand]
+    private void ContinueQueue()
+    {
+        _service.ContinueQueue();
+        Queue = _service.Queue;
+    }
+
+    /// <summary>Removes every entry from the queue; the running operation goes on.</summary>
+    [RelayCommand]
+    private void ClearQueue()
+    {
+        _service.ClearQueue();
+        Queue = _service.Queue;
     }
 
     /// <summary>Asks the running operation to stop; a running privileged step finishes first.</summary>
@@ -163,6 +203,9 @@ public sealed partial class OperationsViewModel : ObservableObject, IDisposable
                     }
                     Log = _log.ToString();
                 });
+                break;
+            case QueueChanged changed:
+                _context.TryPost(() => Queue = changed.Queue);
                 break;
             case OperationProgress progress:
                 _context.TryPost(() =>

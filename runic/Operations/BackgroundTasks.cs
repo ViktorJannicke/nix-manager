@@ -129,7 +129,7 @@ public sealed class BackgroundTasks(IOperationService manager, BackgroundConditi
     /// <summary>Why the computer should not work unasked now, or null when it may.</summary>
     private string? Unfit()
     {
-        if (manager.Busy) return "Something else is running.";
+        if (manager.Busy || manager.Pending) return "Something else is running.";
         if (!_conditions.Mains()) return "The computer runs on battery.";
         if (_conditions.SavingPower?.Invoke() == true) return "The computer saves power.";
         if (!_conditions.Idle()) return "The computer is busy.";

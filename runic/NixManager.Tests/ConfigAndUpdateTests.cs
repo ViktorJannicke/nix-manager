@@ -210,22 +210,23 @@ public sealed class OperationsViewModelTests : IAsyncDisposable
         await using var service = new OperationService(TestConfig.Create(_flake), runner, new FakeUpdates(new UpdateReport { CheckedAt = "" }));
         var viewModel = await _context.InvokeAsync(() => new OperationsViewModel(service, _context));
 
-        await _context.InvokeAsync(() => viewModel.StartCommand.Execute(Request.Create() with { Action = Actions.Build, Scope = Scopes.Home }));
+        await _context.InvokeAsync(() => viewModel.SubmitCommand.Execute(Request.Create() with { Action = Actions.Build, Scope = Scopes.Home }));
         await Until(() => viewModel.Log.Contains("running Build home configuration"));
         await Assert.That(await _context.InvokeAsync(() => viewModel.Busy)).IsTrue();
         await Assert.That(await _context.InvokeAsync(() => viewModel.Active!.Request.Host)).IsEqualTo("test");
 
-        // A second start while one runs is refused, and the reason shown.
-        await _context.InvokeAsync(() => viewModel.StartCommand.Execute(Request.Create() with { Action = Actions.Build }));
-        await Assert.That(await _context.InvokeAsync(() => viewModel.StartError?.English)).IsEqualTo("An operation is already running.");
+        // A second request while one runs is queued, and starts once the first ended.
+        await _context.InvokeAsync(() => viewModel.SubmitCommand.Execute(Request.Create() with { Action = Actions.Build }));
+        await Until(() => viewModel.Queue.Count == 1);
+        await Assert.That(await _context.InvokeAsync(() => viewModel.StartError)).IsNull();
 
         release.SetResult();
-        await Until(() => !viewModel.Busy);
-        await Assert.That(await _context.InvokeAsync(() => viewModel.Operations[0].Status)).IsEqualTo(OperationStatuses.Succeeded);
+        await Until(() => !viewModel.Busy && viewModel.Queue.Count == 0 && viewModel.Operations.Count == 2);
+        await Assert.That(await _context.InvokeAsync(() => viewModel.Operations.All(operation => operation.Status == OperationStatuses.Succeeded))).IsTrue();
 
         // Closing the view leaves the service and its operations alone.
         viewModel.Dispose();
-        await Assert.That(service.History().Count).IsEqualTo(1);
+        await Assert.That(service.History().Count).IsEqualTo(2);
     }
 
     [Test]
@@ -239,7 +240,7 @@ public sealed class OperationsViewModelTests : IAsyncDisposable
         await using var service = new OperationService(TestConfig.Create(_flake), runner, new FakeUpdates(new UpdateReport { CheckedAt = "" }));
         using var viewModel = await _context.InvokeAsync(() => new OperationsViewModel(service, _context));
 
-        await _context.InvokeAsync(() => viewModel.StartCommand.Execute(Request.Create() with { Action = Actions.Build }));
+        await _context.InvokeAsync(() => viewModel.SubmitCommand.Execute(Request.Create() with { Action = Actions.Build }));
         await _context.InvokeAsync(() => viewModel.CancelCommand.Execute(null));
         await Until(() => !viewModel.Busy);
 
