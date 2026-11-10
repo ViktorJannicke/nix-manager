@@ -1,4 +1,5 @@
 using NixManager.Domain;
+using NixManager.Observation;
 
 namespace NixManager.Operations;
 
@@ -10,8 +11,9 @@ namespace NixManager.Operations;
 // - When a queued operation fails, is stopped, or prepared changes that should have been applied wait for a review,
 //   the entries still waiting are held: they wait for ContinueQueue or to be removed, since they were asked for
 //   after it. Requests submitted later are not held, and start in their turn.
-// - The daemon and the dashboard keep the queue in queue.json (RunQueue), so a restarted tray continues it. An entry
-//   whose operation did not succeed when the process ended holds the entries after it.
+// - The daemon and the dashboard keep the queue of their checkout and host in the state directory (RunQueue), so a
+//   restarted tray continues it; one process at a time keeps it. An entry whose operation did not finish when the
+//   process ended holds the entries after it.
 public sealed partial class OperationService
 {
     /// <summary>How long a queued request waits before trying again while another process's operation runs.</summary>
@@ -19,15 +21,24 @@ public sealed partial class OperationService
 
     private readonly Lock _queueGate = new();
     private readonly List<QueuedOperation> _queue = [];
-    // This process keeps the queue in the state directory (RunQueue); a command line's service does not.
-    private bool _queueKept;
+    // Held while this process keeps the queue in the state directory (RunQueue); a command line's service does not.
+    private FileStream? _queueKept;
     // The entry whose operation, or its follow-up, runs.
     private string? _queueRunning;
     // Operations that are ending and start their follow-up: the queue waits for that to start.
     private int _handingOver;
+    // The process ends: nothing more starts from the queue (StopAsync).
+    private bool _stopping;
     private ITimer? _queueRetry;
 
-    private string QueuePath => Path.Combine(config.StateDir, "queue.json");
+    private string QueuePath(string extension) => QueueFile(config, extension);
+
+    /// <summary>
+    /// The file of the queue of <paramref name="config"/>'s checkout and host: the state directory is the user's, shared
+    /// by every checkout.
+    /// </summary>
+    internal static string QueueFile(Config config, string extension = "json") =>
+        Path.Combine(config.StateDir, "queues", $"{Repository.HashText($"{config.Flake}\n{config.HostKey}")[..16]}.{extension}");
 
     public IReadOnlyList<QueuedOperation> Queue
     {
@@ -36,7 +47,11 @@ public sealed partial class OperationService
 
     public bool Pending
     {
-        get { lock (_queueGate) return _queue.Any(entry => entry.Held is null); }
+        get
+        {
+            // A follow-up about to start counts, so nothing else starts before it and the process does not end.
+            lock (_queueGate) return !_stopping && (_handingOver > 0 || _queue.Any(entry => entry.Held is null));
+        }
     }
 
     public Submission Submit(Request request)
@@ -53,22 +68,21 @@ public sealed partial class OperationService
             entry = new QueuedOperation { Id = Guid.NewGuid().ToString("D"), Request = resolved, QueuedAt = Timestamps.Now(_clock) };
             _queue.Add(entry);
             SaveQueue();
+            PublishQueue();
         }
-        PublishQueue();
         var started = Advance();
         return started?.Request.Queued == entry.Id ? new Submission(started, null) : new Submission(null, entry);
     }
 
     public bool Unqueue(string id)
     {
-        bool removed;
         lock (_queueGate)
         {
-            removed = _queue.RemoveAll(entry => entry.Id == id) > 0;
-            if (removed) SaveQueue();
+            if (_queue.RemoveAll(entry => entry.Id == id) == 0) return false;
+            SaveQueue();
+            PublishQueue();
+            return true;
         }
-        if (removed) PublishQueue();
-        return removed;
     }
 
     public void ContinueQueue()
@@ -77,8 +91,8 @@ public sealed partial class OperationService
         {
             for (var index = 0; index < _queue.Count; index++) _queue[index] = _queue[index] with { Held = null };
             SaveQueue();
+            PublishQueue();
         }
-        PublishQueue();
         Advance();
     }
 
@@ -88,35 +102,46 @@ public sealed partial class OperationService
         {
             _queue.Clear();
             SaveQueue();
+            PublishQueue();
         }
-        PublishQueue();
     }
 
     public void RunQueue()
     {
         lock (_queueGate)
         {
-            if (_queueKept) return;
-            _queueKept = true;
-            var saved = File.Exists(QueuePath) ? Read() : null;
-            _queue.AddRange(saved?.Entries.Where(entry => !_queue.Any(queued => queued.Id == entry.Id)) ?? []);
+            if (_queueKept is not null || _stopping) return;
+            // One process keeps a checkout's queue, such as the tray while a dashboard of its own runs beside it.
+            if (TakeQueueLock() is not { } kept)
+            {
+                Console.Error.WriteLine("Another Nix Manager keeps the queue of this configuration; this one runs only what it is asked for.");
+                return;
+            }
+            _queueKept = kept;
+            var saved = File.Exists(QueuePath("json")) ? Read() : null;
+            var history = History();
+            // An entry that started before the process ended has its operation in the history, and is not run again.
+            _queue.AddRange(saved?.Entries.Where(entry => !_queue.Any(queued => queued.Id == entry.Id)
+                && !history.Any(operation => operation.Request.Queued == entry.Id)) ?? []);
             if (saved?.Running is { } running && running != _queueRunning)
             {
                 // History lists the newest first: a follow-up after the operation that prepared it.
-                var last = History().FirstOrDefault(operation => operation.Request.Queued == running);
-                if (last is not { Status: OperationStatuses.Succeeded, Held: null })
-                    Hold(DisplayText.Of("stored_queue_held_ended"));
+                var last = history.FirstOrDefault(operation => operation.Request.Queued == running);
+                // Prepared changes whose application had not started yet did not finish either.
+                var unfinished = last is not { Status: OperationStatuses.Succeeded, Held: null }
+                    || last.Request is { Action: Actions.ReviewBuild, Then: not null, DryRun: false };
+                if (unfinished) Hold(DisplayText.Of("stored_queue_held_ended"));
             }
             SaveQueue();
+            PublishQueue();
         }
-        PublishQueue();
         Advance();
 
         SavedQueue? Read()
         {
             try
             {
-                return ManagerJson.Deserialize<SavedQueue>(File.ReadAllText(QueuePath));
+                return ManagerJson.Deserialize<SavedQueue>(File.ReadAllText(QueuePath("json")));
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
             {
@@ -136,6 +161,44 @@ public sealed partial class OperationService
         }
     }
 
+    public async ValueTask StopAsync()
+    {
+        lock (_queueGate)
+        {
+            // What waits stays in the queue for the next process.
+            _stopping = true;
+            _queueRetry?.Dispose();
+            _queueRetry = null;
+        }
+        Cancel();
+        await WaitAsync().ConfigureAwait(false);
+        lock (_queueGate)
+        {
+            _queueKept?.Dispose();
+            _queueKept = null;
+        }
+    }
+
+    /// <summary>Takes the lock on this checkout's queue, which the system releases when the process ends; null when another process holds it.</summary>
+    private FileStream? TakeQueueLock()
+    {
+        try
+        {
+            OperationStore.CreatePrivateDirectory(Path.GetDirectoryName(QueuePath("lock"))!);
+            var options = new FileStreamOptions { Mode = FileMode.OpenOrCreate, Access = FileAccess.Write, Share = FileShare.ReadWrite | FileShare.Delete };
+            if (!OperatingSystem.IsWindows()) options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+            var stream = new FileStream(QueuePath("lock"), options);
+            if (Native.TryLockExclusive(stream.SafeFileHandle)) return stream;
+            stream.Dispose();
+            return null;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ManagerException)
+        {
+            Console.Error.WriteLine($"The queue could not be locked: {error.Message}");
+            return null;
+        }
+    }
+
     /// <summary>The same request, apart from the review a new preparation gets and the entry it runs for.</summary>
     private static bool Same(Request a, Request b)
     {
@@ -150,11 +213,11 @@ public sealed partial class OperationService
     /// <summary>Starts the first entry that waits its turn, when nothing runs; returns the operation it started.</summary>
     private Operation? Advance()
     {
-        Operation? started = null;
         lock (_queueGate)
         {
-            if (Busy || _handingOver > 0) return null;
+            if (_stopping || Busy || _handingOver > 0) return null;
             if (_queue.FirstOrDefault(entry => entry.Held is null) is not { } next) return null;
+            Operation? started = null;
             try
             {
                 started = Start(next.Request with { Queued = next.Id }).Operation;
@@ -180,16 +243,18 @@ public sealed partial class OperationService
                 }, null, QueueRetry, Timeout.InfiniteTimeSpan);
                 return null;
             }
-            catch (ManagerException error)
+            catch (Exception error) when (error is not OutOfMemoryException)
             {
-                // It cannot start any more, such as prepared changes that were discarded; what follows was asked for after it.
+                // It cannot start any more, such as prepared changes that were discarded, or the disk is full; what
+                // follows was asked for after it.
+                var index = _queue.FindIndex(entry => entry.Id == next.Id);
+                _queue[index] = next with { Held = DisplayText.From(error) };
                 Hold(DisplayText.Of("stored_queue_held_could_not_start", ("label", Actions.Label(next.Request.Action))));
-                _queue[_queue.IndexOf(next)] = next with { Held = error.Text };
             }
             SaveQueue();
+            PublishQueue();
+            return started;
         }
-        PublishQueue();
-        return started;
     }
 
     /// <summary>
@@ -213,8 +278,8 @@ public sealed partial class OperationService
                 };
                 if (reason is not null) Hold(reason);
                 SaveQueue();
+                PublishQueue();
             }
-            PublishQueue();
         }
         Advance();
     }
@@ -226,14 +291,13 @@ public sealed partial class OperationService
             if (_queue[index].Held is null) _queue[index] = _queue[index] with { Held = reason };
     }
 
-    /// <summary>Writes queue.json when this process keeps the queue. The caller holds the queue's lock.</summary>
+    /// <summary>Writes the queue when this process keeps it. The caller holds the queue's lock.</summary>
     private void SaveQueue()
     {
-        if (!_queueKept) return;
+        if (_queueKept is null) return;
         try
         {
-            _store.EnsureDirectory();
-            OperationStore.AtomicJson(QueuePath, ManagerJson.Serialize(new SavedQueue { Entries = [.. _queue], Running = _queueRunning }));
+            OperationStore.AtomicJson(QueuePath("json"), ManagerJson.Serialize(new SavedQueue { Entries = [.. _queue], Running = _queueRunning }));
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or ManagerException)
         {
@@ -241,5 +305,9 @@ public sealed partial class OperationService
         }
     }
 
-    private void PublishQueue() => Publish(new QueueChanged(Queue));
+    /// <summary>
+    /// Publishes the queue as it is now. The caller holds the queue's lock, so snapshots reach clients in the order the
+    /// queue changed; listeners never take that lock.
+    /// </summary>
+    private void PublishQueue() => Publish(new QueueChanged([.. _queue]));
 }

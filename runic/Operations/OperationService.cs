@@ -57,13 +57,19 @@ public interface IOperationService
     void RunQueue();
     /// <summary>Completes once nothing runs and no entry of the queue waits its turn.</summary>
     Task IdleAsync();
+    /// <summary>
+    /// Ends the queue in this process: nothing more starts from it, the running operation is cancelled and waited for,
+    /// and what waits stays for the next process.
+    /// </summary>
+    ValueTask StopAsync();
     /// <summary>The final record of the running operation, or null when none runs.</summary>
     Task<Operation?> WaitAsync();
     /// <summary>Asks the running operation to stop. A privileged step that already runs finishes first.</summary>
     void Cancel();
     /// <summary>
-    /// Keeps edits being prepared in one step (<c>then: "apply"</c>) from being applied, so they wait for review
-    /// (<c>hold</c>). False when <paramref name="id"/> is not such a running operation.
+    /// Keeps changes being prepared to be applied right after (<see cref="Request.Then"/>), such as edits installed in
+    /// one step, from being applied, so they wait for review (<c>hold</c>). False when <paramref name="id"/> is not such
+    /// a running operation.
     /// </summary>
     bool Hold(string id);
     /// <summary>
@@ -168,7 +174,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
         lock (_gate)
         {
             var operation = _current?.Operation;
-            if (operation?.Id != id || operation.Request.Then != "apply") return false;
+            if (operation?.Id != id || operation.Request.Then is null) return false;
             operation.Held = DisplayText.Of("stored_you_chose_to_review_it_first");
             Changed(operation);
             return true;
@@ -298,16 +304,7 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
         catch (ObjectDisposedException) { }
     }
 
-    public async ValueTask DisposeAsync()
-    {
-        lock (_queueGate)
-        {
-            _queueRetry?.Dispose();
-            _queueRetry = null;
-        }
-        Cancel();
-        await WaitAsync().ConfigureAwait(false);
-    }
+    public ValueTask DisposeAsync() => StopAsync();
 
     [GeneratedRegex("[^a-z0-9]+")]
     private static partial Regex NonAlphanumeric();
@@ -523,144 +520,170 @@ public sealed partial class OperationService(Config config, ICommandRunner runne
             var r = operation.Request;
             // Set when prepared edits are applied right after, in one step.
             Request? follow = null;
+            var handingOver = false;
             try
             {
                 try
                 {
-                    await ProgramAsync(r).ConfigureAwait(false);
-                    lock (service._gate)
-                    {
-                        operation.Status = OperationStatuses.Succeeded;
-                        operation.Step = DisplayText.Of(r.DryRun ? "stored_operation_preview_complete" : "stored_operation_complete");
-                        if (review is not null && _undoable is { } undoable)
-                        {
-                            operation.Undo = new UndoPoint { Changes = DescribeReview(review), Generations = undoable.Generations, Files = undoable.Files };
-                            OperationStore.AtomicJson(_store.PathOf(operation.Id, "undo"),
-                                JsJson.Indented(System.Text.Json.JsonSerializer.SerializeToNode(undoable.Contents, ManagerJson.Default.DictionaryStringString)));
-                        }
-                    }
-                    if (r.Then is { } then && !r.DryRun)
-                    {
-                        DisplayText? held;
-                        lock (service._gate) held = operation.Held;
-                        BuildReview? prepared = null;
-                        try
-                        {
-                            prepared = ReviewStore.Get(service.Config, r.ReviewId!);
-                            // Edits applied in one step only install apps; changes asked to be applied after preparing
-                            // wait when they need a decision, such as a kernel that changes.
-                            held ??= then == Followups.Apply
-                                ? ChangeRules.OneStepReviewProblem(prepared)
-                                : ChangeRules.QueuedApplyProblem(prepared, service.Config.HostKey, then);
-                        }
-                        catch (Exception error)
-                        {
-                            held = DisplayText.From(error);
-                        }
-                        lock (service._gate) operation.Held = held;
-                        if (held is not null) Log($"Waiting for your review: {held.English}");
-                        else follow = Request.Create() with
-                        {
-                            Action = Actions.ReviewApply, Scope = then == Followups.Apply ? Scopes.Home : prepared!.Scope, Host = r.Host,
-                            ReviewId = r.ReviewId, Activation = then == Followups.Boot ? "boot" : "switch", Queued = r.Queued,
-                        };
-                    }
-                }
-                catch (Exception error)
-                {
-                    var cancelled = error is OperationCanceledException && token.IsCancellationRequested;
-                    lock (service._gate)
-                    {
-                        operation.Status = cancelled ? OperationStatuses.Cancelled : OperationStatuses.Failed;
-                        if (!cancelled && error is ManagerException { Explanation: { } explanation }) operation.Explanation = explanation;
-                        operation.Error = cancelled
-                            ? DisplayText.Of("stored_operation_cancelled_completed_parts_remain")
-                            : error is ManagerException manager ? manager.Text : DisplayText.Plain(error.ToString());
-                        foreach (var step in operation.Steps ?? [])
-                        {
-                            if (step.Status == StepStatuses.Running)
-                            {
-                                step.Status = cancelled ? StepStatuses.Cancelled : StepStatuses.Failed;
-                                step.FinishedAt = Timestamps.Now(service._clock);
-                            }
-                            else if (step.Status == StepStatuses.Pending) step.Status = StepStatuses.Skipped;
-                        }
-                    }
-                    Log(operation.Error!);
-                }
-            }
-            finally
-            {
-                lock (service._gate) operation.FinishedAt = Timestamps.Now(service._clock);
-                try
-                {
-                    await CleanUpReviewAsync(r).ConfigureAwait(false);
-                    if (UsesBuildRoot(r))
-                    {
-                        var root = Paths.BuildRoot(service.Config);
-                        if (System.IO.Directory.Exists(root)) System.IO.Directory.Delete(root, recursive: true);
-                    }
-                }
-                catch (Exception e)
-                {
-                    Console.Error.WriteLine(e.Message);
-                }
-                // What this operation changed can leave other reviews behind; a preview changed nothing.
-                if (!r.DryRun)
-                {
                     try
                     {
-                        service.Discard(await service.ObsoleteReviewsAsync().ConfigureAwait(false), text => Log(text));
+                        await ProgramAsync(r).ConfigureAwait(false);
+                        lock (service._gate)
+                        {
+                            operation.Status = OperationStatuses.Succeeded;
+                            operation.Step = DisplayText.Of(r.DryRun ? "stored_operation_preview_complete" : "stored_operation_complete");
+                            if (review is not null && _undoable is { } undoable)
+                            {
+                                operation.Undo = new UndoPoint { Changes = DescribeReview(review), Generations = undoable.Generations, Files = undoable.Files };
+                                OperationStore.AtomicJson(_store.PathOf(operation.Id, "undo"),
+                                    JsJson.Indented(System.Text.Json.JsonSerializer.SerializeToNode(undoable.Contents, ManagerJson.Default.DictionaryStringString)));
+                            }
+                        }
+                        if (r.Then is { } then && !r.DryRun)
+                        {
+                            DisplayText? held;
+                            lock (service._gate) held = operation.Held;
+                            BuildReview? prepared = null;
+                            try
+                            {
+                                prepared = ReviewStore.Get(service.Config, r.ReviewId!);
+                                // Edits applied in one step only install apps; changes asked to be applied after preparing
+                                // wait when they need a decision, such as a kernel that changes.
+                                held ??= then == Followups.Apply
+                                    ? ChangeRules.OneStepReviewProblem(prepared)
+                                    : ChangeRules.QueuedApplyProblem(prepared, service.Config.HostKey, then);
+                            }
+                            catch (Exception error)
+                            {
+                                held = DisplayText.From(error);
+                            }
+                            lock (service._gate) operation.Held = held;
+                            if (held is not null) Log($"Waiting for your review: {held.English}");
+                            else follow = Request.Create() with
+                            {
+                                Action = Actions.ReviewApply, Scope = then == Followups.Apply ? Scopes.Home : prepared!.Scope, Host = r.Host,
+                                ReviewId = r.ReviewId, Activation = then == Followups.Boot ? "boot" : "switch", Queued = r.Queued,
+                            };
+                        }
+                    }
+                    catch (Exception error)
+                    {
+                        var cancelled = error is OperationCanceledException && token.IsCancellationRequested;
+                        lock (service._gate)
+                        {
+                            operation.Status = cancelled ? OperationStatuses.Cancelled : OperationStatuses.Failed;
+                            if (!cancelled && error is ManagerException { Explanation: { } explanation }) operation.Explanation = explanation;
+                            operation.Error = cancelled
+                                ? DisplayText.Of("stored_operation_cancelled_completed_parts_remain")
+                                : error is ManagerException manager ? manager.Text : DisplayText.Plain(error.ToString());
+                            foreach (var step in operation.Steps ?? [])
+                            {
+                                if (step.Status == StepStatuses.Running)
+                                {
+                                    step.Status = cancelled ? StepStatuses.Cancelled : StepStatuses.Failed;
+                                    step.FinishedAt = Timestamps.Now(service._clock);
+                                }
+                                else if (step.Status == StepStatuses.Pending) step.Status = StepStatuses.Skipped;
+                            }
+                        }
+                        Log(operation.Error!);
+                    }
+                }
+                finally
+                {
+                    lock (service._gate) operation.FinishedAt = Timestamps.Now(service._clock);
+                    try
+                    {
+                        await CleanUpReviewAsync(r).ConfigureAwait(false);
+                        if (UsesBuildRoot(r))
+                        {
+                            var root = Paths.BuildRoot(service.Config);
+                            if (System.IO.Directory.Exists(root)) System.IO.Directory.Delete(root, recursive: true);
+                        }
                     }
                     catch (Exception e)
                     {
                         Console.Error.WriteLine(e.Message);
                     }
-                }
-                try
-                {
-                    lock (service._gate) Persist();
-                }
-                finally
-                {
-                    release.Dispose();
-                    // The queue waits for the follow-up to start instead of starting its next entry first.
-                    if (follow is not null) lock (service._queueGate) service._handingOver++;
-                    lock (service._gate)
+                    // What this operation changed can leave other reviews behind; a preview changed nothing.
+                    if (!r.DryRun)
                     {
-                        service._current = null;
-                        service.Changed(operation);
+                        try
+                        {
+                            service.Discard(await service.ObsoleteReviewsAsync().ConfigureAwait(false), text => Log(text));
+                        }
+                        catch (Exception e)
+                        {
+                            Console.Error.WriteLine(e.Message);
+                        }
                     }
-                    cancellation.Dispose();
+                    try
+                    {
+                        lock (service._gate) Persist();
+                    }
+                    finally
+                    {
+                        release.Dispose();
+                        // The queue waits for the follow-up to start instead of starting its next entry first.
+                        if (follow is not null)
+                        {
+                            lock (service._queueGate) service._handingOver++;
+                            handingOver = true;
+                        }
+                        lock (service._gate)
+                        {
+                            service._current = null;
+                            service.Changed(operation);
+                        }
+                        cancellation.Dispose();
+                    }
                 }
             }
-            var followed = false;
-            if (follow is not null)
+            // Runs also when recording the end failed, so the hand-over count stays balanced and the queue goes on.
+            finally
             {
-                try
+                var followed = false;
+                if (handingOver)
                 {
-                    service.Start(follow);
-                    followed = true;
-                }
-                catch (Exception error)
-                {
-                    lock (service._gate)
+                    try
                     {
-                        operation.Held = DisplayText.Of("stored_it_could_not_be_applied", ("reason", DisplayText.From(error)));
-                        Persist();
-                        service.Changed(operation);
+                        service.Start(follow!);
+                        followed = true;
+                    }
+                    catch (Exception error)
+                    {
+                        try
+                        {
+                            lock (service._gate)
+                            {
+                                operation.Held = DisplayText.Of("stored_it_could_not_be_applied", ("reason", DisplayText.From(error)));
+                                Persist();
+                                service.Changed(operation);
+                            }
+                        }
+                        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ManagerException)
+                        {
+                            Console.Error.WriteLine(e.Message);
+                        }
+                    }
+                    finally
+                    {
+                        lock (service._queueGate) service._handingOver--;
                     }
                 }
-                finally
+                try
                 {
-                    lock (service._queueGate) service._handingOver--;
+                    Operation ended;
+                    lock (service._gate) ended = operation.Clone();
+                    // The next queued request starts, unless the follow-up runs for this one.
+                    service.QueueAfter(ended, followed);
+                }
+                catch (Exception error) when (error is not OutOfMemoryException)
+                {
+                    Console.Error.WriteLine($"The queue could not go on: {error}");
                 }
             }
-            Operation ended;
-            lock (service._gate) ended = operation.Clone();
-            // The next queued request starts, unless the follow-up runs for this one.
-            service.QueueAfter(ended, followed);
-            return ended;
+            lock (service._gate) return operation.Clone();
         }
 
         /// <summary>

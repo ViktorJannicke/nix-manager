@@ -169,10 +169,12 @@ review when they were prepared for another computer or the kernel changes
 while they would be applied now. When a queued operation fails or is stopped,
 or its changes wait for a review, what was asked for after it is held: the
 Activity page shows why, and continues or removes it. Requests asked for later
-still run. The tray and the dashboard keep the queue in `queue.json` and
-continue it after a restart, holding it when an operation did not finish; a
-command line does not queue, and a queued request waits while another
-process's operation runs.
+still run. The tray and the dashboard keep the queue of their checkout and host
+in `queues/` in the state directory, one process at a time, and continue it
+after a restart, holding it when an operation did not finish; nothing that
+started is run again. A command line does not queue: it is refused while the
+queue waits to start something, as while an operation runs, and a queued
+request waits while another process's operation runs.
 
 The Software page installs packages and turns on features by editing the
 checkout's Nix files, through the same flow. Discover searches an index of every

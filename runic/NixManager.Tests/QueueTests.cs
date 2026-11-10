@@ -121,7 +121,7 @@ public sealed class QueueTests : IDisposable
             first.Submit(Build(Scopes.Home));
             first.Submit(Clean);
             // The process ends while the build runs: it is stopped, and what follows it waits.
-            await Assert.That(File.Exists(Path.Combine(Config.StateDir, "queue.json"))).IsTrue();
+            await Assert.That(File.Exists(OperationService.QueueFile(Config))).IsTrue();
         }
         await using (var second = Service())
         {
@@ -146,9 +146,9 @@ public sealed class QueueTests : IDisposable
     [Test]
     public async Task A_queue_written_by_an_ended_process_holds_after_an_entry_without_a_successful_operation()
     {
-        Directory.CreateDirectory(Config.StateDir);
+        Directory.CreateDirectory(Path.GetDirectoryName(OperationService.QueueFile(Config))!);
         var entry = new QueuedOperation { Id = Guid.NewGuid().ToString("D"), Request = Clean, QueuedAt = Timestamps.Now() };
-        OperationStore.AtomicJson(Path.Combine(Config.StateDir, "queue.json"),
+        OperationStore.AtomicJson(OperationService.QueueFile(Config),
             ManagerJson.Serialize(new SavedQueue { Entries = [entry], Running = Guid.NewGuid().ToString("D") }));
         _gate.SetResult();
         await using var service = Service();
@@ -175,6 +175,80 @@ public sealed class QueueTests : IDisposable
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
         await service.IdleAsync().WaitAsync(timeout.Token);
         await Assert.That(Ran(service)).IsEqualTo("gc:home:succeeded");
+    }
+
+    [Test]
+    public async Task An_entry_that_can_no_longer_start_is_held_with_why_and_holds_what_follows_it()
+    {
+        // Changes prepared earlier, which are discarded before applying them comes to its turn.
+        var review = Paths.ReviewRoot(Config, "abababab");
+        Directory.CreateDirectory(review);
+        File.WriteAllText(Path.Combine(review, "review.json"), ManagerJson.Serialize(new BuildReview
+        {
+            Id = "abababab", Host = "test", Scope = Scopes.Home, CreatedAt = Timestamps.Now(), Source = ReviewSources.Checkout,
+            Home = new ReviewOutput { Path = "/nix/store/home" },
+        }));
+        await using var service = Service();
+        service.Submit(Build(Scopes.Home));
+        var apply = service.Submit(Request.Create() with
+        {
+            Action = Actions.ReviewApply, ReviewId = "abababab", Scope = Scopes.Home, Host = "test", Activation = "switch",
+        }).Queued!;
+        var clean = service.Submit(Clean).Queued!;
+        ReviewStore.Remove(Config, "abababab");
+
+        _gate.SetResult();
+        await service.IdleAsync();
+
+        await Assert.That(Ran(service)).IsEqualTo("build:home:succeeded");
+        await Assert.That(service.Queue.Select(entry => (entry.Id, entry.Held?.English))).IsEquivalentTo([
+            (apply.Id, "The selected review is unavailable."),
+            (clean.Id, "Not started, because Apply changes before it could not start."),
+        ]);
+    }
+
+    [Test]
+    public async Task Stopping_the_queue_starts_nothing_more_and_keeps_what_waits_for_the_next_process()
+    {
+        _gate.SetResult();
+        await using (var first = Service())
+        {
+            first.RunQueue();
+            using (new OperationStore(Config).AcquireLock())
+            {
+                // It waits for another process's operation.
+                first.Submit(Clean);
+                await first.StopAsync();
+            }
+            await Assert.That(first.Pending).IsFalse();
+            // The retry after the other process ended does not start it either.
+            await Task.Delay(OperationService.QueueRetry + TimeSpan.FromSeconds(1));
+            await Assert.That(first.History()).IsEmpty();
+        }
+        await using var second = Service();
+        second.RunQueue();
+        await second.IdleAsync();
+        await Assert.That(Ran(second)).IsEqualTo("gc:home:succeeded");
+    }
+
+    [Test]
+    public async Task One_process_at_a_time_keeps_the_queue_of_a_checkout()
+    {
+        await using var first = Service();
+        first.RunQueue();
+        first.Submit(Build(Scopes.Home));
+        first.Submit(Clean);
+        await using var second = Service();
+
+        second.RunQueue();
+
+        await Assert.That(second.Queue).IsEmpty();
+        await Assert.That(first.Queue).Count().IsEqualTo(1);
+        // Every checkout and host has a queue of its own.
+        await Assert.That(OperationService.QueueFile(Config)).IsNotEqualTo(OperationService.QueueFile(Config with { Flake = "/elsewhere" }));
+        await Assert.That(OperationService.QueueFile(Config)).IsNotEqualTo(OperationService.QueueFile(Config with { HostKey = "laptop" }));
+        _gate.SetResult();
+        await first.IdleAsync();
     }
 
     [Test]

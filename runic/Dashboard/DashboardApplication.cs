@@ -143,7 +143,7 @@ public static class DashboardApplication
         if (service.Busy || service.Pending)
         {
             Console.Error.WriteLine("The dashboard closed; waiting for the running operation and the queue to finish. Press Ctrl+C to cancel the operation; the queue waits for the next start.");
-            using (shutdown.Register(service.Cancel))
+            using (shutdown.Register(() => _ = service.StopAsync()))
                 await service.IdleAsync();
         }
         return 0;

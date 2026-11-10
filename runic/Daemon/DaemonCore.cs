@@ -252,7 +252,8 @@ public sealed class DaemonCore
         {
             // A second operation is refused as a second process would be: with the operation lock's message. The
             // client starts the operation before its first await, so the check and the start are one step here.
-            run = _service.Busy
+            // Nothing starts ahead of what the queue waits to start, such as an application after preparing.
+            run = _service.Busy || _service.Pending
                 ? Task.FromException<Operation>(OperationStore.Busy())
                 // Only the command line's cancel request (Ctrl+C) stops the operation; one that goes away, such as with a
                 // dropped SSH session, leaves it running to its end.
@@ -306,6 +307,8 @@ public sealed class DaemonCore
         _windows = windows;
         using var subscription = _service.Subscribe(e =>
         {
+            // The queue holding or emptying can let the process end, or the tray restart.
+            if (e is QueueChanged) _inbox.Writer.TryWrite(new Changed());
             if (e is not OperationChanged { Operation: var operation }) return;
             _inbox.Writer.TryWrite(operation.Status == OperationStatuses.Running ? new Changed() : new Ended(operation));
         });
@@ -603,12 +606,9 @@ public sealed class DaemonCore
     /// <summary>Cancels a running operation, lets command lines receive its end, and closes the Window and the icon.</summary>
     private async Task EndAsync()
     {
-        if (_service.Busy)
-        {
-            _log.WriteLine("Nix Manager is ending; cancelling the running operation.");
-            _service.Cancel();
-            await _service.WaitAsync();
-        }
+        if (_service.Busy) _log.WriteLine("Nix Manager is ending; cancelling the running operation.");
+        // Nothing more starts from the queue; what waits stays for the next start.
+        await _service.StopAsync();
         var serving = _serving.Keys.ToArray();
         if (serving.Length > 0)
             await Task.WhenAny(Task.WhenAll(serving), Task.Delay(TimeSpan.FromSeconds(10), _clock));
