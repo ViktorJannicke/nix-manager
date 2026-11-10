@@ -12,7 +12,7 @@
         "type": "Direct",
         "requested": "[10.0.14, )",
         "resolved": "10.0.14",
-        "contentHash": "XhVxi/2jmpLFKliWqsuX/ibWxaSyJ0hb+IDhyQd/GrkQf8GJPJ9AVW5jlbtGtv+a1PXYa8re+zqdFg5mn1cuTg=="
+        "contentHash": "N9CyBb7DMMlnOUrfk6GOqls+HjAaMuzYjkl0Ha78mJJvFPLmOIAAz1pzqO350Xtuk+G2RHinEpdGve0DTZgL/w=="
       },
       "Microsoft.Extensions.DependencyInjection": {
         "type": "Direct",
@@ -38,7 +38,7 @@
         "type": "Direct",
         "requested": "[10.0.14, )",
         "resolved": "10.0.14",
-        "contentHash": "gGRO76tg88RCExNUJO6ZkOnZY0IxB1qUZT3zxu9X8JwWXubvVhyV9IS5Qh0C4qYSSgZDClRLtJroe4fgEJXKdA=="
+        "contentHash": "ayCRH3tPo0huxXL9bB0VU4BZ9To5VDoSzAHv9zcbSvS0HDOVwNo95aI/xfJ/kuVyOaJnCM98jUmMcMQgik0R3Q=="
       },
       "Runic.Application.Views.Desktop": {
         "type": "Direct",
