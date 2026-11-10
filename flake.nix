@@ -139,7 +139,7 @@
             ];
             # The program reads Nix files with tree-sitter's Nix grammar, as the package sets them.
             NIX_MANAGER_NIX_PARSER = "${pkgs.tree-sitter.builtGrammars.tree-sitter-nix}/parser";
-            NIX_MANAGER_TREE_SITTER = "${pkgs.tree-sitter}/lib/libtree-sitter.so";
+            NIX_MANAGER_TREE_SITTER = "${pkgs.lib.getLib pkgs.tree-sitter}/lib/libtree-sitter.so";
           };
         }
       );

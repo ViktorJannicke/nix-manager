@@ -37,10 +37,11 @@ let
       exec = "nix-manager tray";
     };
   };
-  # tree-sitter's Nix grammar, built as a native library, and the tree-sitter runtime (NixSyntax).
+  # tree-sitter's Nix grammar, built as a native library, and the tree-sitter runtime (NixSyntax), which is in
+  # tree-sitter's lib output.
   parserEnvironment = {
     NIX_MANAGER_NIX_PARSER = "${tree-sitter.builtGrammars.tree-sitter-nix}/parser";
-    NIX_MANAGER_TREE_SITTER = "${tree-sitter}/lib/libtree-sitter.so";
+    NIX_MANAGER_TREE_SITTER = "${lib.getLib tree-sitter}/lib/libtree-sitter.so";
   };
 in
 buildRunicApplication {
@@ -83,8 +84,8 @@ buildRunicApplication {
     # when they are out of date). Bun installs only the system's optional packages, so they differ; `nix run
     # .#default.fixedOutputHashes` prints both, and the tools' hashes below.
     hash = {
-      x86_64-linux = "sha256-j2vDxSRdGfX6l/NzfR9310xCvcxIaLllHjE+hP9vJLs=";
-      aarch64-linux = "sha256-kUynA6wfEFd+10By4Opwgf2SIx6TFnI4gp3YQnEfRAg=";
+      x86_64-linux = "sha256-sEwvQo06raWhDffvFmrN+38a09IOct7ttsOV/0FzCrk=";
+      aarch64-linux = "sha256-160zqnVgsB1glWU9QNG3HwQ7JWjPDy9+CUYIQ9Vkapo=";
     };
   };
   host = "desktop";
