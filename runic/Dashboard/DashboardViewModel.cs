@@ -144,7 +144,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         Detail = "simple";
         ReadPreferences();
         _running = Running();
-        ReopenPage = restart?.TakePage();
+        if (restart?.TakePage() is { } page) Reopen.Raise(page);
         ReadUpdated();
         Operations.PropertyChanged += OnOperationsChanged;
         System.PropertyChanged += OnSystemChanged;
@@ -229,9 +229,11 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial bool RestartAvailable { get; private set; }
 
-    /// <summary>The page this Window opens on after <see cref="RestartCommand"/> restarted the tray; null otherwise.</summary>
-    [ObservableProperty]
-    public partial string? ReopenPage { get; private set; }
+    /// <summary>
+    /// Asks the page to show a page of the dashboard: the one the Window showed before <see cref="RestartCommand"/>
+    /// restarted the tray. It waits for the page to handle it, once.
+    /// </summary>
+    public ViewRequest<string> Reopen { get; } = new(ViewRequestDelivery.NextMounted);
 
     /// <summary>The last dry run, with the request it answers.</summary>
     [ObservableProperty]

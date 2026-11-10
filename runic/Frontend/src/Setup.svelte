@@ -16,9 +16,11 @@
   import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
   import { connectSetup } from "./generated/setup.js";
   import { Button } from "$lib/components/ui/button";
+  import { followAppearance } from "$lib/appearance.svelte";
   import { inline, m, message, text } from "$lib/i18n";
 
   const setup = useView(() => ({ connect: connectSetup }));
+  followAppearance();
 
   // There are no preferences before setup: the desktop's colour scheme (and language, which the Window speaks).
   $effect(() => {

@@ -242,7 +242,10 @@ package pins, each selectable before preparing), Restore points (generations,
 rollback, cleanup and history), Activity (step outcomes and a filterable live
 log with copy) and Settings. The Svelte 5 interface supports light, dark and
 system themes; in the Window, the frame follows the chosen theme too
-(`IRunicWindowPresentation.SetColorSchemeAsync`).
+(`IRunicWindowPresentation.SetColorSchemeAsync`). When the desktop asks for more
+contrast, text and borders are drawn stronger (7:1 and 3:1), and when it asks
+for less motion, nothing is animated; both come from Runic's appearance store,
+which follows the desktop also where the web view does not.
 
 Settings chooses how much the dashboard shows. Simple, the default for a new
 state directory, gives pending edits one button: "Apply changes" when they can be

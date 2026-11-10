@@ -479,10 +479,19 @@ public sealed class DashboardTests : IAsyncDisposable
         await Assert.That(Restart.Resume()).IsEqualTo("generations");
         await using var first = _services.CreateAsyncScope();
         using (var window = RunicWindowTestHost.Create<DashboardViewModel>(first.ServiceProvider))
-            await Assert.That((await window.Root.SnapshotAsync()).Read(vm => vm.ReopenPage)).IsEqualTo("generations");
+        {
+            // Kept until the page handles it.
+            using var page = await window.Root.MountPresentationAsync();
+            var reopen = await page.NextViewRequestAsync(TimeSpan.FromSeconds(20));
+            await Assert.That(reopen.Input<string>()).IsEqualTo("generations");
+        }
         await using var second = _services.CreateAsyncScope();
         using (var window = RunicWindowTestHost.Create<DashboardViewModel>(second.ServiceProvider))
-            await Assert.That((await window.Root.SnapshotAsync()).Read(vm => vm.ReopenPage)).IsNull();
+        {
+            using var page = await window.Root.MountPresentationAsync();
+            await window.Root.SnapshotAsync();
+            await Assert.That(page.TakeViewRequests(vm => vm.Reopen)).IsEmpty();
+        }
     }
 
     private TrayRestart Restart => _services.GetRequiredService<TrayRestart>();
