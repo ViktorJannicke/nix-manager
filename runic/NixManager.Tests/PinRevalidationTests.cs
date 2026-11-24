@@ -40,7 +40,7 @@ internal sealed class PinNix(string flake, string home, Func<Command, bool>? fai
         if (fails?.Invoke(command) == true) throw new ManagerException(DisplayText.Plain($"{command.Label.English} failed (exit 1)."));
         var stdout = "";
         if (argv.IndexOf("--output-lock-file") is var lockIndex and >= 0) File.WriteAllText(argv[lockIndex + 1], Proposed);
-        else if (argv is ["nix", "flake", "metadata", ..]) stdout = $$"""{"path":"{{flake}}"}""";
+        else if (argv is ["nix", "flake", "prefetch", ..]) stdout = $$"""{"storePath":"{{flake}}"}""";
         else if (argv[0] == "cp") Copy(argv[^2], argv[^1]);
         else if (argv[^1].EndsWith(".drvPath", StringComparison.Ordinal)) stdout = Evaluated;
         else if (argv[1] == "eval" && argv[^1].EndsWith(".version", StringComparison.Ordinal)) stdout = NixpkgsVersion;

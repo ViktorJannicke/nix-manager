@@ -103,12 +103,16 @@ public static class Evaluation
     }
 
     /// <summary>Store copy of the flake's tracked files, uncommitted edits included (<c>flakeSource</c>).</summary>
+    /// <remarks>
+    /// <c>nix flake prefetch</c> copies the source into the store. <c>nix flake metadata</c> only names the
+    /// store path, which newer Nix (lazy trees) leaves unrealised, so the path may not exist.
+    /// </remarks>
     public static async Task<string> FlakeSourceAsync(string flake, Func<Command, Task<CommandResult>> run)
     {
-        var result = await run(new Command { Label = DisplayText.Of("stored_read_flake_source"), Argv = ["nix", "flake", "metadata", "--json", flake], Quiet = true }).ConfigureAwait(false);
+        var result = await run(new Command { Label = DisplayText.Of("stored_read_flake_source"), Argv = ["nix", "flake", "prefetch", "--json", flake], Quiet = true }).ConfigureAwait(false);
         try
         {
-            if (JsonNode.Parse(result.Stdout)?["path"] is JsonValue path && path.TryGetValue<string>(out var text)) return text;
+            if (JsonNode.Parse(result.Stdout)?["storePath"] is JsonValue path && path.TryGetValue<string>(out var text)) return text;
         }
         catch (Exception e) when (e is JsonException or InvalidOperationException) { }
         throw new ManagerException(DisplayText.Of("stored_flake_metadata_path_missing"));

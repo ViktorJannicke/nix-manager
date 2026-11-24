@@ -35,7 +35,7 @@ public sealed class SoftwareEditTests
     /// <summary>Answers as the recorder's fake <c>nix</c>: the checkout is the flake source, evaluation prints the case's document.</summary>
     internal static FakeRunner Nix(RecordedFixtures fixtures, string evaluation) => new((command, _, _) => Task.FromResult(command.Argv switch
     {
-        ["nix", "flake", "metadata", ..] => new CommandResult(0, $$"""{"path":"{{fixtures.Root}}"}""", ""),
+        ["nix", "flake", "prefetch", ..] => new CommandResult(0, $$"""{"storePath":"{{fixtures.Root}}"}""", ""),
         ["nix", "eval", ..] => new CommandResult(0, evaluation.Replace("<flake>", fixtures.Root, StringComparison.Ordinal), ""),
         _ => command.AllowFailure == true
             ? new CommandResult(1, "", $"Cannot start {command.Argv[0]}")
