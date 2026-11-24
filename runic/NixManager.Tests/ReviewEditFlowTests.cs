@@ -82,8 +82,8 @@ public sealed class ReviewEditFlowTests : IDisposable
             var argv = command.Argv;
             if (argv[0] == "cp") return await Processes.RunAsync(command, output, token);
             if (fails?.Invoke(command) == true) throw new ManagerException(DisplayText.Plain($"{command.Label} failed (exit 1)."));
-            if (argv.Count > 4 && argv[1] == "flake" && argv[2] == "metadata")
-                return new CommandResult(0, JsJson.Stringify(new JsonObject { ["path"] = argv[4] == _flake ? _snapshot : argv[4][5..] }), "");
+            if (argv.Count > 4 && argv[1] == "flake" && argv[2] == "prefetch")
+                return new CommandResult(0, JsJson.Stringify(new JsonObject { ["storePath"] = argv[4] == _flake ? _snapshot : argv[4][5..] }), "");
             if (argv.Count > 3 && argv[1] == "eval")
             {
                 var source = argv[3][5..].Split('#')[0];
