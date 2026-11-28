@@ -135,12 +135,22 @@ public sealed class UpdateCheckerTests
             File.WriteAllText(Path.Combine(flake, "pkgs/t3code/source.json"), """{"version":"0.0.46-nightly.20261014.3118","channel":"nightly"}""");
             Directory.CreateDirectory(Path.Combine(flake, "pkgs/pince"));
             File.WriteAllText(Path.Combine(flake, "pkgs/pince/source.json"), """{"version":"0.10.2"}""");
+            foreach (var (name, version) in new[] { ("antigravity-cli", "1.5.13"), ("antigravity-hub", "2.36.0") })
+            {
+                Directory.CreateDirectory(Path.Combine(flake, "pkgs", name));
+                File.WriteAllText(Path.Combine(flake, "pkgs", name, "source.json"), $$$"""{"version":"{{{version}}}","buildId":"1","hashes":{}}""");
+            }
             var network = new FakeNetwork(new()
             {
                 ["https://api.github.com/repos/pingdotgg/t3code/releases?per_page=100"] =
                     """[{"tag_name":"v0.0.46-nightly.20261015.3145"},{"tag_name":"v0.0.47-nightly.20261016.1","draft":true},{"tag_name":"v0.0.45"}]""",
                 ["https://api.github.com/repos/korcankaraokcu/PINCE/releases/latest"] = """{"tag_name":"v0.10.2"}""",
                 ["https://api.github.com/repos/pingdotgg/t3code/releases/latest"] = """{"tag_name":"v0.0.45"}""",
+                ["https://storage.googleapis.com/antigravity-public/antigravity-cli/latest"] = "1.5.19",
+                ["https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.19/manifest.json"] =
+                    """{"platforms":{"linux-x64":{"url":"https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.19-4821414830800896/linux-x64/cli_linux_x64.tar.gz"}}}""",
+                ["https://antigravity-hub-auto-updater-974169037036.us-central1.run.app/manifest/latest-x64-linux.yml"] =
+                    "version: 2.36.0\nfiles:\n  - url: https://storage.googleapis.com/antigravity-public/antigravity-hub/2.36.0-5596661662220288/linux-x64/Antigravity.AppImage\n",
             });
             var commands = new List<Command>();
             Task<CommandResult> Run(Command command)
@@ -157,26 +167,31 @@ public sealed class UpdateCheckerTests
             await Assert.That(report.Items.Select(item => (item.Name, item.Current, item.Latest, item.Kind))).IsEquivalentTo([
                 ("nixpkgs", "7fd4004d0511", "55bfb4d7437b", "input"),
                 ("t3code", "0.0.46-nightly.20261014.3118", "0.0.46-nightly.20261015.3145", "package"),
+                ("antigravity-cli", "1.5.13", "1.5.19", "package"),
             ]);
             var input = report.Items[0];
             await Assert.That(input.Source).IsEqualTo("nixos/nixpkgs");
             await Assert.That(input.Url).IsEqualTo("https://github.com/nixos/nixpkgs/commit/55bfb4d7437bbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
             await Assert.That(input.LatestDate).IsEqualTo("2026-10-12T10:13:20.000Z");
             await Assert.That(report.Items[1].Url).IsEqualTo("https://github.com/pingdotgg/t3code/releases/tag/v0.0.46-nightly.20261015.3145");
+            await Assert.That((report.Items[2].Source, report.Items[2].Url)).IsEqualTo(("antigravity.google", "https://antigravity.google/changelog"));
             // A pin that is missing is an error of its own; the other checks still report.
             await Assert.That(report.Errors.Single().English).StartsWith("opencode: Read opencode pin:");
             await Assert.That(report.Pins.Select(pin => (pin.Name, pin.Version, pin.Channel, string.Join(',', pin.Channels)))).IsEquivalentTo([
                 ("t3code", "0.0.46-nightly.20261014.3118", "nightly", "stable,nightly"),
                 ("pince", "0.10.2", "stable", "stable"),
+                ("antigravity-cli", "1.5.13", "stable", "stable"),
+                ("antigravity-hub", "2.36.0", "stable", "stable"),
             ], TUnit.Assertions.Enums.CollectionOrdering.Matching);
 
             // A pin moved to stable keeps its newer nightly: the recheck drops the nightly update and keeps the rest.
             File.WriteAllText(Path.Combine(flake, "pkgs/t3code/source.json"), """{"version":"0.0.46-nightly.20261014.3118","channel":"stable"}""");
             var rechecked = await UpdateChecker.RecheckPackageAsync(network, TestConfig.Create(flake), "t3code", report, CancellationToken.None);
-            await Assert.That(rechecked.Items.Select(item => item.Name)).IsEquivalentTo(["nixpkgs"]);
-            await Assert.That(rechecked.Pins.Select(pin => (pin.Name, pin.Channel))).IsEquivalentTo([("t3code", "stable"), ("pince", "stable")], TUnit.Assertions.Enums.CollectionOrdering.Matching);
+            await Assert.That(rechecked.Items.Select(item => item.Name)).IsEquivalentTo(["nixpkgs", "antigravity-cli"], TUnit.Assertions.Enums.CollectionOrdering.Matching);
+            await Assert.That(rechecked.Pins.Select(pin => (pin.Name, pin.Channel))).IsEquivalentTo(
+                [("t3code", "stable"), ("pince", "stable"), ("antigravity-cli", "stable"), ("antigravity-hub", "stable")], TUnit.Assertions.Enums.CollectionOrdering.Matching);
             await Assert.That(rechecked.Errors.Count).IsEqualTo(1);
-            await Assert.That(report.Items.Count).IsEqualTo(2);
+            await Assert.That(report.Items.Count).IsEqualTo(3);
         }
         finally
         {

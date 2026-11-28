@@ -156,7 +156,9 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
         {
             var pin = ReadPin(Path.Combine(config.Flake, "pkgs", name, "source.json"), name);
             report.Pins.Add(new PinnedPackage { Name = name, Version = pin.Version, Channel = pin.Follows, Channels = source.Channels });
-            var version = await LatestAsync(network, name, source.Owner, source.Repo, pin.Channel, cancellationToken, source.Npm).ConfigureAwait(false);
+            var version = source.Feed is { } feed
+                ? (await FeedLatestAsync(network, name, feed, cancellationToken).ConfigureAwait(false)).Version
+                : await LatestAsync(network, name, source.Owner, source.Repo, pin.Channel, cancellationToken, source.Npm).ConfigureAwait(false);
             if (CompareVersions(version, pin.Version) > 0 && !source.BlockedVersions.Contains(version))
                 report.Items.Add(new UpdateItem
                 {
@@ -164,10 +166,10 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
                     Current = pin.Version,
                     Latest = version,
                     Kind = "package",
-                    Source = $"{source.Owner}/{source.Repo}",
-                    Url = source.Npm is null
+                    Source = source.Source,
+                    Url = source.Feed?.Changelog ?? (source.Npm is null
                         ? $"https://github.com/{source.Owner}/{source.Repo}/releases/tag/v{version}"
-                        : $"https://github.com/{source.Owner}/{source.Repo}/tree/v{version}",
+                        : $"https://github.com/{source.Owner}/{source.Repo}/tree/v{version}"),
                 });
         }
         catch (ManagerException e)
@@ -320,6 +322,60 @@ public sealed partial class UpdateChecker(INetwork network, TimeProvider? clock 
             throw new ManagerException(DisplayText.Of("stored_latest_release_not_an_object", ("name", name)));
         }
     }
+
+    /// <summary>
+    /// The newest release <paramref name="feed"/> names, which must be X.Y.Z, and the build ID that follows the version
+    /// in its download URL (<c>…/VERSION-BUILD/…</c>); a release's downloads share one build ID across systems.
+    /// </summary>
+    internal static async Task<FeedRelease> FeedLatestAsync(INetwork network, string name, ReleaseFeed feed, CancellationToken cancellationToken)
+    {
+        var raw = await network.TextAsync(feed.Url, cancellationToken).ConfigureAwait(false);
+        string version;
+        string? url;
+        if (feed.Format == ReleaseFeedFormat.VersionPointer)
+        {
+            version = raw.Trim();
+            CheckFeedVersion(name, version);
+            var manifest = await network.TextAsync($"{feed.Url[..feed.Url.LastIndexOf('/')]}/{version}/manifest.json", cancellationToken).ConfigureAwait(false);
+            try
+            {
+                using var document = JsonDocument.Parse(manifest);
+                url = document.RootElement.ValueKind == JsonValueKind.Object
+                      && document.RootElement.TryGetProperty("platforms", out var platforms) && platforms.ValueKind == JsonValueKind.Object
+                      && platforms.TryGetProperty("linux-x64", out var platform) && platform.ValueKind == JsonValueKind.Object
+                      && platform.TryGetProperty("url", out var value) && value.ValueKind == JsonValueKind.String
+                    ? value.GetString()
+                    : null;
+            }
+            catch (JsonException e)
+            {
+                throw new ManagerException(DisplayText.Of("stored_release_manifest_not_valid_json", ("name", name), ("reason", e.Message)));
+            }
+        }
+        else
+        {
+            version = ManifestVersion().Match(raw) is { Success: true } match ? match.Groups[1].Value : "";
+            CheckFeedVersion(name, version);
+            url = ManifestUrl().Match(raw) is { Success: true } file ? file.Groups[1].Value : null;
+        }
+        if (url is null) throw new ManagerException(DisplayText.Of("stored_release_manifest_names_no_download", ("name", name), ("version", version)));
+        var build = Regex.Match(url, $@"/{Regex.Escape(version)}-(\d+)/", RegexOptions.CultureInvariant);
+        return build.Success
+            ? new FeedRelease(version, build.Groups[1].Value)
+            : throw new ManagerException(DisplayText.Of("stored_release_download_names_no_build", ("name", name), ("version", version), ("url", url)));
+    }
+
+    private static void CheckFeedVersion(string name, string version)
+    {
+        if (!StableVersion().IsMatch(version))
+            throw new ManagerException(DisplayText.Of("stored_newest_release_not_a_version", ("name", name), ("value", version)));
+    }
+
+    [GeneratedRegex(@"^version:\s*['""]?([^'""\s]*)['""]?\s*$", RegexOptions.Multiline)]
+    private static partial Regex ManifestVersion();
+
+    [GeneratedRegex(@"^\s*(?:-\s+)?url:\s*['""]?([^'""\s]+)['""]?\s*$", RegexOptions.Multiline)]
+    private static partial Regex ManifestUrl();
 
     private static string StripV(string tag) => tag.StartsWith('v') ? tag[1..] : tag;
 

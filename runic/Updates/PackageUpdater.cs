@@ -20,12 +20,41 @@ namespace NixManager.Updates;
 /// by which a hash mismatch in a configuration build is traced to the pin.
 /// </param>
 /// <param name="Nightlies">The project tags nightly releases, so its pin can follow the <c>nightly</c> channel.</param>
+/// <param name="Feed">
+/// Where a prebuilt release published outside GitHub is named. Its pin holds the version, the build ID its download
+/// URLs embed, and the download's hash per system; the recipe in the checkout names the URLs.
+/// </param>
 public sealed record PackageSource(string Owner, string Repo, string Prefix, IReadOnlyList<string> Recipes, IReadOnlyList<string> BlockedVersions, string? Npm = null,
-    IReadOnlyList<string>? FixedOutputs = null, bool Nightlies = false)
+    IReadOnlyList<string>? FixedOutputs = null, bool Nightlies = false, ReleaseFeed? Feed = null)
 {
     /// <summary>The channels the pin can follow, stable first.</summary>
     public IReadOnlyList<string> Channels => Nightlies ? PackageChannels.All : [PackageChannels.Stable];
+
+    /// <summary>The publisher, as the update check names it.</summary>
+    public string Source => Feed?.Source ?? $"{Owner}/{Repo}";
 }
+
+/// <summary>How a <see cref="ReleaseFeed"/> names the newest release.</summary>
+public enum ReleaseFeedFormat
+{
+    /// <summary>
+    /// A text file naming the version, beside <c>VERSION/manifest.json</c>, whose <c>platforms.linux-x64.url</c> is a
+    /// download of that release.
+    /// </summary>
+    VersionPointer,
+
+    /// <summary>An electron-builder update manifest (<c>latest-linux.yml</c>): its <c>version</c> and the <c>url</c> of its files.</summary>
+    ElectronBuilder,
+}
+
+/// <summary>A release feed outside GitHub, such as Google's for Antigravity.</summary>
+/// <param name="Url">Where the newest release is named.</param>
+/// <param name="Source">The publisher, as the update check names it.</param>
+/// <param name="Changelog">The page the update check links a newer release to.</param>
+public sealed record ReleaseFeed(string Url, ReleaseFeedFormat Format, string Source, string Changelog);
+
+/// <summary>The newest release of a feed, with the build ID its download URLs embed after the version.</summary>
+public sealed record FeedRelease(string Version, string BuildId);
 
 /// <summary>
 /// Updates a package's pin in the checkout: the newest release on the
@@ -45,6 +74,13 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
         // OpenCode 2.x is tagged and published to npm only; GitHub's latest release stays on 1.x.
         ["opencode"] = new("anomalyco", "opencode", "op", ["package.nix"], [], Npm: "@opencode/cli", FixedOutputs: ["opencode-node_modules-{version}.drv"]),
         ["pince"] = new("korcankaraokcu", "PINCE", "", [], []),
+        // Google publishes Antigravity's prebuilt releases on its own feeds; the nixpkgs recipe is inherited as it is.
+        ["antigravity-cli"] = new("", "", "", [], [], Feed: new(
+            "https://storage.googleapis.com/antigravity-public/antigravity-cli/latest", ReleaseFeedFormat.VersionPointer,
+            "antigravity.google", "https://antigravity.google/changelog")),
+        ["antigravity-hub"] = new("", "", "", [], [], Feed: new(
+            "https://antigravity-hub-auto-updater-974169037036.us-central1.run.app/manifest/latest-x64-linux.yml", ReleaseFeedFormat.ElectronBuilder,
+            "antigravity.google", "https://antigravity.google/changelog")),
     };
 
     private readonly IReadOnlyDictionary<string, PackageSource> _packages = packages ?? Packages;
@@ -91,6 +127,10 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
           pin = builtins.fromJSON (builtins.readFile (builtins.getEnv "NIX_MANAGER_PACKAGE_PIN"));
         }
         """;
+
+    /// <summary>The version of the package in the checkout's locked nixpkgs (<c>NIX_MANAGER_PACKAGE_NAME</c>).</summary>
+    private const string LockedVersionExpression =
+        """let flake = builtins.getFlake (builtins.getEnv "NIX_MANAGER_HOME_FLAKE"); pkgs = import flake.inputs.nixpkgs { system = builtins.getEnv "NIX_MANAGER_SYSTEM"; }; in pkgs.${builtins.getEnv "NIX_MANAGER_PACKAGE_NAME"}.version""";
 
     [GeneratedRegex(@"\x1b\[[0-9;]*m")]
     internal static partial Regex Color();
@@ -220,7 +260,8 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
         if (!p.Channels.Contains(channel))
             throw new ManagerException(DisplayText.Of("stored_channel_not_offered", ("name", name), ("channel", channel)));
         var switching = channel != pin.Follows;
-        var version = await UpdateChecker.LatestAsync(network, name, p.Owner, p.Repo, channel, cancellationToken, p.Npm).ConfigureAwait(false);
+        var release = p.Feed is { } feed ? await UpdateChecker.FeedLatestAsync(network, name, feed, cancellationToken).ConfigureAwait(false) : null;
+        var version = release?.Version ?? await UpdateChecker.LatestAsync(network, name, p.Owner, p.Repo, channel, cancellationToken, p.Npm).ConfigureAwait(false);
         var order = UpdateChecker.CompareVersions(pin.Version, version);
         log(switching
             ? $"{name}: local pin {pin.Version} on {pin.Follows} | {channel} release {version}"
@@ -258,12 +299,12 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
             }).ConfigureAwait(false)).Stdout.Trim();
 
             var rev = "";
-            if (name != "pince")
+            // The version of nixpkgs' own package, for the packages whose recipe overrides it.
+            string? locked = null;
+            if (p.Recipes.Count > 0)
             {
                 var path = await Evaluate("""(builtins.getFlake (builtins.getEnv "NIX_MANAGER_HOME_FLAKE")).inputs.nixpkgs.outPath""").ConfigureAwait(false);
-                var locked = await Evaluate(
-                    """let flake = builtins.getFlake (builtins.getEnv "NIX_MANAGER_HOME_FLAKE"); pkgs = import flake.inputs.nixpkgs { system = builtins.getEnv "NIX_MANAGER_SYSTEM"; }; in pkgs.${builtins.getEnv "NIX_MANAGER_PACKAGE_NAME"}.version""")
-                    .ConfigureAwait(false);
+                locked = await Evaluate(LockedVersionExpression).ConfigureAwait(false);
                 rev = await Evaluate("""(builtins.getFlake (builtins.getEnv "NIX_MANAGER_HOME_FLAKE")).inputs.nixpkgs.rev""").ConfigureAwait(false);
                 var upstream = await network.TextAsync("https://api.github.com/repos/NixOS/nixpkgs/commits/nixos-unstable", cancellationToken).ConfigureAwait(false);
                 var upstreamRev = UpstreamRevision(upstream);
@@ -288,8 +329,13 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
                         log($"Locked nixpkgs {locked} | nixos-unstable {upstreamVersion.Groups[1].Value}. Candidate uses the locked recipe.");
                     }
                 }
+            }
+            // A feed's download does not depend on nixpkgs, so its pin holds no nixpkgs revision to revalidate.
+            else if (p.Feed is not null) locked = await Evaluate(LockedVersionExpression).ConfigureAwait(false);
+            if (locked is not null)
+            {
                 var lockedOrder = UpdateChecker.CompareVersions(locked, version);
-                if (lockedOrder > 0 || (!r.Force && (locked == version || (order == 0 && pin.NixpkgsRev == rev))))
+                if (lockedOrder > 0 || (!r.Force && (locked == version || (order == 0 && (p.Feed is not null || pin.NixpkgsRev == rev)))))
                 {
                     // The configuration uses nixpkgs' own package, which is at least as new.
                     if (!KeepsRelease($"nixpkgs' {locked} is in use.")) log($"{name} is current. Use --force to recalculate hashes.");
@@ -307,26 +353,48 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
                 return;
             }
 
-            var url = name == "pince"
-                ? $"https://github.com/{p.Owner}/{p.Repo}/releases/download/v{version}/PINCE-x86_64.AppImage"
-                : $"https://github.com/{p.Owner}/{p.Repo}/archive/refs/tags/v{version}.tar.gz";
-            var rawHash = (await run(new Command
+            async Task<string> Fetch(string url, bool unpack)
             {
-                Label = DisplayText.Of("stored_fetch_release"),
-                Argv = ["nix-prefetch-url", .. name == "pince" ? Array.Empty<string>() : ["--unpack"], "--type", "sha256", url],
-            }).ConfigureAwait(false)).Stdout.Trim();
-            var hash = (await run(new Command
-            {
-                Label = DisplayText.Of("stored_convert_source_hash"),
-                Argv = ["nix", "hash", "convert", "--hash-algo", "sha256", "--to", "sri", rawHash],
-                Quiet = true,
-            }).ConfigureAwait(false)).Stdout.Trim();
+                var rawHash = (await run(new Command
+                {
+                    Label = DisplayText.Of("stored_fetch_release"),
+                    Argv = ["nix-prefetch-url", .. unpack ? ["--unpack"] : Array.Empty<string>(), "--type", "sha256", url],
+                }).ConfigureAwait(false)).Stdout.Trim();
+                return (await run(new Command
+                {
+                    Label = DisplayText.Of("stored_convert_source_hash"),
+                    Argv = ["nix", "hash", "convert", "--hash-algo", "sha256", "--to", "sri", rawHash],
+                    Quiet = true,
+                }).ConfigureAwait(false)).Stdout.Trim();
+            }
+
             var candidate = new JsonObject { ["version"] = version };
-            if (name == "pince") candidate["hash"] = hash;
+            if (release is not null)
+            {
+                // The recipe names each system's download; its URL is read from the candidate before the hash is known.
+                var hashes = new JsonObject();
+                candidate["buildId"] = release.BuildId;
+                candidate["hashes"] = hashes;
+                foreach (var system in PinnedSystems(config, r))
+                {
+                    SaveJson(env["NIX_MANAGER_PACKAGE_PIN"], candidate);
+                    var url = (await run(new Command
+                    {
+                        Label = DisplayText.Of("stored_find_the_release_download", ("system", system)),
+                        Argv = ["nix", "eval", "--impure", "--raw", "--expr", $"({CandidateExpression}).src.url"],
+                        Env = new Dictionary<string, string>(env) { ["NIX_MANAGER_SYSTEM"] = system },
+                        Quiet = true,
+                    }).ConfigureAwait(false)).Stdout.Trim();
+                    hashes[system] = await Fetch(url, unpack: false).ConfigureAwait(false);
+                }
+            }
+            else if (name == "pince")
+                candidate["hash"] = await Fetch($"https://github.com/{p.Owner}/{p.Repo}/releases/download/v{version}/PINCE-x86_64.AppImage", unpack: false)
+                    .ConfigureAwait(false);
             else
             {
                 if (pin.Channel is not null || switching) candidate["channel"] = channel;
-                candidate["srcHash"] = hash;
+                candidate["srcHash"] = await Fetch($"https://github.com/{p.Owner}/{p.Repo}/archive/refs/tags/v{version}.tar.gz", unpack: true).ConfigureAwait(false);
                 candidate["nixpkgsRev"] = rev;
                 if (name == "t3code")
                 {
@@ -374,6 +442,10 @@ public sealed partial class PackageUpdater(INetwork network, IReadOnlyDictionary
     /// <summary>The system of the request's host, which candidates are built for.</summary>
     public static string HostSystem(Config config, Request r) =>
         HostResolution.Resolve(config.Hosts, r.Host is { Length: > 0 } ? r.Host : config.HostKey).Value.System;
+
+    /// <summary>The systems a feed's pin holds downloads for: the request's host first, then every other host's.</summary>
+    public static IReadOnlyList<string> PinnedSystems(Config config, Request r) =>
+        [.. new[] { HostSystem(config, r) }.Concat(config.Hosts.Values.Select(host => host.System)).Distinct(StringComparer.Ordinal)];
 
     /// <summary>What the candidate expressions read: the flake they evaluate, its recipe and the pin under test in <paramref name="work"/>.</summary>
     private static Dictionary<string, string> CandidateEnvironment(string flake, string name, string system, string work) => new()

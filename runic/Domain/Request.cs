@@ -26,12 +26,14 @@ public static class Actions
     public const string T3codeUpdate = "t3code-update";
     public const string OpencodeUpdate = "opencode-update";
     public const string PinceUpdate = "pince-update";
+    public const string AntigravityCliUpdate = "antigravity-cli-update";
+    public const string AntigravityHubUpdate = "antigravity-hub-update";
     public const string Check = "check";
     public const string ReviewBuild = "review-build";
     public const string ReviewApply = "review-apply";
 
     public static readonly IReadOnlyList<string> All =
-        [Build, Switch, Boot, Rollback, Gc, T3codeUpdate, OpencodeUpdate, PinceUpdate, Check, ReviewBuild, ReviewApply];
+        [Build, Switch, Boot, Rollback, Gc, T3codeUpdate, OpencodeUpdate, PinceUpdate, AntigravityCliUpdate, AntigravityHubUpdate, Check, ReviewBuild, ReviewApply];
 
     /// <summary>The catalogue messages that name the actions.</summary>
     private static readonly IReadOnlyDictionary<string, string> LabelKeys = new Dictionary<string, string>
@@ -45,6 +47,8 @@ public static class Actions
         [T3codeUpdate] = "stored_update_t3_code",
         [OpencodeUpdate] = "stored_update_opencode",
         [PinceUpdate] = "stored_update_pince",
+        [AntigravityCliUpdate] = "stored_update_antigravity_cli",
+        [AntigravityHubUpdate] = "stored_update_antigravity",
         [ReviewBuild] = "stored_prepare_changes",
         [ReviewApply] = "stored_apply_changes",
     };
