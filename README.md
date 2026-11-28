@@ -79,8 +79,8 @@ configuration, so changing it leaves the application store path unchanged.
 Home Manager has to be a standalone `homeConfigurations` entry; Home Manager
 imported as a NixOS module is not supported yet. Without `--flake`, the manager
 uses the Git checkout it runs in when that is a system configuration, and
-otherwise `~/my-flakes`. The optional T3 Code, OpenCode and
-PINCE package updaters expect the corresponding `pkgs/` recipes and source pins
+otherwise `~/my-flakes`. The optional T3 Code, OpenCode, PINCE, Antigravity CLI
+and Antigravity package updaters expect the corresponding `pkgs/` recipes and source pins
 used by `my-flakes`; extraction does not make those commands generic.
 
 The package builds for x86_64-linux and aarch64-linux. The aarch64 build has
@@ -573,6 +573,17 @@ are never pinned. A pin with `"channel": "nightly"`
 follows the newest `vX.Y.Z-nightly.YYYYMMDD.N` or stable release instead; a
 nightly sorts before the stable release with the same `X.Y.Z`. A package may already be newer in locked
 nixpkgs; its updater detects that and skips an unnecessary pin update.
+
+Antigravity's CLI (`antigravity-cli-update`) and desktop app
+(`antigravity-hub-update`) are prebuilt releases on Google's own feeds: the CLI's
+`latest` pointer and its `VERSION/manifest.json`, and the app's electron-builder
+manifest `latest-x64-linux.yml`. Their download URLs embed a build ID after the
+version, so a pin holds `version`, `buildId` and the download's hash per system
+(`hashes`) for every configured host's system. The recipe in the checkout names
+each system's URL; the updater evaluates it from the candidate before fetching,
+and builds the candidate for the request's host. These pins inherit nixpkgs'
+recipe unchanged and hold no dependency hashes, so they record no `nixpkgsRev`
+and input updates do not revalidate them.
 
 The channel is switched with `nix-manager t3code-update --channel stable` (or
 `nightly`), or with the channel selector of the pinned package on the Updates

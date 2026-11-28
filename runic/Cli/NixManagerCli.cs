@@ -111,7 +111,8 @@ public static class NixManagerCli
     internal static async Task<CommandOutcome<RunResult>> Run(
         [Argument(Description = "Scope, modifier and action words, in any order",
             ValueName = "WORD", AllowMultipleValues = true, Choices = ["home", "system", "all", "update", "cleanup", "gc", "build", "switch", "boot", "rollback", "check",
-                "t3code-update", "opencode-update", "pince-update", "ui", "tray", "status", "history"])]
+                "t3code-update", "opencode-update", "pince-update",
+                "antigravity-cli-update", "antigravity-hub-update", "ui", "tray", "status", "history"])]
         string[]? words,
         [TrailingArguments(Description = "Arguments forwarded verbatim to native tools", ValueName = "ARG")] string[]? native,
         [FromServices] CliSession session,

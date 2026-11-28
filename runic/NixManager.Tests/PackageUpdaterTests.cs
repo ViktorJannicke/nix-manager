@@ -51,7 +51,12 @@ public sealed class PackageUpdaterTests : IDisposable
     private sealed record Harness(Config Config, string Before, string PinFile, List<Command> Calls, List<string> Log, Func<Task> Run);
 
     private static string Release(string url) =>
-        url.Contains("releases/latest", StringComparison.Ordinal) ? """{"tag_name":"v0.0.38"}"""
+        url.EndsWith("/antigravity-cli/latest", StringComparison.Ordinal) ? "0.0.38\n"
+        : url.EndsWith("/antigravity-cli/0.0.38/manifest.json", StringComparison.Ordinal)
+            ? """{"version":"0.0.38","platforms":{"linux-x64":{"url":"https://storage.googleapis.com/antigravity-public/antigravity-cli/0.0.38-1234/linux-x64/cli_linux_x64.tar.gz","sha512":"00"}}}"""
+        : url.EndsWith("/latest-x64-linux.yml", StringComparison.Ordinal)
+            ? "version: 0.0.38\nfiles:\n  - url: https://storage.googleapis.com/antigravity-public/antigravity-hub/0.0.38-1234/linux-x64/Antigravity.AppImage\n    sha512: AA==\n    size: 1\npath: x\n"
+        : url.Contains("releases/latest", StringComparison.Ordinal) ? """{"tag_name":"v0.0.38"}"""
         : url.Contains("registry.npmjs.org", StringComparison.Ordinal) ? """{"latest":"0.0.38","dev":"0.0.0-dev-21430"}"""
         : url.Contains("releases?per_page", StringComparison.Ordinal)
             ? JsonSerializer.Serialize(new object[]
@@ -65,12 +70,12 @@ public sealed class PackageUpdaterTests : IDisposable
         : url.Contains("commits/nixos-unstable", StringComparison.Ordinal) ? $$"""{"sha":"{{Rev}}"}"""
         : "version = \"0.0.38\";\n";
 
-    private Harness Create(string name, Options? options = null)
+    private Harness Create(string name, Options? options = null, Config? hosts = null)
     {
         options ??= new Options();
         var flake = TestConfig.TemporaryFlake();
         _directories.Add(flake);
-        var config = TestConfig.Create(flake);
+        var config = (hosts ?? TestConfig.Create(flake)) with { Flake = flake };
         var directory = Path.Combine(flake, "pkgs", name);
         Directory.CreateDirectory(directory);
         var pinFile = Path.Combine(directory, "source.json");
@@ -95,6 +100,7 @@ public sealed class PackageUpdaterTests : IDisposable
             else if (c.Argv[0] == "nix-prefetch-url") stdout = "rawhash";
             else if (c.Argv[1] == "hash") stdout = Hash;
             else if (args.EndsWith(".drvPath", StringComparison.Ordinal)) stdout = "/nix/store/expected.drv";
+            else if (args.EndsWith(".src.url", StringComparison.Ordinal)) stdout = $"https://example.invalid/{c.Env!["NIX_MANAGER_SYSTEM"]}.tar.gz\n";
             else if (c.Argv[1] == "build" && c.AllowFailure == true)
             {
                 if (options.Fail == "hash") throw new ManagerException(DisplayText.Plain("Hash discovery failed"));
@@ -123,7 +129,10 @@ public sealed class PackageUpdaterTests : IDisposable
 
     private static JsonNode Pin(Harness h) => JsonNode.Parse(File.ReadAllText(h.PinFile))!;
 
-    public static IEnumerable<string> Names() => ["t3code", "opencode", "pince"];
+    public static IEnumerable<string> Names() => ["t3code", "opencode", "pince", "antigravity-cli", "antigravity-hub"];
+
+    /// <summary>The packages whose pins hold no dependency hashes to discover.</summary>
+    private static bool Prebuilt(string name) => PackageUpdater.Packages[name].Recipes.Count == 0;
 
     [Test]
     public async Task The_nightly_channel_follows_the_newest_published_nightly()
@@ -231,7 +240,7 @@ public sealed class PackageUpdaterTests : IDisposable
     [MethodDataSource(nameof(Names))]
     public async Task A_failure_leaves_the_pin_intact(string name)
     {
-        foreach (var fail in name == "pince" ? new[] { "network", "build" } : ["network", "build", "hash"])
+        foreach (var fail in Prebuilt(name) ? new[] { "network", "build" } : ["network", "build", "hash"])
         {
             var h = Create(name, new Options { Fail = fail });
             await Assert.That(h.Run).Throws<ManagerException>();
@@ -249,14 +258,16 @@ public sealed class PackageUpdaterTests : IDisposable
         await Assert.That(pin["version"]!.GetValue<string>()).IsEqualTo("0.0.38");
         await Assert.That(h.Calls[^1].Argv[1]).IsEqualTo("build");
         await Assert.That(h.Calls[^1].Label.English).IsEqualTo($"Build {name} 0.0.38 before saving pin");
-        await Assert.That(pin[name == "t3code" ? "cargoHash" : name == "opencode" ? "nodeHash" : "hash"]!.GetValue<string>()).IsEqualTo(Hash);
-        if (name != "pince") await Assert.That(pin["nixpkgsRev"]!.GetValue<string>()).IsEqualTo(Rev);
+        var hash = name == "t3code" ? pin["cargoHash"] : name == "opencode" ? pin["nodeHash"] : name == "pince" ? pin["hash"] : pin["hashes"]!["x86_64-linux"];
+        await Assert.That(hash!.GetValue<string>()).IsEqualTo(Hash);
+        if (!Prebuilt(name)) await Assert.That(pin["nixpkgsRev"]!.GetValue<string>()).IsEqualTo(Rev);
         // Written as JSON.stringify(value, null, 2), members in the recorded order.
         string[] members = name switch
         {
             "t3code" => ["version", "srcHash", "nixpkgsRev", "pnpmHash", "cargoHash"],
             "opencode" => ["version", "srcHash", "nixpkgsRev", "nodeHash"],
-            _ => ["version", "hash"],
+            "pince" => ["version", "hash"],
+            _ => ["version", "buildId", "hashes"],
         };
         await Assert.That(pin.AsObject().Select(p => p.Key).ToArray()).IsEquivalentTo(members, TUnit.Assertions.Enums.CollectionOrdering.Matching);
         await Assert.That(File.ReadAllText(h.PinFile)).IsEqualTo(Nix.JsJson.Indented(pin) + "\n");
@@ -350,6 +361,81 @@ public sealed class PackageUpdaterTests : IDisposable
         var fetch = pince.Calls.Single(c => c.Argv[0] == "nix-prefetch-url").Argv;
         await Assert.That(fetch).DoesNotContain("--unpack");
         await Assert.That(fetch[^1]).IsEqualTo("https://github.com/korcankaraokcu/PINCE/releases/download/v0.0.38/PINCE-x86_64.AppImage");
+    }
+
+    [Test]
+    [Arguments("antigravity-cli")]
+    [Arguments("antigravity-hub")]
+    public async Task A_feed_release_records_its_build_and_every_host_systems_download(string name)
+    {
+        var hosts = TestConfig.Create();
+        hosts = hosts with
+        {
+            Hosts = new Dictionary<string, Host>(hosts.Hosts)
+            {
+                ["arm"] = hosts.Host with { System = "aarch64-linux" },
+                ["other"] = hosts.Host,
+            },
+        };
+        var h = Create(name, hosts: hosts);
+        await h.Run();
+        await Assert.That(Pin(h)["buildId"]!.GetValue<string>()).IsEqualTo("1234");
+        await Assert.That(Pin(h)["hashes"]!.AsObject().Select(pair => pair.Key).ToArray())
+            .IsEquivalentTo(new[] { "x86_64-linux", "aarch64-linux" }, TUnit.Assertions.Enums.CollectionOrdering.Matching);
+        // No recipe comparison and no nixpkgs revision: the download does not depend on nixpkgs.
+        await Assert.That(h.Calls.Any(c => c.Argv[0] == "diff" || string.Join(' ', c.Argv).Contains("nixpkgs.rev", StringComparison.Ordinal))).IsFalse();
+        await Assert.That(Pin(h)["nixpkgsRev"]).IsNull();
+        var urls = h.Calls.Where(c => c.Argv[^1].EndsWith(".src.url", StringComparison.Ordinal)).ToList();
+        await Assert.That(urls.Select(c => c.Label.English).ToArray()).IsEquivalentTo(
+            new[] { "Find the x86_64-linux release download", "Find the aarch64-linux release download" }, TUnit.Assertions.Enums.CollectionOrdering.Matching);
+        var fetches = h.Calls.Where(c => c.Argv[0] == "nix-prefetch-url").Select(c => c.Argv).ToList();
+        await Assert.That(fetches.Select(argv => argv[^1]).ToArray()).IsEquivalentTo(
+            new[] { "https://example.invalid/x86_64-linux.tar.gz", "https://example.invalid/aarch64-linux.tar.gz" }, TUnit.Assertions.Enums.CollectionOrdering.Matching);
+        await Assert.That(fetches.Any(argv => argv.Contains("--unpack"))).IsFalse();
+        // The candidate is built for the request's host only.
+        await Assert.That(h.Calls.Where(c => c.Argv[1] == "build").Select(c => c.Env!["NIX_MANAGER_SYSTEM"]).ToArray()).IsEquivalentTo(new[] { "x86_64-linux" });
+        foreach (var locked in new[] { "0.0.38", "0.0.39" })
+        {
+            var caughtUp = Create(name, new Options { Locked = locked });
+            await caughtUp.Run();
+            await Assert.That(Built(caughtUp)).IsFalse();
+            await Assert.That(caughtUp.Log[^1]).IsEqualTo($"{name} is current. Use --force to recalculate hashes.");
+        }
+    }
+
+    [Test]
+    public async Task Feeds_name_the_newest_release_and_its_build()
+    {
+        var cli = PackageUpdater.Packages["antigravity-cli"].Feed!;
+        var hub = PackageUpdater.Packages["antigravity-hub"].Feed!;
+        await Assert.That(await UpdateChecker.FeedLatestAsync(new ReleaseNetwork(Release), "antigravity-cli", cli, CancellationToken.None))
+            .IsEqualTo(new FeedRelease("0.0.38", "1234"));
+        await Assert.That(await UpdateChecker.FeedLatestAsync(new ReleaseNetwork(Release), "antigravity-hub", hub, CancellationToken.None))
+            .IsEqualTo(new FeedRelease("0.0.38", "1234"));
+        // Quoted YAML values and Windows line ends read the same.
+        var quoted = new ReleaseNetwork(_ => "version: '2.36.0'\r\nfiles:\r\n  - url: \"https://x/antigravity-hub/2.36.0-5596661662220288/linux-x64/Antigravity.AppImage\"\r\n");
+        await Assert.That(await UpdateChecker.FeedLatestAsync(quoted, "antigravity-hub", hub, CancellationToken.None))
+            .IsEqualTo(new FeedRelease("2.36.0", "5596661662220288"));
+        foreach (var (answer, message) in new[]
+                 {
+                     ("version: 2.36\n", "The newest release of antigravity-hub is not an X.Y.Z version: 2.36"),
+                     ("version: 2.36.0\n", "The release manifest of antigravity-hub 2.36.0 names no download."),
+                     ("version: 2.36.0\nfiles:\n  - url: https://x/2.36.0/Antigravity.AppImage\n",
+                         "The download of antigravity-hub 2.36.0 does not name its build: https://x/2.36.0/Antigravity.AppImage"),
+                 })
+            await Assert.That(() => UpdateChecker.FeedLatestAsync(new ReleaseNetwork(_ => answer), "antigravity-hub", hub, CancellationToken.None))
+                .Throws<ManagerException>().WithMessage(message);
+        var broken = new ReleaseNetwork(url => url.EndsWith("latest", StringComparison.Ordinal) ? "1.5.19" : """{"platforms":{}}""");
+        await Assert.That(() => UpdateChecker.FeedLatestAsync(broken, "antigravity-cli", cli, CancellationToken.None))
+            .Throws<ManagerException>().WithMessage("The release manifest of antigravity-cli 1.5.19 names no download.");
+        var urls = new ReleaseNetwork(url => url.EndsWith("latest", StringComparison.Ordinal) ? "1.5.19" : "{");
+        await Assert.That(() => UpdateChecker.FeedLatestAsync(urls, "antigravity-cli", cli, CancellationToken.None))
+            .Throws<ManagerException>().WithMessageContaining("The release manifest of antigravity-cli is not valid JSON: ");
+        await Assert.That(urls.Urls).IsEquivalentTo(new[]
+        {
+            "https://storage.googleapis.com/antigravity-public/antigravity-cli/latest",
+            "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.19/manifest.json",
+        }, TUnit.Assertions.Enums.CollectionOrdering.Matching);
     }
 
     [Test]

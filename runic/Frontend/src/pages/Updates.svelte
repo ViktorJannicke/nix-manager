@@ -40,7 +40,13 @@
     app.prepare(scope, { ...(all ? { update: true } : { inputs: [...selected] }), then: then === "review" || app.foreignHost ? null : then });
 
   // The apps whose pins the configuration updates; names are not translated.
-  const pins: Record<string, string> = { t3code: "T3 Code", opencode: "OpenCode", pince: "PINCE" };
+  const pins: Record<string, string> = {
+    t3code: "T3 Code",
+    opencode: "OpenCode",
+    pince: "PINCE",
+    "antigravity-cli": "Antigravity CLI",
+    "antigravity-hub": "Antigravity",
+  };
   const pinName = (name: string) => pins[name] ?? name;
   const pinAction = (name: string) => `${name}-update` as Action;
   const updating = (name: string) => app.active?.request.action === pinAction(name);

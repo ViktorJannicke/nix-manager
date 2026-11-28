@@ -74,6 +74,8 @@ const actionLabels: Record<string, () => string> = {
   "t3code-update": m.stored_update_t3_code,
   "opencode-update": m.stored_update_opencode,
   "pince-update": m.stored_update_pince,
+  "antigravity-cli-update": m.stored_update_antigravity_cli,
+  "antigravity-hub-update": m.stored_update_antigravity,
   "review-build": m.stored_prepare_changes,
   "review-apply": m.stored_apply_changes,
 };

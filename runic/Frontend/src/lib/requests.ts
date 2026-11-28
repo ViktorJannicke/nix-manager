@@ -11,6 +11,8 @@ export type Action =
   | "t3code-update"
   | "opencode-update"
   | "pince-update"
+  | "antigravity-cli-update"
+  | "antigravity-hub-update"
   | "review-build"
   | "review-apply";
 export type Scope = "home" | "system" | "all";

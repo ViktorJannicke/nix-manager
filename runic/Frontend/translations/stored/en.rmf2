@@ -14,6 +14,8 @@ check_for_updates = Check for updates
 update_t3_code = Update T3 Code
 update_opencode = Update OpenCode
 update_pince = Update PINCE
+update_antigravity_cli = Update Antigravity CLI
+update_antigravity = Update Antigravity
 prepare_changes = Prepare changes
 apply_changes = Apply changes
 create_the_folder_for_home_generations = Create the folder for home generations
@@ -669,6 +671,10 @@ latest_release_not_valid_json = The latest release of {$name} is not valid JSON:
 latest_release_not_an_object = The latest release of {$name} is not a release object.
 no_stable_or_nightly_release_tags = {$name} has no stable or nightly release tags.
 latest_release_has_no_stable_tag = The latest release of {$name} does not have a stable vX.Y.Z tag.
+newest_release_not_a_version = The newest release of {$name} is not an X.Y.Z version: {$value}
+release_manifest_not_valid_json = The release manifest of {$name} is not valid JSON: {$reason}
+release_manifest_names_no_download = The release manifest of {$name} {$version} names no download.
+release_download_names_no_build = The download of {$name} {$version} does not name its build: {$url}
 versions_not_comparable = Expected X.Y.Z or X.Y.Z-nightly.YYYYMMDD.N versions: {$first}, {$second}
 @param $reason - Why checking the package failed
 package_check_failed = {$name}: {$reason}
@@ -707,6 +713,7 @@ could_not_compare_inherited_recipe = Could not compare inherited recipe.
 upstream_recipe_layout_changed = Upstream recipe layout changed; inspect it before updating.
 fetch_release = Fetch release
 convert_source_hash = Convert source hash
+find_the_release_download = Find the {$system} release download
 build_before_saving_pin = Build {$name} {$version} before saving pin
 inspect_in_the_new_nixpkgs = Inspect {$name} in the new nixpkgs
 @param $from - The nixpkgs commit the pin was validated against, shortened

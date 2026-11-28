@@ -38,7 +38,8 @@ public static class CliArguments
     public static readonly string[] Tokens =
     [
         "home", "system", "all", "update", "cleanup", "gc", "build", "switch", "boot", "rollback", "check",
-        "t3code-update", "opencode-update", "pince-update", "ui", "tray", "status", "history",
+        "t3code-update", "opencode-update", "pince-update",
+        "antigravity-cli-update", "antigravity-hub-update", "ui", "tray", "status", "history",
     ];
 
     /// <summary>
